@@ -60,15 +60,22 @@ export default function ServerSidebar() {
         </div>
       </div>
 
-      {mode === "create" && <CreateServerModal onClose={() => setMode("none")} />}
-      {mode === "join" && <JoinServerModal onClose={() => setMode("none")} />}
-
       {servers.length === 0 && (
         <div className="join-hint">
           <div className="join-hint-arrow">↑</div>
-          <div className="join-hint-text">Click THERE to JOIN PEPEG!</div>
+          <div className="join-hint-text">
+            <div>click</div>
+            <div>here</div>
+            <div>to</div>
+            <div>join</div>
+            <div>pepeg</div>
+            <div>!!!!!</div>
+          </div>
         </div>
       )}
+
+      {mode === "create" && <CreateServerModal onClose={() => setMode("none")} />}
+      {mode === "join" && <JoinServerModal onClose={() => setMode("none")} />}
     </div>
   );
 }
