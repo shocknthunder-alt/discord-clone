@@ -137,7 +137,18 @@ export function useVoiceChannel() {
       return;
     }
 
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({
+      video: {
+        // Request up to 4K — the browser/source caps this at whatever the actual
+        // display supports; the real quality lever is the sender bitrate set in
+        // PeerConnectionManager.startScreenShare, since WebRTC's default bandwidth
+        // estimate (~2 Mbps) looks blurry at 2K/4K regardless of captured resolution.
+        width: { ideal: 3840 },
+        height: { ideal: 2160 },
+        frameRate: { ideal: 30, max: 60 },
+      },
+      audio: false,
+    });
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);
     activeManager.startScreenShare(screenStream);

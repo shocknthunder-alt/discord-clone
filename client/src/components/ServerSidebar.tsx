@@ -1,21 +1,11 @@
 import { useState } from "react";
-import { createServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
+import CreateServerModal from "./CreateServerModal";
 import JoinServerModal from "./JoinServerModal";
 
 export default function ServerSidebar() {
-  const { servers, activeServerId, setActiveServer, addServer } = useServerStore();
+  const { servers, activeServerId, setActiveServer } = useServerStore();
   const [mode, setMode] = useState<"none" | "create" | "join">("none");
-  const [input, setInput] = useState("");
-
-  async function handleCreate() {
-    if (!input.trim()) return;
-    const server = await createServer(input.trim());
-    addServer(server);
-    setActiveServer(server.id);
-    setInput("");
-    setMode("none");
-  }
 
   return (
     <div className="server-sidebar">
@@ -35,22 +25,16 @@ export default function ServerSidebar() {
           ⋯
         </div>
         <div className="sidebar-actions-buttons">
-          <button className="sidebar-action-button" onClick={() => setMode(mode === "create" ? "none" : "create")}>
+          <button className="sidebar-action-button" onClick={() => setMode("create")}>
             Create channel
           </button>
-          <button className="sidebar-action-button" onClick={() => setMode(mode === "join" ? "none" : "join")}>
+          <button className="sidebar-action-button" onClick={() => setMode("join")}>
             Join channel
           </button>
         </div>
       </div>
 
-      {mode === "create" && (
-        <div style={{ padding: 8 }}>
-          <input style={{ width: 56 }} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Name" />
-          <button onClick={handleCreate}>Go</button>
-        </div>
-      )}
-
+      {mode === "create" && <CreateServerModal onClose={() => setMode("none")} />}
       {mode === "join" && <JoinServerModal onClose={() => setMode("none")} />}
     </div>
   );

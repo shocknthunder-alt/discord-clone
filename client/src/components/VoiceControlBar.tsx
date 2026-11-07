@@ -7,18 +7,23 @@ export default function VoiceControlBar() {
 
   return (
     <div className="voice-control-bar">
-      <button className={isMuted ? "active" : ""} onClick={toggleMute}>
-        {isMuted ? "Unmute" : "Mute"}
-      </button>
-      <button className={isDeafened ? "active" : ""} onClick={toggleDeafen}>
-        {isDeafened ? "Undeafen" : "Deafen"}
-      </button>
-      <button className={isScreenSharing ? "active" : ""} onClick={() => toggleScreenShare()}>
-        {isScreenSharing ? "Stop Sharing" : "Go Live"}
-      </button>
-      <button className="danger" onClick={leaveVoiceChannel}>
-        Disconnect
-      </button>
+      <div className="voice-control-trigger" aria-hidden>
+        ⋯
+      </div>
+      <div className="voice-control-buttons">
+        <button className={isMuted ? "active" : ""} onClick={toggleMute}>
+          {isMuted ? "Unmute" : "Mute"}
+        </button>
+        <button className={isDeafened ? "active" : ""} onClick={toggleDeafen}>
+          {isDeafened ? "Undeafen" : "Deafen"}
+        </button>
+        <button className={isScreenSharing ? "active" : ""} onClick={() => toggleScreenShare()}>
+          {isScreenSharing ? "Stop Sharing" : "Go Live"}
+        </button>
+        <button className="danger" onClick={leaveVoiceChannel}>
+          Disconnect
+        </button>
+      </div>
     </div>
   );
 }

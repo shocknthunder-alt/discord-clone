@@ -17,6 +17,23 @@ const ICE_SERVERS: RTCIceServer[] = [
   },
 ];
 
+// WebRTC's default bandwidth estimate (~2 Mbps) looks blurry at 2K/4K regardless of the
+// captured resolution; raise the sender's target bitrate so screen-share text/UI stays
+// sharp. 8 Mbps is a reasonable ceiling for 4K30 screen content over a decent connection —
+// the encoder still backs off under real congestion, this only raises the cap.
+async function applyHighQualityEncoding(sender: RTCRtpSender) {
+  try {
+    const params = sender.getParameters();
+    if (!params.encodings || params.encodings.length === 0) {
+      params.encodings = [{}];
+    }
+    params.encodings[0].maxBitrate = 8_000_000;
+    await sender.setParameters(params);
+  } catch (err) {
+    console.error("Failed to raise screen-share bitrate", err);
+  }
+}
+
 interface PeerHandle {
   socketId: string;
   userId: string;
@@ -85,7 +102,8 @@ export class PeerConnectionManager {
     if (!track) return;
     this.localScreenTrack = track;
     for (const peer of this.peers.values()) {
-      peer.connection.addTrack(track, screenStream);
+      const sender = peer.connection.addTrack(track, screenStream);
+      void applyHighQualityEncoding(sender);
     }
   }
 
