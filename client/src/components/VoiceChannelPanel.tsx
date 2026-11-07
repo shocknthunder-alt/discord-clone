@@ -20,7 +20,7 @@ export default function VoiceChannelPanel() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
-  const [contextMenu, setContextMenu] = useState<{ peer: RemotePeer; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
 
   const screenSharingPeer = Array.from(peers.values()).find((p) => p.screenStream);
 
@@ -31,7 +31,7 @@ export default function VoiceChannelPanel() {
   function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
     e.preventDefault();
     if (!peer.userId) return;
-    setContextMenu({ peer, x: e.clientX, y: e.clientY });
+    setContextMenu({ socketId: peer.socketId, x: e.clientX, y: e.clientY });
   }
 
   async function goToDm(userId: string) {
@@ -89,7 +89,7 @@ export default function VoiceChannelPanel() {
 
       {contextMenu && (
         <VoicePeerContextMenu
-          peer={contextMenu.peer}
+          socketId={contextMenu.socketId}
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}

@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
-import type { RemotePeer } from "../store/voiceStore";
 import { useVoiceStore } from "../store/voiceStore";
 
 interface Props {
-  peer: RemotePeer;
+  socketId: string;
   x: number;
   y: number;
   onClose: () => void;
@@ -11,7 +10,11 @@ interface Props {
   onCall: (userId: string, username: string) => void;
 }
 
-export default function VoicePeerContextMenu({ peer, x, y, onClose, onMessage, onCall }: Props) {
+export default function VoicePeerContextMenu({ socketId, x, y, onClose, onMessage, onCall }: Props) {
+  // Read the peer live from the store (not a snapshot passed in at open time) so the
+  // Mute/Unmute label and volume slider stay in sync with clicks made while this menu
+  // is still open, instead of freezing at whatever state it had when it opened.
+  const peer = useVoiceStore((s) => s.peers.get(socketId));
   const { setPeerLocalVolume, setPeerLocalMuted } = useVoiceStore();
   const ref = useRef<HTMLDivElement>(null);
 
@@ -29,6 +32,8 @@ export default function VoicePeerContextMenu({ peer, x, y, onClose, onMessage, o
       document.removeEventListener("keydown", handleEscape);
     };
   }, [onClose]);
+
+  if (!peer) return null;
 
   return (
     <div className="context-menu" ref={ref} style={{ top: y, left: x }} onClick={(e) => e.stopPropagation()}>

@@ -28,7 +28,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const currentUserId = useAuthStore((s) => s.user?.id);
   const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
   const [showServerSettings, setShowServerSettings] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{ peer: RemotePeer; x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
   const [channelContextMenu, setChannelContextMenu] = useState<{ type: "text" | "voice"; x: number; y: number } | null>(
     null,
   );
@@ -52,7 +52,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
     e.preventDefault();
     if (!peer.userId) return;
-    setContextMenu({ peer, x: e.clientX, y: e.clientY });
+    setContextMenu({ socketId: peer.socketId, x: e.clientX, y: e.clientY });
   }
 
   function handleSectionContextMenu(e: React.MouseEvent, type: "text" | "voice") {
@@ -164,7 +164,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
       {contextMenu && (
         <VoicePeerContextMenu
-          peer={contextMenu.peer}
+          socketId={contextMenu.socketId}
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
