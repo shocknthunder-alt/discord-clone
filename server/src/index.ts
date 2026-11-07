@@ -13,13 +13,15 @@ import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
 const app = express();
+
+app.get("/debug/env", (_req, res) =>
+  res.json({ clientOrigin: JSON.stringify(env.CLIENT_ORIGIN), length: env.CLIENT_ORIGIN.length }),
+);
+
 app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
-app.get("/debug/env", (_req, res) =>
-  res.json({ clientOrigin: JSON.stringify(env.CLIENT_ORIGIN), length: env.CLIENT_ORIGIN.length }),
-);
 
 app.use("/api/auth", authRouter);
 app.use("/api/servers", serversRouter);
