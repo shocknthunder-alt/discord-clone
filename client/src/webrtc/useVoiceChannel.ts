@@ -19,7 +19,16 @@ export function useVoiceChannel() {
 
     const preferredMicId = getPreferredMicDeviceId();
     const localStream = await navigator.mediaDevices.getUserMedia({
-      audio: preferredMicId ? { deviceId: { exact: preferredMicId } } : true,
+      audio: {
+        ...(preferredMicId ? { deviceId: { exact: preferredMicId } } : {}),
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
+        // default capture rate, paired with the bitrate bump in PeerConnectionManager.
+        sampleRate: { ideal: 48000 },
+        channelCount: 1,
+      },
     });
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);

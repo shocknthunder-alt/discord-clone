@@ -34,6 +34,26 @@ async function applyHighQualityEncoding(sender: RTCRtpSender) {
   }
 }
 
+// RTCRtpSender.setParameters' maxBitrate is unreliable for audio across browsers; the
+// Opus bitrate is more consistently controlled by munging the fmtp line in the SDP itself.
+// Browsers default Opus to ~32-40 Kbps (speech-tuned) — 128 Kbps plus inband FEC (forward
+// error correction, lets the decoder reconstruct audio lost to dropped packets) gets much
+// closer to what Opus is actually capable of for voice/music.
+function boostOpusAudio(sdp: string, maxAverageBitrateBps = 128_000): string {
+  const lines = sdp.split("\r\n");
+  const opusLine = lines.find((line) => /^a=rtpmap:\d+ opus\/48000/i.test(line));
+  const payloadType = opusLine?.match(/^a=rtpmap:(\d+)/)?.[1];
+  if (!payloadType) return sdp;
+
+  return lines
+    .map((line) => {
+      if (!line.startsWith(`a=fmtp:${payloadType} `)) return line;
+      if (line.includes("maxaveragebitrate")) return line;
+      return `${line};maxaveragebitrate=${maxAverageBitrateBps};useinbandfec=1`;
+    })
+    .join("\r\n");
+}
+
 interface PeerHandle {
   socketId: string;
   userId: string;
@@ -152,7 +172,9 @@ export class PeerConnectionManager {
     connection.onnegotiationneeded = async () => {
       try {
         peer.makingOffer = true;
-        await connection.setLocalDescription();
+        const offer = await connection.createOffer();
+        if (offer.sdp) offer.sdp = boostOpusAudio(offer.sdp);
+        await connection.setLocalDescription(offer);
         this.sendSignal(socketId, { type: "offer", data: connection.localDescription });
       } catch (err) {
         console.error("negotiation error", err);
@@ -204,7 +226,9 @@ export class PeerConnectionManager {
 
       await connection.setRemoteDescription(description);
       if (description.type === "offer") {
-        await connection.setLocalDescription();
+        const answer = await connection.createAnswer();
+        if (answer.sdp) answer.sdp = boostOpusAudio(answer.sdp);
+        await connection.setLocalDescription(answer);
         this.sendSignal(fromSocketId, { type: "answer", data: connection.localDescription });
       }
     } else if (signal.type === "candidate") {
