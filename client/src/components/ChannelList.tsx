@@ -1,11 +1,16 @@
+import { SocketEvents } from "@discord-clone/shared";
 import { useState } from "react";
+import { startConversationWith } from "../api/dm.api";
+import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
+import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
-import { useVoiceStore } from "../store/voiceStore";
+import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
+import VoicePeerContextMenu from "./VoicePeerContextMenu";
 
 interface Props {
   onSelectText: () => void;
@@ -17,9 +22,11 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     useServerStore();
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened } = useVoiceStore();
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
+  const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
   const [showServerSettings, setShowServerSettings] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ peer: RemotePeer; x: number; y: number } | null>(null);
 
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
@@ -34,6 +41,32 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     }
     await joinVoiceChannel(voiceChannelId);
     onSelectVoice();
+  }
+
+  function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
+    e.preventDefault();
+    if (!peer.userId) return;
+    setContextMenu({ peer, x: e.clientX, y: e.clientY });
+  }
+
+  async function goToDm(userId: string) {
+    const conversation = await startConversationWith(userId);
+    upsertConversation(conversation);
+    setActiveConversation(conversation.id);
+    setView("dms");
+    return conversation;
+  }
+
+  async function handleMessage(userId: string) {
+    await goToDm(userId);
+  }
+
+  async function handleCall(userId: string) {
+    const conversation = await goToDm(userId);
+    const voiceRoomId = `dm:${conversation.id}`;
+    leaveVoiceChannel();
+    await joinVoiceChannel(voiceRoomId);
+    getSocket()?.emit(SocketEvents.DmRing, { conversationId: conversation.id });
   }
 
   return (
@@ -80,7 +113,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 {channel.id === activeVoiceChannelId && (
                   <div className="voice-participant-list">
                     {Array.from(peers.values()).map((peer) => (
-                      <div key={peer.socketId}>
+                      <div key={peer.socketId} onContextMenu={(e) => handlePeerContextMenu(e, peer)}>
                         <span className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}>
                           {peer.isScreenSharing && "🖥️ "}
                           {peer.username || "connecting…"}
@@ -111,6 +144,17 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
       {showServerSettings && activeServer && (
         <ServerSettingsModal server={activeServer} onClose={() => setShowServerSettings(false)} />
+      )}
+
+      {contextMenu && (
+        <VoicePeerContextMenu
+          peer={contextMenu.peer}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onMessage={handleMessage}
+          onCall={handleCall}
+        />
       )}
     </div>
   );
