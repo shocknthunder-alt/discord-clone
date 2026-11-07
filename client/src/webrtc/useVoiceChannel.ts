@@ -1,0 +1,148 @@
+import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
+import { useCallback } from "react";
+import { getSocket } from "../socket/socket";
+import { useVoiceStore } from "../store/voiceStore";
+import { PeerConnectionManager } from "./PeerConnectionManager";
+
+// Module-level singleton: join/leave/mute/screenshare can be triggered from different
+// components (ChannelList, VoiceControlBar), all of which must share the same manager
+// and live connections rather than each hook instance getting its own.
+let activeManager: PeerConnectionManager | null = null;
+
+export function useVoiceChannel() {
+  const store = useVoiceStore();
+
+  const joinVoiceChannel = useCallback(async (voiceChannelId: string) => {
+    const socket = getSocket();
+    if (!socket) return;
+
+    const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    store.setLocalStream(localStream);
+    store.setActiveVoiceChannel(voiceChannelId);
+
+    const manager = new PeerConnectionManager(socket, {
+      onAudioStream: (socketId, userId, stream) => {
+        useVoiceStore.getState().upsertPeer({ socketId, userId, audioStream: stream });
+      },
+      onScreenStream: (socketId, stream) => {
+        useVoiceStore.getState().upsertPeer({ socketId, screenStream: stream, isScreenSharing: !!stream });
+      },
+      onPeerClosed: (socketId) => {
+        useVoiceStore.getState().removePeer(socketId);
+      },
+    });
+    manager.setLocalStream(localStream);
+    activeManager = manager;
+
+    socket.on(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
+      for (const peer of peers) {
+        useVoiceStore.getState().upsertPeer({
+          socketId: peer.socketId,
+          userId: peer.userId,
+          isMuted: peer.isMuted,
+          isDeafened: peer.isDeafened,
+          isScreenSharing: peer.isScreenSharing,
+        });
+        manager.addPeerAndInitiate(peer.socketId, peer.userId);
+      }
+    });
+
+    socket.on(SocketEvents.VoicePeerJoined, ({ userId, socketId }: { userId: string; socketId: string }) => {
+      useVoiceStore.getState().upsertPeer({ socketId, userId });
+      manager.registerIncomingPeer(socketId, userId);
+    });
+
+    socket.on(SocketEvents.VoicePeerLeft, ({ socketId }: { socketId: string }) => {
+      manager.removePeer(socketId);
+    });
+
+    socket.on(
+      SocketEvents.VoicePeerState,
+      ({ userId, isMuted, isDeafened }: { userId: string; isMuted?: boolean; isDeafened?: boolean }) => {
+        for (const peer of useVoiceStore.getState().peers.values()) {
+          if (peer.userId !== userId) continue;
+          useVoiceStore.getState().upsertPeer({
+            socketId: peer.socketId,
+            ...(isMuted !== undefined ? { isMuted } : {}),
+            ...(isDeafened !== undefined ? { isDeafened } : {}),
+          });
+        }
+      },
+    );
+
+    socket.on(SocketEvents.ScreenShareStopped, ({ socketId }: { socketId: string }) => {
+      useVoiceStore.getState().upsertPeer({ socketId, screenStream: null, isScreenSharing: false });
+    });
+
+    socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
+  }, [store]);
+
+  const leaveVoiceChannel = useCallback(() => {
+    const socket = getSocket();
+    const { activeVoiceChannelId, localStream, localScreenStream } = useVoiceStore.getState();
+
+    if (socket && activeVoiceChannelId) {
+      socket.emit(SocketEvents.VoiceLeave, { voiceChannelId: activeVoiceChannelId });
+      socket.off(SocketEvents.VoicePeers);
+      socket.off(SocketEvents.VoicePeerJoined);
+      socket.off(SocketEvents.VoicePeerLeft);
+      socket.off(SocketEvents.VoicePeerState);
+      socket.off(SocketEvents.ScreenShareStopped);
+    }
+
+    activeManager?.closeAll();
+    activeManager = null;
+
+    localStream?.getTracks().forEach((t) => t.stop());
+    localScreenStream?.getTracks().forEach((t) => t.stop());
+
+    useVoiceStore.getState().reset();
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const socket = getSocket();
+    const { activeVoiceChannelId, localStream, isMuted } = useVoiceStore.getState();
+    if (!socket || !activeVoiceChannelId || !localStream) return;
+
+    const next = !isMuted;
+    localStream.getAudioTracks().forEach((t) => (t.enabled = !next));
+    store.setMuted(next);
+    socket.emit(SocketEvents.VoiceMute, { voiceChannelId: activeVoiceChannelId, isMuted: next });
+  }, [store]);
+
+  const toggleDeafen = useCallback(() => {
+    const socket = getSocket();
+    const { activeVoiceChannelId, isDeafened } = useVoiceStore.getState();
+    if (!socket || !activeVoiceChannelId) return;
+
+    const next = !isDeafened;
+    store.setDeafened(next);
+    socket.emit(SocketEvents.VoiceDeafen, { voiceChannelId: activeVoiceChannelId, isDeafened: next });
+  }, [store]);
+
+  const toggleScreenShare = useCallback(async () => {
+    const socket = getSocket();
+    const { activeVoiceChannelId, isScreenSharing } = useVoiceStore.getState();
+    if (!socket || !activeVoiceChannelId || !activeManager) return;
+
+    if (isScreenSharing) {
+      activeManager.stopScreenShare();
+      store.setLocalScreenStream(null);
+      store.setScreenSharing(false);
+      socket.emit(SocketEvents.ScreenShareStop, { voiceChannelId: activeVoiceChannelId });
+      return;
+    }
+
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    store.setLocalScreenStream(screenStream);
+    store.setScreenSharing(true);
+    activeManager.startScreenShare(screenStream);
+    socket.emit(SocketEvents.ScreenShareStart, { voiceChannelId: activeVoiceChannelId });
+
+    screenStream.getVideoTracks()[0].onended = () => {
+      void toggleScreenShare();
+    };
+  }, [store]);
+
+  return { joinVoiceChannel, leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare };
+}

@@ -1,0 +1,81 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+
+  memberships  Membership[]
+  messages     Message[]
+  ownedServers Server[]     @relation("ServerOwner")
+}
+
+model Server {
+  id         String   @id @default(cuid())
+  name       String
+  iconUrl    String?
+  ownerId    String
+  owner      User     @relation("ServerOwner", fields: [ownerId], references: [id])
+  inviteCode String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+
+  memberships   Membership[]
+  textChannels  TextChannel[]
+  voiceChannels VoiceChannel[]
+}
+
+// SQLite has no native enum support in Prisma; role is "OWNER" | "MEMBER".
+model Membership {
+  id       String   @id @default(cuid())
+  userId   String
+  serverId String
+  role     String   @default("MEMBER")
+  joinedAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  server Server @relation(fields: [serverId], references: [id])
+
+  @@unique([userId, serverId])
+}
+
+model TextChannel {
+  id        String   @id @default(cuid())
+  name      String
+  serverId  String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  server   Server    @relation(fields: [serverId], references: [id])
+  messages Message[]
+}
+
+model Message {
+  id            String    @id @default(cuid())
+  content       String
+  textChannelId String
+  authorId      String
+  createdAt     DateTime  @default(now())
+  editedAt      DateTime?
+
+  textChannel TextChannel @relation(fields: [textChannelId], references: [id])
+  author      User        @relation(fields: [authorId], references: [id])
+}
+
+model VoiceChannel {
+  id       String @id @default(cuid())
+  name     String
+  serverId String
+  position Int    @default(0)
+
+  server Server @relation(fields: [serverId], references: [id])
+}
