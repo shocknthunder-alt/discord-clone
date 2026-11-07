@@ -7,6 +7,7 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { voiceStatusIcons } from "../utils/voiceStatus";
+import PeerConnectionBadge from "./PeerConnectionBadge";
 import ScreenSharePlayer from "./ScreenSharePlayer";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -76,6 +77,7 @@ export default function VoiceChannelPanel() {
               <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} />
               <div>{peer.username || "connecting…"}</div>
               <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
+              <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
               {peer.isScreenSharing && (
                 <button
                   className="screen-share-badge"

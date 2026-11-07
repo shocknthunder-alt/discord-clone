@@ -1122,3 +1122,15 @@ button {
 .hud-icon-button.static {
   cursor: inherit;
 }
+
+.peer-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: #949ba4;
+}
+
+.peer-connection-ms {
+  font-variant-numeric: tabular-nums;
+}

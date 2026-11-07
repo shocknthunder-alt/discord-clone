@@ -12,6 +12,7 @@ import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import ChannelContextMenu from "./ChannelContextMenu";
 import CreateChannelModal from "./CreateChannelModal";
+import PeerConnectionBadge from "./PeerConnectionBadge";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
@@ -161,6 +162,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
                           <span className="voice-status-icons"> {voiceStatusIcons(peer.isMuted, peer.isDeafened)}</span>
                         )}
+                        {" "}
+                        <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} size={10} />
                       </div>
                     ))}
                     <div>

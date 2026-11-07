@@ -15,6 +15,10 @@ export interface RemotePeer {
   // server or other clients (distinct from isMuted, which reflects the peer's own mic).
   localVolume: number;
   localMuted: boolean;
+  // Per-peer, since in a mesh call quality to one person is independent of quality to
+  // another — a single global indicator can't represent that.
+  connectionQuality: ConnectionQuality;
+  rttMs: number | null;
 }
 
 export type ConnectionQuality = "good" | "medium" | "poor" | "unknown";
@@ -42,6 +46,7 @@ interface VoiceState {
   setPeerLocalMuted: (socketId: string, muted: boolean) => void;
   setPreferredSpeakerId: (deviceId: string) => void;
   setConnectionQuality: (quality: ConnectionQuality) => void;
+  setPeerQuality: (socketId: string, quality: ConnectionQuality, rttMs: number | null) => void;
   reset: () => void;
 }
 
@@ -58,6 +63,8 @@ function emptyPeer(socketId: string): RemotePeer {
     isScreenSharing: false,
     localVolume: 100,
     localMuted: false,
+    connectionQuality: "unknown",
+    rttMs: null,
   };
 }
 
@@ -116,6 +123,14 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   },
 
   setConnectionQuality: (quality) => set({ connectionQuality: quality }),
+
+  setPeerQuality: (socketId, quality, rttMs) =>
+    set((s) => {
+      const peers = new Map(s.peers);
+      const existing = peers.get(socketId);
+      if (existing) peers.set(socketId, { ...existing, connectionQuality: quality, rttMs });
+      return { peers };
+    }),
 
   reset: () =>
     set({

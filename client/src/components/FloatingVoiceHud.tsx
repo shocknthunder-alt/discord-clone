@@ -6,15 +6,17 @@ import { HangupIcon, HeadphoneIcon, MicIcon, ScreenShareIcon } from "./HudIcons"
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
 
-// Starting layout: a row along the bottom-center, like a typical call toolbar — only the
-// very first time (or after "Reset Positions"); after that each icon's dragged-to spot
-// takes over via FloatingIcon's own localStorage persistence.
-function defaultRowPositions(count: number) {
+// Starting layout: a vertical column along the right edge — only the very first time (or
+// after "Reset Positions"); after that each icon's dragged-to spot takes over via
+// FloatingIcon's own localStorage persistence. Deliberately NOT bottom-center: that's
+// exactly where the message input bar sits in every view (text channel, DM, voice), so a
+// bottom-center default meant the HUD sat on top of it once locked in place.
+function defaultColumnPositions(count: number) {
   const spacing = 48;
-  const totalWidth = spacing * (count - 1);
-  const startX = Math.max(16, window.innerWidth / 2 - totalWidth / 2);
-  const y = window.innerHeight - 72;
-  return Array.from({ length: count }, (_, i) => ({ x: startX + i * spacing, y }));
+  const totalHeight = spacing * (count - 1);
+  const x = Math.max(16, window.innerWidth - 56);
+  const startY = Math.max(16, window.innerHeight / 2 - totalHeight / 2);
+  return Array.from({ length: count }, (_, i) => ({ x, y: startY + i * spacing }));
 }
 
 export default function FloatingVoiceHud() {
@@ -24,7 +26,7 @@ export default function FloatingVoiceHud() {
 
   if (!activeVoiceChannelId) return null;
 
-  const positions = defaultRowPositions(6);
+  const positions = defaultColumnPositions(6);
 
   return (
     <>

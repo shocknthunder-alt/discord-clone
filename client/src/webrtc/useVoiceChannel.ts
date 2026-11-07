@@ -46,6 +46,9 @@ export function useVoiceChannel() {
       onQualityChange: (quality) => {
         useVoiceStore.getState().setConnectionQuality(quality);
       },
+      onPeerQualityChange: (socketId, quality, rttMs) => {
+        useVoiceStore.getState().setPeerQuality(socketId, quality, rttMs);
+      },
     });
     manager.setLocalStream(localStream);
     activeManager = manager;

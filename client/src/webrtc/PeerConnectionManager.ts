@@ -76,6 +76,7 @@ interface PeerConnectionManagerCallbacks {
   onScreenStream: (socketId: string, stream: MediaStream | null) => void;
   onPeerClosed: (socketId: string) => void;
   onQualityChange?: (quality: ConnectionQuality) => void;
+  onPeerQualityChange?: (socketId: string, quality: ConnectionQuality, rttMs: number | null) => void;
 }
 
 const STATS_POLL_INTERVAL_MS = 2500;
@@ -99,12 +100,13 @@ export class PeerConnectionManager {
   }
 
   /**
-   * Classifies call quality from each peer connection's RTCStatsReport, taking the
-   * worst-scoring peer as the overall indicator (mirrors a single "Voice Connected"
-   * status, same as Discord shows one indicator regardless of how many people are in
-   * the call). Thresholds are rule-of-thumb values for voice: round-trip time under
-   * ~150ms and under 2% packet loss reads as unnoticeable; beyond ~300ms/5% loss is
-   * where choppiness becomes obvious.
+   * Classifies call quality from each peer connection's RTCStatsReport. Reported both
+   * per-peer (onPeerQualityChange, with the actual RTT in ms for display) since quality
+   * to each person in a mesh call is genuinely independent — great to one peer doesn't
+   * mean great to another — and as a single worst-of-all indicator (onQualityChange) for
+   * a simple overall status. Thresholds are rule-of-thumb values for voice: round-trip
+   * time under ~150ms and under 2% packet loss reads as unnoticeable; beyond ~300ms/5%
+   * loss is where choppiness becomes obvious.
    */
   private async pollStats() {
     if (this.peers.size === 0) {
@@ -115,7 +117,7 @@ export class PeerConnectionManager {
     let worst: ConnectionQuality = "good";
     const rank: Record<ConnectionQuality, number> = { good: 0, medium: 1, poor: 2, unknown: 0 };
 
-    for (const peer of this.peers.values()) {
+    for (const [socketId, peer] of this.peers.entries()) {
       try {
         const report = await peer.connection.getStats();
         let rttMs: number | null = null;
@@ -144,6 +146,8 @@ export class PeerConnectionManager {
         } else if (rttMs > 150 || lossRatio > 0.02) {
           peerQuality = "medium";
         }
+
+        this.callbacks.onPeerQualityChange?.(socketId, peerQuality, rttMs === null ? null : Math.round(rttMs));
 
         if (rank[peerQuality] > rank[worst]) worst = peerQuality;
       } catch (err) {
