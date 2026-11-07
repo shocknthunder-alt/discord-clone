@@ -2,6 +2,7 @@ import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
 import { useCallback } from "react";
 import { getSocket } from "../socket/socket";
 import { useVoiceStore } from "../store/voiceStore";
+import { getPreferredMicDeviceId } from "./devicePrefs";
 import { PeerConnectionManager } from "./PeerConnectionManager";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
@@ -16,7 +17,10 @@ export function useVoiceChannel() {
     const socket = getSocket();
     if (!socket) return;
 
-    const localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const preferredMicId = getPreferredMicDeviceId();
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      audio: preferredMicId ? { deviceId: { exact: preferredMicId } } : true,
+    });
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);
 

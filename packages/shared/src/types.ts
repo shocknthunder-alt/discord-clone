@@ -54,3 +54,20 @@ export interface WebRTCSignal {
   type: "offer" | "answer" | "candidate";
   data: unknown;
 }
+
+export interface DmConversationDTO {
+  id: string;
+  otherUser: UserDTO;
+  createdAt: string;
+}
+
+export interface DirectMessageDTO {
+  id: string;
+  conversationId: string;
+  content: string;
+  imageUrl: string | null;
+  authorId: string;
+  authorUsername: string;
+  createdAt: string;
+  editedAt: string | null;
+}

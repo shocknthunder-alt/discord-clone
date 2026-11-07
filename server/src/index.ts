@@ -6,9 +6,11 @@ import { env } from "./env.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { authRouter } from "./routes/auth.routes.js";
 import { channelsRouter } from "./routes/channels.routes.js";
+import { dmRouter } from "./routes/dm.routes.js";
 import { messagesRouter } from "./routes/messages.routes.js";
 import { serversRouter } from "./routes/servers.routes.js";
 import { broadcastPresence, registerChatGateway } from "./sockets/chat.gateway.js";
+import { registerDmGateway } from "./sockets/dm.gateway.js";
 import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
@@ -20,6 +22,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRouter);
 app.use("/api/servers", serversRouter);
+app.use("/api/dms", dmRouter);
 app.use("/api", channelsRouter);
 app.use("/api", messagesRouter);
 
@@ -35,8 +38,11 @@ io.use(socketAuthMiddleware);
 io.on("connection", (socket) => {
   const userId: string = socket.data.userId;
 
+  void socket.join(`user:${userId}`);
+
   registerChatGateway(io, socket);
   registerVoiceGateway(io, socket);
+  registerDmGateway(io, socket);
 
   void broadcastPresence(io, userId, "online");
 

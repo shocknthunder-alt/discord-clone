@@ -30,6 +30,19 @@ export const SocketEvents = {
   ScreenShareStop: "screenshare:stop",
   ScreenShareStarted: "screenshare:started",
   ScreenShareStopped: "screenshare:stopped",
+
+  // direct messages
+  DmJoin: "dm:join",
+  DmSend: "dm:send",
+  DmNew: "dm:new",
+  DmEdit: "dm:edit",
+  DmUpdated: "dm:updated",
+  DmDelete: "dm:delete",
+  DmDeleted: "dm:deleted",
+  DmTypingStart: "dm:typing:start",
+  DmTypingStop: "dm:typing:stop",
+  DmTypingUpdate: "dm:typing:update",
+  DmRing: "dm:ring",
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

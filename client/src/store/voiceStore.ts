@@ -9,6 +9,10 @@ export interface RemotePeer {
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;
+  // Local-only: this viewer's personal volume/mute for this peer, never synced to the
+  // server or other clients (distinct from isMuted, which reflects the peer's own mic).
+  localVolume: number;
+  localMuted: boolean;
 }
 
 interface VoiceState {
@@ -28,6 +32,8 @@ interface VoiceState {
   setScreenSharing: (sharing: boolean) => void;
   upsertPeer: (peer: Partial<RemotePeer> & { socketId: string }) => void;
   removePeer: (socketId: string) => void;
+  setPeerLocalVolume: (socketId: string, volume: number) => void;
+  setPeerLocalMuted: (socketId: string, muted: boolean) => void;
   reset: () => void;
 }
 
@@ -41,6 +47,8 @@ function emptyPeer(socketId: string): RemotePeer {
     isMuted: false,
     isDeafened: false,
     isScreenSharing: false,
+    localVolume: 100,
+    localMuted: false,
   };
 }
 
@@ -72,6 +80,22 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     set((s) => {
       const peers = new Map(s.peers);
       peers.delete(socketId);
+      return { peers };
+    }),
+
+  setPeerLocalVolume: (socketId, volume) =>
+    set((s) => {
+      const peers = new Map(s.peers);
+      const existing = peers.get(socketId);
+      if (existing) peers.set(socketId, { ...existing, localVolume: volume });
+      return { peers };
+    }),
+
+  setPeerLocalMuted: (socketId, muted) =>
+    set((s) => {
+      const peers = new Map(s.peers);
+      const existing = peers.get(socketId);
+      if (existing) peers.set(socketId, { ...existing, localMuted: muted });
       return { peers };
     }),
 

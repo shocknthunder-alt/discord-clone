@@ -15,9 +15,38 @@ model User {
   avatarUrl    String?
   createdAt    DateTime @default(now())
 
-  memberships  Membership[]
-  messages     Message[]
-  ownedServers Server[]     @relation("ServerOwner")
+  memberships          Membership[]
+  messages             Message[]
+  ownedServers         Server[]         @relation("ServerOwner")
+  directMessages       DirectMessage[]
+  dmConversationsAsA   DmConversation[] @relation("DmUserA")
+  dmConversationsAsB   DmConversation[] @relation("DmUserB")
+}
+
+model DmConversation {
+  id        String   @id @default(cuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA    User            @relation("DmUserA", fields: [userAId], references: [id])
+  userB    User            @relation("DmUserB", fields: [userBId], references: [id])
+  messages DirectMessage[]
+
+  @@unique([userAId, userBId])
+}
+
+model DirectMessage {
+  id             String    @id @default(cuid())
+  content        String
+  imageUrl       String?
+  conversationId String
+  authorId       String
+  createdAt      DateTime  @default(now())
+  editedAt       DateTime?
+
+  conversation DmConversation @relation(fields: [conversationId], references: [id])
+  author       User           @relation(fields: [authorId], references: [id])
 }
 
 model Server {

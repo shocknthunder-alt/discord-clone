@@ -2,11 +2,12 @@ import { useRef } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { voiceStatusIcons } from "../utils/voiceStatus";
 import ScreenSharePlayer from "./ScreenSharePlayer";
 import VoiceControlBar from "./VoiceControlBar";
 
 export default function VoiceChannelPanel() {
-  const { activeVoiceChannelId, peers, isScreenSharing } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened } = useVoiceStore();
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
   const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
@@ -30,7 +31,7 @@ export default function VoiceChannelPanel() {
           {Array.from(peers.values()).map((peer) => (
             <div className="voice-tile" key={peer.socketId}>
               <div>{peer.username || "connecting…"}</div>
-              <div>{peer.isMuted ? "🔇" : "🎤"}</div>
+              <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
               {peer.isScreenSharing && (
                 <button
                   className="screen-share-badge"
@@ -44,6 +45,7 @@ export default function VoiceChannelPanel() {
           ))}
           <div className="voice-tile">
             <div>{currentUsername}</div>
+            <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
             {isScreenSharing && <div className="screen-share-badge self">🖥️ You're sharing</div>}
           </div>
         </div>

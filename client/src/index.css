@@ -265,6 +265,10 @@ button {
   font-weight: 700;
 }
 
+.voice-status-icons {
+  font-size: 11px;
+}
+
 .main-content {
   flex: 1;
   display: flex;
@@ -655,6 +659,12 @@ button {
   text-transform: uppercase;
   color: #b5bac1;
   margin-bottom: 8px;
+}
+
+.modal-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: #80848e;
 }
 
 .modal-input {

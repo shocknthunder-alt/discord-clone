@@ -1,12 +1,18 @@
 import { useEffect, useRef } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 
-function RemoteAudio({ stream }: { stream: MediaStream }) {
+function RemoteAudio({ stream, volume, muted }: { stream: MediaStream; volume: number; muted: boolean }) {
   const ref = useRef<HTMLAudioElement>(null);
+
   useEffect(() => {
     if (ref.current) ref.current.srcObject = stream;
   }, [stream]);
-  return <audio ref={ref} autoPlay />;
+
+  useEffect(() => {
+    if (ref.current) ref.current.volume = Math.min(Math.max(volume, 0), 100) / 100;
+  }, [volume]);
+
+  return <audio ref={ref} autoPlay muted={muted} />;
 }
 
 /**
@@ -24,7 +30,14 @@ export default function VoiceAudioBridge() {
   return (
     <>
       {Array.from(peers.values()).map((peer) =>
-        peer.audioStream ? <RemoteAudio key={peer.socketId} stream={peer.audioStream} /> : null,
+        peer.audioStream ? (
+          <RemoteAudio
+            key={peer.socketId}
+            stream={peer.audioStream}
+            volume={peer.localVolume}
+            muted={peer.localMuted}
+          />
+        ) : null,
       )}
     </>
   );

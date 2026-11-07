@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
@@ -14,7 +15,7 @@ interface Props {
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel } =
     useServerStore();
-  const { activeVoiceChannelId, peers, isScreenSharing } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened } = useVoiceStore();
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
@@ -84,6 +85,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                           {peer.isScreenSharing && "🖥️ "}
                           {peer.username || "connecting…"}
                         </span>
+                        {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
+                          <span className="voice-status-icons"> {voiceStatusIcons(peer.isMuted, peer.isDeafened)}</span>
+                        )}
                       </div>
                     ))}
                     <div>
@@ -91,6 +95,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         {isScreenSharing && "🖥️ "}
                         {currentUsername}
                       </span>
+                      {voiceStatusIcons(isMuted, isDeafened) && (
+                        <span className="voice-status-icons"> {voiceStatusIcons(isMuted, isDeafened)}</span>
+                      )}
                     </div>
                   </div>
                 )}
