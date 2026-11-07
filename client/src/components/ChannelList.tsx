@@ -8,6 +8,8 @@ import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import ChannelContextMenu from "./ChannelContextMenu";
+import CreateChannelModal from "./CreateChannelModal";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
@@ -27,6 +29,10 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
   const [showServerSettings, setShowServerSettings] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ peer: RemotePeer; x: number; y: number } | null>(null);
+  const [channelContextMenu, setChannelContextMenu] = useState<{ type: "text" | "voice"; x: number; y: number } | null>(
+    null,
+  );
+  const [createChannelType, setCreateChannelType] = useState<"text" | "voice" | null>(null);
 
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
@@ -47,6 +53,12 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     e.preventDefault();
     if (!peer.userId) return;
     setContextMenu({ peer, x: e.clientX, y: e.clientY });
+  }
+
+  function handleSectionContextMenu(e: React.MouseEvent, type: "text" | "voice") {
+    e.preventDefault();
+    if (!isOwner) return;
+    setChannelContextMenu({ type, x: e.clientX, y: e.clientY });
   }
 
   async function goToDm(userId: string) {
@@ -87,22 +99,25 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
               Invite code: {activeServer.inviteCode}
             </div>
 
-            <div className="channel-section">Text Channels</div>
-            {textChannels.map((channel) => (
-              <div
-                key={channel.id}
-                className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""}`}
-                onClick={() => {
-                  setActiveTextChannel(channel.id);
-                  onSelectText();
-                }}
-              >
-                # {channel.name}
-              </div>
-            ))}
+            <div onContextMenu={(e) => handleSectionContextMenu(e, "text")}>
+              <div className="channel-section">Text Channels</div>
+              {textChannels.map((channel) => (
+                <div
+                  key={channel.id}
+                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""}`}
+                  onClick={() => {
+                    setActiveTextChannel(channel.id);
+                    onSelectText();
+                  }}
+                >
+                  # {channel.name}
+                </div>
+              ))}
+            </div>
 
-            <div className="channel-section">Voice Channels</div>
-            {voiceChannels.map((channel) => (
+            <div onContextMenu={(e) => handleSectionContextMenu(e, "voice")}>
+              <div className="channel-section">Voice Channels</div>
+              {voiceChannels.map((channel) => (
               <div key={channel.id}>
                 <div
                   className={`channel-item ${channel.id === activeVoiceChannelId ? "active" : ""}`}
@@ -135,7 +150,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                   </div>
                 )}
               </div>
-            ))}
+              ))}
+            </div>
           </>
         )}
       </div>
@@ -154,6 +170,24 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
           onClose={() => setContextMenu(null)}
           onMessage={handleMessage}
           onCall={handleCall}
+        />
+      )}
+
+      {channelContextMenu && (
+        <ChannelContextMenu
+          type={channelContextMenu.type}
+          x={channelContextMenu.x}
+          y={channelContextMenu.y}
+          onClose={() => setChannelContextMenu(null)}
+          onCreate={setCreateChannelType}
+        />
+      )}
+
+      {createChannelType && activeServer && (
+        <CreateChannelModal
+          serverId={activeServer.id}
+          type={createChannelType}
+          onClose={() => setCreateChannelType(null)}
         />
       )}
     </div>
