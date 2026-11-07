@@ -24,6 +24,7 @@ export const SocketEvents = {
   VoiceMute: "voice:mute",
   VoiceDeafen: "voice:deafen",
   VoicePeerState: "voice:peer-state",
+  VoiceChannelOccupants: "voice:channel-occupants",
 
   // screen share
   ScreenShareStart: "screenshare:start",

@@ -1,4 +1,4 @@
-import { SocketEvents } from "@discord-clone/shared";
+import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchServers } from "../api/servers.api";
@@ -36,6 +36,13 @@ export default function AppShell() {
     socket.on(SocketEvents.DmRing, (ring: IncomingRing) => {
       setIncomingRing(ring);
     });
+
+    socket.on(
+      SocketEvents.VoiceChannelOccupants,
+      ({ voiceChannelId, peers }: { voiceChannelId: string; peers: VoicePeerInfo[] }) => {
+        useVoiceStore.getState().setChannelOccupants(voiceChannelId, peers);
+      },
+    );
 
     return () => {
       socket.disconnect();

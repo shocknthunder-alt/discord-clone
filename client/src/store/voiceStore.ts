@@ -1,3 +1,4 @@
+import type { VoicePeerInfo } from "@discord-clone/shared";
 import { create } from "zustand";
 import { getPreferredSpeakerDeviceId, setPreferredSpeakerDeviceId } from "../webrtc/devicePrefs";
 
@@ -34,6 +35,9 @@ interface VoiceState {
   peers: Map<string, RemotePeer>;
   preferredSpeakerId: string;
   connectionQuality: ConnectionQuality;
+  // Lightweight roster per voice channel (name/avatar/mute, no media) — covers channels
+  // the local user hasn't joined, so the sidebar can show who's already in them.
+  channelOccupants: Map<string, VoicePeerInfo[]>;
 
   setActiveVoiceChannel: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -48,6 +52,7 @@ interface VoiceState {
   setPreferredSpeakerId: (deviceId: string) => void;
   setConnectionQuality: (quality: ConnectionQuality) => void;
   setPeerQuality: (socketId: string, quality: ConnectionQuality, rttMs: number | null) => void;
+  setChannelOccupants: (voiceChannelId: string, peers: VoicePeerInfo[]) => void;
   reset: () => void;
 }
 
@@ -80,6 +85,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   peers: new Map(),
   preferredSpeakerId: getPreferredSpeakerDeviceId() ?? "",
   connectionQuality: "unknown",
+  channelOccupants: new Map(),
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
   setLocalStream: (stream) => set({ localStream: stream }),
@@ -132,6 +138,13 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       const existing = peers.get(socketId);
       if (existing) peers.set(socketId, { ...existing, connectionQuality: quality, rttMs });
       return { peers };
+    }),
+
+  setChannelOccupants: (voiceChannelId, peers) =>
+    set((s) => {
+      const channelOccupants = new Map(s.channelOccupants);
+      channelOccupants.set(voiceChannelId, peers);
+      return { channelOccupants };
     }),
 
   reset: () =>

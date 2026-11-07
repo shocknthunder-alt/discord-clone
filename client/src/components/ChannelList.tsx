@@ -1,4 +1,4 @@
-import { SocketEvents } from "@discord-clone/shared";
+import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
 import { useState } from "react";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
@@ -61,10 +61,29 @@ function ParticipantRow({
   );
 }
 
+function OccupantRow({ occupant }: { occupant: VoicePeerInfo }) {
+  return (
+    <div className="participant-row">
+      <ParticipantAvatar avatarUrl={occupant.avatarUrl} name={occupant.username} speaking={false} />
+      <span
+        className={occupant.isScreenSharing ? "participant-name streaming" : "participant-name"}
+        title={occupant.isScreenSharing ? `Sharing ${occupant.screenShareLabel ?? "their screen"}` : undefined}
+      >
+        {occupant.isScreenSharing && "🖥️ "}
+        {occupant.username}
+      </span>
+      {voiceStatusIcons(occupant.isMuted, occupant.isDeafened) && (
+        <span className="voice-status-icons"> {voiceStatusIcons(occupant.isMuted, occupant.isDeafened)}</span>
+      )}
+    </div>
+  );
+}
+
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel } =
     useServerStore();
-  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, channelOccupants } =
+    useVoiceStore();
   const currentAvatarUrl = useAuthStore((s) => s.user?.avatarUrl) ?? null;
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
@@ -183,35 +202,46 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
             <div onContextMenu={(e) => handleSectionContextMenu(e, "voice")}>
               <div className="channel-section">Voice Channels</div>
-              {voiceChannels.map((channel) => (
-              <div key={channel.id}>
-                <div
-                  className={`channel-item ${channel.id === activeVoiceChannelId ? "active" : ""}`}
-                  onClick={() => handleVoiceClick(channel.id)}
-                >
-                  🔊 {channel.name}
-                </div>
-                {channel.id === activeVoiceChannelId && (
-                  <div className="voice-participant-list">
-                    {Array.from(peers.values())
-                      .filter((peer) => peer.userId)
-                      .map((peer) => (
-                        <ParticipantRow key={peer.socketId} peer={peer} onContextMenu={handlePeerContextMenu} />
-                      ))}
-                    <div className="participant-row">
-                      <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
-                      <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
-                        {isScreenSharing && "🖥️ "}
-                        {currentUsername}
-                      </span>
-                      {voiceStatusIcons(isMuted, isDeafened) && (
-                        <span className="voice-status-icons"> {voiceStatusIcons(isMuted, isDeafened)}</span>
-                      )}
+              {voiceChannels.map((channel) => {
+                const isActive = channel.id === activeVoiceChannelId;
+                const occupants = isActive ? null : channelOccupants.get(channel.id);
+                return (
+                  <div key={channel.id}>
+                    <div
+                      className={`channel-item ${isActive ? "active" : ""}`}
+                      onClick={() => handleVoiceClick(channel.id)}
+                    >
+                      🔊 {channel.name}
                     </div>
+                    {isActive && (
+                      <div className="voice-participant-list">
+                        {Array.from(peers.values())
+                          .filter((peer) => peer.userId)
+                          .map((peer) => (
+                            <ParticipantRow key={peer.socketId} peer={peer} onContextMenu={handlePeerContextMenu} />
+                          ))}
+                        <div className="participant-row">
+                          <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
+                          <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
+                            {isScreenSharing && "🖥️ "}
+                            {currentUsername}
+                          </span>
+                          {voiceStatusIcons(isMuted, isDeafened) && (
+                            <span className="voice-status-icons"> {voiceStatusIcons(isMuted, isDeafened)}</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {!isActive && occupants && occupants.length > 0 && (
+                      <div className="voice-participant-list">
+                        {occupants.map((occupant) => (
+                          <OccupantRow key={occupant.socketId} occupant={occupant} />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              ))}
+                );
+              })}
             </div>
           </>
         )}

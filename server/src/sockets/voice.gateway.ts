@@ -1,11 +1,36 @@
 import { SocketEvents, type VoicePeerInfo, type WebRTCSignal } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
+import { prisma } from "../db.js";
 
 const voiceRosters = new Map<string, Map<string, VoicePeerInfo>>();
 const socketVoiceChannel = new Map<string, string>();
+// Lets browsing-but-not-joined clients (anyone in the server) see who's already in each
+// voice channel. Cached per voiceChannelId since the server a channel belongs to never
+// changes, avoiding a DB round-trip on every join/leave.
+const voiceChannelServerId = new Map<string, string>();
 
 function roomName(voiceChannelId: string) {
   return `voice:${voiceChannelId}`;
+}
+
+async function getServerIdForVoiceChannel(voiceChannelId: string): Promise<string | null> {
+  const cached = voiceChannelServerId.get(voiceChannelId);
+  if (cached) return cached;
+
+  const channel = await prisma.voiceChannel.findUnique({ where: { id: voiceChannelId }, select: { serverId: true } });
+  if (channel) voiceChannelServerId.set(voiceChannelId, channel.serverId);
+  return channel?.serverId ?? null;
+}
+
+async function broadcastOccupants(io: IOServer, voiceChannelId: string) {
+  const serverId = await getServerIdForVoiceChannel(voiceChannelId);
+  if (!serverId) return;
+
+  const roster = voiceRosters.get(voiceChannelId);
+  io.to(`server:${serverId}`).emit(SocketEvents.VoiceChannelOccupants, {
+    voiceChannelId,
+    peers: roster ? Array.from(roster.values()) : [],
+  });
 }
 
 function removeFromRoster(io: IOServer, socketId: string) {
@@ -27,12 +52,29 @@ function removeFromRoster(io: IOServer, socketId: string) {
   if (roster && roster.size === 0) {
     voiceRosters.delete(voiceChannelId);
   }
+
+  void broadcastOccupants(io, voiceChannelId);
 }
 
 export function registerVoiceGateway(io: IOServer, socket: Socket) {
   const userId: string = socket.data.userId;
   const username: string = socket.data.username;
   const avatarUrl: string | null = socket.data.avatarUrl ?? null;
+
+  // Lets a client see who's already in each voice channel before joining any of them —
+  // fired whenever they open a server, independent of chat.gateway's own ServerJoin
+  // handler (socket.io allows multiple listeners for the same event).
+  socket.on(SocketEvents.ServerJoin, async ({ serverId }: { serverId: string }) => {
+    const channels = await prisma.voiceChannel.findMany({ where: { serverId }, select: { id: true } });
+    for (const channel of channels) {
+      voiceChannelServerId.set(channel.id, serverId);
+      const roster = voiceRosters.get(channel.id);
+      socket.emit(SocketEvents.VoiceChannelOccupants, {
+        voiceChannelId: channel.id,
+        peers: roster ? Array.from(roster.values()) : [],
+      });
+    }
+  });
 
   socket.on(SocketEvents.VoiceJoin, async ({ voiceChannelId }: { voiceChannelId: string }) => {
     // A socket can only be in one voice channel at a time.
@@ -64,6 +106,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
       avatarUrl,
       socketId: socket.id,
     });
+    void broadcastOccupants(io, voiceChannelId);
   });
 
   socket.on(SocketEvents.VoiceLeave, ({ voiceChannelId }: { voiceChannelId: string }) => {
