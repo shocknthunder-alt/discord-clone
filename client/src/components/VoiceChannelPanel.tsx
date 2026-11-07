@@ -72,7 +72,9 @@ export default function VoiceChannelPanel() {
         )}
 
         <div className="voice-tiles">
-          {Array.from(peers.values()).map((peer) => (
+          {Array.from(peers.values())
+            .filter((peer) => peer.userId)
+            .map((peer) => (
             <div className="voice-tile" key={peer.socketId} onContextMenu={(e) => handlePeerContextMenu(e, peer)}>
               <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} />
               <div>{peer.username || "connecting…"}</div>

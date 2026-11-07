@@ -292,6 +292,20 @@ export class PeerConnectionManager {
         this.callbacks.onAudioStream(socketId, peer.userId, peer.remoteAudioStream);
       } else {
         // Screen-share video, or screen-share audio (any audio track beyond the first).
+        // remoteScreenStream lives for the whole peer connection and only ever gains
+        // tracks here, relying on track.onended to clean up the old one — but that event
+        // doesn't reliably fire for every case that replaces a screen-share track (a
+        // renegotiation race between stop+restart, or some browsers' handling of
+        // mid-share "change source"). A stale, now-dead track left sitting alongside a
+        // fresh live one in the same MediaStream is exactly what froze the shared video
+        // on a solid black frame even after stopping and starting a brand new share.
+        // Only one video and one screen-audio track should ever be live at once, so
+        // proactively drop any existing same-kind track before adding the new one.
+        for (const existingTrack of peer.remoteScreenStream.getTracks()) {
+          if (existingTrack.kind === track.kind && existingTrack !== track) {
+            peer.remoteScreenStream.removeTrack(existingTrack);
+          }
+        }
         const sourceStream = streams[0];
         peer.remoteScreenStream.addTrack(track);
         this.callbacks.onScreenStream(socketId, peer.remoteScreenStream);

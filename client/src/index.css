@@ -727,6 +727,21 @@ button {
   color: #fa777c;
 }
 
+.modal-success {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #3ba55d;
+}
+
+.modal-section-title {
+  margin: 28px 0 16px;
+  padding-top: 20px;
+  border-top: 1px solid #3f4147;
+  font-size: 16px;
+  font-weight: 600;
+  color: #dbdee1;
+}
+
 .modal-join-button {
   width: 100%;
   margin-top: 24px;

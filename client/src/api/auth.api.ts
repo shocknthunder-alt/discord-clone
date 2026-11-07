@@ -21,3 +21,7 @@ export function fetchMe() {
 export function updateProfile(data: { username?: string; avatarUrl?: string | null }) {
   return http.patch<{ user: UserDTO }>("/api/auth/me", data).then((r) => r.data.user);
 }
+
+export function changePassword(currentPassword: string, newPassword: string) {
+  return http.post<{ ok: true }>("/api/auth/change-password", { currentPassword, newPassword }).then((r) => r.data);
+}
