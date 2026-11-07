@@ -1,7 +1,21 @@
 import { SocketEvents, type WebRTCSignal } from "@discord-clone/shared";
 import type { Socket } from "socket.io-client";
 
-const ICE_SERVERS: RTCIceServer[] = [{ urls: "stun:stun.l.google.com:19302" }];
+// STUN alone fails whenever both peers sit behind restrictive/symmetric NAT (e.g. two
+// different home networks), leaving the connection stuck in "connecting" forever with no
+// audio. The TURN relay below (Open Relay Project, metered.ca) is a free public fallback
+// for exactly that case. Fine for personal use; swap for a dedicated TURN server if this
+// app grows beyond a handful of concurrent users.
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+  { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+  {
+    urls: "turn:openrelay.metered.ca:443?transport=tcp",
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+];
 
 interface PeerHandle {
   socketId: string;
@@ -89,7 +103,12 @@ export class PeerConnectionManager {
 
   private getOrCreatePeer(socketId: string, userId: string): PeerHandle {
     const existing = this.peers.get(socketId);
-    if (existing) return existing;
+    if (existing) {
+      // A signal can race the roster event and create the peer before we know its userId
+      // (see handleSignal's fallback below) — backfill it once the real id is known.
+      if (userId && !existing.userId) existing.userId = userId;
+      return existing;
+    }
 
     const connection = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     // Deterministic tie-breaker for renegotiation glare (MDN "perfect negotiation" pattern).
