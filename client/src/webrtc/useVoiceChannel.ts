@@ -160,12 +160,18 @@ export function useVoiceChannel() {
 
   const toggleDeafen = useCallback(() => {
     const socket = getSocket();
-    const { activeVoiceChannelId, isDeafened } = useVoiceStore.getState();
+    const { activeVoiceChannelId, isDeafened, localStream } = useVoiceStore.getState();
     if (!socket || !activeVoiceChannelId) return;
 
     const next = !isDeafened;
     store.setDeafened(next);
     socket.emit(SocketEvents.VoiceDeafen, { voiceChannelId: activeVoiceChannelId, isDeafened: next });
+
+    // Deafening also mutes the mic (nobody can hear you if you can't hear them anyway),
+    // and un-deafening restores it — mirrors Discord's behavior.
+    localStream?.getAudioTracks().forEach((t) => (t.enabled = !next));
+    store.setMuted(next);
+    socket.emit(SocketEvents.VoiceMute, { voiceChannelId: activeVoiceChannelId, isMuted: next });
   }, [store]);
 
   const toggleScreenShare = useCallback(async () => {
