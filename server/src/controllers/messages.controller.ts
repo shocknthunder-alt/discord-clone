@@ -30,6 +30,7 @@ export async function listMessages(req: Request, res: Response) {
     messages: messages.reverse().map((m) => ({
       id: m.id,
       content: m.content,
+      imageUrl: m.imageUrl,
       textChannelId: m.textChannelId,
       authorId: m.authorId,
       authorUsername: m.author.username,

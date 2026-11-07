@@ -21,8 +21,18 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
 
   socket.on(
     SocketEvents.MessageSend,
-    async ({ textChannelId, content }: { textChannelId: string; content: string }) => {
-      if (!content?.trim()) return;
+    async ({
+      textChannelId,
+      content,
+      imageUrl,
+    }: {
+      textChannelId: string;
+      content: string;
+      imageUrl?: string;
+    }) => {
+      const trimmedContent = content?.trim() ?? "";
+      const safeImageUrl = typeof imageUrl === "string" && imageUrl.length <= 2000 ? imageUrl : undefined;
+      if (!trimmedContent && !safeImageUrl) return;
 
       const textChannel = await prisma.textChannel.findUnique({ where: { id: textChannelId } });
       if (!textChannel) return;
@@ -33,7 +43,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       if (!membership) return;
 
       const message = await prisma.message.create({
-        data: { content: content.trim(), textChannelId, authorId: userId },
+        data: { content: trimmedContent, imageUrl: safeImageUrl, textChannelId, authorId: userId },
         include: { author: { select: { username: true } } },
       });
 
@@ -43,6 +53,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
         authorId: message.authorId,
         authorUsername: message.author.username,
         content: message.content,
+        imageUrl: message.imageUrl,
         createdAt: message.createdAt.toISOString(),
         editedAt: message.editedAt?.toISOString() ?? null,
       });

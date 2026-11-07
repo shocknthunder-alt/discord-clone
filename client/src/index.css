@@ -228,15 +228,96 @@ button {
 
 .message-input-bar {
   padding: 0 16px 24px;
+  position: relative;
 }
 
-.message-input-bar input {
-  width: 100%;
-  padding: 11px 16px;
-  border-radius: 8px;
-  border: none;
+.message-input-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #383a40;
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.message-input-form input {
+  flex: 1;
+  padding: 11px 4px;
+  border: none;
+  background: transparent;
   color: #dbdee1;
+}
+
+.message-input-form input:focus {
+  outline: none;
+}
+
+.emoji-toggle-button {
+  background: none;
+  border: none;
+  font-size: 18px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.emoji-toggle-button:hover {
+  background: #4e5058;
+}
+
+.message-input-form button[type="submit"] {
+  padding: 8px 14px;
+  border-radius: 4px;
+  border: none;
+  background: #5865f2;
+  color: white;
+  font-weight: 600;
+}
+
+.message-input-form button[type="submit"]:disabled {
+  opacity: 0.5;
+}
+
+.emoji-picker-popover {
+  position: absolute;
+  bottom: 100%;
+  right: 16px;
+  margin-bottom: 8px;
+  z-index: 50;
+}
+
+.pending-image-preview {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.pending-image-preview img {
+  max-height: 120px;
+  max-width: 200px;
+  border-radius: 8px;
+  display: block;
+}
+
+.pending-image-preview button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #da373c;
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.message-image {
+  max-width: 360px;
+  max-height: 300px;
+  border-radius: 8px;
+  margin-top: 4px;
+  display: block;
 }
 
 .voice-panel {
@@ -269,9 +350,12 @@ button {
 }
 
 .screen-share-video {
-  max-width: 480px;
-  max-height: 320px;
+  width: 100%;
+  max-width: 1100px;
+  max-height: 72vh;
   border-radius: 8px;
+  object-fit: contain;
+  background: #000;
 }
 
 .voice-control-bar {

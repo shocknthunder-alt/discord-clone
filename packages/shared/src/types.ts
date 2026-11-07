@@ -32,6 +32,7 @@ export interface VoiceChannelDTO {
 export interface MessageDTO {
   id: string;
   content: string;
+  imageUrl: string | null;
   textChannelId: string;
   authorId: string;
   authorUsername: string;

@@ -62,6 +62,7 @@ model TextChannel {
 model Message {
   id            String    @id @default(cuid())
   content       String
+  imageUrl      String?
   textChannelId String
   authorId      String
   createdAt     DateTime  @default(now())

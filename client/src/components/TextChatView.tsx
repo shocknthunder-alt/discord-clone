@@ -60,7 +60,12 @@ export default function TextChatView({ channelId }: Props) {
           <div className="message-row" key={message.id}>
             <span className="author">{message.authorUsername}</span>
             <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
-            <div>{message.content}</div>
+            {message.content && <div>{message.content}</div>}
+            {message.imageUrl && (
+              <a href={message.imageUrl} target="_blank" rel="noreferrer">
+                <img className="message-image" src={message.imageUrl} alt="attachment" />
+              </a>
+            )}
           </div>
         ))}
         <div ref={bottomRef} />
