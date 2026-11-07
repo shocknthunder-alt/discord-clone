@@ -51,6 +51,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
       isMuted: false,
       isDeafened: false,
       isScreenSharing: false,
+      screenShareLabel: null,
     };
     roster.set(socket.id, self);
     voiceRosters.set(voiceChannelId, roster);
@@ -97,20 +98,26 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     },
   );
 
-  socket.on(SocketEvents.ScreenShareStart, ({ voiceChannelId }: { voiceChannelId: string }) => {
-    const peer = voiceRosters.get(voiceChannelId)?.get(socket.id);
-    if (!peer) return;
-    peer.isScreenSharing = true;
-    io.to(roomName(voiceChannelId)).emit(SocketEvents.ScreenShareStarted, {
-      userId,
-      socketId: socket.id,
-    });
-  });
+  socket.on(
+    SocketEvents.ScreenShareStart,
+    ({ voiceChannelId, label }: { voiceChannelId: string; label: string | null }) => {
+      const peer = voiceRosters.get(voiceChannelId)?.get(socket.id);
+      if (!peer) return;
+      peer.isScreenSharing = true;
+      peer.screenShareLabel = label ?? null;
+      io.to(roomName(voiceChannelId)).emit(SocketEvents.ScreenShareStarted, {
+        userId,
+        socketId: socket.id,
+        label: peer.screenShareLabel,
+      });
+    },
+  );
 
   socket.on(SocketEvents.ScreenShareStop, ({ voiceChannelId }: { voiceChannelId: string }) => {
     const peer = voiceRosters.get(voiceChannelId)?.get(socket.id);
     if (!peer) return;
     peer.isScreenSharing = false;
+    peer.screenShareLabel = null;
     io.to(roomName(voiceChannelId)).emit(SocketEvents.ScreenShareStopped, {
       userId,
       socketId: socket.id,

@@ -1,5 +1,5 @@
 import { SocketEvents } from "@discord-clone/shared";
-import { useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -26,16 +26,17 @@ export default function VoiceChannelPanel() {
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
   const currentUser = useAuthStore((s) => s.user);
   const currentUsername = currentUser?.username ?? "You";
-  const videoRef = useRef<HTMLVideoElement>(null);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
+  const [watchingSocketId, setWatchingSocketId] = useState<string | null>(null);
 
-  const screenSharingPeer = Array.from(peers.values()).find((p) => p.screenStream);
+  const watchedPeer = watchingSocketId ? peers.get(watchingSocketId) : undefined;
+  const watchedStream = watchedPeer?.screenStream ?? null;
 
-  function focusShare() {
-    videoRef.current?.requestFullscreen();
-  }
+  useEffect(() => {
+    if (watchingSocketId && !watchedStream) setWatchingSocketId(null);
+  }, [watchingSocketId, watchedStream]);
 
   function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
     e.preventDefault();
@@ -67,8 +68,17 @@ export default function VoiceChannelPanel() {
     <div className="main-content">
       <div className="chat-header">🔊 {channel?.name ?? ""}</div>
       <div className="voice-panel">
-        {screenSharingPeer?.screenStream && (
-          <ScreenSharePlayer ref={videoRef} stream={screenSharingPeer.screenStream} />
+        {watchedStream && (
+          <div className="screen-share-viewer">
+            <button
+              className="stop-watching-button"
+              onClick={() => setWatchingSocketId(null)}
+              title="Stop watching this stream"
+            >
+              Stop Watching
+            </button>
+            <ScreenSharePlayer stream={watchedStream} />
+          </div>
         )}
 
         <div className="voice-tiles">
@@ -81,13 +91,18 @@ export default function VoiceChannelPanel() {
               <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
               <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
               {peer.isScreenSharing && (
-                <button
-                  className="screen-share-badge"
-                  onClick={focusShare}
-                  title="Click to view this screen share fullscreen"
-                >
-                  🖥️ Live
-                </button>
+                <>
+                  <div className="screen-share-label">🖥️ Sharing {peer.screenShareLabel ?? "their screen"}</div>
+                  {peer.screenStream && (
+                    <button
+                      className="screen-share-badge"
+                      onClick={() => setWatchingSocketId(peer.socketId)}
+                      title="Watch this screen share"
+                    >
+                      Watch Stream
+                    </button>
+                  )}
+                </>
               )}
             </div>
           ))}

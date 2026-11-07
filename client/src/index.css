@@ -503,12 +503,13 @@ button {
   justify-content: center;
   gap: 16px;
   background: #313338;
+  padding: 32px;
 }
 
 .voice-tiles {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 40px;
   justify-content: center;
 }
 
@@ -522,7 +523,7 @@ button {
   justify-content: center;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 0;
+  padding: 12px 10px;
   position: relative;
 }
 
@@ -569,12 +570,44 @@ button {
 }
 
 .screen-share-video {
-  width: 100%;
-  max-width: 1100px;
+  width: auto;
+  height: auto;
+  max-width: min(1100px, 90vw);
   max-height: 72vh;
   border-radius: 8px;
   object-fit: contain;
   background: #000;
+}
+
+.screen-share-label {
+  font-size: 11px;
+  color: #b5bac1;
+  text-align: center;
+}
+
+.screen-share-viewer {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+}
+
+.stop-watching-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.stop-watching-button:hover {
+  background: rgba(218, 55, 60, 0.85);
 }
 
 .voice-control-bar {

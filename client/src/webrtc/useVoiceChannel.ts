@@ -63,6 +63,7 @@ export function useVoiceChannel() {
           isMuted: peer.isMuted,
           isDeafened: peer.isDeafened,
           isScreenSharing: peer.isScreenSharing,
+          screenShareLabel: peer.screenShareLabel,
         });
         manager.addPeerAndInitiate(peer.socketId, peer.userId);
       }
@@ -104,8 +105,20 @@ export function useVoiceChannel() {
       },
     );
 
+    socket.on(
+      SocketEvents.ScreenShareStarted,
+      ({ socketId, label }: { socketId: string; label: string | null }) => {
+        useVoiceStore.getState().upsertPeer({ socketId, screenShareLabel: label });
+      },
+    );
+
     socket.on(SocketEvents.ScreenShareStopped, ({ socketId }: { socketId: string }) => {
-      useVoiceStore.getState().upsertPeer({ socketId, screenStream: null, isScreenSharing: false });
+      useVoiceStore.getState().upsertPeer({
+        socketId,
+        screenStream: null,
+        isScreenSharing: false,
+        screenShareLabel: null,
+      });
     });
 
     socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
@@ -121,6 +134,7 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.VoicePeerJoined);
       socket.off(SocketEvents.VoicePeerLeft);
       socket.off(SocketEvents.VoicePeerState);
+      socket.off(SocketEvents.ScreenShareStarted);
       socket.off(SocketEvents.ScreenShareStopped);
     }
 
@@ -190,7 +204,17 @@ export function useVoiceChannel() {
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);
     activeManager.startScreenShare(screenStream);
-    socket.emit(SocketEvents.ScreenShareStart, { voiceChannelId: activeVoiceChannelId });
+
+    const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;
+    const label =
+      displaySurface === "monitor"
+        ? "Entire Screen"
+        : displaySurface === "window"
+          ? "a Window"
+          : displaySurface === "browser"
+            ? "a Browser Tab"
+            : null;
+    socket.emit(SocketEvents.ScreenShareStart, { voiceChannelId: activeVoiceChannelId, label });
 
     screenStream.getVideoTracks()[0].onended = () => {
       void toggleScreenShare();

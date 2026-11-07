@@ -49,6 +49,7 @@ export interface VoicePeerInfo {
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;
+  screenShareLabel: string | null;
 }
 
 export interface WebRTCSignal {

@@ -11,6 +11,7 @@ export interface RemotePeer {
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;
+  screenShareLabel: string | null;
   // Local-only: this viewer's personal volume/mute for this peer, never synced to the
   // server or other clients (distinct from isMuted, which reflects the peer's own mic).
   localVolume: number;
@@ -61,6 +62,7 @@ function emptyPeer(socketId: string): RemotePeer {
     isMuted: false,
     isDeafened: false,
     isScreenSharing: false,
+    screenShareLabel: null,
     localVolume: 100,
     localMuted: false,
     connectionQuality: "unknown",
