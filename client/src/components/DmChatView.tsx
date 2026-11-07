@@ -5,6 +5,7 @@ import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useDmStore } from "../store/dmStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { linkifyText } from "../utils/linkify";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import DmMessageInput from "./DmMessageInput";
 
@@ -67,7 +68,7 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
           <button onClick={cancelEdit}>Cancel</button>
         </div>
       ) : (
-        message.content && <div>{message.content}</div>
+        message.content && <div>{linkifyText(message.content)}</div>
       )}
 
       {message.imageUrl && (

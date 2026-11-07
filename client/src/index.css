@@ -1109,6 +1109,16 @@ button {
   background: #a12828;
 }
 
+.message-link {
+  color: #00a8fc;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.message-link:hover {
+  text-decoration: underline;
+}
+
 .hud-icon-button.static {
   cursor: inherit;
 }

@@ -5,6 +5,7 @@ import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useChatStore } from "../store/chatStore";
 import { useServerStore } from "../store/serverStore";
+import { linkifyText } from "../utils/linkify";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import MessageInput from "./MessageInput";
 
@@ -67,7 +68,7 @@ function MessageRow({ message, isOwn }: { message: MessageDTO; isOwn: boolean })
           <button onClick={cancelEdit}>Cancel</button>
         </div>
       ) : (
-        message.content && <div>{message.content}</div>
+        message.content && <div>{linkifyText(message.content)}</div>
       )}
 
       {message.imageUrl && (
