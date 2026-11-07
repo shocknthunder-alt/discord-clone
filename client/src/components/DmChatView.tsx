@@ -7,7 +7,6 @@ import { useDmStore } from "../store/dmStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import DmMessageInput from "./DmMessageInput";
-import VoiceControlBar from "./VoiceControlBar";
 
 interface Props {
   conversationId: string;
@@ -175,8 +174,6 @@ export default function DmChatView({ conversationId }: Props) {
           {inThisCall ? "📞 Hang up" : "📞 Call"}
         </button>
       </div>
-
-      {inThisCall && <VoiceControlBar />}
 
       <div className="message-list">
         {messages.map((message) => (

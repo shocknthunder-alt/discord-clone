@@ -1,7 +1,6 @@
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type ConnectionQuality } from "../store/voiceStore";
-import OwnVoiceControls from "./OwnVoiceControls";
 
 const QUALITY_COLOR: Record<ConnectionQuality, string> = {
   good: "#23a559",
@@ -57,8 +56,6 @@ export default function VoiceStatusBar() {
         <div className="voice-status-bar-title">Voice Connected</div>
         <div className="voice-status-bar-subtitle">{label}</div>
       </div>
-
-      <OwnVoiceControls />
     </div>
   );
 }

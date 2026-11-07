@@ -7,9 +7,7 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { voiceStatusIcons } from "../utils/voiceStatus";
-import OwnVoiceControls from "./OwnVoiceControls";
 import ScreenSharePlayer from "./ScreenSharePlayer";
-import VoiceControlBar from "./VoiceControlBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 
@@ -94,15 +92,9 @@ export default function VoiceChannelPanel() {
             <div>{currentUsername}</div>
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
             {isScreenSharing && <div className="screen-share-badge self">🖥️ You're sharing</div>}
-
-            {/* Only the local user sees their own controls here — every client renders its own tile. */}
-            <div className="voice-tile-own-controls">
-              <OwnVoiceControls />
-            </div>
           </div>
         </div>
       </div>
-      <VoiceControlBar />
 
       {contextMenu && (
         <VoicePeerContextMenu

@@ -1061,3 +1061,55 @@ button {
 .sidebar-action-draggable .sidebar-action-button {
   width: 100%;
 }
+
+.floating-icon {
+  position: fixed;
+  z-index: 60;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.floating-icon:active {
+  cursor: grabbing;
+}
+
+.floating-icon.locked {
+  cursor: default;
+}
+
+.hud-icon-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #2b2d31;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  padding: 0;
+}
+
+.hud-icon-button:hover {
+  background: #35373c;
+}
+
+.hud-icon-button.active {
+  background: #5865f2;
+}
+
+.hud-icon-button.hangup {
+  background: #da373c;
+  color: #ffffff;
+  transform: rotate(135deg);
+}
+
+.hud-icon-button.hangup:hover {
+  background: #a12828;
+}
+
+.hud-icon-button.static {
+  cursor: inherit;
+}

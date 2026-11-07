@@ -6,7 +6,7 @@ import { getPreferredMicDeviceId } from "./devicePrefs";
 import { PeerConnectionManager } from "./PeerConnectionManager";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
-// components (ChannelList, VoiceControlBar), all of which must share the same manager
+// components (ChannelList, FloatingVoiceHud), all of which must share the same manager
 // and live connections rather than each hook instance getting its own.
 let activeManager: PeerConnectionManager | null = null;
 

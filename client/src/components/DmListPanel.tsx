@@ -3,6 +3,7 @@ import { fetchConversations } from "../api/dm.api";
 import { useDmStore } from "../store/dmStore";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { resetAllPositions } from "../utils/floatingPositions";
 import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
 
@@ -30,6 +31,20 @@ export default function DmListPanel() {
           >
             {locked ? "🔒" : "🔓"}
           </button>
+          {!locked && (
+            <button
+              className="server-settings-button"
+              onClick={() => {
+                if (window.confirm("Reset all moved icons/buttons back to their default positions?")) {
+                  resetAllPositions();
+                  window.location.reload();
+                }
+              }}
+              title="Reset icon positions"
+            >
+              ↺
+            </button>
+          )}
         </div>
 
         {conversations.length === 0 && (

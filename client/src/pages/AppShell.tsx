@@ -5,6 +5,7 @@ import { fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
 import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
+import FloatingVoiceHud from "../components/FloatingVoiceHud";
 import IncomingCallToast from "../components/IncomingCallToast";
 import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
@@ -58,6 +59,7 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <VoiceAudioBridge />
+      <FloatingVoiceHud />
       <IncomingCallToast />
       <ServerSidebar />
       {view === "dms" ? (

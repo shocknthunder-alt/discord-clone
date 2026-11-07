@@ -7,6 +7,7 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
+import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import ChannelContextMenu from "./ChannelContextMenu";
@@ -99,6 +100,20 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
               >
                 {locked ? "🔒" : "🔓"}
               </button>
+              {!locked && (
+                <button
+                  className="server-settings-button"
+                  onClick={() => {
+                    if (window.confirm("Reset all moved icons/buttons back to their default positions?")) {
+                      resetAllPositions();
+                      window.location.reload();
+                    }
+                  }}
+                  title="Reset icon positions"
+                >
+                  ↺
+                </button>
+              )}
               {isOwner && (
                 <button className="server-settings-button" onClick={() => setShowServerSettings(true)} title="Server settings">
                   ⚙️
