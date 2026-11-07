@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { fetchConversations } from "../api/dm.api";
 import { useDmStore } from "../store/dmStore";
 import UserBar from "./UserBar";
+import VoiceStatusBar from "./VoiceStatusBar";
 
 export default function DmListPanel() {
   const { conversations, activeConversationId, setConversations, setActiveConversation, setView } = useDmStore();
@@ -44,6 +45,7 @@ export default function DmListPanel() {
         ))}
       </div>
 
+      <VoiceStatusBar />
       <UserBar />
     </div>
   );

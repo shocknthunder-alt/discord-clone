@@ -1,7 +1,18 @@
 import { useEffect, useRef } from "react";
 import { useVoiceStore } from "../store/voiceStore";
+import { supportsOutputDeviceSelection } from "../webrtc/devicePrefs";
 
-function RemoteAudio({ stream, volume, muted }: { stream: MediaStream; volume: number; muted: boolean }) {
+function RemoteAudio({
+  stream,
+  volume,
+  muted,
+  speakerId,
+}: {
+  stream: MediaStream;
+  volume: number;
+  muted: boolean;
+  speakerId: string;
+}) {
   const ref = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -11,6 +22,12 @@ function RemoteAudio({ stream, volume, muted }: { stream: MediaStream; volume: n
   useEffect(() => {
     if (ref.current) ref.current.volume = Math.min(Math.max(volume, 0), 100) / 100;
   }, [volume]);
+
+  useEffect(() => {
+    if (ref.current && speakerId && supportsOutputDeviceSelection()) {
+      ref.current.setSinkId(speakerId).catch((err) => console.error("Failed to set output device", err));
+    }
+  }, [speakerId]);
 
   return <audio ref={ref} autoPlay muted={muted} />;
 }
@@ -23,7 +40,7 @@ function RemoteAudio({ stream, volume, muted }: { stream: MediaStream; volume: n
  * even though the underlying RTCPeerConnections stay alive.
  */
 export default function VoiceAudioBridge() {
-  const { peers, isDeafened } = useVoiceStore();
+  const { peers, isDeafened, preferredSpeakerId } = useVoiceStore();
 
   if (isDeafened) return null;
 
@@ -36,6 +53,7 @@ export default function VoiceAudioBridge() {
             stream={peer.audioStream}
             volume={peer.localVolume}
             muted={peer.localMuted}
+            speakerId={preferredSpeakerId}
           />
         ) : null,
       )}

@@ -12,6 +12,7 @@ import ChannelContextMenu from "./ChannelContextMenu";
 import CreateChannelModal from "./CreateChannelModal";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
+import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 
 interface Props {
@@ -156,6 +157,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
         )}
       </div>
 
+      <VoiceStatusBar />
       <UserBar />
 
       {showServerSettings && activeServer && (

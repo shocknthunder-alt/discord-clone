@@ -65,16 +65,22 @@ interface PeerHandle {
   remoteScreenStream: MediaStream;
 }
 
+export type ConnectionQuality = "good" | "medium" | "poor" | "unknown";
+
 interface PeerConnectionManagerCallbacks {
   onAudioStream: (socketId: string, userId: string, stream: MediaStream) => void;
   onScreenStream: (socketId: string, stream: MediaStream | null) => void;
   onPeerClosed: (socketId: string) => void;
+  onQualityChange?: (quality: ConnectionQuality) => void;
 }
+
+const STATS_POLL_INTERVAL_MS = 2500;
 
 export class PeerConnectionManager {
   private peers = new Map<string, PeerHandle>();
   private localStream: MediaStream | null = null;
   private localScreenTrack: MediaStreamTrack | null = null;
+  private statsInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private socket: Socket,
@@ -83,6 +89,64 @@ export class PeerConnectionManager {
     this.socket.on(SocketEvents.VoiceSignal, ({ fromSocketId, signal }: { fromSocketId: string; signal: WebRTCSignal }) => {
       void this.handleSignal(fromSocketId, signal);
     });
+
+    this.statsInterval = setInterval(() => void this.pollStats(), STATS_POLL_INTERVAL_MS);
+  }
+
+  /**
+   * Classifies call quality from each peer connection's RTCStatsReport, taking the
+   * worst-scoring peer as the overall indicator (mirrors a single "Voice Connected"
+   * status, same as Discord shows one indicator regardless of how many people are in
+   * the call). Thresholds are rule-of-thumb values for voice: round-trip time under
+   * ~150ms and under 2% packet loss reads as unnoticeable; beyond ~300ms/5% loss is
+   * where choppiness becomes obvious.
+   */
+  private async pollStats() {
+    if (this.peers.size === 0) {
+      this.callbacks.onQualityChange?.("unknown");
+      return;
+    }
+
+    let worst: ConnectionQuality = "good";
+    const rank: Record<ConnectionQuality, number> = { good: 0, medium: 1, poor: 2, unknown: 0 };
+
+    for (const peer of this.peers.values()) {
+      try {
+        const report = await peer.connection.getStats();
+        let rttMs: number | null = null;
+        let packetsLost = 0;
+        let packetsReceived = 0;
+
+        report.forEach((stat) => {
+          if (stat.type === "candidate-pair" && stat.state === "succeeded" && stat.nominated) {
+            if (typeof stat.currentRoundTripTime === "number") {
+              rttMs = stat.currentRoundTripTime * 1000;
+            }
+          }
+          if (stat.type === "inbound-rtp" && stat.kind === "audio") {
+            packetsLost += stat.packetsLost ?? 0;
+            packetsReceived += stat.packetsReceived ?? 0;
+          }
+        });
+
+        const lossRatio = packetsReceived > 0 ? packetsLost / (packetsLost + packetsReceived) : 0;
+
+        let peerQuality: ConnectionQuality = "good";
+        if (rttMs === null) {
+          peerQuality = "unknown";
+        } else if (rttMs > 300 || lossRatio > 0.05) {
+          peerQuality = "poor";
+        } else if (rttMs > 150 || lossRatio > 0.02) {
+          peerQuality = "medium";
+        }
+
+        if (rank[peerQuality] > rank[worst]) worst = peerQuality;
+      } catch (err) {
+        console.error("Failed to read connection stats", err);
+      }
+    }
+
+    this.callbacks.onQualityChange?.(worst);
   }
 
   setLocalStream(stream: MediaStream) {
@@ -97,9 +161,20 @@ export class PeerConnectionManager {
     }
   }
 
-  /** Called when a new peer announces itself to us — we wait passively for their offer. */
+  /**
+   * Called when a new peer announces itself to us — we don't send the first offer (that's
+   * the joiner's job, see addPeerAndInitiate, which avoids both sides racing to offer at
+   * once), but we still need to add our own audio track to THIS connection, or our side
+   * of the call stays receive-only forever: we'd hear the joiner fine (their offer carries
+   * their track), but they'd never hear us, since nothing ever added our track to send.
+   * Adding it here triggers our own onnegotiationneeded, which perfect-negotiation's
+   * polite/impolite handling in handleSignal resolves safely against the joiner's offer.
+   */
   registerIncomingPeer(socketId: string, userId: string) {
-    this.getOrCreatePeer(socketId, userId);
+    const peer = this.getOrCreatePeer(socketId, userId);
+    for (const track of this.localStream?.getAudioTracks() ?? []) {
+      peer.connection.addTrack(track, this.localStream!);
+    }
   }
 
   removePeer(socketId: string) {
@@ -115,6 +190,10 @@ export class PeerConnectionManager {
       this.removePeer(socketId);
     }
     this.localScreenTrack = null;
+    if (this.statsInterval) {
+      clearInterval(this.statsInterval);
+      this.statsInterval = null;
+    }
   }
 
   startScreenShare(screenStream: MediaStream) {

@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
-import { getPreferredMicDeviceId, listMicDevices, setPreferredMicDeviceId } from "../webrtc/devicePrefs";
+import { useVoiceStore } from "../store/voiceStore";
+import {
+  getPreferredMicDeviceId,
+  listMicDevices,
+  listSpeakerDevices,
+  setPreferredMicDeviceId,
+  supportsOutputDeviceSelection,
+} from "../webrtc/devicePrefs";
 
 interface Props {
   onClose: () => void;
@@ -19,25 +26,42 @@ export default function UserSettingsModal({ onClose }: Props) {
 
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedMicId, setSelectedMicId] = useState(getPreferredMicDeviceId() ?? "");
+  const [speakerDevices, setSpeakerDevices] = useState<MediaDeviceInfo[]>([]);
+  const preferredSpeakerId = useVoiceStore((s) => s.preferredSpeakerId);
+  const setPreferredSpeakerId = useVoiceStore((s) => s.setPreferredSpeakerId);
 
   useEffect(() => {
     // Device labels are empty until mic permission has been granted at least once;
-    // requesting it here (and immediately releasing it) ensures the dropdown shows
-    // real names instead of "Microphone 1" / "Microphone 2".
+    // requesting it here (and immediately releasing it) ensures the dropdowns show
+    // real names instead of "Microphone 1" / "Speaker 1".
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
         stream.getTracks().forEach((t) => t.stop());
-        return listMicDevices();
+        return Promise.all([listMicDevices(), listSpeakerDevices()]);
       })
-      .then(setMicDevices)
-      .catch(() => listMicDevices().then(setMicDevices).catch(() => {}));
+      .then(([mics, speakers]) => {
+        setMicDevices(mics);
+        setSpeakerDevices(speakers);
+      })
+      .catch(() =>
+        Promise.all([listMicDevices(), listSpeakerDevices()])
+          .then(([mics, speakers]) => {
+            setMicDevices(mics);
+            setSpeakerDevices(speakers);
+          })
+          .catch(() => {}),
+      );
   }, []);
 
   function handleMicChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const deviceId = e.target.value;
     setSelectedMicId(deviceId);
     setPreferredMicDeviceId(deviceId || null);
+  }
+
+  function handleSpeakerChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setPreferredSpeakerId(e.target.value);
   }
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -118,6 +142,32 @@ export default function UserSettingsModal({ onClose }: Props) {
           ))}
         </select>
         <p className="modal-hint">Takes effect next time you join a voice channel.</p>
+
+        <label className="modal-label" htmlFor="speaker-select">
+          Output Device (Speaker)
+        </label>
+        {supportsOutputDeviceSelection() ? (
+          <>
+            <select
+              id="speaker-select"
+              className="modal-input"
+              value={preferredSpeakerId}
+              onChange={handleSpeakerChange}
+            >
+              <option value="">System Default</option>
+              {speakerDevices.map((d) => (
+                <option key={d.deviceId} value={d.deviceId}>
+                  {d.label || `Speaker ${d.deviceId.slice(0, 6)}`}
+                </option>
+              ))}
+            </select>
+            <p className="modal-hint">Applies immediately to anyone already talking.</p>
+          </>
+        ) : (
+          <p className="modal-hint">
+            Your browser doesn't support choosing an output device — audio plays through your system default.
+          </p>
+        )}
 
         {error && <div className="modal-error">{error}</div>}
 

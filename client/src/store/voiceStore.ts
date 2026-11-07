@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getPreferredSpeakerDeviceId, setPreferredSpeakerDeviceId } from "../webrtc/devicePrefs";
 
 export interface RemotePeer {
   userId: string;
@@ -15,6 +16,8 @@ export interface RemotePeer {
   localMuted: boolean;
 }
 
+export type ConnectionQuality = "good" | "medium" | "poor" | "unknown";
+
 interface VoiceState {
   activeVoiceChannelId: string | null;
   localStream: MediaStream | null;
@@ -23,6 +26,8 @@ interface VoiceState {
   isDeafened: boolean;
   isScreenSharing: boolean;
   peers: Map<string, RemotePeer>;
+  preferredSpeakerId: string;
+  connectionQuality: ConnectionQuality;
 
   setActiveVoiceChannel: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -34,6 +39,8 @@ interface VoiceState {
   removePeer: (socketId: string) => void;
   setPeerLocalVolume: (socketId: string, volume: number) => void;
   setPeerLocalMuted: (socketId: string, muted: boolean) => void;
+  setPreferredSpeakerId: (deviceId: string) => void;
+  setConnectionQuality: (quality: ConnectionQuality) => void;
   reset: () => void;
 }
 
@@ -60,6 +67,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   isDeafened: false,
   isScreenSharing: false,
   peers: new Map(),
+  preferredSpeakerId: getPreferredSpeakerDeviceId() ?? "",
+  connectionQuality: "unknown",
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
   setLocalStream: (stream) => set({ localStream: stream }),
@@ -99,6 +108,13 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       return { peers };
     }),
 
+  setPreferredSpeakerId: (deviceId) => {
+    setPreferredSpeakerDeviceId(deviceId || null);
+    set({ preferredSpeakerId: deviceId });
+  },
+
+  setConnectionQuality: (quality) => set({ connectionQuality: quality }),
+
   reset: () =>
     set({
       activeVoiceChannelId: null,
@@ -108,5 +124,6 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       isDeafened: false,
       isScreenSharing: false,
       peers: new Map(),
+      connectionQuality: "unknown",
     }),
 }));

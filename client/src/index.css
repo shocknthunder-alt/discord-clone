@@ -796,6 +796,48 @@ button {
   opacity: 0.5;
 }
 
+.voice-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #1e1f22;
+}
+
+.voice-status-bar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-status-bar-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #23a559;
+}
+
+.voice-status-bar-subtitle {
+  font-size: 12px;
+  color: #b5bac1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-status-bar-hangup {
+  background: #da373c;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  color: white;
+  transform: rotate(135deg);
+}
+
+.voice-status-bar-hangup:hover {
+  background: #a12828;
+}
+
 .user-bar {
   display: flex;
   align-items: center;
