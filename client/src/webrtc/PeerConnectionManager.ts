@@ -17,17 +17,23 @@ const ICE_SERVERS: RTCIceServer[] = [
   },
 ];
 
-// WebRTC's default bandwidth estimate (~2 Mbps) looks blurry at 2K/4K regardless of the
-// captured resolution; raise the sender's target bitrate so screen-share text/UI stays
-// sharp. 8 Mbps is a reasonable ceiling for 4K30 screen content over a decent connection —
-// the encoder still backs off under real congestion, this only raises the cap.
+// WebRTC's default bandwidth estimate (~2 Mbps) looks blurry for screen content; raise the
+// sender's target bitrate so text/UI stays sharp. This is a mesh, not an SFU — every peer
+// in the call gets its own full-bitrate copy of this stream, so the cap is sized for the
+// capture resolution below (1080p) rather than the 4K ceiling it used to allow: at 8 Mbps
+// a 3-person call could ask for 16+ Mbps of simultaneous upload, which is more than most
+// home connections sustain and was the likely cause of the share stuttering mid-call. The
+// encoder still backs off under real congestion either way — this only raises the cap.
 async function applyHighQualityEncoding(sender: RTCRtpSender) {
   try {
     const params = sender.getParameters();
     if (!params.encodings || params.encodings.length === 0) {
       params.encodings = [{}];
     }
-    params.encodings[0].maxBitrate = 8_000_000;
+    params.encodings[0].maxBitrate = 4_000_000;
+    // Tells the encoder this is screen/text content, not camera motion — it biases toward
+    // keeping resolution crisp and lets framerate drop under pressure instead of blurring.
+    params.degradationPreference = "maintain-resolution";
     await sender.setParameters(params);
   } catch (err) {
     console.error("Failed to raise screen-share bitrate", err);
@@ -38,7 +44,10 @@ async function applyHighQualityEncoding(sender: RTCRtpSender) {
 // Opus bitrate is more consistently controlled by munging the fmtp line in the SDP itself.
 // Browsers default Opus to ~32-40 Kbps (speech-tuned) — 128 Kbps plus inband FEC (forward
 // error correction, lets the decoder reconstruct audio lost to dropped packets) gets much
-// closer to what Opus is actually capable of for voice/music.
+// closer to what Opus is actually capable of for voice/music. DTX (discontinuous
+// transmission) stops sending packets during silence instead of encoding it at full rate —
+// most of a voice call IS silence, so this meaningfully cuts background bandwidth and
+// leaves more headroom for a concurrent screen share on the same connection.
 function boostOpusAudio(sdp: string, maxAverageBitrateBps = 128_000): string {
   const lines = sdp.split("\r\n");
   const opusLine = lines.find((line) => /^a=rtpmap:\d+ opus\/48000/i.test(line));
@@ -49,7 +58,7 @@ function boostOpusAudio(sdp: string, maxAverageBitrateBps = 128_000): string {
     .map((line) => {
       if (!line.startsWith(`a=fmtp:${payloadType} `)) return line;
       if (line.includes("maxaveragebitrate")) return line;
-      return `${line};maxaveragebitrate=${maxAverageBitrateBps};useinbandfec=1`;
+      return `${line};maxaveragebitrate=${maxAverageBitrateBps};useinbandfec=1;usedtx=1`;
     })
     .join("\r\n");
 }
@@ -210,6 +219,13 @@ export class PeerConnectionManager {
     const videoTrack = screenStream.getVideoTracks()[0];
     if (!videoTrack) return;
     this.localScreenTrack = videoTrack;
+    // Hints the encoder that this is screen/text content rather than a camera, so it
+    // favors sharpness over smooth motion — pairs with degradationPreference below.
+    try {
+      videoTrack.contentHint = "detail";
+    } catch {
+      // contentHint isn't supported in every browser — fine to skip.
+    }
 
     // The shared tab/system audio (e.g. a YouTube clip) — optional, since "Entire Screen"
     // capture doesn't always offer audio and some browsers omit it even when requested.

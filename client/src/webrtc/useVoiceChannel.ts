@@ -189,12 +189,14 @@ export function useVoiceChannel() {
 
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        // Request up to 4K — the browser/source caps this at whatever the actual
-        // display supports; the real quality lever is the sender bitrate set in
-        // PeerConnectionManager.startScreenShare, since WebRTC's default bandwidth
-        // estimate (~2 Mbps) looks blurry at 2K/4K regardless of captured resolution.
-        width: { ideal: 3840 },
-        height: { ideal: 2160 },
+        // Capped at 1080p: the viewer never renders the shared video wider than ~1100px
+        // (see .screen-share-video), and this is a mesh — every peer watching gets their
+        // own full-bitrate copy of whatever we capture, so asking for 4K here multiplied
+        // real upload bandwidth need by ~4x for zero visible benefit and was the likely
+        // cause of shares stuttering with more than one viewer. The sender bitrate cap in
+        // PeerConnectionManager.startScreenShare is sized to match.
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
         frameRate: { ideal: 30, max: 60 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
