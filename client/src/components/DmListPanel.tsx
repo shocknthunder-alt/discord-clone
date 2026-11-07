@@ -1,11 +1,13 @@
 import { useEffect } from "react";
 import { fetchConversations } from "../api/dm.api";
 import { useDmStore } from "../store/dmStore";
+import { useVoiceStore } from "../store/voiceStore";
 import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
 
 export default function DmListPanel() {
   const { conversations, activeConversationId, setConversations, setActiveConversation, setView } = useDmStore();
+  const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
 
   useEffect(() => {
     fetchConversations().then(setConversations).catch(console.error);
@@ -46,7 +48,7 @@ export default function DmListPanel() {
       </div>
 
       <VoiceStatusBar />
-      <UserBar />
+      {!activeVoiceChannelId && <UserBar />}
     </div>
   );
 }

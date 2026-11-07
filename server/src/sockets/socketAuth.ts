@@ -10,13 +10,17 @@ export async function socketAuthMiddleware(socket: Socket, next: (err?: Error) =
 
   try {
     const payload = verifyToken(token);
-    const user = await prisma.user.findUnique({ where: { id: payload.userId }, select: { username: true } });
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { username: true, avatarUrl: true },
+    });
     if (!user) {
       return next(new Error("User not found"));
     }
 
     socket.data.userId = payload.userId;
     socket.data.username = user.username;
+    socket.data.avatarUrl = user.avatarUrl;
     next();
   } catch {
     next(new Error("Invalid or expired token"));

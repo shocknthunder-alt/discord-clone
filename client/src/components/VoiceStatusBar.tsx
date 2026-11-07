@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type ConnectionQuality } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import UserSettingsModal from "./UserSettingsModal";
 
 const QUALITY_LABEL: Record<ConnectionQuality, string> = {
   good: "Excellent connection",
@@ -17,12 +19,12 @@ const QUALITY_COLOR: Record<ConnectionQuality, string> = {
   unknown: "#80848e",
 };
 
-function SignalIcon({ quality }: { quality: ConnectionQuality }) {
+export function SignalIcon({ quality, size = 16 }: { quality: ConnectionQuality; size?: number }) {
   const color = QUALITY_COLOR[quality];
   const activeBars = quality === "good" ? 3 : quality === "medium" ? 2 : quality === "poor" ? 1 : 0;
 
   return (
-    <svg width="16" height="14" viewBox="0 0 16 14" aria-hidden>
+    <svg width={size} height={size * 0.85} viewBox="0 0 16 14" aria-hidden>
       {[0, 1, 2].map((i) => {
         const barHeight = 4 + i * 4;
         return (
@@ -47,6 +49,7 @@ export default function VoiceStatusBar() {
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const conversations = useDmStore((s) => s.conversations);
   const { leaveVoiceChannel } = useVoiceChannel();
+  const [showSettings, setShowSettings] = useState(false);
 
   if (!activeVoiceChannelId) return null;
 
@@ -61,15 +64,25 @@ export default function VoiceStatusBar() {
   }
 
   return (
-    <div className="voice-status-bar" title={QUALITY_LABEL[connectionQuality]}>
-      <SignalIcon quality={connectionQuality} />
+    <div className="voice-status-bar">
       <div className="voice-status-bar-text">
         <div className="voice-status-bar-title">Voice Connected</div>
         <div className="voice-status-bar-subtitle">{label}</div>
       </div>
-      <button className="voice-status-bar-hangup" onClick={leaveVoiceChannel} title="Disconnect">
-        📞
-      </button>
+
+      <div className="voice-status-bar-icons">
+        <button className="voice-status-icon-button hangup" onClick={leaveVoiceChannel} title="Disconnect">
+          📞
+        </button>
+        <button className="voice-status-icon-button" onClick={() => setShowSettings(true)} title="Settings">
+          ⚙️
+        </button>
+        <div className="voice-status-icon-button static" title={QUALITY_LABEL[connectionQuality]}>
+          <SignalIcon quality={connectionQuality} size={14} />
+        </div>
+      </div>
+
+      {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { getPreferredSpeakerDeviceId, setPreferredSpeakerDeviceId } from "../web
 export interface RemotePeer {
   userId: string;
   username: string;
+  avatarUrl: string | null;
   socketId: string;
   audioStream: MediaStream | null;
   screenStream: MediaStream | null;
@@ -48,6 +49,7 @@ function emptyPeer(socketId: string): RemotePeer {
   return {
     userId: "",
     username: "",
+    avatarUrl: null,
     socketId,
     audioStream: null,
     screenStream: null,

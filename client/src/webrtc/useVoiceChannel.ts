@@ -56,6 +56,7 @@ export function useVoiceChannel() {
           socketId: peer.socketId,
           userId: peer.userId,
           username: peer.username,
+          avatarUrl: peer.avatarUrl,
           isMuted: peer.isMuted,
           isDeafened: peer.isDeafened,
           isScreenSharing: peer.isScreenSharing,
@@ -66,8 +67,18 @@ export function useVoiceChannel() {
 
     socket.on(
       SocketEvents.VoicePeerJoined,
-      ({ userId, username, socketId }: { userId: string; username: string; socketId: string }) => {
-        useVoiceStore.getState().upsertPeer({ socketId, userId, username });
+      ({
+        userId,
+        username,
+        avatarUrl,
+        socketId,
+      }: {
+        userId: string;
+        username: string;
+        avatarUrl: string | null;
+        socketId: string;
+      }) => {
+        useVoiceStore.getState().upsertPeer({ socketId, userId, username, avatarUrl });
         manager.registerIncomingPeer(socketId, userId);
       },
     );

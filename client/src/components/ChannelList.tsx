@@ -158,7 +158,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
       </div>
 
       <VoiceStatusBar />
-      <UserBar />
+      {!activeVoiceChannelId && <UserBar />}
 
       {showServerSettings && activeServer && (
         <ServerSettingsModal server={activeServer} onClose={() => setShowServerSettings(false)} />
