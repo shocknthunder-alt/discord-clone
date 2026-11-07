@@ -17,3 +17,7 @@ export function loginUser(email: string, password: string) {
 export function fetchMe() {
   return http.get<{ user: UserDTO }>("/api/auth/me").then((r) => r.data);
 }
+
+export function updateProfile(data: { username?: string; avatarUrl?: string | null }) {
+  return http.patch<{ user: UserDTO }>("/api/auth/me", data).then((r) => r.data.user);
+}

@@ -54,3 +54,31 @@ export async function me(req: Request, res: Response) {
   }
   res.json({ user: toUserDTO(user) });
 }
+
+export async function updateMe(req: Request, res: Response) {
+  const { username, avatarUrl } = req.body ?? {};
+
+  if (username !== undefined) {
+    if (typeof username !== "string" || !username.trim()) {
+      return res.status(400).json({ error: "username must be a non-empty string" });
+    }
+    const existing = await prisma.user.findUnique({ where: { username: username.trim() } });
+    if (existing && existing.id !== req.userId) {
+      return res.status(409).json({ error: "Username already taken" });
+    }
+  }
+
+  if (avatarUrl !== undefined && avatarUrl !== null && typeof avatarUrl !== "string") {
+    return res.status(400).json({ error: "avatarUrl must be a string or null" });
+  }
+
+  const user = await prisma.user.update({
+    where: { id: req.userId! },
+    data: {
+      ...(username !== undefined ? { username: username.trim() } : {}),
+      ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+    },
+  });
+
+  res.json({ user: toUserDTO(user) });
+}

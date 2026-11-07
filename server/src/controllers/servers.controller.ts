@@ -50,6 +50,35 @@ export async function getServer(req: Request, res: Response) {
   res.json({ server });
 }
 
+export async function updateServer(req: Request, res: Response) {
+  const { serverId } = req.params;
+  const { name, iconUrl } = req.body ?? {};
+
+  const membership = await prisma.membership.findUnique({
+    where: { userId_serverId: { userId: req.userId!, serverId } },
+  });
+  if (!membership || membership.role !== "OWNER") {
+    return res.status(403).json({ error: "Only the server owner can update the server" });
+  }
+
+  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+    return res.status(400).json({ error: "name must be a non-empty string" });
+  }
+  if (iconUrl !== undefined && iconUrl !== null && typeof iconUrl !== "string") {
+    return res.status(400).json({ error: "iconUrl must be a string or null" });
+  }
+
+  const server = await prisma.server.update({
+    where: { id: serverId },
+    data: {
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(iconUrl !== undefined ? { iconUrl } : {}),
+    },
+  });
+
+  res.json({ server });
+}
+
 export async function joinServer(req: Request, res: Response) {
   const { inviteCode } = req.body ?? {};
   if (!inviteCode) {

@@ -26,7 +26,7 @@ export default function ServerSidebar() {
           title={server.name}
           onClick={() => setActiveServer(server.id)}
         >
-          {server.name.slice(0, 2).toUpperCase()}
+          {server.iconUrl ? <img src={server.iconUrl} alt="" /> : server.name.slice(0, 2).toUpperCase()}
         </button>
       ))}
 
