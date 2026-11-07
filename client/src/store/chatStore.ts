@@ -6,6 +6,8 @@ interface ChatState {
   typingByChannel: Record<string, Set<string>>;
   setMessages: (channelId: string, messages: MessageDTO[]) => void;
   addMessage: (message: MessageDTO) => void;
+  updateMessage: (channelId: string, messageId: string, content: string, editedAt: string | null) => void;
+  removeMessage: (channelId: string, messageId: string) => void;
   setTyping: (channelId: string, userId: string, isTyping: boolean) => void;
 }
 
@@ -21,6 +23,26 @@ export const useChatStore = create<ChatState>((set) => ({
         messagesByChannel: {
           ...s.messagesByChannel,
           [message.textChannelId]: [...existing, message],
+        },
+      };
+    }),
+  updateMessage: (channelId, messageId, content, editedAt) =>
+    set((s) => {
+      const existing = s.messagesByChannel[channelId] ?? [];
+      return {
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          [channelId]: existing.map((m) => (m.id === messageId ? { ...m, content, editedAt } : m)),
+        },
+      };
+    }),
+  removeMessage: (channelId, messageId) =>
+    set((s) => {
+      const existing = s.messagesByChannel[channelId] ?? [];
+      return {
+        messagesByChannel: {
+          ...s.messagesByChannel,
+          [channelId]: existing.filter((m) => m.id !== messageId),
         },
       };
     }),

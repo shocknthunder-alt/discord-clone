@@ -60,6 +60,41 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
     },
   );
 
+  socket.on(
+    SocketEvents.MessageEdit,
+    async ({ messageId, content }: { messageId: string; content: string }) => {
+      const trimmedContent = content?.trim() ?? "";
+      if (!trimmedContent) return;
+
+      const existing = await prisma.message.findUnique({ where: { id: messageId } });
+      if (!existing || existing.authorId !== userId) return;
+
+      const message = await prisma.message.update({
+        where: { id: messageId },
+        data: { content: trimmedContent, editedAt: new Date() },
+      });
+
+      io.to(`channel:${message.textChannelId}`).emit(SocketEvents.MessageUpdated, {
+        id: message.id,
+        textChannelId: message.textChannelId,
+        content: message.content,
+        editedAt: message.editedAt?.toISOString() ?? null,
+      });
+    },
+  );
+
+  socket.on(SocketEvents.MessageDelete, async ({ messageId }: { messageId: string }) => {
+    const existing = await prisma.message.findUnique({ where: { id: messageId } });
+    if (!existing || existing.authorId !== userId) return;
+
+    await prisma.message.delete({ where: { id: messageId } });
+
+    io.to(`channel:${existing.textChannelId}`).emit(SocketEvents.MessageDeleted, {
+      id: existing.id,
+      textChannelId: existing.textChannelId,
+    });
+  });
+
   socket.on(SocketEvents.TypingStart, ({ textChannelId }: { textChannelId: string }) => {
     socket.to(`channel:${textChannelId}`).emit(SocketEvents.TypingUpdate, {
       userId,

@@ -1,5 +1,5 @@
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -11,8 +11,76 @@ interface Props {
   channelId: string;
 }
 
+function MessageRow({ message, isOwn }: { message: MessageDTO; isOwn: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(message.content);
+
+  function saveEdit() {
+    const content = draft.trim();
+    if (!content) return;
+    getSocket()?.emit(SocketEvents.MessageEdit, { messageId: message.id, content });
+    setEditing(false);
+  }
+
+  function cancelEdit() {
+    setDraft(message.content);
+    setEditing(false);
+  }
+
+  function handleDelete() {
+    if (!window.confirm("Delete this message?")) return;
+    getSocket()?.emit(SocketEvents.MessageDelete, { messageId: message.id });
+  }
+
+  return (
+    <div className="message-row">
+      <span className="author">{message.authorUsername}</span>
+      <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
+      {message.editedAt && <span className="edited-tag">(edited)</span>}
+
+      {isOwn && !editing && (
+        <span className="message-actions">
+          {message.content && (
+            <button onClick={() => setEditing(true)} title="Edit">
+              ✏️
+            </button>
+          )}
+          <button onClick={handleDelete} title="Delete">
+            🗑️
+          </button>
+        </span>
+      )}
+
+      {editing ? (
+        <div className="message-edit-form">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") saveEdit();
+              if (e.key === "Escape") cancelEdit();
+            }}
+            autoFocus
+          />
+          <button onClick={saveEdit}>Save</button>
+          <button onClick={cancelEdit}>Cancel</button>
+        </div>
+      ) : (
+        message.content && <div>{message.content}</div>
+      )}
+
+      {message.imageUrl && (
+        <a href={message.imageUrl} target="_blank" rel="noreferrer">
+          <img className="message-image" src={message.imageUrl} alt="attachment" />
+        </a>
+      )}
+    </div>
+  );
+}
+
 export default function TextChatView({ channelId }: Props) {
-  const { messagesByChannel, typingByChannel, setMessages, addMessage, setTyping } = useChatStore();
+  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setTyping } =
+    useChatStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const textChannels = useServerStore((s) => s.textChannels);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -37,13 +105,37 @@ export default function TextChatView({ channelId }: Props) {
         setTyping(textChannelId, userId, isTyping);
       }
     }
+    function onUpdated({
+      id,
+      textChannelId,
+      content,
+      editedAt,
+    }: {
+      id: string;
+      textChannelId: string;
+      content: string;
+      editedAt: string | null;
+    }) {
+      if (textChannelId === channelId) {
+        updateMessage(channelId, id, content, editedAt);
+      }
+    }
+    function onDeleted({ id, textChannelId }: { id: string; textChannelId: string }) {
+      if (textChannelId === channelId) {
+        removeMessage(channelId, id);
+      }
+    }
 
     socket?.on(SocketEvents.MessageNew, onMessage);
     socket?.on(SocketEvents.TypingUpdate, onTyping);
+    socket?.on(SocketEvents.MessageUpdated, onUpdated);
+    socket?.on(SocketEvents.MessageDeleted, onDeleted);
 
     return () => {
       socket?.off(SocketEvents.MessageNew, onMessage);
       socket?.off(SocketEvents.TypingUpdate, onTyping);
+      socket?.off(SocketEvents.MessageUpdated, onUpdated);
+      socket?.off(SocketEvents.MessageDeleted, onDeleted);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId]);
@@ -57,16 +149,7 @@ export default function TextChatView({ channelId }: Props) {
       <div className="chat-header"># {channel?.name ?? ""}</div>
       <div className="message-list">
         {messages.map((message) => (
-          <div className="message-row" key={message.id}>
-            <span className="author">{message.authorUsername}</span>
-            <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
-            {message.content && <div>{message.content}</div>}
-            {message.imageUrl && (
-              <a href={message.imageUrl} target="_blank" rel="noreferrer">
-                <img className="message-image" src={message.imageUrl} alt="attachment" />
-              </a>
-            )}
-          </div>
+          <MessageRow key={message.id} message={message} isOwn={message.authorId === currentUserId} />
         ))}
         <div ref={bottomRef} />
       </div>
