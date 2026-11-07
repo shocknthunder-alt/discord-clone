@@ -283,3 +283,118 @@ button {
 .voice-control-bar button.danger {
   background: #da373c;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal-card {
+  position: relative;
+  width: 440px;
+  max-width: 90vw;
+  background: #2b2d31;
+  border-radius: 8px;
+  padding: 48px 32px 32px;
+}
+
+.modal-back {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: none;
+  border: none;
+  color: #dbdee1;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.modal-back:hover {
+  background: #35373c;
+}
+
+.modal-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  text-align: center;
+}
+
+.modal-subtitle {
+  margin: 0 0 24px;
+  text-align: center;
+  font-size: 14px;
+  color: #b5bac1;
+}
+
+.modal-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #b5bac1;
+  margin-bottom: 8px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 4px;
+  border: none;
+  background: #1e1f22;
+  color: #dbdee1;
+  font-size: 14px;
+}
+
+.modal-examples-label {
+  margin-top: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #b5bac1;
+}
+
+.modal-examples-text {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #949ba4;
+  line-height: 1.5;
+}
+
+.modal-examples-text strong {
+  color: #dbdee1;
+}
+
+.modal-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #fa777c;
+}
+
+.modal-join-button {
+  width: 100%;
+  margin-top: 24px;
+  padding: 12px;
+  border-radius: 4px;
+  border: 2px solid #da373c;
+  background: #ffffff;
+  color: #da373c;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.modal-join-button:hover:not(:disabled) {
+  background: #da373c;
+  color: #ffffff;
+}
+
+.modal-join-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

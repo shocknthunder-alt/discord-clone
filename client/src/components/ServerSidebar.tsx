@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { createServer, joinServer } from "../api/servers.api";
+import { createServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
+import JoinServerModal from "./JoinServerModal";
 
 export default function ServerSidebar() {
   const { servers, activeServerId, setActiveServer, addServer } = useServerStore();
@@ -10,15 +11,6 @@ export default function ServerSidebar() {
   async function handleCreate() {
     if (!input.trim()) return;
     const server = await createServer(input.trim());
-    addServer(server);
-    setActiveServer(server.id);
-    setInput("");
-    setMode("none");
-  }
-
-  async function handleJoin() {
-    if (!input.trim()) return;
-    const server = await joinServer(input.trim());
     addServer(server);
     setActiveServer(server.id);
     setInput("");
@@ -45,17 +37,14 @@ export default function ServerSidebar() {
         ⇒
       </button>
 
-      {mode !== "none" && (
+      {mode === "create" && (
         <div style={{ padding: 8 }}>
-          <input
-            style={{ width: 56 }}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder={mode === "create" ? "Name" : "Invite code"}
-          />
-          <button onClick={mode === "create" ? handleCreate : handleJoin}>Go</button>
+          <input style={{ width: 56 }} value={input} onChange={(e) => setInput(e.target.value)} placeholder="Name" />
+          <button onClick={handleCreate}>Go</button>
         </div>
       )}
+
+      {mode === "join" && <JoinServerModal onClose={() => setMode("none")} />}
     </div>
   );
 }
