@@ -18,6 +18,7 @@ export type MembershipRole = "OWNER" | "MEMBER";
 export interface TextChannelDTO {
   id: string;
   name: string;
+  backgroundUrl: string | null;
   serverId: string;
   position: number;
 }

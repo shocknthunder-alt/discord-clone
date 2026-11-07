@@ -13,6 +13,7 @@ interface ServerState {
   updateServerInList: (server: ServerDTO) => void;
   setActiveServer: (serverId: string | null) => void;
   setChannels: (textChannels: TextChannelDTO[], voiceChannels: VoiceChannelDTO[]) => void;
+  updateTextChannelInList: (channel: TextChannelDTO) => void;
   setActiveTextChannel: (channelId: string | null) => void;
   setUserOnline: (userId: string, online: boolean) => void;
 }
@@ -30,6 +31,8 @@ export const useServerStore = create<ServerState>((set) => ({
     set((s) => ({ servers: s.servers.map((sv) => (sv.id === server.id ? server : sv)) })),
   setActiveServer: (serverId) => set({ activeServerId: serverId, activeTextChannelId: null }),
   setChannels: (textChannels, voiceChannels) => set({ textChannels, voiceChannels }),
+  updateTextChannelInList: (channel) =>
+    set((s) => ({ textChannels: s.textChannels.map((c) => (c.id === channel.id ? channel : c)) })),
   setActiveTextChannel: (channelId) => set({ activeTextChannelId: channelId }),
   setUserOnline: (userId, online) =>
     set((s) => {

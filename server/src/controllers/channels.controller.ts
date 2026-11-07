@@ -36,6 +36,32 @@ export async function createTextChannel(req: Request, res: Response) {
   res.status(201).json({ textChannel });
 }
 
+export async function updateTextChannel(req: Request, res: Response) {
+  const { channelId } = req.params;
+  const { backgroundUrl } = req.body ?? {};
+
+  if (backgroundUrl !== undefined && backgroundUrl !== null && typeof backgroundUrl !== "string") {
+    return res.status(400).json({ error: "backgroundUrl must be a string or null" });
+  }
+
+  const textChannel = await prisma.textChannel.findUnique({ where: { id: channelId } });
+  if (!textChannel) {
+    return res.status(404).json({ error: "Channel not found" });
+  }
+
+  const membership = await requireMembership(req.userId!, textChannel.serverId);
+  if (!membership || membership.role !== "OWNER") {
+    return res.status(403).json({ error: "Only the server owner can update this channel" });
+  }
+
+  const updated = await prisma.textChannel.update({
+    where: { id: channelId },
+    data: { ...(backgroundUrl !== undefined ? { backgroundUrl } : {}) },
+  });
+
+  res.json({ textChannel: updated });
+}
+
 export async function createVoiceChannel(req: Request, res: Response) {
   const { serverId } = req.params;
   const { name } = req.body ?? {};

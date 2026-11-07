@@ -5,6 +5,7 @@ import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useChatStore } from "../store/chatStore";
 import { useServerStore } from "../store/serverStore";
+import ChannelSettingsModal from "./ChannelSettingsModal";
 import MessageInput from "./MessageInput";
 
 interface Props {
@@ -82,10 +83,13 @@ export default function TextChatView({ channelId }: Props) {
   const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setTyping } =
     useChatStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const textChannels = useServerStore((s) => s.textChannels);
+  const { textChannels, servers, activeServerId } = useServerStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [showChannelSettings, setShowChannelSettings] = useState(false);
 
   const channel = textChannels.find((c) => c.id === channelId);
+  const activeServer = servers.find((s) => s.id === activeServerId);
+  const isOwner = activeServer?.ownerId === currentUserId;
   const messages = messagesByChannel[channelId] ?? [];
   const typingUsers = Array.from(typingByChannel[channelId] ?? []).filter((id) => id !== currentUserId);
 
@@ -146,8 +150,26 @@ export default function TextChatView({ channelId }: Props) {
 
   return (
     <div className="main-content">
-      <div className="chat-header"># {channel?.name ?? ""}</div>
-      <div className="message-list">
+      <div className="chat-header">
+        <span className="chat-header-title"># {channel?.name ?? ""}</span>
+        {isOwner && (
+          <button className="server-settings-button" onClick={() => setShowChannelSettings(true)} title="Channel settings">
+            ⚙️
+          </button>
+        )}
+      </div>
+      <div
+        className="message-list"
+        style={
+          channel?.backgroundUrl
+            ? {
+                backgroundImage: `linear-gradient(rgba(49,51,56,0.85), rgba(49,51,56,0.85)), url(${channel.backgroundUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         {messages.map((message) => (
           <MessageRow key={message.id} message={message} isOwn={message.authorId === currentUserId} />
         ))}
@@ -157,6 +179,10 @@ export default function TextChatView({ channelId }: Props) {
         {typingUsers.length > 0 ? `${typingUsers.length} user(s) typing…` : ""}
       </div>
       <MessageInput channelId={channelId} />
+
+      {showChannelSettings && channel && (
+        <ChannelSettingsModal channel={channel} onClose={() => setShowChannelSettings(false)} />
+      )}
     </div>
   );
 }

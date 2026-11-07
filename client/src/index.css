@@ -275,6 +275,44 @@ button {
   padding: 12px 16px;
   border-bottom: 1px solid #1e1f22;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-header-title {
+  flex: 1;
+}
+
+.channel-background-preview-wrap {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.channel-background-preview-wrap.empty {
+  padding: 20px;
+  border: 1px dashed #4e5058;
+  border-radius: 8px;
+  color: #949ba4;
+  font-size: 13px;
+}
+
+.channel-background-preview {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.channel-background-preview-wrap button {
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: none;
+  background: #da373c;
+  color: white;
+  font-size: 13px;
 }
 
 .message-list {

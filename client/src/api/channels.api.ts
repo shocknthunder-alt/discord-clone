@@ -21,6 +21,10 @@ export function createVoiceChannel(serverId: string, name: string) {
     .then((r) => r.data.voiceChannel);
 }
 
+export function updateTextChannel(channelId: string, data: { backgroundUrl?: string | null }) {
+  return http.patch<{ textChannel: TextChannelDTO }>(`/api/text-channels/${channelId}`, data).then((r) => r.data.textChannel);
+}
+
 export function fetchMessages(channelId: string, cursor?: string) {
   return http
     .get<{ messages: MessageDTO[] }>(`/api/text-channels/${channelId}/messages`, {

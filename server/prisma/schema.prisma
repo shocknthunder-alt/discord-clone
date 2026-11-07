@@ -49,11 +49,12 @@ model Membership {
 }
 
 model TextChannel {
-  id        String   @id @default(cuid())
-  name      String
-  serverId  String
-  position  Int      @default(0)
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String
+  backgroundUrl String?
+  serverId      String
+  position      Int      @default(0)
+  createdAt     DateTime @default(now())
 
   server   Server    @relation(fields: [serverId], references: [id])
   messages Message[]
