@@ -1103,7 +1103,6 @@ button {
 .hud-icon-button.hangup {
   background: #da373c;
   color: #ffffff;
-  transform: rotate(135deg);
 }
 
 .hud-icon-button.hangup:hover {

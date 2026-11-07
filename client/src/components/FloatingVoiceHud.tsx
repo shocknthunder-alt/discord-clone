@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import FloatingIcon from "./FloatingIcon";
+import { HangupIcon, HeadphoneIcon, MicIcon, ScreenShareIcon } from "./HudIcons";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
 
@@ -29,7 +30,7 @@ export default function FloatingVoiceHud() {
     <>
       <FloatingIcon id="hud-mute" defaultPosition={positions[0]}>
         <button className={`hud-icon-button ${isMuted ? "active" : ""}`} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
-          {isMuted ? "🔇" : "🎤"}
+          <MicIcon muted={isMuted} />
         </button>
       </FloatingIcon>
 
@@ -39,7 +40,7 @@ export default function FloatingVoiceHud() {
           onClick={toggleDeafen}
           title={isDeafened ? "Undeafen" : "Deafen"}
         >
-          {isDeafened ? "🔇🎧" : "🎧"}
+          <HeadphoneIcon muted={isDeafened} />
         </button>
       </FloatingIcon>
 
@@ -49,13 +50,13 @@ export default function FloatingVoiceHud() {
           onClick={() => toggleScreenShare()}
           title={isScreenSharing ? "Stop Sharing" : "Go Live"}
         >
-          🖥️
+          <ScreenShareIcon />
         </button>
       </FloatingIcon>
 
       <FloatingIcon id="hud-disconnect" defaultPosition={positions[3]}>
         <button className="hud-icon-button hangup" onClick={leaveVoiceChannel} title="Disconnect">
-          📞
+          <HangupIcon />
         </button>
       </FloatingIcon>
 
