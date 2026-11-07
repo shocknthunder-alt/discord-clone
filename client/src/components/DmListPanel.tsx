@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { fetchConversations } from "../api/dm.api";
 import { useDmStore } from "../store/dmStore";
+import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore } from "../store/voiceStore";
 import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
@@ -8,6 +9,7 @@ import VoiceStatusBar from "./VoiceStatusBar";
 export default function DmListPanel() {
   const { conversations, activeConversationId, setConversations, setActiveConversation, setView } = useDmStore();
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
+  const { locked, toggleLocked } = useLayoutLockStore();
 
   useEffect(() => {
     fetchConversations().then(setConversations).catch(console.error);
@@ -21,6 +23,13 @@ export default function DmListPanel() {
             ←
           </button>
           <h2>Direct Messages</h2>
+          <button
+            className="server-settings-button"
+            onClick={toggleLocked}
+            title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
+          >
+            {locked ? "🔒" : "🔓"}
+          </button>
         </div>
 
         {conversations.length === 0 && (

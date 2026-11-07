@@ -1049,6 +1049,10 @@ button {
   outline-color: #5865f2;
 }
 
+.draggable-icon.locked {
+  cursor: default;
+}
+
 .sidebar-action-draggable {
   display: flex;
   width: 100%;

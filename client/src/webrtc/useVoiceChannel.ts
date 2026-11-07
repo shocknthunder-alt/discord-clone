@@ -174,7 +174,15 @@ export function useVoiceChannel() {
         height: { ideal: 2160 },
         frameRate: { ideal: 30, max: 60 },
       },
-      audio: false,
+      // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
+      // viewer only ever gets video. Chrome asks separately for this when sharing a tab;
+      // echoCancellation/noiseSuppression/autoGainControl are mic-tuned and distort music
+      // or video playback, so turn them off for this stream specifically.
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+      },
     });
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);

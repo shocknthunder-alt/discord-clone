@@ -5,6 +5,7 @@ import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
+import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -34,6 +35,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     null,
   );
   const [createChannelType, setCreateChannelType] = useState<"text" | "voice" | null>(null);
+  const { locked, toggleLocked } = useLayoutLockStore();
 
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
@@ -90,6 +92,13 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
             <div className="channel-sidebar-header">
               {activeServer.iconUrl && <img className="server-header-icon" src={activeServer.iconUrl} alt="" />}
               <h2>{activeServer.name}</h2>
+              <button
+                className="server-settings-button"
+                onClick={toggleLocked}
+                title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
+              >
+                {locked ? "🔒" : "🔓"}
+              </button>
               {isOwner && (
                 <button className="server-settings-button" onClick={() => setShowServerSettings(true)} title="Server settings">
                   ⚙️

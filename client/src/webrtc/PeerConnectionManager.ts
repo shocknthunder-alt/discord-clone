@@ -63,6 +63,10 @@ interface PeerHandle {
   ignoreOffer: boolean;
   remoteAudioStream: MediaStream;
   remoteScreenStream: MediaStream;
+  // The mic audio track is always added first (at join time); any audio track that
+  // arrives after that one has already been seen must be the screen-share's tab/system
+  // audio, since nothing else ever adds a second audio track to this connection.
+  hasMicAudio: boolean;
 }
 
 export type ConnectionQuality = "good" | "medium" | "poor" | "unknown";
@@ -80,6 +84,7 @@ export class PeerConnectionManager {
   private peers = new Map<string, PeerHandle>();
   private localStream: MediaStream | null = null;
   private localScreenTrack: MediaStreamTrack | null = null;
+  private localScreenAudioTrack: MediaStreamTrack | null = null;
   private statsInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -190,6 +195,7 @@ export class PeerConnectionManager {
       this.removePeer(socketId);
     }
     this.localScreenTrack = null;
+    this.localScreenAudioTrack = null;
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
       this.statsInterval = null;
@@ -197,25 +203,37 @@ export class PeerConnectionManager {
   }
 
   startScreenShare(screenStream: MediaStream) {
-    const track = screenStream.getVideoTracks()[0];
-    if (!track) return;
-    this.localScreenTrack = track;
+    const videoTrack = screenStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+    this.localScreenTrack = videoTrack;
+
+    // The shared tab/system audio (e.g. a YouTube clip) — optional, since "Entire Screen"
+    // capture doesn't always offer audio and some browsers omit it even when requested.
+    const audioTrack = screenStream.getAudioTracks()[0] ?? null;
+    this.localScreenAudioTrack = audioTrack;
+
     for (const peer of this.peers.values()) {
-      const sender = peer.connection.addTrack(track, screenStream);
+      const sender = peer.connection.addTrack(videoTrack, screenStream);
       void applyHighQualityEncoding(sender);
+      if (audioTrack) {
+        peer.connection.addTrack(audioTrack, screenStream);
+      }
     }
   }
 
   stopScreenShare() {
     if (!this.localScreenTrack) return;
     for (const peer of this.peers.values()) {
-      const sender = peer.connection.getSenders().find((s) => s.track === this.localScreenTrack);
-      if (sender) {
-        peer.connection.removeTrack(sender);
+      for (const sender of peer.connection.getSenders()) {
+        if (sender.track === this.localScreenTrack || sender.track === this.localScreenAudioTrack) {
+          peer.connection.removeTrack(sender);
+        }
       }
     }
     this.localScreenTrack.stop();
     this.localScreenTrack = null;
+    this.localScreenAudioTrack?.stop();
+    this.localScreenAudioTrack = null;
   }
 
   private getOrCreatePeer(socketId: string, userId: string): PeerHandle {
@@ -240,6 +258,7 @@ export class PeerConnectionManager {
       ignoreOffer: false,
       remoteAudioStream: new MediaStream(),
       remoteScreenStream: new MediaStream(),
+      hasMicAudio: false,
     };
 
     connection.onicecandidate = ({ candidate }) => {
@@ -263,16 +282,18 @@ export class PeerConnectionManager {
     };
 
     connection.ontrack = ({ track, streams }) => {
-      if (track.kind === "audio") {
+      if (track.kind === "audio" && !peer.hasMicAudio) {
+        peer.hasMicAudio = true;
         peer.remoteAudioStream.addTrack(track);
         this.callbacks.onAudioStream(socketId, peer.userId, peer.remoteAudioStream);
       } else {
+        // Screen-share video, or screen-share audio (any audio track beyond the first).
         const sourceStream = streams[0];
         peer.remoteScreenStream.addTrack(track);
         this.callbacks.onScreenStream(socketId, peer.remoteScreenStream);
         track.onended = () => {
           peer.remoteScreenStream.removeTrack(track);
-          this.callbacks.onScreenStream(socketId, null);
+          this.callbacks.onScreenStream(socketId, peer.remoteScreenStream.getTracks().length > 0 ? peer.remoteScreenStream : null);
         };
         void sourceStream;
       }
