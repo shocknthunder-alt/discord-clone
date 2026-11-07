@@ -1048,3 +1048,12 @@ button {
 .draggable-icon.drag-over {
   outline-color: #5865f2;
 }
+
+.sidebar-action-draggable {
+  display: flex;
+  width: 100%;
+}
+
+.sidebar-action-draggable .sidebar-action-button {
+  width: 100%;
+}
