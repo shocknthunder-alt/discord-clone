@@ -58,7 +58,7 @@ export default function TextChatView({ channelId }: Props) {
       <div className="message-list">
         {messages.map((message) => (
           <div className="message-row" key={message.id}>
-            <span className="author">{message.authorId === currentUserId ? "You" : message.authorId.slice(0, 8)}</span>
+            <span className="author">{message.authorUsername}</span>
             <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
             <div>{message.content}</div>
           </div>

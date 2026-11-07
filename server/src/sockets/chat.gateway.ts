@@ -34,12 +34,14 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
 
       const message = await prisma.message.create({
         data: { content: content.trim(), textChannelId, authorId: userId },
+        include: { author: { select: { username: true } } },
       });
 
       io.to(`channel:${textChannelId}`).emit(SocketEvents.MessageNew, {
         id: message.id,
         textChannelId: message.textChannelId,
         authorId: message.authorId,
+        authorUsername: message.author.username,
         content: message.content,
         createdAt: message.createdAt.toISOString(),
         editedAt: message.editedAt?.toISOString() ?? null,

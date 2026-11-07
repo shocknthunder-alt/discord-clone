@@ -22,8 +22,19 @@ export async function listMessages(req: Request, res: Response) {
     where: { textChannelId: channelId },
     orderBy: { createdAt: "desc" },
     take: limit,
+    include: { author: { select: { username: true } } },
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  res.json({ messages: messages.reverse() });
+  res.json({
+    messages: messages.reverse().map((m) => ({
+      id: m.id,
+      content: m.content,
+      textChannelId: m.textChannelId,
+      authorId: m.authorId,
+      authorUsername: m.author.username,
+      createdAt: m.createdAt,
+      editedAt: m.editedAt,
+    })),
+  });
 }

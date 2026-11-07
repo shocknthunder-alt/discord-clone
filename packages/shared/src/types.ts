@@ -34,6 +34,7 @@ export interface MessageDTO {
   content: string;
   textChannelId: string;
   authorId: string;
+  authorUsername: string;
   createdAt: string;
   editedAt: string | null;
 }
