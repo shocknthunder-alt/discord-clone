@@ -15,6 +15,7 @@ interface DmState {
   messagesByConversation: Record<string, DirectMessageDTO[]>;
   typingByConversation: Record<string, Set<string>>;
   incomingRing: IncomingRing | null;
+  unreadCounts: Record<string, number>;
 
   setView: (view: "servers" | "dms") => void;
   setConversations: (conversations: DmConversationDTO[]) => void;
@@ -26,6 +27,7 @@ interface DmState {
   removeMessage: (conversationId: string, messageId: string) => void;
   setTyping: (conversationId: string, userId: string, isTyping: boolean) => void;
   setIncomingRing: (ring: IncomingRing | null) => void;
+  incrementUnread: (conversationId: string) => void;
 }
 
 export const useDmStore = create<DmState>((set) => ({
@@ -35,6 +37,7 @@ export const useDmStore = create<DmState>((set) => ({
   messagesByConversation: {},
   typingByConversation: {},
   incomingRing: null,
+  unreadCounts: {},
 
   setView: (view) => set({ view }),
   setConversations: (conversations) => set({ conversations }),
@@ -47,7 +50,16 @@ export const useDmStore = create<DmState>((set) => ({
           : [conversation, ...s.conversations],
       };
     }),
-  setActiveConversation: (conversationId) => set({ activeConversationId: conversationId }),
+  setActiveConversation: (conversationId) =>
+    set((s) => {
+      if (!conversationId) return { activeConversationId: conversationId };
+      // Opening a conversation is always how it gets read — clear its unread count here
+      // so every call site (DM list click, right-click "Message", incoming call accept)
+      // gets this for free instead of each needing to remember to clear it.
+      const { [conversationId]: _cleared, ...rest } = s.unreadCounts;
+      void _cleared;
+      return { activeConversationId: conversationId, unreadCounts: rest };
+    }),
   setMessages: (conversationId, messages) =>
     set((s) => ({ messagesByConversation: { ...s.messagesByConversation, [conversationId]: messages } })),
   addMessage: (message) =>
@@ -88,4 +100,9 @@ export const useDmStore = create<DmState>((set) => ({
       return { typingByConversation: { ...s.typingByConversation, [conversationId]: existing } };
     }),
   setIncomingRing: (ring) => set({ incomingRing: ring }),
+
+  incrementUnread: (conversationId) =>
+    set((s) => ({
+      unreadCounts: { ...s.unreadCounts, [conversationId]: (s.unreadCounts[conversationId] ?? 0) + 1 },
+    })),
 }));

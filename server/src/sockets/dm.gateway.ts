@@ -51,6 +51,12 @@ export function registerDmGateway(io: IOServer, socket: Socket) {
         createdAt: message.createdAt.toISOString(),
         editedAt: message.editedAt?.toISOString() ?? null,
       });
+
+      // DmNew above only reaches sockets that have joined this specific dm:<id> room
+      // (i.e. that conversation is actively open) — this targets the recipient's personal
+      // room so an unread indicator can show up even while they're elsewhere in the app.
+      const recipientId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+      io.to(`user:${recipientId}`).emit(SocketEvents.DmUnread, { conversationId });
     },
   );
 

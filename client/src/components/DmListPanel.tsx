@@ -8,7 +8,8 @@ import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
 
 export default function DmListPanel() {
-  const { conversations, activeConversationId, setConversations, setActiveConversation, setView } = useDmStore();
+  const { conversations, activeConversationId, unreadCounts, setConversations, setActiveConversation, setView } =
+    useDmStore();
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const { locked, toggleLocked } = useLayoutLockStore();
 
@@ -53,22 +54,26 @@ export default function DmListPanel() {
           </div>
         )}
 
-        {conversations.map((conversation) => (
-          <div
-            key={conversation.id}
-            className={`channel-item ${conversation.id === activeConversationId ? "active" : ""}`}
-            onClick={() => setActiveConversation(conversation.id)}
-          >
-            {conversation.otherUser.avatarUrl ? (
-              <img className="dm-list-avatar" src={conversation.otherUser.avatarUrl} alt="" />
-            ) : (
-              <span className="dm-list-avatar placeholder">
-                {conversation.otherUser.username.slice(0, 2).toUpperCase()}
-              </span>
-            )}
-            {conversation.otherUser.username}
-          </div>
-        ))}
+        {conversations.map((conversation) => {
+          const unread = unreadCounts[conversation.id] ?? 0;
+          return (
+            <div
+              key={conversation.id}
+              className={`channel-item ${conversation.id === activeConversationId ? "active" : ""}`}
+              onClick={() => setActiveConversation(conversation.id)}
+            >
+              {conversation.otherUser.avatarUrl ? (
+                <img className="dm-list-avatar" src={conversation.otherUser.avatarUrl} alt="" />
+              ) : (
+                <span className="dm-list-avatar placeholder">
+                  {conversation.otherUser.username.slice(0, 2).toUpperCase()}
+                </span>
+              )}
+              <span style={{ flex: 1 }}>{conversation.otherUser.username}</span>
+              {unread > 0 && <span className="unread-badge">{unread > 99 ? "99+" : unread}</span>}
+            </div>
+          );
+        })}
       </div>
 
       <VoiceStatusBar />

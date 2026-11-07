@@ -10,9 +10,11 @@ const DEFAULT_SIDEBAR_ACTION_ORDER = ["create", "join"];
 
 export default function ServerSidebar() {
   const { servers, activeServerId, setActiveServer } = useServerStore();
-  const { view, setView } = useDmStore();
+  const { view, setView, unreadCounts } = useDmStore();
   const [mode, setMode] = useState<"none" | "create" | "join">("none");
   const { order, moveItem } = useReorderable("sidebarActions", DEFAULT_SIDEBAR_ACTION_ORDER);
+
+  const totalUnread = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
 
   const actionButtons: Record<string, React.ReactNode> = {
     create: (
@@ -29,9 +31,12 @@ export default function ServerSidebar() {
 
   return (
     <div className="server-sidebar">
-      <button className={`server-icon ${view === "dms" ? "active" : ""}`} title="Direct Messages" onClick={() => setView("dms")}>
-        💬
-      </button>
+      <div className="server-icon-wrap">
+        <button className={`server-icon ${view === "dms" ? "active" : ""}`} title="Direct Messages" onClick={() => setView("dms")}>
+          💬
+        </button>
+        {totalUnread > 0 && <span className="server-icon-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>}
+      </div>
 
       {servers.map((server) => (
         <button

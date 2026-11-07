@@ -44,6 +44,7 @@ export const SocketEvents = {
   DmTypingStop: "dm:typing:stop",
   DmTypingUpdate: "dm:typing:update",
   DmRing: "dm:ring",
+  DmUnread: "dm:unread",
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

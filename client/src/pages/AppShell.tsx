@@ -37,6 +37,12 @@ export default function AppShell() {
       setIncomingRing(ring);
     });
 
+    socket.on(SocketEvents.DmUnread, ({ conversationId }: { conversationId: string }) => {
+      const dmState = useDmStore.getState();
+      const isActivelyViewing = dmState.view === "dms" && dmState.activeConversationId === conversationId;
+      if (!isActivelyViewing) dmState.incrementUnread(conversationId);
+    });
+
     socket.on(
       SocketEvents.VoiceChannelOccupants,
       ({ voiceChannelId, peers }: { voiceChannelId: string; peers: VoicePeerInfo[] }) => {
