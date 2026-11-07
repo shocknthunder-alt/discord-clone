@@ -30,12 +30,19 @@ export default function ServerSidebar() {
         </button>
       ))}
 
-      <button className="sidebar-action-button" onClick={() => setMode(mode === "create" ? "none" : "create")}>
-        Create channel
-      </button>
-      <button className="sidebar-action-button" onClick={() => setMode(mode === "join" ? "none" : "join")}>
-        Join channel
-      </button>
+      <div className="sidebar-actions-group">
+        <div className="sidebar-actions-trigger" aria-hidden>
+          ⋯
+        </div>
+        <div className="sidebar-actions-buttons">
+          <button className="sidebar-action-button" onClick={() => setMode(mode === "create" ? "none" : "create")}>
+            Create channel
+          </button>
+          <button className="sidebar-action-button" onClick={() => setMode(mode === "join" ? "none" : "join")}>
+            Join channel
+          </button>
+        </div>
+      </div>
 
       {mode === "create" && (
         <div style={{ padding: 8 }}>
