@@ -589,8 +589,7 @@ button {
 .voice-tile {
   width: 160px;
   min-height: 150px;
-  background: #2b2d31;
-  border-radius: 8px;
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
