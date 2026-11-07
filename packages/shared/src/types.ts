@@ -41,6 +41,7 @@ export interface MessageDTO {
 
 export interface VoicePeerInfo {
   userId: string;
+  username: string;
   socketId: string;
   isMuted: boolean;
   isDeafened: boolean;

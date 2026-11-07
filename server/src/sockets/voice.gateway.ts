@@ -31,6 +31,7 @@ function removeFromRoster(io: IOServer, socketId: string) {
 
 export function registerVoiceGateway(io: IOServer, socket: Socket) {
   const userId: string = socket.data.userId;
+  const username: string = socket.data.username;
 
   socket.on(SocketEvents.VoiceJoin, async ({ voiceChannelId }: { voiceChannelId: string }) => {
     // A socket can only be in one voice channel at a time.
@@ -43,6 +44,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
 
     const self: VoicePeerInfo = {
       userId,
+      username,
       socketId: socket.id,
       isMuted: false,
       isDeafened: false,
@@ -55,6 +57,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     socket.emit(SocketEvents.VoicePeers, { peers: existingPeers });
     socket.to(roomName(voiceChannelId)).emit(SocketEvents.VoicePeerJoined, {
       userId,
+      username,
       socketId: socket.id,
     });
   });

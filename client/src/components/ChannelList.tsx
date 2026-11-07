@@ -1,3 +1,4 @@
+import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -12,6 +13,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     useServerStore();
   const { activeVoiceChannelId, peers } = useVoiceStore();
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
+  const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
 
   const activeServer = servers.find((s) => s.id === activeServerId);
   if (!activeServer) {
@@ -61,9 +63,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
           {channel.id === activeVoiceChannelId && (
             <div className="voice-participant-list">
               {Array.from(peers.values()).map((peer) => (
-                <div key={peer.socketId}>{peer.userId || "connecting…"}</div>
+                <div key={peer.socketId}>{peer.username || "connecting…"}</div>
               ))}
-              <div>You</div>
+              <div>{currentUsername}</div>
             </div>
           )}
         </div>

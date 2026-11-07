@@ -2,6 +2,7 @@ import { create } from "zustand";
 
 export interface RemotePeer {
   userId: string;
+  username: string;
   socketId: string;
   audioStream: MediaStream | null;
   screenStream: MediaStream | null;
@@ -33,6 +34,7 @@ interface VoiceState {
 function emptyPeer(socketId: string): RemotePeer {
   return {
     userId: "",
+    username: "",
     socketId,
     audioStream: null,
     screenStream: null,

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import ScreenSharePlayer from "./ScreenSharePlayer";
@@ -16,6 +17,7 @@ export default function VoiceChannelPanel() {
   const { activeVoiceChannelId, peers, isDeafened } = useVoiceStore();
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
+  const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
 
   const screenSharingPeer = Array.from(peers.values()).find((p) => p.screenStream);
 
@@ -28,13 +30,13 @@ export default function VoiceChannelPanel() {
         <div className="voice-tiles">
           {Array.from(peers.values()).map((peer) => (
             <div className="voice-tile" key={peer.socketId}>
-              <div>{peer.userId.slice(0, 8) || "connecting…"}</div>
+              <div>{peer.username || "connecting…"}</div>
               <div>{peer.isMuted ? "🔇" : "🎤"}</div>
               {peer.audioStream && !isDeafened && <RemoteAudio stream={peer.audioStream} />}
             </div>
           ))}
           <div className="voice-tile">
-            <div>You</div>
+            <div>{currentUsername}</div>
           </div>
         </div>
       </div>
