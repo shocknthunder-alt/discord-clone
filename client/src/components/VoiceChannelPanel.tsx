@@ -11,17 +11,51 @@ import PeerConnectionBadge from "./PeerConnectionBadge";
 import ScreenSharePlayer from "./ScreenSharePlayer";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 
-function TileAvatar({ avatarUrl, name }: { avatarUrl: string | null; name: string }) {
+function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
+  const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
   return avatarUrl ? (
-    <img className="voice-tile-avatar" src={avatarUrl} alt="" />
+    <img className={className} src={avatarUrl} alt="" />
   ) : (
-    <div className="voice-tile-avatar placeholder">{(name || "?").slice(0, 2).toUpperCase()}</div>
+    <div className={`${className} placeholder`}>{(name || "?").slice(0, 2).toUpperCase()}</div>
+  );
+}
+
+function PeerTile({
+  peer,
+  onContextMenu,
+  onWatch,
+}: {
+  peer: RemotePeer;
+  onContextMenu: (e: React.MouseEvent, peer: RemotePeer) => void;
+  onWatch: (socketId: string) => void;
+}) {
+  const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
+
+  return (
+    <div className="voice-tile" onContextMenu={(e) => onContextMenu(e, peer)}>
+      <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
+      <div>{peer.username || "connecting…"}</div>
+      <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
+      <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
+      {peer.isScreenSharing && (
+        <>
+          <div className="screen-share-label">🖥️ Sharing {peer.screenShareLabel ?? "their screen"}</div>
+          {peer.screenStream && (
+            <button className="screen-share-badge" onClick={() => onWatch(peer.socketId)} title="Watch this screen share">
+              Watch Stream
+            </button>
+          )}
+        </>
+      )}
+    </div>
   );
 }
 
 export default function VoiceChannelPanel() {
-  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream } = useVoiceStore();
+  const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
   const currentUser = useAuthStore((s) => s.user);
@@ -85,29 +119,15 @@ export default function VoiceChannelPanel() {
           {Array.from(peers.values())
             .filter((peer) => peer.userId)
             .map((peer) => (
-            <div className="voice-tile" key={peer.socketId} onContextMenu={(e) => handlePeerContextMenu(e, peer)}>
-              <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} />
-              <div>{peer.username || "connecting…"}</div>
-              <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
-              <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
-              {peer.isScreenSharing && (
-                <>
-                  <div className="screen-share-label">🖥️ Sharing {peer.screenShareLabel ?? "their screen"}</div>
-                  {peer.screenStream && (
-                    <button
-                      className="screen-share-badge"
-                      onClick={() => setWatchingSocketId(peer.socketId)}
-                      title="Watch this screen share"
-                    >
-                      Watch Stream
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          ))}
+              <PeerTile
+                key={peer.socketId}
+                peer={peer}
+                onContextMenu={handlePeerContextMenu}
+                onWatch={setWatchingSocketId}
+              />
+            ))}
           <div className="voice-tile">
-            <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} />
+            <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />
             <div>{currentUsername}</div>
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
             {isScreenSharing && <div className="screen-share-badge self">🖥️ You're sharing</div>}

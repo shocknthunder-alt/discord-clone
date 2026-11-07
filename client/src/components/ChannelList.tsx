@@ -10,6 +10,7 @@ import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import ChannelContextMenu from "./ChannelContextMenu";
 import CreateChannelModal from "./CreateChannelModal";
 import PeerConnectionBadge from "./PeerConnectionBadge";
@@ -23,10 +24,49 @@ interface Props {
   onSelectVoice: () => void;
 }
 
+function ParticipantAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
+  const className = `participant-avatar ${speaking ? "speaking" : ""}`;
+  return avatarUrl ? (
+    <img className={className} src={avatarUrl} alt="" />
+  ) : (
+    <div className={`${className} placeholder`}>{(name || "?").slice(0, 2).toUpperCase()}</div>
+  );
+}
+
+function ParticipantRow({
+  peer,
+  onContextMenu,
+}: {
+  peer: RemotePeer;
+  onContextMenu: (e: React.MouseEvent, peer: RemotePeer) => void;
+}) {
+  const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
+
+  return (
+    <div className="participant-row" onContextMenu={(e) => onContextMenu(e, peer)}>
+      <ParticipantAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
+      <span
+        className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}
+        title={peer.isScreenSharing ? `Sharing ${peer.screenShareLabel ?? "their screen"}` : undefined}
+      >
+        {peer.isScreenSharing && "🖥️ "}
+        {peer.username || "connecting…"}
+      </span>
+      {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
+        <span className="voice-status-icons"> {voiceStatusIcons(peer.isMuted, peer.isDeafened)}</span>
+      )}
+      {" "}
+      <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} size={10} />
+    </div>
+  );
+}
+
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel } =
     useServerStore();
-  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream } = useVoiceStore();
+  const currentAvatarUrl = useAuthStore((s) => s.user?.avatarUrl) ?? null;
+  const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
@@ -156,22 +196,10 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                     {Array.from(peers.values())
                       .filter((peer) => peer.userId)
                       .map((peer) => (
-                      <div key={peer.socketId} onContextMenu={(e) => handlePeerContextMenu(e, peer)}>
-                        <span
-                          className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}
-                          title={peer.isScreenSharing ? `Sharing ${peer.screenShareLabel ?? "their screen"}` : undefined}
-                        >
-                          {peer.isScreenSharing && "🖥️ "}
-                          {peer.username || "connecting…"}
-                        </span>
-                        {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
-                          <span className="voice-status-icons"> {voiceStatusIcons(peer.isMuted, peer.isDeafened)}</span>
-                        )}
-                        {" "}
-                        <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} size={10} />
-                      </div>
-                    ))}
-                    <div>
+                        <ParticipantRow key={peer.socketId} peer={peer} onContextMenu={handlePeerContextMenu} />
+                      ))}
+                    <div className="participant-row">
+                      <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
                       <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
                         {isScreenSharing && "🖥️ "}
                         {currentUsername}

@@ -177,6 +177,44 @@ button {
   display: flex;
 }
 
+.join-hint {
+  position: fixed;
+  left: 108px;
+  top: 38vh;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.join-hint-arrow {
+  font-size: 40px;
+  line-height: 1;
+  color: #ff3131;
+  margin-left: 24px;
+  animation: join-hint-blink 1s infinite;
+}
+
+.join-hint-text {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ff3131;
+  white-space: nowrap;
+  text-shadow: 0 0 10px rgba(255, 49, 49, 0.6);
+  animation: join-hint-blink 1s infinite;
+}
+
+@keyframes join-hint-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
 .channel-sidebar {
   width: 240px;
   background: #2b2d31;
@@ -256,8 +294,43 @@ button {
 
 .voice-participant-list {
   padding-left: 24px;
+  padding-top: 4px;
+  padding-bottom: 8px;
   font-size: 13px;
   color: #949ba4;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.participant-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.participant-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px transparent;
+  transition: box-shadow 0.1s ease;
+}
+
+.participant-avatar.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #5865f2;
+  color: white;
+  font-weight: 700;
+  font-size: 9px;
+}
+
+.participant-avatar.speaking {
+  box-shadow: 0 0 0 2px #23a559;
 }
 
 .participant-name.streaming {
@@ -532,6 +605,12 @@ button {
   height: 56px;
   border-radius: 50%;
   object-fit: cover;
+  box-shadow: 0 0 0 3px transparent;
+  transition: box-shadow 0.1s ease;
+}
+
+.voice-tile-avatar.speaking {
+  box-shadow: 0 0 0 3px #23a559;
 }
 
 .voice-tile-avatar.placeholder {

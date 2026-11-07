@@ -59,10 +59,8 @@ export default function JoinServerModal({ onClose }: Props) {
           autoFocus
         />
 
-        <div className="modal-examples-label">Examples</div>
         <p className="modal-examples-text">
-          Invites can be a full code like <strong>cmw685eqj0003ie0l21uq5wx</strong>, or just that code pasted on
-          its own.
+          Paste THIS <strong>cmw6c0h3z0004123k7n8dqxww</strong> To Join Twinspark CHannel!
         </p>
 
         {error && <div className="modal-error">{error}</div>}
