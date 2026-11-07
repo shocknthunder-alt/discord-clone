@@ -3,12 +3,17 @@ import { useEffect, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
+import DmChatView from "../components/DmChatView";
+import DmListPanel from "../components/DmListPanel";
+import IncomingCallToast from "../components/IncomingCallToast";
 import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
 import VoiceAudioBridge from "../components/VoiceAudioBridge";
 import VoiceChannelPanel from "../components/VoiceChannelPanel";
 import { connectSocket, getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
+import type { IncomingRing } from "../store/dmStore";
+import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 
@@ -16,6 +21,7 @@ export default function AppShell() {
   const token = useAuthStore((s) => s.token);
   const { activeServerId, activeTextChannelId, setServers, setChannels, setUserOnline } = useServerStore();
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
+  const { view, activeConversationId, setIncomingRing } = useDmStore();
   const [viewMode, setViewMode] = useState<"text" | "voice">("text");
 
   useEffect(() => {
@@ -26,10 +32,14 @@ export default function AppShell() {
       setUserOnline(userId, status === "online");
     });
 
+    socket.on(SocketEvents.DmRing, (ring: IncomingRing) => {
+      setIncomingRing(ring);
+    });
+
     return () => {
       socket.disconnect();
     };
-  }, [token, setUserOnline]);
+  }, [token, setUserOnline, setIncomingRing]);
 
   useEffect(() => {
     fetchServers().then(setServers).catch(console.error);
@@ -48,14 +58,24 @@ export default function AppShell() {
   return (
     <div className="app-shell">
       <VoiceAudioBridge />
+      <IncomingCallToast />
       <ServerSidebar />
-      <ChannelList onSelectVoice={() => setViewMode("voice")} onSelectText={() => setViewMode("text")} />
-      {viewMode === "voice" && activeVoiceChannelId ? (
-        <VoiceChannelPanel />
-      ) : activeTextChannelId ? (
-        <TextChatView channelId={activeTextChannelId} />
+      {view === "dms" ? (
+        <>
+          <DmListPanel />
+          {activeConversationId ? <DmChatView conversationId={activeConversationId} /> : <div className="main-content" />}
+        </>
       ) : (
-        <div className="main-content" />
+        <>
+          <ChannelList onSelectVoice={() => setViewMode("voice")} onSelectText={() => setViewMode("text")} />
+          {viewMode === "voice" && activeVoiceChannelId ? (
+            <VoiceChannelPanel />
+          ) : activeTextChannelId ? (
+            <TextChatView channelId={activeTextChannelId} />
+          ) : (
+            <div className="main-content" />
+          )}
+        </>
       )}
     </div>
   );
