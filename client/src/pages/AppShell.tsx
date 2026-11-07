@@ -5,6 +5,7 @@ import { fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
 import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
+import VoiceAudioBridge from "../components/VoiceAudioBridge";
 import VoiceChannelPanel from "../components/VoiceChannelPanel";
 import { connectSocket, getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -46,6 +47,7 @@ export default function AppShell() {
 
   return (
     <div className="app-shell">
+      <VoiceAudioBridge />
       <ServerSidebar />
       <ChannelList onSelectVoice={() => setViewMode("voice")} onSelectText={() => setViewMode("text")} />
       {viewMode === "voice" && activeVoiceChannelId ? (

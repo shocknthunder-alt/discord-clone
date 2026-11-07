@@ -90,12 +90,12 @@ button {
 }
 
 .server-sidebar {
-  width: 72px;
+  width: 96px;
   background: #1e1f22;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 0;
+  padding: 12px 8px;
   gap: 8px;
 }
 
@@ -117,10 +117,24 @@ button {
   background: #5865f2;
 }
 
-.server-icon.add {
+.sidebar-action-button {
+  width: 100%;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: none;
   background: #313338;
   color: #23a559;
-  font-size: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.sidebar-action-button:hover {
+  background: #2b2d31;
+  color: #2dc06c;
 }
 
 .channel-sidebar {

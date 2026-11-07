@@ -30,11 +30,11 @@ export default function ServerSidebar() {
         </button>
       ))}
 
-      <button className="server-icon add" title="Create server" onClick={() => setMode(mode === "create" ? "none" : "create")}>
-        +
+      <button className="sidebar-action-button" onClick={() => setMode(mode === "create" ? "none" : "create")}>
+        Create channel
       </button>
-      <button className="server-icon add" title="Join server" onClick={() => setMode(mode === "join" ? "none" : "join")}>
-        ⇒
+      <button className="sidebar-action-button" onClick={() => setMode(mode === "join" ? "none" : "join")}>
+        Join channel
       </button>
 
       {mode === "create" && (
