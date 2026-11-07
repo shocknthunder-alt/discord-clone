@@ -163,7 +163,7 @@ export default function TextChatView({ channelId }: Props) {
         style={
           channel?.backgroundUrl
             ? {
-                backgroundImage: `linear-gradient(rgba(49,51,56,0.85), rgba(49,51,56,0.85)), url(${channel.backgroundUrl})`,
+                backgroundImage: `linear-gradient(rgba(20,21,23,0.35), rgba(20,21,23,0.55)), url(${channel.backgroundUrl})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }
