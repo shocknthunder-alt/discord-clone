@@ -63,7 +63,10 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
           {channel.id === activeVoiceChannelId && (
             <div className="voice-participant-list">
               {Array.from(peers.values()).map((peer) => (
-                <div key={peer.socketId}>{peer.username || "connecting…"}</div>
+                <div key={peer.socketId}>
+                  {peer.username || "connecting…"}
+                  {peer.isScreenSharing && " 🖥️"}
+                </div>
               ))}
               <div>{currentUsername}</div>
             </div>
