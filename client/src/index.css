@@ -1030,3 +1030,21 @@ button {
   background: #4e5058;
   color: white;
 }
+
+.draggable-icon {
+  display: inline-flex;
+  align-items: center;
+  cursor: grab;
+  border-radius: 6px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.1s ease;
+}
+
+.draggable-icon:active {
+  cursor: grabbing;
+}
+
+.draggable-icon.drag-over {
+  outline-color: #5865f2;
+}

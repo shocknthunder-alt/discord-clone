@@ -7,9 +7,8 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { voiceStatusIcons } from "../utils/voiceStatus";
+import OwnVoiceControls from "./OwnVoiceControls";
 import ScreenSharePlayer from "./ScreenSharePlayer";
-import UserSettingsModal from "./UserSettingsModal";
-import { SignalIcon } from "./VoiceStatusBar";
 import VoiceControlBar from "./VoiceControlBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -23,7 +22,7 @@ function TileAvatar({ avatarUrl, name }: { avatarUrl: string | null; name: strin
 }
 
 export default function VoiceChannelPanel() {
-  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, connectionQuality } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened } = useVoiceStore();
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
   const currentUser = useAuthStore((s) => s.user);
@@ -32,7 +31,6 @@ export default function VoiceChannelPanel() {
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
 
   const screenSharingPeer = Array.from(peers.values()).find((p) => p.screenStream);
 
@@ -99,18 +97,7 @@ export default function VoiceChannelPanel() {
 
             {/* Only the local user sees their own controls here — every client renders its own tile. */}
             <div className="voice-tile-own-controls">
-              <button className="voice-status-icon-button hangup" onClick={leaveVoiceChannel} title="Disconnect">
-                📞
-              </button>
-              <button className="voice-status-icon-button" onClick={() => setShowSettings(true)} title="Settings">
-                ⚙️
-              </button>
-              <div
-                className="voice-status-icon-button static"
-                title={`Connection: ${connectionQuality}`}
-              >
-                <SignalIcon quality={connectionQuality} size={14} />
-              </div>
+              <OwnVoiceControls />
             </div>
           </div>
         </div>
@@ -127,8 +114,6 @@ export default function VoiceChannelPanel() {
           onCall={handleCall}
         />
       )}
-
-      {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} />}
     </div>
   );
 }
