@@ -14,7 +14,7 @@ interface Props {
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel } =
     useServerStore();
-  const { activeVoiceChannelId, peers } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing } = useVoiceStore();
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
@@ -86,7 +86,12 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         </span>
                       </div>
                     ))}
-                    <div>{currentUsername}</div>
+                    <div>
+                      <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
+                        {isScreenSharing && "🖥️ "}
+                        {currentUsername}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
