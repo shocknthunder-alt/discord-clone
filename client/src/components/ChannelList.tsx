@@ -45,7 +45,11 @@ function ParticipantRow({
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
 
   return (
-    <div className="participant-row" onContextMenu={(e) => onContextMenu(e, peer)}>
+    <div
+      className="participant-row clickable"
+      onClick={(e) => onContextMenu(e, peer)}
+      onContextMenu={(e) => onContextMenu(e, peer)}
+    >
       <ParticipantAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
       <span
         className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}
@@ -222,7 +226,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                           .map((peer) => (
                             <ParticipantRow key={peer.socketId} peer={peer} onContextMenu={handlePeerContextMenu} />
                           ))}
-                        <div className="participant-row">
+                        <div className="participant-row self">
                           <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
                           <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
                             {isScreenSharing && <LiveIcon size={11} />}{" "}

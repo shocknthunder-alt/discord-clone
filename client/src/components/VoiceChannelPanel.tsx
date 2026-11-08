@@ -35,7 +35,11 @@ function PeerTile({
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
 
   return (
-    <div className="voice-tile" onContextMenu={(e) => onContextMenu(e, peer)}>
+    <div
+      className="voice-tile clickable"
+      onClick={(e) => onContextMenu(e, peer)}
+      onContextMenu={(e) => onContextMenu(e, peer)}
+    >
       <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
       <div>{peer.username || "connecting…"}</div>
       <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
@@ -46,7 +50,14 @@ function PeerTile({
             <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
           </div>
           {peer.screenStream && (
-            <button className="screen-share-badge" onClick={() => onWatch(peer.socketId)} title="Watch this screen share">
+            <button
+              className="screen-share-badge"
+              onClick={(e) => {
+                e.stopPropagation();
+                onWatch(peer.socketId);
+              }}
+              title="Watch this screen share"
+            >
               Watch Stream
             </button>
           )}
@@ -129,7 +140,7 @@ export default function VoiceChannelPanel() {
                 onWatch={setWatchingSocketId}
               />
             ))}
-          <div className="voice-tile">
+          <div className="voice-tile self">
             <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />
             <div>{currentUsername}</div>
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
