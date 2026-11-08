@@ -2,10 +2,12 @@ import type { VoicePeerInfo } from "@discord-clone/shared";
 import { create } from "zustand";
 import {
   getMicMode,
+  getPeerVolume,
   getPreferredSpeakerDeviceId,
   getPushToTalkKey,
   getScreenShareQuality,
   setMicMode as persistMicMode,
+  setPeerVolume,
   setPreferredSpeakerDeviceId,
   setPushToTalkKey as persistPushToTalkKey,
   setScreenShareQuality as persistScreenShareQuality,
@@ -121,8 +123,16 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   upsertPeer: (partial) =>
     set((s) => {
       const peers = new Map(s.peers);
-      const existing = peers.get(partial.socketId) ?? emptyPeer(partial.socketId);
-      peers.set(partial.socketId, { ...existing, ...partial });
+      const existing = peers.get(partial.socketId);
+      const merged = { ...(existing ?? emptyPeer(partial.socketId)), ...partial };
+      // Only on first sight of this peer (this session) — once localVolume is live in the
+      // store, later upserts (mute toggles, screen-share labels, ...) must not stomp back
+      // over a volume the user may have just adjusted. userId is what the saved volume is
+      // keyed by, so there's nothing to look up until it's actually known.
+      if (!existing && partial.userId) {
+        merged.localVolume = getPeerVolume(partial.userId);
+      }
+      peers.set(partial.socketId, merged);
       return { peers };
     }),
 
@@ -137,7 +147,10 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     set((s) => {
       const peers = new Map(s.peers);
       const existing = peers.get(socketId);
-      if (existing) peers.set(socketId, { ...existing, localVolume: volume });
+      if (existing) {
+        peers.set(socketId, { ...existing, localVolume: volume });
+        if (existing.userId) setPeerVolume(existing.userId, volume);
+      }
       return { peers };
     }),
 

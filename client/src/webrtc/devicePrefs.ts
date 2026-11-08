@@ -66,3 +66,18 @@ export async function listSpeakerDevices(): Promise<MediaDeviceInfo[]> {
 export function supportsOutputDeviceSelection(): boolean {
   return typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
 }
+
+const PEER_VOLUME_PREFIX = "peerVolume:";
+
+// Keyed by userId, not socketId — socketId is a fresh value every reconnect/rejoin, so a
+// per-socketId volume would never survive the exact moment it's needed for (someone leaving
+// and coming back). userId is the one thing that's stable across that.
+export function getPeerVolume(userId: string): number {
+  const raw = localStorage.getItem(PEER_VOLUME_PREFIX + userId);
+  const parsed = raw === null ? NaN : Number(raw);
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 100;
+}
+
+export function setPeerVolume(userId: string, volume: number) {
+  localStorage.setItem(PEER_VOLUME_PREFIX + userId, String(volume));
+}
