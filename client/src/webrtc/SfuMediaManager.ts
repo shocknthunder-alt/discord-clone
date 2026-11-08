@@ -286,24 +286,50 @@ export class SfuMediaManager {
     try {
       const report = await this.recvTransport.getStats();
       let rttMs: number | null = null;
+      let fallbackRttMs: number | null = null;
       report.forEach((stat: any) => {
-        if (stat.type === "candidate-pair" && stat.state === "succeeded" && typeof stat.currentRoundTripTime === "number") {
+        if (stat.type !== "candidate-pair" || typeof stat.currentRoundTripTime !== "number") return;
+        // Chrome marks the active pair with state "succeeded"; Firefox instead marks it
+        // via "nominated" and doesn't reliably set state to "succeeded" — checking only the
+        // former left Firefox viewers stuck with no RTT (and so no quality indicator) at
+        // all. Fall back to any candidate-pair with a valid RTT if neither flag is set.
+        if (stat.state === "succeeded" || stat.nominated) {
           rttMs = stat.currentRoundTripTime * 1000;
+        } else if (fallbackRttMs === null) {
+          fallbackRttMs = stat.currentRoundTripTime * 1000;
         }
       });
+      if (rttMs === null) rttMs = fallbackRttMs;
 
-      // One shared link to the SFU, not one per peer — so every currently-consumed peer
-      // reports the same number. Less granular than the old mesh's per-peer stats, but more
-      // honest: in an SFU there genuinely is only one connection to reason about.
-      let quality: ConnectionQuality = "unknown";
-      if (rttMs !== null) {
-        quality = rttMs > 300 ? "poor" : rttMs > 150 ? "medium" : "good";
+      // RTT is genuinely shared — one real link to the SFU — but packet loss on a specific
+      // person's inbound audio can differ even over that same link (e.g. the SFU struggling
+      // to forward just their producer), so quality is computed per peer from their own mic
+      // consumer's loss ratio rather than being the same canned value for everyone.
+      const baseQuality: ConnectionQuality =
+        rttMs === null ? "unknown" : rttMs > 300 ? "poor" : rttMs > 150 ? "medium" : "good";
+
+      for (const [producerId, consumer] of this.consumers) {
+        const meta = this.producerMeta.get(producerId);
+        if (!meta || meta.isScreen) continue;
+
+        let peerQuality = baseQuality;
+        try {
+          const consumerStats = await consumer.getStats();
+          consumerStats.forEach((s: any) => {
+            if (s.type !== "inbound-rtp" || typeof s.packetsLost !== "number" || typeof s.packetsReceived !== "number") return;
+            const total = s.packetsLost + s.packetsReceived;
+            const lossRatio = total > 0 ? s.packetsLost / total : 0;
+            if (lossRatio > 0.05) peerQuality = "poor";
+            else if (lossRatio > 0.02 && peerQuality === "good") peerQuality = "medium";
+          });
+        } catch {
+          // Fall back to baseQuality for this peer.
+        }
+
+        this.callbacks.onPeerQualityChange?.(meta.userId, peerQuality, rttMs === null ? null : Math.round(rttMs));
       }
 
-      for (const userId of this.knownUserIds) {
-        this.callbacks.onPeerQualityChange?.(userId, quality, rttMs === null ? null : Math.round(rttMs));
-      }
-      this.callbacks.onQualityChange?.(quality);
+      this.callbacks.onQualityChange?.(baseQuality);
     } catch (err) {
       console.error("Failed to read SFU connection stats", err);
     }
