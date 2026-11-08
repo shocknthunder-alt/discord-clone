@@ -240,22 +240,31 @@ export class SfuMediaManager {
         // contentHint isn't supported in every browser — fine to skip.
       }
 
-      // VP9 SVC (K-SVC, "L3T3_KEY") instead of VP8 simulcast: one encoder producing a
-      // layered bitstream rather than three independent full encoder instances each
-      // encoding the whole frame at a different resolution. Consumers still pick whichever
-      // layer their connection can sustain, same as simulcast did (a weak connection, a VPN
-      // in one reported case, isn't left with no fallback) — but without three encoders
-      // competing for the sharer's own CPU, which was what made a high-res share drop
-      // frames at the source regardless of any viewer's network. Falls back to VP8
-      // simulcast automatically if the negotiated codec doesn't support SVC (see
-      // mediasoupConfig.ts — VP9 is only preferred, not exclusive).
+      // Simulcast: send three quality layers instead of one. Without this, every viewer
+      // gets the exact same stream regardless of their own downlink — someone on a weaker
+      // connection (a VPN, in one reported case) just sees packet loss and choppy
+      // playback, with no fallback available. With multiple layers, mediasoup picks
+      // whichever one each viewer's connection can actually sustain, automatically and
+      // per-viewer, and switches as conditions change.
       //
-      // Bitrates track the "standard" (1080p60) vs "high" (1440p60, opt-in in Settings)
-      // capture resolution requested in useVoiceChannel.ts.
+      // Bitrates track the "standard" (1080p, safe default) vs "high" (4K, opt-in in
+      // Settings) capture resolution requested in useVoiceChannel.ts — top layer = capture
+      // resolution. Encoding three layers at once is real sustained CPU work on the
+      // sharer's machine; "high" is there for people whose hardware can take it, not the
+      // default, since tuning this for a 4K top layer unconditionally was enough to drop
+      // frames at the source regardless of any viewer's network.
       const encodings: MsTypes.RtpEncodingParameters[] =
         quality === "high"
-          ? [{ scalabilityMode: "L3T3_KEY", maxBitrate: 7_000_000 }]
-          : [{ scalabilityMode: "L3T3_KEY", maxBitrate: 4_000_000 }];
+          ? [
+              { scaleResolutionDownBy: 4, maxBitrate: 400_000 },
+              { scaleResolutionDownBy: 2, maxBitrate: 2_000_000 },
+              { scaleResolutionDownBy: 1, maxBitrate: 8_000_000 },
+            ]
+          : [
+              { scaleResolutionDownBy: 4, maxBitrate: 300_000 },
+              { scaleResolutionDownBy: 2, maxBitrate: 1_000_000 },
+              { scaleResolutionDownBy: 1, maxBitrate: 4_000_000 },
+            ];
 
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,

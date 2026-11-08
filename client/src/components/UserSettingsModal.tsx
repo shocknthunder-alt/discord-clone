@@ -271,7 +271,7 @@ export default function UserSettingsModal({ onClose }: Props) {
             checked={screenShareQuality === "standard"}
             onChange={() => setScreenShareQuality("standard")}
           />
-          Standard — 1080p60
+          Standard — 1080p, safe for most computers
         </label>
         <label className="modal-radio-label">
           <input
@@ -280,12 +280,12 @@ export default function UserSettingsModal({ onClose }: Props) {
             checked={screenShareQuality === "high"}
             onChange={() => setScreenShareQuality("high")}
           />
-          High — 1440p60, needs more upload bandwidth while sharing
+          High — 4K, needs a stronger CPU while sharing
         </label>
         <p className="modal-hint">
-          Applies the next time you start a screen share. Still adapts automatically to each
-          viewer's own connection (someone on a weaker one isn't left stuck) — High just raises
-          the ceiling for everyone who can sustain it.
+          Applies the next time you start a screen share. High encodes 3 quality levels at once
+          (so every viewer gets one that fits their connection) — on weaker hardware this can
+          cause the shared video itself to stutter.
         </p>
 
         <h2 className="modal-section-title">Audio Processing</h2>
