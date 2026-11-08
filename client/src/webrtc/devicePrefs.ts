@@ -2,6 +2,17 @@ const MIC_DEVICE_KEY = "preferredMicDeviceId";
 const SPEAKER_DEVICE_KEY = "preferredSpeakerDeviceId";
 const MIC_MODE_KEY = "micMode";
 const PUSH_TO_TALK_KEY_KEY = "pushToTalkKey";
+const SCREEN_SHARE_QUALITY_KEY = "screenShareQuality";
+
+export type ScreenShareQuality = "standard" | "high";
+
+export function getScreenShareQuality(): ScreenShareQuality {
+  return localStorage.getItem(SCREEN_SHARE_QUALITY_KEY) === "high" ? "high" : "standard";
+}
+
+export function setScreenShareQuality(quality: ScreenShareQuality) {
+  localStorage.setItem(SCREEN_SHARE_QUALITY_KEY, quality);
+}
 
 export type MicMode = "voice-activation" | "push-to-talk";
 

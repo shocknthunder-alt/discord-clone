@@ -293,17 +293,17 @@ export function useVoiceChannel() {
       return;
     }
 
+    // SfuMediaManager.startScreenShare encodes THREE simulcast layers simultaneously (for
+    // per-viewer quality adaptation), which is real sustained CPU work on the sharer's own
+    // machine — at 4K60 that was enough to drop frames at the SOURCE regardless of any
+    // viewer's network. Standard (1080p, the safe default) still outresolves the
+    // ~1100px-wide display area; High (4K) is opt-in for people whose hardware can handle
+    // three layers of it, picked in Settings → Screen Share Quality.
+    const quality = useVoiceStore.getState().screenShareQuality;
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        // 1080p, not 4K: SfuMediaManager.startScreenShare now encodes THREE simulcast
-        // layers simultaneously (for per-viewer quality adaptation), and encoding 3 layers
-        // of a 4K60 source is enough sustained CPU work on the sharer's own machine to drop
-        // frames at the SOURCE — the choppiness that got reported was independent of any
-        // viewer's network, since it was baked into the encode before it ever left their
-        // computer. 1080p cuts that encoding cost roughly 4x across all three layers while
-        // still outresolving the ~1100px-wide display area (see .screen-share-video).
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: quality === "high" ? 3840 : 1920 },
+        height: { ideal: quality === "high" ? 2160 : 1080 },
         frameRate: { ideal: 30, max: 60 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
@@ -318,7 +318,7 @@ export function useVoiceChannel() {
     });
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);
-    await activeMediaManager.startScreenShare(screenStream);
+    await activeMediaManager.startScreenShare(screenStream, quality);
 
     const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;
     const label =
@@ -336,6 +336,10 @@ export function useVoiceChannel() {
     };
   }, [store]);
 
+  const setScreenShareQuality = useCallback((quality: "standard" | "high") => {
+    store.setScreenShareQuality(quality);
+  }, [store]);
+
   return {
     joinVoiceChannel,
     leaveVoiceChannel,
@@ -344,5 +348,6 @@ export function useVoiceChannel() {
     toggleScreenShare,
     setMicMode,
     setPushToTalkKey,
+    setScreenShareQuality,
   };
 }

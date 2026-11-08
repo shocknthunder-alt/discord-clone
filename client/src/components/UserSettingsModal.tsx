@@ -51,7 +51,8 @@ export default function UserSettingsModal({ onClose }: Props) {
   const setPreferredSpeakerId = useVoiceStore((s) => s.setPreferredSpeakerId);
   const micMode = useVoiceStore((s) => s.micMode);
   const pushToTalkKey = useVoiceStore((s) => s.pushToTalkKey);
-  const { setMicMode, setPushToTalkKey } = useVoiceChannel();
+  const screenShareQuality = useVoiceStore((s) => s.screenShareQuality);
+  const { setMicMode, setPushToTalkKey, setScreenShareQuality } = useVoiceChannel();
   const [listeningForKey, setListeningForKey] = useState(false);
 
   useEffect(() => {
@@ -237,6 +238,32 @@ export default function UserSettingsModal({ onClose }: Props) {
             </button>
           </div>
         )}
+
+        <h2 className="modal-section-title">Screen Share Quality</h2>
+
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="screen-share-quality"
+            checked={screenShareQuality === "standard"}
+            onChange={() => setScreenShareQuality("standard")}
+          />
+          Standard — 1080p, safe for most computers
+        </label>
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="screen-share-quality"
+            checked={screenShareQuality === "high"}
+            onChange={() => setScreenShareQuality("high")}
+          />
+          High — 4K, needs a stronger CPU while sharing
+        </label>
+        <p className="modal-hint">
+          Applies the next time you start a screen share. High encodes 3 quality levels at once
+          (so every viewer gets one that fits their connection) — on weaker hardware this can
+          cause the shared video itself to stutter.
+        </p>
 
         {error && <div className="modal-error">{error}</div>}
 

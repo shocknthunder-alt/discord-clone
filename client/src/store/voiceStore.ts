@@ -4,10 +4,13 @@ import {
   getMicMode,
   getPreferredSpeakerDeviceId,
   getPushToTalkKey,
+  getScreenShareQuality,
   setMicMode as persistMicMode,
   setPreferredSpeakerDeviceId,
   setPushToTalkKey as persistPushToTalkKey,
+  setScreenShareQuality as persistScreenShareQuality,
   type MicMode,
+  type ScreenShareQuality,
 } from "../webrtc/devicePrefs";
 
 export interface RemotePeer {
@@ -50,6 +53,7 @@ interface VoiceState {
   pushToTalkKey: string | null;
   // Whether the push-to-talk key is currently held — irrelevant in voice-activation mode.
   isPushToTalkActive: boolean;
+  screenShareQuality: ScreenShareQuality;
 
   setActiveVoiceChannel: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -68,6 +72,7 @@ interface VoiceState {
   setMicMode: (mode: MicMode) => void;
   setPushToTalkKey: (code: string | null) => void;
   setPushToTalkActive: (active: boolean) => void;
+  setScreenShareQuality: (quality: ScreenShareQuality) => void;
   reset: () => void;
 }
 
@@ -104,6 +109,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   micMode: getMicMode(),
   pushToTalkKey: getPushToTalkKey(),
   isPushToTalkActive: false,
+  screenShareQuality: getScreenShareQuality(),
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
   setLocalStream: (stream) => set({ localStream: stream }),
@@ -176,6 +182,11 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   },
 
   setPushToTalkActive: (active) => set({ isPushToTalkActive: active }),
+
+  setScreenShareQuality: (quality) => {
+    persistScreenShareQuality(quality);
+    set({ screenShareQuality: quality });
+  },
 
   reset: () =>
     set({

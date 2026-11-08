@@ -227,7 +227,7 @@ export class SfuMediaManager {
     else void this.micProducer.pause();
   }
 
-  async startScreenShare(screenStream: MediaStream) {
+  async startScreenShare(screenStream: MediaStream, quality: "standard" | "high" = "standard") {
     if (!this.sendTransport) return;
 
     const videoTrack = screenStream.getVideoTracks()[0];
@@ -240,23 +240,35 @@ export class SfuMediaManager {
         // contentHint isn't supported in every browser — fine to skip.
       }
 
+      // Simulcast: send three quality layers instead of one. Without this, every viewer
+      // gets the exact same stream regardless of their own downlink — someone on a weaker
+      // connection (a VPN, in one reported case) just sees packet loss and choppy
+      // playback, with no fallback available. With multiple layers, mediasoup picks
+      // whichever one each viewer's connection can actually sustain, automatically and
+      // per-viewer, and switches as conditions change.
+      //
+      // Bitrates track the "standard" (1080p, safe default) vs "high" (4K, opt-in in
+      // Settings) capture resolution requested in useVoiceChannel.ts — top layer = capture
+      // resolution. Encoding three layers at once is real sustained CPU work on the
+      // sharer's machine; "high" is there for people whose hardware can take it, not the
+      // default, since tuning this for a 4K top layer unconditionally was enough to drop
+      // frames at the source regardless of any viewer's network.
+      const encodings: MsTypes.RtpEncodingParameters[] =
+        quality === "high"
+          ? [
+              { scaleResolutionDownBy: 4, maxBitrate: 400_000 },
+              { scaleResolutionDownBy: 2, maxBitrate: 2_000_000 },
+              { scaleResolutionDownBy: 1, maxBitrate: 8_000_000 },
+            ]
+          : [
+              { scaleResolutionDownBy: 4, maxBitrate: 300_000 },
+              { scaleResolutionDownBy: 2, maxBitrate: 1_000_000 },
+              { scaleResolutionDownBy: 1, maxBitrate: 4_000_000 },
+            ];
+
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,
-        // Simulcast: send three quality layers instead of one. Without this, every viewer
-        // gets the exact same stream regardless of their own downlink — someone on a
-        // weaker connection (a VPN, in one reported case) just sees packet loss and choppy
-        // playback, with no fallback available. With multiple layers, mediasoup picks
-        // whichever one each viewer's connection can actually sustain, automatically and
-        // per-viewer, and switches as conditions change. Bitrates sized for the 1080p
-        // capture requested in useVoiceChannel.ts (top layer = capture resolution) — encoding
-        // three layers at once is real sustained CPU work on the sharer's machine, and tuning
-        // these for a 4K top layer was enough to drop frames at the source regardless of any
-        // viewer's network.
-        encodings: [
-          { scaleResolutionDownBy: 4, maxBitrate: 300_000 },
-          { scaleResolutionDownBy: 2, maxBitrate: 1_000_000 },
-          { scaleResolutionDownBy: 1, maxBitrate: 4_000_000 },
-        ],
+        encodings,
         onRtpSender: (sender) => {
           const params = sender.getParameters();
           params.degradationPreference = "maintain-resolution";
