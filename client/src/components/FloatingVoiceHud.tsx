@@ -1,8 +1,9 @@
 import { useState } from "react";
+import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import FloatingIcon from "./FloatingIcon";
-import { HangupIcon, HeadphoneIcon, MicIcon, ScreenShareIcon } from "./HudIcons";
+import { HangupIcon, HeadphoneIcon, LockIcon, MicIcon, ScreenShareIcon } from "./HudIcons";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
 
@@ -22,11 +23,12 @@ function defaultColumnPositions(count: number) {
 export default function FloatingVoiceHud() {
   const { activeVoiceChannelId, isMuted, isDeafened, isScreenSharing, connectionQuality } = useVoiceStore();
   const { leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare } = useVoiceChannel();
+  const { locked, toggleLocked } = useLayoutLockStore();
   const [showSettings, setShowSettings] = useState(false);
 
   if (!activeVoiceChannelId) return null;
 
-  const positions = defaultColumnPositions(6);
+  const positions = defaultColumnPositions(7);
 
   return (
     <>
@@ -72,6 +74,16 @@ export default function FloatingVoiceHud() {
         <div className="hud-icon-button static" title={`Connection: ${connectionQuality}`}>
           <SignalIcon quality={connectionQuality} size={14} />
         </div>
+      </FloatingIcon>
+
+      <FloatingIcon id="hud-lock" defaultPosition={positions[6]}>
+        <button
+          className="hud-icon-button"
+          onClick={toggleLocked}
+          title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
+        >
+          <LockIcon locked={locked} />
+        </button>
       </FloatingIcon>
 
       {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} />}

@@ -102,7 +102,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     null,
   );
   const [createChannelType, setCreateChannelType] = useState<"text" | "voice" | null>(null);
-  const { locked, toggleLocked } = useLayoutLockStore();
+  const { locked } = useLayoutLockStore();
 
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
@@ -159,13 +159,6 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
             <div className="channel-sidebar-header">
               {activeServer.iconUrl && <img className="server-header-icon" src={activeServer.iconUrl} alt="" />}
               <h2>{activeServer.name}</h2>
-              <button
-                className="server-settings-button"
-                onClick={toggleLocked}
-                title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
-              >
-                {locked ? "🔒" : "🔓"}
-              </button>
               {!locked && (
                 <button
                   className="server-settings-button"
