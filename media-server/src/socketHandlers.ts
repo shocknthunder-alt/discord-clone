@@ -100,6 +100,25 @@ export function registerMediaSocket(io: IOServer, socket: Socket) {
         const transport = peer?.transports.get(transportId);
         if (!room || !peer || !transport) return ack({ error: "no-transport" });
 
+        // At most one live producer per (peer, appData.type) — a peer should never have two
+        // simultaneous "mic" producers, for instance. Without this, a client re-producing
+        // (e.g. after a reconnect that didn't fully tear down the old send transport) left
+        // the stale producer alongside the new live one; anyone consuming both ends up with
+        // two audio tracks for the same person, one of them dead, in one MediaStream — which
+        // is exactly the "they hear me but I can't hear them" pattern this was causing.
+        const staleProducerIds: string[] = [];
+        for (const existing of peer.producers.values()) {
+          if ((existing.appData as Record<string, unknown>).type === appData?.type) {
+            staleProducerIds.push(existing.id);
+          }
+        }
+        for (const staleId of staleProducerIds) {
+          const stale = peer.producers.get(staleId);
+          stale?.close();
+          peer.producers.delete(staleId);
+          socket.to(roomName(roomId)).emit("sfu:producer-closed", { producerId: staleId });
+        }
+
         const producer = await transport.produce({ kind, rtpParameters, appData: { ...appData, userId } });
         peer.producers.set(producer.id, producer);
 
