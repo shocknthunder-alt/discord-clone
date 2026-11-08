@@ -1,5 +1,28 @@
 const MIC_DEVICE_KEY = "preferredMicDeviceId";
 const SPEAKER_DEVICE_KEY = "preferredSpeakerDeviceId";
+const MIC_MODE_KEY = "micMode";
+const PUSH_TO_TALK_KEY_KEY = "pushToTalkKey";
+
+export type MicMode = "voice-activation" | "push-to-talk";
+
+export function getMicMode(): MicMode {
+  return localStorage.getItem(MIC_MODE_KEY) === "push-to-talk" ? "push-to-talk" : "voice-activation";
+}
+
+export function setMicMode(mode: MicMode) {
+  localStorage.setItem(MIC_MODE_KEY, mode);
+}
+
+// Stores a KeyboardEvent.code (e.g. "ControlRight"), not .key — codes are layout/language
+// independent, so a bound key stays correct even if the user's keyboard layout changes.
+export function getPushToTalkKey(): string | null {
+  return localStorage.getItem(PUSH_TO_TALK_KEY_KEY);
+}
+
+export function setPushToTalkKey(code: string | null) {
+  if (code) localStorage.setItem(PUSH_TO_TALK_KEY_KEY, code);
+  else localStorage.removeItem(PUSH_TO_TALK_KEY_KEY);
+}
 
 export function getPreferredMicDeviceId(): string | null {
   return localStorage.getItem(MIC_DEVICE_KEY);

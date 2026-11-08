@@ -906,6 +906,47 @@ button {
   margin-bottom: 8px;
 }
 
+.modal-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #dbdee1;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.modal-radio-label input[type="radio"] {
+  width: auto;
+}
+
+.ptt-keybind-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 0 16px;
+  padding: 10px 12px;
+  background: #1e1f22;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #dbdee1;
+}
+
+.ptt-keybind-row button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  background: #4e5058;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ptt-keybind-row button:hover {
+  background: #6d6f78;
+}
+
 .modal-hint {
   margin: 6px 0 0;
   font-size: 12px;

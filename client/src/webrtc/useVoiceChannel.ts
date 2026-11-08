@@ -23,6 +23,47 @@ function upsertPeerMediaByUserId(userId: string, partial: Record<string, unknown
   }
 }
 
+// Single source of truth for whether the mic should actually be sending: manual mute
+// always wins, otherwise voice-activation mode transmits continuously and push-to-talk
+// transmits only while its bound key is held. Called from every place one of those three
+// inputs changes (mute toggle, deafen, mode switch, key press/release) instead of each of
+// them duplicating this logic.
+function applyMicTransmitState() {
+  const { localStream, isMuted, micMode, isPushToTalkActive } = useVoiceStore.getState();
+  if (!localStream) return;
+  const shouldTransmit = !isMuted && (micMode === "voice-activation" || isPushToTalkActive);
+  localStream.getAudioTracks().forEach((t) => (t.enabled = shouldTransmit));
+  activeMediaManager?.setMicEnabled(shouldTransmit);
+}
+
+let pttKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
+let pttKeyupHandler: ((e: KeyboardEvent) => void) | null = null;
+
+function attachPushToTalkListeners() {
+  if (pttKeydownHandler) return; // already attached for this call
+  pttKeydownHandler = (e: KeyboardEvent) => {
+    const { micMode, pushToTalkKey, isPushToTalkActive } = useVoiceStore.getState();
+    if (micMode !== "push-to-talk" || !pushToTalkKey || e.code !== pushToTalkKey || isPushToTalkActive) return;
+    useVoiceStore.getState().setPushToTalkActive(true);
+    applyMicTransmitState();
+  };
+  pttKeyupHandler = (e: KeyboardEvent) => {
+    const { micMode, pushToTalkKey } = useVoiceStore.getState();
+    if (micMode !== "push-to-talk" || !pushToTalkKey || e.code !== pushToTalkKey) return;
+    useVoiceStore.getState().setPushToTalkActive(false);
+    applyMicTransmitState();
+  };
+  window.addEventListener("keydown", pttKeydownHandler);
+  window.addEventListener("keyup", pttKeyupHandler);
+}
+
+function detachPushToTalkListeners() {
+  if (pttKeydownHandler) window.removeEventListener("keydown", pttKeydownHandler);
+  if (pttKeyupHandler) window.removeEventListener("keyup", pttKeyupHandler);
+  pttKeydownHandler = null;
+  pttKeyupHandler = null;
+}
+
 export function useVoiceChannel() {
   const store = useVoiceStore();
 
@@ -106,6 +147,8 @@ export function useVoiceChannel() {
     try {
       await manager.join(voiceChannelId);
       await manager.produceMic(localStream.getAudioTracks()[0]);
+      attachPushToTalkListeners();
+      applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
     } catch (err) {
       // Logged rather than re-thrown: the rest of this function still has to run even if
       // the SFU side failed, so the user at least shows up in the channel instead of
@@ -191,6 +234,7 @@ export function useVoiceChannel() {
     activeMediaManager?.leave();
     activeMediaManager = null;
     disconnectMediaSocket();
+    detachPushToTalkListeners();
 
     localStream?.getTracks().forEach((t) => t.stop());
     localScreenStream?.getTracks().forEach((t) => t.stop());
@@ -204,15 +248,14 @@ export function useVoiceChannel() {
     if (!socket || !activeVoiceChannelId || !localStream) return;
 
     const next = !isMuted;
-    localStream.getAudioTracks().forEach((t) => (t.enabled = !next));
-    activeMediaManager?.setMicEnabled(!next);
     store.setMuted(next);
+    applyMicTransmitState();
     socket.emit(SocketEvents.VoiceMute, { voiceChannelId: activeVoiceChannelId, isMuted: next });
   }, [store]);
 
   const toggleDeafen = useCallback(() => {
     const socket = getSocket();
-    const { activeVoiceChannelId, isDeafened, localStream } = useVoiceStore.getState();
+    const { activeVoiceChannelId, isDeafened } = useVoiceStore.getState();
     if (!socket || !activeVoiceChannelId) return;
 
     const next = !isDeafened;
@@ -220,11 +263,21 @@ export function useVoiceChannel() {
     socket.emit(SocketEvents.VoiceDeafen, { voiceChannelId: activeVoiceChannelId, isDeafened: next });
 
     // Deafening also mutes the mic (nobody can hear you if you can't hear them anyway),
-    // and un-deafening restores it — mirrors Discord's behavior.
-    localStream?.getAudioTracks().forEach((t) => (t.enabled = !next));
-    activeMediaManager?.setMicEnabled(!next);
+    // and un-deafening restores it — mirrors Discord's behavior. In push-to-talk mode,
+    // un-deafening doesn't make the mic live again by itself — same as voice-activation,
+    // it just clears the manual-mute override and goes back to needing the key held.
     store.setMuted(next);
+    applyMicTransmitState();
     socket.emit(SocketEvents.VoiceMute, { voiceChannelId: activeVoiceChannelId, isMuted: next });
+  }, [store]);
+
+  const setMicMode = useCallback((mode: "voice-activation" | "push-to-talk") => {
+    store.setMicMode(mode);
+    applyMicTransmitState();
+  }, [store]);
+
+  const setPushToTalkKey = useCallback((code: string | null) => {
+    store.setPushToTalkKey(code);
   }, [store]);
 
   const toggleScreenShare = useCallback(async () => {
@@ -283,5 +336,13 @@ export function useVoiceChannel() {
     };
   }, [store]);
 
-  return { joinVoiceChannel, leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare };
+  return {
+    joinVoiceChannel,
+    leaveVoiceChannel,
+    toggleMute,
+    toggleDeafen,
+    toggleScreenShare,
+    setMicMode,
+    setPushToTalkKey,
+  };
 }

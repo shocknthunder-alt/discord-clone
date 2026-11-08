@@ -10,6 +10,26 @@ import {
   setPreferredMicDeviceId,
   supportsOutputDeviceSelection,
 } from "../webrtc/devicePrefs";
+import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+
+// A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
+// PTT to (modifiers, function keys, mouse-adjacent keys like CapsLock); falls back to the
+// raw code for anything else rather than guessing at every possible layout.
+function describeKeyCode(code: string): string {
+  const known: Record<string, string> = {
+    ControlLeft: "Left Ctrl",
+    ControlRight: "Right Ctrl",
+    AltLeft: "Left Alt",
+    AltRight: "Right Alt",
+    ShiftLeft: "Left Shift",
+    ShiftRight: "Right Shift",
+    CapsLock: "Caps Lock",
+    Space: "Space",
+    Tab: "Tab",
+    Backquote: "`",
+  };
+  return known[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "");
+}
 
 interface Props {
   onClose: () => void;
@@ -29,6 +49,10 @@ export default function UserSettingsModal({ onClose }: Props) {
   const [speakerDevices, setSpeakerDevices] = useState<MediaDeviceInfo[]>([]);
   const preferredSpeakerId = useVoiceStore((s) => s.preferredSpeakerId);
   const setPreferredSpeakerId = useVoiceStore((s) => s.setPreferredSpeakerId);
+  const micMode = useVoiceStore((s) => s.micMode);
+  const pushToTalkKey = useVoiceStore((s) => s.pushToTalkKey);
+  const { setMicMode, setPushToTalkKey } = useVoiceChannel();
+  const [listeningForKey, setListeningForKey] = useState(false);
 
   useEffect(() => {
     // Device labels are empty until mic permission has been granted at least once;
@@ -62,6 +86,19 @@ export default function UserSettingsModal({ onClose }: Props) {
 
   function handleSpeakerChange(e: React.ChangeEvent<HTMLSelectElement>) {
     setPreferredSpeakerId(e.target.value);
+  }
+
+  function startBindingPushToTalkKey() {
+    setListeningForKey(true);
+
+    function onKeyDown(e: KeyboardEvent) {
+      e.preventDefault();
+      setPushToTalkKey(e.code);
+      setListeningForKey(false);
+      window.removeEventListener("keydown", onKeyDown);
+    }
+
+    window.addEventListener("keydown", onKeyDown);
   }
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -167,6 +204,38 @@ export default function UserSettingsModal({ onClose }: Props) {
           <p className="modal-hint">
             Your browser doesn't support choosing an output device — audio plays through your system default.
           </p>
+        )}
+
+        <h2 className="modal-section-title">Input Mode</h2>
+
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="mic-mode"
+            checked={micMode === "voice-activation"}
+            onChange={() => setMicMode("voice-activation")}
+          />
+          Voice Activation — mic is live whenever you're not muted
+        </label>
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="mic-mode"
+            checked={micMode === "push-to-talk"}
+            onChange={() => setMicMode("push-to-talk")}
+          />
+          Push to Talk — mic is only live while a key is held
+        </label>
+
+        {micMode === "push-to-talk" && (
+          <div className="ptt-keybind-row">
+            <span>
+              Key: <strong>{listeningForKey ? "Press any key…" : pushToTalkKey ? describeKeyCode(pushToTalkKey) : "Not set"}</strong>
+            </span>
+            <button type="button" onClick={startBindingPushToTalkKey} disabled={listeningForKey}>
+              {pushToTalkKey ? "Change" : "Bind a key"}
+            </button>
+          </div>
         )}
 
         {error && <div className="modal-error">{error}</div>}

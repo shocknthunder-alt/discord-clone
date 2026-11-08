@@ -1,6 +1,14 @@
 import type { VoicePeerInfo } from "@discord-clone/shared";
 import { create } from "zustand";
-import { getPreferredSpeakerDeviceId, setPreferredSpeakerDeviceId } from "../webrtc/devicePrefs";
+import {
+  getMicMode,
+  getPreferredSpeakerDeviceId,
+  getPushToTalkKey,
+  setMicMode as persistMicMode,
+  setPreferredSpeakerDeviceId,
+  setPushToTalkKey as persistPushToTalkKey,
+  type MicMode,
+} from "../webrtc/devicePrefs";
 
 export interface RemotePeer {
   userId: string;
@@ -38,6 +46,10 @@ interface VoiceState {
   // Lightweight roster per voice channel (name/avatar/mute, no media) — covers channels
   // the local user hasn't joined, so the sidebar can show who's already in them.
   channelOccupants: Map<string, VoicePeerInfo[]>;
+  micMode: MicMode;
+  pushToTalkKey: string | null;
+  // Whether the push-to-talk key is currently held — irrelevant in voice-activation mode.
+  isPushToTalkActive: boolean;
 
   setActiveVoiceChannel: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -53,6 +65,9 @@ interface VoiceState {
   setConnectionQuality: (quality: ConnectionQuality) => void;
   setPeerQuality: (socketId: string, quality: ConnectionQuality, rttMs: number | null) => void;
   setChannelOccupants: (voiceChannelId: string, peers: VoicePeerInfo[]) => void;
+  setMicMode: (mode: MicMode) => void;
+  setPushToTalkKey: (code: string | null) => void;
+  setPushToTalkActive: (active: boolean) => void;
   reset: () => void;
 }
 
@@ -86,6 +101,9 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   preferredSpeakerId: getPreferredSpeakerDeviceId() ?? "",
   connectionQuality: "unknown",
   channelOccupants: new Map(),
+  micMode: getMicMode(),
+  pushToTalkKey: getPushToTalkKey(),
+  isPushToTalkActive: false,
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
   setLocalStream: (stream) => set({ localStream: stream }),
@@ -147,6 +165,18 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       return { channelOccupants };
     }),
 
+  setMicMode: (mode) => {
+    persistMicMode(mode);
+    set({ micMode: mode, isPushToTalkActive: false });
+  },
+
+  setPushToTalkKey: (code) => {
+    persistPushToTalkKey(code);
+    set({ pushToTalkKey: code });
+  },
+
+  setPushToTalkActive: (active) => set({ isPushToTalkActive: active }),
+
   reset: () =>
     set({
       activeVoiceChannelId: null,
@@ -157,5 +187,6 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       isScreenSharing: false,
       peers: new Map(),
       connectionQuality: "unknown",
+      isPushToTalkActive: false,
     }),
 }));
