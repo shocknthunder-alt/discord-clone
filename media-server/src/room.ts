@@ -92,14 +92,17 @@ export class Room {
       enableTcp: true,
       preferUdp: true,
       // Starting point for congestion control's bandwidth estimate, not a hard cap — it
-      // ramps up or down from here based on real network conditions, but ramping UP is the
-      // slow direction (seconds of visibly blurry video while it climbs). The comment here
-      // always said "targeting up to 8 Mbps" (High quality's top layer, see
-      // SfuMediaManager.startScreenShare) but the number itself was left at 2.5M — well
-      // below even Standard's 4 Mbps top layer, so every screen share still had to climb
-      // from a low starting point regardless. Set to comfortably clear High's 8 Mbps target
-      // so a fresh share opens already near full quality instead of ramping into it.
-      initialAvailableOutgoingBitrate: 9_000_000,
+      // ramps up or down from here based on real network conditions. There's real tension
+      // in this number: too low and a fresh screen share visibly climbs into full quality
+      // over several seconds (the original complaint); too high and the encoder starts
+      // sending more than the connection can actually sustain, which shows up as packet
+      // loss — stutter and dropped frames — until congestion control detects the overshoot
+      // and backs off. 9M (chasing High quality's 8 Mbps top layer) turned out to be the
+      // second failure mode in practice. Settled on Standard's own top layer (4 Mbps) as
+      // the starting point instead: it's the default/common case so most shares open at
+      // full quality immediately, while High-quality shares still ramp the remaining 4 Mbps
+      // — slower to peak, but without assuming bandwidth nothing has confirmed yet.
+      initialAvailableOutgoingBitrate: 4_000_000,
     });
     peer.transports.set(transport.id, transport);
     transport.on("dtlsstatechange", (state) => {
