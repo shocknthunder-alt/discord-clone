@@ -1,21 +1,35 @@
 import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
 import { useCallback } from "react";
+import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
+import { useAuthStore } from "../store/authStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { getPreferredMicDeviceId } from "./devicePrefs";
-import { PeerConnectionManager } from "./PeerConnectionManager";
+import { SfuMediaManager } from "./SfuMediaManager";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
 // components (ChannelList, FloatingVoiceHud), all of which must share the same manager
 // and live connections rather than each hook instance getting its own.
-let activeManager: PeerConnectionManager | null = null;
+let activeMediaManager: SfuMediaManager | null = null;
+
+// Looks up a roster entry by userId to resolve a RemotePeer's socketId — the SFU's own
+// callbacks carry userId (the only identifier shared between it and the Render roster;
+// the two servers' socket ids are otherwise unrelated), while voiceStore.peers is still
+// keyed by the Render voice socketId everywhere else.
+function upsertPeerMediaByUserId(userId: string, partial: Record<string, unknown>) {
+  for (const peer of useVoiceStore.getState().peers.values()) {
+    if (peer.userId !== userId) continue;
+    useVoiceStore.getState().upsertPeer({ socketId: peer.socketId, ...partial });
+  }
+}
 
 export function useVoiceChannel() {
   const store = useVoiceStore();
 
   const joinVoiceChannel = useCallback(async (voiceChannelId: string) => {
     const socket = getSocket();
-    if (!socket) return;
+    const token = useAuthStore.getState().token;
+    if (!socket || !token) return;
 
     const preferredMicId = getPreferredMicDeviceId();
     const localStream = await navigator.mediaDevices.getUserMedia({
@@ -25,7 +39,7 @@ export function useVoiceChannel() {
         noiseSuppression: true,
         autoGainControl: true,
         // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
-        // default capture rate, paired with the bitrate bump in PeerConnectionManager.
+        // default capture rate, paired with the bitrate tuning in mediasoupConfig.ts.
         sampleRate: { ideal: 48000 },
         channelCount: 1,
       },
@@ -33,25 +47,34 @@ export function useVoiceChannel() {
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);
 
-    const manager = new PeerConnectionManager(socket, {
-      onAudioStream: (socketId, userId, stream) => {
-        useVoiceStore.getState().upsertPeer({ socketId, userId, audioStream: stream });
+    const mediaSocket = connectMediaSocket(token);
+    const manager = new SfuMediaManager(mediaSocket, {
+      onAudioStream: (userId, stream) => {
+        upsertPeerMediaByUserId(userId, { audioStream: stream });
       },
-      onScreenStream: (socketId, stream) => {
-        useVoiceStore.getState().upsertPeer({ socketId, screenStream: stream, isScreenSharing: !!stream });
-      },
-      onPeerClosed: (socketId) => {
-        useVoiceStore.getState().removePeer(socketId);
+      onScreenStream: (userId, stream) => {
+        upsertPeerMediaByUserId(userId, { screenStream: stream, isScreenSharing: !!stream });
       },
       onQualityChange: (quality) => {
         useVoiceStore.getState().setConnectionQuality(quality);
       },
-      onPeerQualityChange: (socketId, quality, rttMs) => {
-        useVoiceStore.getState().setPeerQuality(socketId, quality, rttMs);
+      onPeerQualityChange: (userId, quality, rttMs) => {
+        for (const peer of useVoiceStore.getState().peers.values()) {
+          if (peer.userId !== userId) continue;
+          useVoiceStore.getState().setPeerQuality(peer.socketId, quality, rttMs);
+        }
       },
     });
-    manager.setLocalStream(localStream);
-    activeManager = manager;
+    activeMediaManager = manager;
+
+    // Room joins only once the media socket is actually connected — on a fresh connect
+    // this can race the "connect" event, mediaSocket.connected covers the reconnect case.
+    await new Promise<void>((resolve) => {
+      if (mediaSocket.connected) resolve();
+      else mediaSocket.once("connect", () => resolve());
+    });
+    await manager.join(voiceChannelId);
+    await manager.produceMic(localStream.getAudioTracks()[0]);
 
     socket.on(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
       for (const peer of peers) {
@@ -65,7 +88,6 @@ export function useVoiceChannel() {
           isScreenSharing: peer.isScreenSharing,
           screenShareLabel: peer.screenShareLabel,
         });
-        manager.addPeerAndInitiate(peer.socketId, peer.userId);
       }
     });
 
@@ -83,12 +105,11 @@ export function useVoiceChannel() {
         socketId: string;
       }) => {
         useVoiceStore.getState().upsertPeer({ socketId, userId, username, avatarUrl });
-        manager.registerIncomingPeer(socketId, userId);
       },
     );
 
     socket.on(SocketEvents.VoicePeerLeft, ({ socketId }: { socketId: string }) => {
-      manager.removePeer(socketId);
+      useVoiceStore.getState().removePeer(socketId);
     });
 
     socket.on(
@@ -138,8 +159,9 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.ScreenShareStopped);
     }
 
-    activeManager?.closeAll();
-    activeManager = null;
+    activeMediaManager?.leave();
+    activeMediaManager = null;
+    disconnectMediaSocket();
 
     localStream?.getTracks().forEach((t) => t.stop());
     localScreenStream?.getTracks().forEach((t) => t.stop());
@@ -154,6 +176,7 @@ export function useVoiceChannel() {
 
     const next = !isMuted;
     localStream.getAudioTracks().forEach((t) => (t.enabled = !next));
+    activeMediaManager?.setMicEnabled(!next);
     store.setMuted(next);
     socket.emit(SocketEvents.VoiceMute, { voiceChannelId: activeVoiceChannelId, isMuted: next });
   }, [store]);
@@ -170,6 +193,7 @@ export function useVoiceChannel() {
     // Deafening also mutes the mic (nobody can hear you if you can't hear them anyway),
     // and un-deafening restores it — mirrors Discord's behavior.
     localStream?.getAudioTracks().forEach((t) => (t.enabled = !next));
+    activeMediaManager?.setMicEnabled(!next);
     store.setMuted(next);
     socket.emit(SocketEvents.VoiceMute, { voiceChannelId: activeVoiceChannelId, isMuted: next });
   }, [store]);
@@ -177,10 +201,10 @@ export function useVoiceChannel() {
   const toggleScreenShare = useCallback(async () => {
     const socket = getSocket();
     const { activeVoiceChannelId, isScreenSharing } = useVoiceStore.getState();
-    if (!socket || !activeVoiceChannelId || !activeManager) return;
+    if (!socket || !activeVoiceChannelId || !activeMediaManager) return;
 
     if (isScreenSharing) {
-      activeManager.stopScreenShare();
+      activeMediaManager.stopScreenShare();
       store.setLocalScreenStream(null);
       store.setScreenSharing(false);
       socket.emit(SocketEvents.ScreenShareStop, { voiceChannelId: activeVoiceChannelId });
@@ -189,12 +213,10 @@ export function useVoiceChannel() {
 
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        // Capped at 1080p: the viewer never renders the shared video wider than ~1100px
-        // (see .screen-share-video), and this is a mesh — every peer watching gets their
-        // own full-bitrate copy of whatever we capture, so asking for 4K here multiplied
-        // real upload bandwidth need by ~4x for zero visible benefit and was the likely
-        // cause of shares stuttering with more than one viewer. The sender bitrate cap in
-        // PeerConnectionManager.startScreenShare is sized to match.
+        // 1080p: the viewer never renders the shared video wider than ~1100px (see
+        // .screen-share-video), and with the SFU every extra viewer no longer multiplies
+        // the uploader's bandwidth need the way the old mesh did — one encode, one upload,
+        // regardless of audience size.
         width: { ideal: 1920 },
         height: { ideal: 1080 },
         frameRate: { ideal: 30, max: 60 },
@@ -211,7 +233,7 @@ export function useVoiceChannel() {
     });
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);
-    activeManager.startScreenShare(screenStream);
+    await activeMediaManager.startScreenShare(screenStream);
 
     const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;
     const label =
