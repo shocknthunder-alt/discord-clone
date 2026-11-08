@@ -7,6 +7,7 @@ import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { getPreferredMicDeviceId } from "./devicePrefs";
 import { SfuMediaManager } from "./SfuMediaManager";
+import { playVoiceJoinLeaveSound } from "../utils/voiceSounds";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
 // components (ChannelList, FloatingVoiceHud), all of which must share the same manager
@@ -173,11 +174,13 @@ export function useVoiceChannel() {
         socketId: string;
       }) => {
         useVoiceStore.getState().upsertPeer({ socketId, userId, username, avatarUrl });
+        playVoiceJoinLeaveSound();
       },
     );
 
     socket.on(SocketEvents.VoicePeerLeft, ({ socketId }: { socketId: string }) => {
       useVoiceStore.getState().removePeer(socketId);
+      playVoiceJoinLeaveSound();
     });
 
     socket.on(

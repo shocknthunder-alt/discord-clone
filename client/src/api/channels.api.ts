@@ -21,8 +21,14 @@ export function createVoiceChannel(serverId: string, name: string) {
     .then((r) => r.data.voiceChannel);
 }
 
-export function updateTextChannel(channelId: string, data: { backgroundUrl?: string | null }) {
+export function updateTextChannel(channelId: string, data: { backgroundUrl?: string | null; name?: string }) {
   return http.patch<{ textChannel: TextChannelDTO }>(`/api/text-channels/${channelId}`, data).then((r) => r.data.textChannel);
+}
+
+export function updateVoiceChannel(channelId: string, data: { name?: string }) {
+  return http
+    .patch<{ voiceChannel: VoiceChannelDTO }>(`/api/voice-channels/${channelId}`, data)
+    .then((r) => r.data.voiceChannel);
 }
 
 export function fetchMessages(channelId: string, cursor?: string) {

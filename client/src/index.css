@@ -357,6 +357,33 @@ button {
   background: #35373c;
 }
 
+.channel-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.channel-item-settings {
+  opacity: 0;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 13px;
+  padding: 2px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.channel-item:hover .channel-item-settings {
+  opacity: 1;
+}
+
+.channel-item-settings:hover {
+  background: #4e5058;
+}
+
 .voice-participant-list {
   padding-left: 24px;
   padding-top: 4px;

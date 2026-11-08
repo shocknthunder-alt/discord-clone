@@ -38,10 +38,13 @@ export async function createTextChannel(req: Request, res: Response) {
 
 export async function updateTextChannel(req: Request, res: Response) {
   const { channelId } = req.params;
-  const { backgroundUrl } = req.body ?? {};
+  const { backgroundUrl, name } = req.body ?? {};
 
   if (backgroundUrl !== undefined && backgroundUrl !== null && typeof backgroundUrl !== "string") {
     return res.status(400).json({ error: "backgroundUrl must be a string or null" });
+  }
+  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+    return res.status(400).json({ error: "name must be a non-empty string" });
   }
 
   const textChannel = await prisma.textChannel.findUnique({ where: { id: channelId } });
@@ -56,7 +59,10 @@ export async function updateTextChannel(req: Request, res: Response) {
 
   const updated = await prisma.textChannel.update({
     where: { id: channelId },
-    data: { ...(backgroundUrl !== undefined ? { backgroundUrl } : {}) },
+    data: {
+      ...(backgroundUrl !== undefined ? { backgroundUrl } : {}),
+      ...(name !== undefined ? { name: name.trim() } : {}),
+    },
   });
 
   res.json({ textChannel: updated });
@@ -76,4 +82,30 @@ export async function createVoiceChannel(req: Request, res: Response) {
 
   const voiceChannel = await prisma.voiceChannel.create({ data: { name, serverId } });
   res.status(201).json({ voiceChannel });
+}
+
+export async function updateVoiceChannel(req: Request, res: Response) {
+  const { channelId } = req.params;
+  const { name } = req.body ?? {};
+
+  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+    return res.status(400).json({ error: "name must be a non-empty string" });
+  }
+
+  const voiceChannel = await prisma.voiceChannel.findUnique({ where: { id: channelId } });
+  if (!voiceChannel) {
+    return res.status(404).json({ error: "Channel not found" });
+  }
+
+  const membership = await requireMembership(req.userId!, voiceChannel.serverId);
+  if (!membership || membership.role !== "OWNER") {
+    return res.status(403).json({ error: "Only the server owner can update this channel" });
+  }
+
+  const updated = await prisma.voiceChannel.update({
+    where: { id: channelId },
+    data: { ...(name !== undefined ? { name: name.trim() } : {}) },
+  });
+
+  res.json({ voiceChannel: updated });
 }

@@ -323,7 +323,7 @@ export default function TextChatView({ channelId }: Props) {
       </div>
 
       {showChannelSettings && channel && (
-        <ChannelSettingsModal channel={channel} onClose={() => setShowChannelSettings(false)} />
+        <ChannelSettingsModal kind="text" channel={channel} onClose={() => setShowChannelSettings(false)} />
       )}
 
       {userMenu && (

@@ -1,17 +1,18 @@
-import type { TextChannelDTO } from "@discord-clone/shared";
+import type { TextChannelDTO, VoiceChannelDTO } from "@discord-clone/shared";
 import { useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
-import { updateTextChannel } from "../api/channels.api";
+import { updateTextChannel, updateVoiceChannel } from "../api/channels.api";
 import { useServerStore } from "../store/serverStore";
 
-interface Props {
-  channel: TextChannelDTO;
-  onClose: () => void;
-}
+type Props =
+  | { kind: "text"; channel: TextChannelDTO; onClose: () => void }
+  | { kind: "voice"; channel: VoiceChannelDTO; onClose: () => void };
 
-export default function ChannelSettingsModal({ channel, onClose }: Props) {
+export default function ChannelSettingsModal({ kind, channel, onClose }: Props) {
   const updateTextChannelInList = useServerStore((s) => s.updateTextChannelInList);
-  const [backgroundUrl, setBackgroundUrl] = useState(channel.backgroundUrl);
+  const updateVoiceChannelInList = useServerStore((s) => s.updateVoiceChannelInList);
+  const [name, setName] = useState(channel.name);
+  const [backgroundUrl, setBackgroundUrl] = useState(kind === "text" ? channel.backgroundUrl : null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +35,22 @@ export default function ChannelSettingsModal({ channel, onClose }: Props) {
   }
 
   async function handleSave() {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Channel name can't be empty.");
+      return;
+    }
+
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateTextChannel(channel.id, { backgroundUrl });
-      updateTextChannelInList(updated);
+      if (kind === "text") {
+        const updated = await updateTextChannel(channel.id, { name: trimmedName, backgroundUrl });
+        updateTextChannelInList(updated);
+      } else {
+        const updated = await updateVoiceChannel(channel.id, { name: trimmedName });
+        updateVoiceChannelInList(updated);
+      }
       onClose();
     } catch {
       setError("Could not save channel settings.");
@@ -59,29 +71,47 @@ export default function ChannelSettingsModal({ channel, onClose }: Props) {
         </button>
 
         <h1 className="modal-title">Channel Settings</h1>
-        <p className="modal-subtitle"># {channel.name} — background image, visible to everyone in this channel.</p>
+        <p className="modal-subtitle">{kind === "text" ? "#" : "🔊"} {channel.name}</p>
 
-        {backgroundUrl ? (
-          <div className="channel-background-preview-wrap">
-            <img className="channel-background-preview" src={backgroundUrl} alt="" />
-            <button type="button" onClick={handleRemove}>
-              Remove
-            </button>
-          </div>
-        ) : (
-          <div className="channel-background-preview-wrap empty">No background set</div>
+        <label className="modal-label" htmlFor="channel-settings-name-input">
+          Channel Name
+        </label>
+        <input
+          id="channel-settings-name-input"
+          className="modal-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Channel name"
+        />
+
+        {kind === "text" && (
+          <>
+            <label className="modal-label" style={{ marginTop: 16 }}>
+              Background Image
+            </label>
+            {backgroundUrl ? (
+              <div className="channel-background-preview-wrap">
+                <img className="channel-background-preview" src={backgroundUrl} alt="" />
+                <button type="button" onClick={handleRemove}>
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="channel-background-preview-wrap empty">No background set</div>
+            )}
+
+            <div className="avatar-picker">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || !isCloudinaryConfigured()}
+              >
+                {uploading ? "Uploading…" : "Upload Background"}
+              </button>
+              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePick} />
+            </div>
+          </>
         )}
-
-        <div className="avatar-picker">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || !isCloudinaryConfigured()}
-          >
-            {uploading ? "Uploading…" : "Upload Background"}
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePick} />
-        </div>
 
         {error && <div className="modal-error">{error}</div>}
 

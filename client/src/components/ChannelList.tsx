@@ -1,4 +1,4 @@
-import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type TextChannelDTO, type VoiceChannelDTO, type VoicePeerInfo } from "@discord-clone/shared";
 import { useState } from "react";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
@@ -12,6 +12,7 @@ import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import ChannelContextMenu from "./ChannelContextMenu";
+import ChannelSettingsModal from "./ChannelSettingsModal";
 import CreateChannelModal from "./CreateChannelModal";
 import { LiveIcon } from "./HudIcons";
 import MusicMiniPlayer from "./MusicMiniPlayer";
@@ -102,6 +103,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     null,
   );
   const [createChannelType, setCreateChannelType] = useState<"text" | "voice" | null>(null);
+  const [editingChannel, setEditingChannel] = useState<
+    { kind: "text"; channel: TextChannelDTO } | { kind: "voice"; channel: VoiceChannelDTO } | null
+  >(null);
   const { locked } = useLayoutLockStore();
 
   const activeServer = servers.find((s) => s.id === activeServerId);
@@ -194,7 +198,19 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                     onSelectText();
                   }}
                 >
-                  # {channel.name}
+                  <span className="channel-item-name"># {channel.name}</span>
+                  {isOwner && (
+                    <button
+                      className="channel-item-settings"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingChannel({ kind: "text", channel });
+                      }}
+                      title="Edit Channel"
+                    >
+                      ⚙️
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -210,7 +226,19 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                       className={`channel-item ${isActive ? "active" : ""}`}
                       onClick={() => handleVoiceClick(channel.id)}
                     >
-                      🔊 {channel.name}
+                      <span className="channel-item-name">🔊 {channel.name}</span>
+                      {isOwner && (
+                        <button
+                          className="channel-item-settings"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingChannel({ kind: "voice", channel });
+                          }}
+                          title="Edit Channel"
+                        >
+                          ⚙️
+                        </button>
+                      )}
                     </div>
                     {isActive && (
                       <div className="voice-participant-list">
@@ -252,6 +280,13 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
       {showServerSettings && activeServer && (
         <ServerSettingsModal server={activeServer} onClose={() => setShowServerSettings(false)} />
+      )}
+
+      {editingChannel?.kind === "text" && (
+        <ChannelSettingsModal kind="text" channel={editingChannel.channel} onClose={() => setEditingChannel(null)} />
+      )}
+      {editingChannel?.kind === "voice" && (
+        <ChannelSettingsModal kind="voice" channel={editingChannel.channel} onClose={() => setEditingChannel(null)} />
       )}
 
       {contextMenu && (
