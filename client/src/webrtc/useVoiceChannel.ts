@@ -73,8 +73,17 @@ export function useVoiceChannel() {
       if (mediaSocket.connected) resolve();
       else mediaSocket.once("connect", () => resolve());
     });
-    await manager.join(voiceChannelId);
-    await manager.produceMic(localStream.getAudioTracks()[0]);
+    try {
+      await manager.join(voiceChannelId);
+      await manager.produceMic(localStream.getAudioTracks()[0]);
+    } catch (err) {
+      // Logged rather than re-thrown: the Render roster join below still has to run even
+      // if the SFU side failed, so the user at least shows up in the channel instead of
+      // silently vanishing — audio for them would be broken either way, but this makes
+      // that failure visible in devtools instead of a confusing "can't hear/be heard" with
+      // nothing to go on.
+      console.error("SFU join/produce failed", err);
+    }
 
     socket.on(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
       for (const peer of peers) {
@@ -213,12 +222,12 @@ export function useVoiceChannel() {
 
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        // 1080p: the viewer never renders the shared video wider than ~1100px (see
-        // .screen-share-video), and with the SFU every extra viewer no longer multiplies
-        // the uploader's bandwidth need the way the old mesh did — one encode, one upload,
-        // regardless of audience size.
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        // Up to 4K — unlike the old mesh sender, this capture/bitrate no longer gets
+        // multiplied by viewer count (the SFU receives ONE copy regardless of audience
+        // size), so there's no reason to cap it low anymore. Still useful even when
+        // displayed small in the panel, and matters once a viewer goes fullscreen.
+        width: { ideal: 3840 },
+        height: { ideal: 2160 },
         frameRate: { ideal: 30, max: 60 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the

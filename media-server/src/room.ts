@@ -75,9 +75,12 @@ export class Room {
       enableUdp: true,
       enableTcp: true,
       preferUdp: true,
-      // Caps each participant's single outgoing transport — generous for mic + a 1080p
-      // screen share simultaneously, while still bounding one bad actor's upload.
-      initialAvailableOutgoingBitrate: 1_000_000,
+      // Starting point for congestion control's bandwidth estimate, not a hard cap — it
+      // ramps up or down from here based on real network conditions. Set higher than the
+      // mesh-era default so a fresh screen share (targeting up to 8 Mbps, see
+      // SfuMediaManager.startScreenShare) reaches full quality in seconds rather than
+      // slowly climbing from a tiny estimate.
+      initialAvailableOutgoingBitrate: 2_500_000,
     });
     peer.transports.set(transport.id, transport);
     transport.on("dtlsstatechange", (state) => {

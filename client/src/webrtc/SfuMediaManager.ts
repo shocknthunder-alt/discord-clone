@@ -144,6 +144,7 @@ export class SfuMediaManager {
     this.producerMeta.set(producerId, { userId, isScreen });
 
     await this.request("sfu:resume-consumer", { consumerId: consumer.id });
+    console.log(`[sfu] consuming ${kind} from ${userId}${isScreen ? " (screen)" : ""}`);
 
     if (isScreen) {
       const stream = this.remoteScreenStreams.get(userId) ?? new MediaStream();
@@ -192,8 +193,12 @@ export class SfuMediaManager {
   };
 
   async produceMic(track: MediaStreamTrack) {
-    if (!this.sendTransport) return;
+    if (!this.sendTransport) {
+      console.error("[sfu] produceMic called with no send transport — mic will not reach anyone");
+      return;
+    }
     this.micProducer = await this.sendTransport.produce({ track, appData: { type: "mic" } satisfies ProducerAppData });
+    console.log(`[sfu] mic producer created: ${this.micProducer.id}`);
   }
 
   setMicEnabled(enabled: boolean) {
@@ -207,12 +212,25 @@ export class SfuMediaManager {
 
     const videoTrack = screenStream.getVideoTracks()[0];
     if (videoTrack) {
+      // Hints the encoder that this is screen/text content rather than a camera, so it
+      // favors sharpness over smooth motion.
+      try {
+        videoTrack.contentHint = "detail";
+      } catch {
+        // contentHint isn't supported in every browser — fine to skip.
+      }
+
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,
-        // 1080p is the capture resolution requested in useVoiceChannel.ts — this cap no
-        // longer multiplies by viewer count the way the old mesh sender did, since the SFU
-        // only ever receives ONE copy of this stream regardless of how many people watch.
-        encodings: [{ maxBitrate: 4_000_000 }],
+        // Capture resolution is requested up to 4K in useVoiceChannel.ts — unlike the old
+        // mesh sender, this bitrate is no longer multiplied by viewer count (the SFU gets
+        // ONE copy of this stream regardless of audience size), so it can afford to be high.
+        encodings: [{ maxBitrate: 8_000_000 }],
+        onRtpSender: (sender) => {
+          const params = sender.getParameters();
+          params.degradationPreference = "maintain-resolution";
+          void sender.setParameters(params).catch((err) => console.error("Failed to set screen-share encoding params", err));
+        },
         appData: { type: "screen-video" } satisfies ProducerAppData,
       });
     }
