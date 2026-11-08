@@ -758,6 +758,152 @@ button {
   padding: 32px;
 }
 
+.music-panel {
+  width: 100%;
+  max-width: 480px;
+  background: #2b2d31;
+  border-radius: 8px;
+  padding: 12px 16px;
+  color: #dbdee1;
+}
+
+.music-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.music-panel-toggle {
+  color: #949ba4;
+}
+
+.music-player-wrap {
+  margin-top: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.music-player-wrap iframe {
+  width: 100%;
+  height: 200px;
+  display: block;
+}
+
+.music-now-playing {
+  margin-top: 10px;
+}
+
+.music-now-playing-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.music-controls button {
+  background: #404249;
+  border: none;
+  border-radius: 4px;
+  color: white;
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.music-controls button:hover {
+  background: #4e5058;
+}
+
+.music-controls input[type="range"] {
+  flex: 1;
+}
+
+.music-queue {
+  margin-top: 10px;
+  max-height: 140px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.music-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.music-queue-item.active {
+  background: #35373c;
+}
+
+.music-queue-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dbdee1;
+}
+
+.music-queue-meta {
+  color: #949ba4;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.music-queue-item button {
+  background: none;
+  border: none;
+  color: #949ba4;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.music-queue-item button:hover {
+  color: #fa777c;
+}
+
+.music-add-form {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.music-add-form input {
+  flex: 1;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: none;
+  background: #1e1f22;
+  color: #dbdee1;
+  font-size: 12px;
+}
+
+.music-add-form button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  background: #5865f2;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .voice-tiles {
   display: flex;
   flex-wrap: wrap;

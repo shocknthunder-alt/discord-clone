@@ -13,6 +13,7 @@ import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
+import MusicPanel from "./MusicPanel";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -140,6 +141,8 @@ export default function VoiceChannelPanel() {
             )}
           </div>
         </div>
+
+        <MusicPanel />
       </div>
 
       {contextMenu && (

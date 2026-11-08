@@ -11,6 +11,7 @@ import { messagesRouter } from "./routes/messages.routes.js";
 import { serversRouter } from "./routes/servers.routes.js";
 import { broadcastPresence, registerChatGateway } from "./sockets/chat.gateway.js";
 import { registerDmGateway } from "./sockets/dm.gateway.js";
+import { registerMusicGateway } from "./sockets/music.gateway.js";
 import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
@@ -43,6 +44,7 @@ io.on("connection", (socket) => {
   registerChatGateway(io, socket);
   registerVoiceGateway(io, socket);
   registerDmGateway(io, socket);
+  registerMusicGateway(io, socket);
 
   void broadcastPresence(io, userId, "online");
 

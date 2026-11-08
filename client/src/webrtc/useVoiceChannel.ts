@@ -1,8 +1,9 @@
-import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
 import { useCallback } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
+import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { getPreferredMicDeviceId } from "./devicePrefs";
 import { SfuMediaManager } from "./SfuMediaManager";
@@ -215,6 +216,10 @@ export function useVoiceChannel() {
         screenShareLabel: null,
       });
     });
+
+    socket.on(SocketEvents.MusicState, ({ state }: { voiceChannelId: string; state: MusicState }) => {
+      useMusicStore.getState().setState(state);
+    });
   }, [store]);
 
   const leaveVoiceChannel = useCallback(() => {
@@ -229,6 +234,7 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.VoicePeerState);
       socket.off(SocketEvents.ScreenShareStarted);
       socket.off(SocketEvents.ScreenShareStopped);
+      socket.off(SocketEvents.MusicState);
     }
 
     activeMediaManager?.leave();
@@ -240,6 +246,7 @@ export function useVoiceChannel() {
     localScreenStream?.getTracks().forEach((t) => t.stop());
 
     useVoiceStore.getState().reset();
+    useMusicStore.getState().setState(null);
   }, []);
 
   const toggleMute = useCallback(() => {
@@ -340,6 +347,42 @@ export function useVoiceChannel() {
     store.setScreenShareQuality(quality);
   }, [store]);
 
+  const addMusic = useCallback((url: string) => {
+    const { activeVoiceChannelId } = useVoiceStore.getState();
+    if (!activeVoiceChannelId) return;
+    getSocket()?.emit(SocketEvents.MusicAdd, { voiceChannelId: activeVoiceChannelId, url });
+  }, []);
+
+  const removeMusic = useCallback((itemId: string) => {
+    const { activeVoiceChannelId } = useVoiceStore.getState();
+    if (!activeVoiceChannelId) return;
+    getSocket()?.emit(SocketEvents.MusicRemove, { voiceChannelId: activeVoiceChannelId, itemId });
+  }, []);
+
+  const playMusic = useCallback(() => {
+    const { activeVoiceChannelId } = useVoiceStore.getState();
+    if (!activeVoiceChannelId) return;
+    getSocket()?.emit(SocketEvents.MusicPlay, { voiceChannelId: activeVoiceChannelId });
+  }, []);
+
+  const pauseMusic = useCallback(() => {
+    const { activeVoiceChannelId } = useVoiceStore.getState();
+    if (!activeVoiceChannelId) return;
+    getSocket()?.emit(SocketEvents.MusicPause, { voiceChannelId: activeVoiceChannelId });
+  }, []);
+
+  const skipMusic = useCallback(() => {
+    const { activeVoiceChannelId } = useVoiceStore.getState();
+    if (!activeVoiceChannelId) return;
+    getSocket()?.emit(SocketEvents.MusicSkip, { voiceChannelId: activeVoiceChannelId });
+  }, []);
+
+  const seekMusic = useCallback((positionSeconds: number) => {
+    const { activeVoiceChannelId } = useVoiceStore.getState();
+    if (!activeVoiceChannelId) return;
+    getSocket()?.emit(SocketEvents.MusicSeek, { voiceChannelId: activeVoiceChannelId, positionSeconds });
+  }, []);
+
   return {
     joinVoiceChannel,
     leaveVoiceChannel,
@@ -349,5 +392,11 @@ export function useVoiceChannel() {
     setMicMode,
     setPushToTalkKey,
     setScreenShareQuality,
+    addMusic,
+    removeMusic,
+    playMusic,
+    pauseMusic,
+    skipMusic,
+    seekMusic,
   };
 }

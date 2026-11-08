@@ -45,6 +45,15 @@ export const SocketEvents = {
   DmTypingUpdate: "dm:typing:update",
   DmRing: "dm:ring",
   DmUnread: "dm:unread",
+
+  // synced music ("watch party" style — no real audio bot, see MusicState)
+  MusicState: "music:state",
+  MusicAdd: "music:add",
+  MusicRemove: "music:remove",
+  MusicPlay: "music:play",
+  MusicPause: "music:pause",
+  MusicSkip: "music:skip",
+  MusicSeek: "music:seek",
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

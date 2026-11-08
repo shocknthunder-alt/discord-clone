@@ -71,6 +71,27 @@ export interface DmConversationDTO {
   createdAt: string;
 }
 
+export interface MusicQueueItem {
+  id: string;
+  videoId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  addedByUsername: string;
+}
+
+export interface MusicState {
+  queue: MusicQueueItem[];
+  // Index into queue of the currently-loaded item; equal to queue.length when nothing is
+  // playing (end of queue / queue emptied), never a dangling out-of-range value otherwise.
+  currentIndex: number;
+  isPlaying: boolean;
+  // Position as of `updatedAt`, in seconds — clients extrapolate the live position as
+  // `positionSeconds + (Date.now() - updatedAt) / 1000` while isPlaying, rather than the
+  // server pushing a continuous stream of position updates.
+  positionSeconds: number;
+  updatedAt: number;
+}
+
 export interface DirectMessageDTO {
   id: string;
   conversationId: string;
