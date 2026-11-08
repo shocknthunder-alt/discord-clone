@@ -7,11 +7,15 @@ export const mediaCodecs: mediasoup.types.RouterRtpCodecCapability[] = [
     clockRate: 48000,
     channels: 2,
     parameters: {
-      // Matches the bitrate/FEC/DTX tuning the old mesh client used — keeps voice quality
-      // consistent across the migration rather than falling back to Opus defaults.
       maxaveragebitrate: 128000,
       useinbandfec: 1,
-      usedtx: 1,
+      // DTX (discontinuous transmission, stop sending during silence) was carried over
+      // from the old mesh tuning to save bandwidth, but it's a known source of audible
+      // artifacts: with background noise sitting near the voice-activity threshold, the
+      // encoder flickers between active/DTX state and produces exactly the clicking/static
+      // residual noise reported (audible even while not speaking, gone only when fully
+      // muted — not room noise, a codec artifact). Bandwidth isn't the constraint it used
+      // to be post-SFU, so this isn't worth the quality cost.
     },
   },
   {

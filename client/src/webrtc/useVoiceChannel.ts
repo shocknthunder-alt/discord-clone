@@ -242,12 +242,15 @@ export function useVoiceChannel() {
 
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        // Up to 4K — unlike the old mesh sender, this capture/bitrate no longer gets
-        // multiplied by viewer count (the SFU receives ONE copy regardless of audience
-        // size), so there's no reason to cap it low anymore. Still useful even when
-        // displayed small in the panel, and matters once a viewer goes fullscreen.
-        width: { ideal: 3840 },
-        height: { ideal: 2160 },
+        // 1080p, not 4K: SfuMediaManager.startScreenShare now encodes THREE simulcast
+        // layers simultaneously (for per-viewer quality adaptation), and encoding 3 layers
+        // of a 4K60 source is enough sustained CPU work on the sharer's own machine to drop
+        // frames at the SOURCE — the choppiness that got reported was independent of any
+        // viewer's network, since it was baked into the encode before it ever left their
+        // computer. 1080p cuts that encoding cost roughly 4x across all three layers while
+        // still outresolving the ~1100px-wide display area (see .screen-share-video).
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
         frameRate: { ideal: 30, max: 60 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
