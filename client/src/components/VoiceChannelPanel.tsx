@@ -115,7 +115,18 @@ export default function VoiceChannelPanel() {
   return (
     <div className="main-content">
       <div className="chat-header">🔊 {channel?.name ?? ""}</div>
-      <div className="voice-panel">
+      <div
+        className="voice-panel"
+        style={
+          channel?.backgroundUrl
+            ? {
+                backgroundImage: `linear-gradient(rgba(20,21,23,0.45), rgba(20,21,23,0.6)), url(${channel.backgroundUrl})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              }
+            : undefined
+        }
+      >
         {watchedStream && (
           <div className="screen-share-viewer">
             <button

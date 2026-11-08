@@ -106,10 +106,11 @@ model Message {
 }
 
 model VoiceChannel {
-  id       String @id @default(cuid())
-  name     String
-  serverId String
-  position Int    @default(0)
+  id            String  @id @default(cuid())
+  name          String
+  backgroundUrl String?
+  serverId      String
+  position      Int     @default(0)
 
   server Server @relation(fields: [serverId], references: [id])
 }

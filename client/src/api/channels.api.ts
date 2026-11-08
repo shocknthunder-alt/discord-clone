@@ -25,7 +25,7 @@ export function updateTextChannel(channelId: string, data: { backgroundUrl?: str
   return http.patch<{ textChannel: TextChannelDTO }>(`/api/text-channels/${channelId}`, data).then((r) => r.data.textChannel);
 }
 
-export function updateVoiceChannel(channelId: string, data: { name?: string }) {
+export function updateVoiceChannel(channelId: string, data: { name?: string; backgroundUrl?: string | null }) {
   return http
     .patch<{ voiceChannel: VoiceChannelDTO }>(`/api/voice-channels/${channelId}`, data)
     .then((r) => r.data.voiceChannel);

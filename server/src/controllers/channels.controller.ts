@@ -86,10 +86,13 @@ export async function createVoiceChannel(req: Request, res: Response) {
 
 export async function updateVoiceChannel(req: Request, res: Response) {
   const { channelId } = req.params;
-  const { name } = req.body ?? {};
+  const { name, backgroundUrl } = req.body ?? {};
 
   if (name !== undefined && (typeof name !== "string" || !name.trim())) {
     return res.status(400).json({ error: "name must be a non-empty string" });
+  }
+  if (backgroundUrl !== undefined && backgroundUrl !== null && typeof backgroundUrl !== "string") {
+    return res.status(400).json({ error: "backgroundUrl must be a string or null" });
   }
 
   const voiceChannel = await prisma.voiceChannel.findUnique({ where: { id: channelId } });
@@ -104,7 +107,10 @@ export async function updateVoiceChannel(req: Request, res: Response) {
 
   const updated = await prisma.voiceChannel.update({
     where: { id: channelId },
-    data: { ...(name !== undefined ? { name: name.trim() } : {}) },
+    data: {
+      ...(name !== undefined ? { name: name.trim() } : {}),
+      ...(backgroundUrl !== undefined ? { backgroundUrl } : {}),
+    },
   });
 
   res.json({ voiceChannel: updated });

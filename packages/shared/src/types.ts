@@ -26,6 +26,7 @@ export interface TextChannelDTO {
 export interface VoiceChannelDTO {
   id: string;
   name: string;
+  backgroundUrl: string | null;
   serverId: string;
   position: number;
 }

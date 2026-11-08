@@ -12,7 +12,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
   const updateTextChannelInList = useServerStore((s) => s.updateTextChannelInList);
   const updateVoiceChannelInList = useServerStore((s) => s.updateVoiceChannelInList);
   const [name, setName] = useState(channel.name);
-  const [backgroundUrl, setBackgroundUrl] = useState(kind === "text" ? channel.backgroundUrl : null);
+  const [backgroundUrl, setBackgroundUrl] = useState(channel.backgroundUrl);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +48,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
         const updated = await updateTextChannel(channel.id, { name: trimmedName, backgroundUrl });
         updateTextChannelInList(updated);
       } else {
-        const updated = await updateVoiceChannel(channel.id, { name: trimmedName });
+        const updated = await updateVoiceChannel(channel.id, { name: trimmedName, backgroundUrl });
         updateVoiceChannelInList(updated);
       }
       onClose();
@@ -84,34 +84,30 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
           placeholder="Channel name"
         />
 
-        {kind === "text" && (
-          <>
-            <label className="modal-label" style={{ marginTop: 16 }}>
-              Background Image
-            </label>
-            {backgroundUrl ? (
-              <div className="channel-background-preview-wrap">
-                <img className="channel-background-preview" src={backgroundUrl} alt="" />
-                <button type="button" onClick={handleRemove}>
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <div className="channel-background-preview-wrap empty">No background set</div>
-            )}
-
-            <div className="avatar-picker">
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || !isCloudinaryConfigured()}
-              >
-                {uploading ? "Uploading…" : "Upload Background"}
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePick} />
-            </div>
-          </>
+        <label className="modal-label" style={{ marginTop: 16 }}>
+          Background Image
+        </label>
+        {backgroundUrl ? (
+          <div className="channel-background-preview-wrap">
+            <img className="channel-background-preview" src={backgroundUrl} alt="" />
+            <button type="button" onClick={handleRemove}>
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div className="channel-background-preview-wrap empty">No background set</div>
         )}
+
+        <div className="avatar-picker">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || !isCloudinaryConfigured()}
+          >
+            {uploading ? "Uploading…" : "Upload Background"}
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePick} />
+        </div>
 
         {error && <div className="modal-error">{error}</div>}
 
