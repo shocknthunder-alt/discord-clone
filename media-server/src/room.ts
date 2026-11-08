@@ -1,0 +1,127 @@
+import type * as mediasoup from "mediasoup";
+import { mediaCodecs } from "./mediasoupConfig.js";
+import { getNextWorker } from "./workerPool.js";
+
+export interface PeerProducerInfo {
+  producerId: string;
+  userId: string;
+  kind: "audio" | "video";
+  appData: Record<string, unknown>;
+}
+
+export class Peer {
+  transports = new Map<string, mediasoup.types.WebRtcTransport>();
+  producers = new Map<string, mediasoup.types.Producer>();
+  consumers = new Map<string, mediasoup.types.Consumer>();
+
+  constructor(
+    public userId: string,
+    public socketId: string,
+  ) {}
+
+  async close() {
+    for (const transport of this.transports.values()) transport.close();
+    this.transports.clear();
+    this.producers.clear();
+    this.consumers.clear();
+  }
+}
+
+export class Room {
+  peers = new Map<string, Peer>(); // keyed by userId
+
+  private constructor(
+    public id: string,
+    public router: mediasoup.types.Router,
+    private webRtcServer: mediasoup.types.WebRtcServer,
+  ) {}
+
+  static async create(id: string): Promise<Room> {
+    const { worker, webRtcServer } = getNextWorker();
+    const router = await worker.createRouter({ mediaCodecs });
+    return new Room(id, router, webRtcServer);
+  }
+
+  getOrCreatePeer(userId: string, socketId: string): Peer {
+    const existing = this.peers.get(userId);
+    if (existing) {
+      existing.socketId = socketId;
+      return existing;
+    }
+    const peer = new Peer(userId, socketId);
+    this.peers.set(userId, peer);
+    return peer;
+  }
+
+  listProducers(excludingUserId?: string): PeerProducerInfo[] {
+    const result: PeerProducerInfo[] = [];
+    for (const peer of this.peers.values()) {
+      if (peer.userId === excludingUserId) continue;
+      for (const producer of peer.producers.values()) {
+        result.push({
+          producerId: producer.id,
+          userId: peer.userId,
+          kind: producer.kind,
+          appData: producer.appData as Record<string, unknown>,
+        });
+      }
+    }
+    return result;
+  }
+
+  async createWebRtcTransport(peer: Peer): Promise<mediasoup.types.WebRtcTransport> {
+    const transport = await this.router.createWebRtcTransport({
+      webRtcServer: this.webRtcServer,
+      enableUdp: true,
+      enableTcp: true,
+      preferUdp: true,
+      // Caps each participant's single outgoing transport — generous for mic + a 1080p
+      // screen share simultaneously, while still bounding one bad actor's upload.
+      initialAvailableOutgoingBitrate: 1_000_000,
+    });
+    peer.transports.set(transport.id, transport);
+    transport.on("dtlsstatechange", (state) => {
+      if (state === "closed" || state === "failed") transport.close();
+    });
+    return transport;
+  }
+
+  async closePeer(userId: string) {
+    const peer = this.peers.get(userId);
+    if (!peer) return;
+    const closedProducerIds = Array.from(peer.producers.keys());
+    await peer.close();
+    this.peers.delete(userId);
+    return closedProducerIds;
+  }
+
+  isEmpty(): boolean {
+    return this.peers.size === 0;
+  }
+
+  close() {
+    this.router.close();
+  }
+}
+
+const rooms = new Map<string, Room>();
+
+export async function getOrCreateRoom(roomId: string): Promise<Room> {
+  const existing = rooms.get(roomId);
+  if (existing) return existing;
+  const room = await Room.create(roomId);
+  rooms.set(roomId, room);
+  return room;
+}
+
+export function getRoom(roomId: string): Room | undefined {
+  return rooms.get(roomId);
+}
+
+export function removeRoomIfEmpty(roomId: string) {
+  const room = rooms.get(roomId);
+  if (room && room.isEmpty()) {
+    room.close();
+    rooms.delete(roomId);
+  }
+}
