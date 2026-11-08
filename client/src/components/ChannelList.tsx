@@ -13,6 +13,7 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import ChannelContextMenu from "./ChannelContextMenu";
 import CreateChannelModal from "./CreateChannelModal";
+import { LiveIcon } from "./HudIcons";
 import PeerConnectionBadge from "./PeerConnectionBadge";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
@@ -49,7 +50,7 @@ function ParticipantRow({
         className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}
         title={peer.isScreenSharing ? `Sharing ${peer.screenShareLabel ?? "their screen"}` : undefined}
       >
-        {peer.isScreenSharing && "🖥️ "}
+        {peer.isScreenSharing && <LiveIcon size={11} />}{" "}
         {peer.username || "connecting…"}
       </span>
       {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
@@ -69,7 +70,7 @@ function OccupantRow({ occupant }: { occupant: VoicePeerInfo }) {
         className={occupant.isScreenSharing ? "participant-name streaming" : "participant-name"}
         title={occupant.isScreenSharing ? `Sharing ${occupant.screenShareLabel ?? "their screen"}` : undefined}
       >
-        {occupant.isScreenSharing && "🖥️ "}
+        {occupant.isScreenSharing && <LiveIcon size={11} />}{" "}
         {occupant.username}
       </span>
       {voiceStatusIcons(occupant.isMuted, occupant.isDeafened) && (
@@ -223,7 +224,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         <div className="participant-row">
                           <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
                           <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
-                            {isScreenSharing && "🖥️ "}
+                            {isScreenSharing && <LiveIcon size={11} />}{" "}
                             {currentUsername}
                           </span>
                           {voiceStatusIcons(isMuted, isDeafened) && (

@@ -52,6 +52,18 @@ export function HeadphoneIcon({ size = 16, color = "#ffffff", muted = false }: I
   );
 }
 
+/** "On air" broadcast glyph — a center dot with signal arcs radiating both sides. Used for
+ * the "someone is sharing" indicator instead of the 🖥️ monitor emoji. */
+export function LiveIcon({ size = 14, color = "#23a559" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="2.5" fill={color} />
+      <path d="M8.3 8.3a5 5 0 0 0 0 7.4M15.7 8.3a5 5 0 0 1 0 7.4" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M5.1 5.1a9.5 9.5 0 0 0 0 13.8M18.9 5.1a9.5 9.5 0 0 1 0 13.8" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function ScreenShareIcon({ size = 16, color = "#ffffff" }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>

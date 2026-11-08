@@ -121,11 +121,23 @@ export class SfuMediaManager {
 
   private handleNewProducer = (payload: NewProducerPayload) => {
     this.knownUserIds.add(payload.userId);
-    void this.consume(payload.producerId, payload.userId, payload.appData);
+    // Was previously fire-and-forget (`void`) with no catch — any failure here (a rejected
+    // ack, a canConsume() mismatch, a transport in a bad state) vanished as a silent
+    // unhandled rejection, which is exactly indistinguishable from "it just didn't arrive"
+    // from the outside. Logged now so a repeat is actually diagnosable.
+    this.consume(payload.producerId, payload.userId, payload.appData).catch((err) => {
+      console.error(`[sfu] failed to consume ${payload.kind} producer from ${payload.userId}`, err);
+    });
   };
 
   private async consume(producerId: string, userId: string, appData: ProducerAppData) {
-    if (!this.device || !this.recvTransport) return;
+    if (!this.device || !this.recvTransport) {
+      console.error("[sfu] consume() called before device/recvTransport were ready", {
+        hasDevice: !!this.device,
+        hasRecvTransport: !!this.recvTransport,
+      });
+      return;
+    }
 
     const { id, kind, rtpParameters } = await this.request<{
       id: string;

@@ -12,6 +12,7 @@ import ScreenSharePlayer from "./ScreenSharePlayer";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
+import { LiveIcon } from "./HudIcons";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -41,7 +42,9 @@ function PeerTile({
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
       {peer.isScreenSharing && (
         <>
-          <div className="screen-share-label">🖥️ Sharing {peer.screenShareLabel ?? "their screen"}</div>
+          <div className="screen-share-label">
+            <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
+          </div>
           {peer.screenStream && (
             <button className="screen-share-badge" onClick={() => onWatch(peer.socketId)} title="Watch this screen share">
               Watch Stream
@@ -130,7 +133,11 @@ export default function VoiceChannelPanel() {
             <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />
             <div>{currentUsername}</div>
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
-            {isScreenSharing && <div className="screen-share-badge self">🖥️ You're sharing</div>}
+            {isScreenSharing && (
+              <div className="screen-share-badge self">
+                <LiveIcon size={12} color="#ffffff" /> You're sharing
+              </div>
+            )}
           </div>
         </div>
       </div>
