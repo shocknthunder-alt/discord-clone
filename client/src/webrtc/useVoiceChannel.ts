@@ -137,29 +137,13 @@ export function useVoiceChannel() {
         resolve();
       });
     });
-    socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
-    await rosterReady;
-
-    // Room joins only once the media socket is actually connected — on a fresh connect
-    // this can race the "connect" event, mediaSocket.connected covers the reconnect case.
-    await new Promise<void>((resolve) => {
-      if (mediaSocket.connected) resolve();
-      else mediaSocket.once("connect", () => resolve());
-    });
-    try {
-      await manager.join(voiceChannelId);
-      await manager.produceMic(localStream.getAudioTracks()[0]);
-      attachPushToTalkListeners();
-      applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
-    } catch (err) {
-      // Logged rather than re-thrown: the rest of this function still has to run even if
-      // the SFU side failed, so the user at least shows up in the channel instead of
-      // silently vanishing — audio for them would be broken either way, but this makes
-      // that failure visible in devtools instead of a confusing "can't hear/be heard" with
-      // nothing to go on.
-      console.error("SFU join/produce failed", err);
-    }
-
+    // These listeners cover everything that lives on the Render socket — roster, screen
+    // share labels, music sync — none of which has anything to do with the SFU. They're
+    // registered before touching the SFU at all (below) specifically so a slow, flaky, or
+    // fully unreachable media-server can never block them: this used to run AFTER the SFU
+    // join, so a hung media-server connection meant every one of these listeners silently
+    // never got attached — no peer-left notifications, no music sync, no quality badge,
+    // nothing, even though none of it actually depends on the SFU working.
     socket.on(
       SocketEvents.VoicePeerJoined,
       ({
@@ -227,6 +211,51 @@ export function useVoiceChannel() {
     socket.on(SocketEvents.MusicAddError, ({ reason }: { reason: string }) => {
       useMusicStore.getState().setAddError(reason);
     });
+
+    socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
+    await rosterReady;
+
+    // Room joins only once the media socket is actually connected — on a fresh connect
+    // this can race the "connect" event, mediaSocket.connected covers the reconnect case.
+    // Capped at 8s: an unreachable media-server would otherwise hang this forever, and
+    // everything registered above already works independent of it either way.
+    const mediaSocketConnected = await new Promise<boolean>((resolve) => {
+      if (mediaSocket.connected) {
+        resolve(true);
+        return;
+      }
+      const timeout = setTimeout(() => resolve(false), 8000);
+      mediaSocket.once("connect", () => {
+        clearTimeout(timeout);
+        resolve(true);
+      });
+      // Doesn't resolve the promise on its own (the socket keeps retrying under the hood),
+      // but logs immediately instead of waiting out the full timeout in silence — e.g. a
+      // JWT mismatch between Render and the media-server surfaces as connect_error, not a
+      // hang, and this makes that visible in devtools right away.
+      mediaSocket.once("connect_error", (err) => {
+        console.error("SFU media socket connect_error", err.message);
+      });
+    });
+
+    if (!mediaSocketConnected) {
+      console.error("SFU media socket did not connect within 8s — voice audio/video will be unavailable");
+      return;
+    }
+
+    try {
+      await manager.join(voiceChannelId);
+      await manager.produceMic(localStream.getAudioTracks()[0]);
+      attachPushToTalkListeners();
+      applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
+    } catch (err) {
+      // Logged rather than re-thrown: the rest of this function still has to run even if
+      // the SFU side failed, so the user at least shows up in the channel instead of
+      // silently vanishing — audio for them would be broken either way, but this makes
+      // that failure visible in devtools instead of a confusing "can't hear/be heard" with
+      // nothing to go on.
+      console.error("SFU join/produce failed", err);
+    }
   }, [store]);
 
   const leaveVoiceChannel = useCallback(() => {
