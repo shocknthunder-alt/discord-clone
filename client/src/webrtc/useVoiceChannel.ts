@@ -67,6 +67,36 @@ export function useVoiceChannel() {
     });
     activeMediaManager = manager;
 
+    // The Render roster join has to fully land BEFORE the SFU join starts consuming
+    // anyone's existing audio/video. onAudioStream/onScreenStream resolve a stream to a
+    // roster entry by userId (see upsertPeerMediaByUserId) — if the SFU hands back an
+    // already-live peer's stream before that peer's roster entry (with its userId) exists
+    // in voiceStore yet, the lookup finds nothing and the stream is silently dropped,
+    // never retried. Since the SFU connection and this one are two unrelated servers with
+    // independent round-trip times, that race was winnable either way, which is exactly
+    // why reports of "they can't hear me" / "I can't hear them" kept flipping direction
+    // depending on timing. Registering listeners and awaiting the initial roster snapshot
+    // before touching the SFU at all removes the race instead of narrowing it.
+    const rosterReady = new Promise<void>((resolve) => {
+      socket.once(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
+        for (const peer of peers) {
+          useVoiceStore.getState().upsertPeer({
+            socketId: peer.socketId,
+            userId: peer.userId,
+            username: peer.username,
+            avatarUrl: peer.avatarUrl,
+            isMuted: peer.isMuted,
+            isDeafened: peer.isDeafened,
+            isScreenSharing: peer.isScreenSharing,
+            screenShareLabel: peer.screenShareLabel,
+          });
+        }
+        resolve();
+      });
+    });
+    socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
+    await rosterReady;
+
     // Room joins only once the media socket is actually connected — on a fresh connect
     // this can race the "connect" event, mediaSocket.connected covers the reconnect case.
     await new Promise<void>((resolve) => {
@@ -77,28 +107,13 @@ export function useVoiceChannel() {
       await manager.join(voiceChannelId);
       await manager.produceMic(localStream.getAudioTracks()[0]);
     } catch (err) {
-      // Logged rather than re-thrown: the Render roster join below still has to run even
-      // if the SFU side failed, so the user at least shows up in the channel instead of
+      // Logged rather than re-thrown: the rest of this function still has to run even if
+      // the SFU side failed, so the user at least shows up in the channel instead of
       // silently vanishing — audio for them would be broken either way, but this makes
       // that failure visible in devtools instead of a confusing "can't hear/be heard" with
       // nothing to go on.
       console.error("SFU join/produce failed", err);
     }
-
-    socket.on(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
-      for (const peer of peers) {
-        useVoiceStore.getState().upsertPeer({
-          socketId: peer.socketId,
-          userId: peer.userId,
-          username: peer.username,
-          avatarUrl: peer.avatarUrl,
-          isMuted: peer.isMuted,
-          isDeafened: peer.isDeafened,
-          isScreenSharing: peer.isScreenSharing,
-          screenShareLabel: peer.screenShareLabel,
-        });
-      }
-    });
 
     socket.on(
       SocketEvents.VoicePeerJoined,
@@ -157,8 +172,6 @@ export function useVoiceChannel() {
         screenShareLabel: null,
       });
     });
-
-    socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
   }, [store]);
 
   const leaveVoiceChannel = useCallback(() => {
