@@ -12,12 +12,15 @@ import { SignalIcon } from "./VoiceStatusBar";
 // FloatingIcon's own localStorage persistence. Deliberately NOT bottom-center: that's
 // exactly where the message input bar sits in every view (text channel, DM, voice), so a
 // bottom-center default meant the HUD sat on top of it once locked in place.
-function defaultColumnPositions(count: number) {
+// Computed fresh on every call (not cached) — see FloatingIcon's getDefaultPosition prop
+// for why that matters: a value computed once at render time goes stale the moment the
+// viewport changes (DevTools opening/closing included), stranding icons mid-screen.
+function defaultColumnPosition(index: number, count: number) {
   const spacing = 48;
   const totalHeight = spacing * (count - 1);
   const x = Math.max(16, window.innerWidth - 56);
   const startY = Math.max(16, window.innerHeight / 2 - totalHeight / 2);
-  return Array.from({ length: count }, (_, i) => ({ x, y: startY + i * spacing }));
+  return { x, y: startY + index * spacing };
 }
 
 export default function FloatingVoiceHud() {
@@ -28,17 +31,15 @@ export default function FloatingVoiceHud() {
 
   if (!activeVoiceChannelId) return null;
 
-  const positions = defaultColumnPositions(6);
-
   return (
     <>
-      <FloatingIcon id="hud-mute" defaultPosition={positions[0]}>
+      <FloatingIcon id="hud-mute" getDefaultPosition={() => defaultColumnPosition(0, 6)}>
         <button className={`hud-icon-button ${isMuted ? "active" : ""}`} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
           <MicIcon muted={isMuted} />
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-deafen" defaultPosition={positions[1]}>
+      <FloatingIcon id="hud-deafen" getDefaultPosition={() => defaultColumnPosition(1, 6)}>
         <button
           className={`hud-icon-button ${isDeafened ? "active" : ""}`}
           onClick={toggleDeafen}
@@ -48,7 +49,7 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-screenshare" defaultPosition={positions[2]}>
+      <FloatingIcon id="hud-screenshare" getDefaultPosition={() => defaultColumnPosition(2, 6)}>
         <button
           className={`hud-icon-button ${isScreenSharing ? "active" : ""}`}
           onClick={() => toggleScreenShare()}
@@ -58,19 +59,19 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-disconnect" defaultPosition={positions[3]}>
+      <FloatingIcon id="hud-disconnect" getDefaultPosition={() => defaultColumnPosition(3, 6)}>
         <button className="hud-icon-button hangup" onClick={leaveVoiceChannel} title="Disconnect">
           <HangupIcon />
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-settings" defaultPosition={positions[4]}>
+      <FloatingIcon id="hud-settings" getDefaultPosition={() => defaultColumnPosition(4, 6)}>
         <button className="hud-icon-button" onClick={() => setShowSettings(true)} title="Settings">
           ⚙️
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-network" defaultPosition={positions[5]}>
+      <FloatingIcon id="hud-network" getDefaultPosition={() => defaultColumnPosition(5, 6)}>
         <div className="hud-icon-button static" title={`Connection: ${connectionQuality}`}>
           <SignalIcon quality={connectionQuality} size={14} />
         </div>

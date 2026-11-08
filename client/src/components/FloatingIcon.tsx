@@ -1,10 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLayoutLockStore } from "../store/layoutLockStore";
-import { loadPosition, savePosition, type Position } from "../utils/floatingPositions";
+import { hasSavedPosition, loadPosition, savePosition, type Position } from "../utils/floatingPositions";
 
 interface Props {
   id: string;
-  defaultPosition: Position;
+  // A function, not a static value: it has to be called fresh on every resize (DevTools
+  // opening/closing included — that changes window.innerWidth without a "real" resize in
+  // some browsers' eyes, but still moves where the edge of the screen is), not just once
+  // when the component mounts. A static default baked in at mount time is exactly what
+  // left these icons stranded mid-screen after DevTools closed.
+  getDefaultPosition: () => Position;
   children: React.ReactNode;
 }
 
@@ -28,9 +33,9 @@ function clampToViewport(pos: Position): Position {
  * and persisted per-id in localStorage so it survives reloads. Dragging is disabled while
  * the layout is locked (layoutLockStore), same lock used by the row-reorder groups.
  */
-export default function FloatingIcon({ id, defaultPosition, children }: Props) {
+export default function FloatingIcon({ id, getDefaultPosition, children }: Props) {
   const locked = useLayoutLockStore((s) => s.locked);
-  const [pos, setPos] = useState(() => clampToViewport(loadPosition(id, defaultPosition)));
+  const [pos, setPos] = useState(() => clampToViewport(loadPosition(id, getDefaultPosition())));
   const dragRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -39,6 +44,21 @@ export default function FloatingIcon({ id, defaultPosition, children }: Props) {
     current: Position;
     dragging: boolean;
   } | null>(null);
+
+  // Never-dragged icons keep tracking the viewport-relative default position on resize —
+  // explicitly dragged ones stay exactly where the user put them regardless of resize.
+  useEffect(() => {
+    function handleResize() {
+      if (hasSavedPosition(id)) {
+        setPos((p) => clampToViewport(p));
+      } else {
+        setPos(clampToViewport(getDefaultPosition()));
+      }
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (locked) return;

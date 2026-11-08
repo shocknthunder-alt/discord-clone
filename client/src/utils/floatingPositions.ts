@@ -21,6 +21,14 @@ export function savePosition(id: string, position: Position) {
   localStorage.setItem(PREFIX + id, JSON.stringify(position));
 }
 
+/** Whether this icon has ever actually been dragged — distinct from "has a position", since
+ * every icon always has SOME position (falling back to its computed default). Used to decide
+ * whether an icon should keep tracking the viewport-relative default on resize, or stay put
+ * at the spot the user explicitly dropped it. */
+export function hasSavedPosition(id: string): boolean {
+  return localStorage.getItem(PREFIX + id) !== null;
+}
+
 /** Clears every saved floating icon position, snapping the whole HUD back to its default layout. */
 export function resetAllPositions() {
   for (const key of Object.keys(localStorage)) {
