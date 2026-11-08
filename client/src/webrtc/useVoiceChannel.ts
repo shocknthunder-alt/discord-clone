@@ -366,18 +366,20 @@ export function useVoiceChannel() {
       return;
     }
 
-    // SfuMediaManager.startScreenShare encodes THREE simulcast layers simultaneously (for
-    // per-viewer quality adaptation), which is real sustained CPU work on the sharer's own
-    // machine — at 4K60 that was enough to drop frames at the SOURCE regardless of any
-    // viewer's network. Standard (1080p, the safe default) still outresolves the
-    // ~1100px-wide display area; High (4K) is opt-in for people whose hardware can handle
-    // three layers of it, picked in Settings → Screen Share Quality.
+    // SfuMediaManager.startScreenShare now encodes via VP9 SVC — a single encoder producing
+    // a layered bitstream instead of three independent simulcast encoders, which is what
+    // made 4K60 drop frames at the SOURCE regardless of any viewer's network. That headroom
+    // is what High now spends on 1440p *and* a real 60fps target (frameRate was capped at
+    // an "ideal" of 30 even for High before, which matters more than resolution for a
+    // shared game). Standard (1080p60) still outresolves the ~1100px-wide display area;
+    // High is opt-in in Settings → Screen Share Quality for people whose hardware/upload
+    // can sustain it.
     const quality = useVoiceStore.getState().screenShareQuality;
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        width: { ideal: quality === "high" ? 3840 : 1920 },
-        height: { ideal: quality === "high" ? 2160 : 1080 },
-        frameRate: { ideal: 30, max: 60 },
+        width: { ideal: quality === "high" ? 2560 : 1920 },
+        height: { ideal: quality === "high" ? 1440 : 1080 },
+        frameRate: { ideal: 60, max: 60 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
       // viewer only ever gets video. Chrome asks separately for this when sharing a tab;

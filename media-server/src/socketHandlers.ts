@@ -179,11 +179,14 @@ export function registerMediaSocket(io: IOServer, socket: Socket) {
         // requesting the top layer up front means it opens at full quality and only steps
         // down from there if real congestion forces it to — the direction viewers actually
         // want, rather than ramping up from worst-case.
-        if (consumer.type === "simulcast") {
-          // Matches the 3-layer simulcast setup screen-share producers always use (see
-          // SfuMediaManager.startScreenShare) — index 2 is the top layer. Not derived from
-          // consumer.rtpParameters.encodings, which describes the consumer's own single
-          // output stream, not how many layers the producer actually offers.
+        if (consumer.type === "simulcast" || consumer.type === "svc") {
+          // Matches the 3-spatial-layer setup screen-share producers always use — VP8
+          // simulcast (type "simulcast") or VP9 SVC's L3T3_KEY (type "svc", a DIFFERENT
+          // consumer.type than plain simulcast — easy to miss and silently skip this
+          // entirely for VP9, which is exactly what happened the first time this was
+          // written, before VP9 SVC existed in this codebase). Index 2 is the top layer for
+          // both. Not derived from consumer.rtpParameters.encodings, which describes the
+          // consumer's own single output stream, not how many layers the producer offers.
           await consumer.setPreferredLayers({ spatialLayer: 2, temporalLayer: 2 });
         }
 

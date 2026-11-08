@@ -19,6 +19,21 @@ export const mediaCodecs: mediasoup.types.RouterRtpCodecCapability[] = [
     },
   },
   {
+    // Listed before VP8 so it's preferred when both sides support it (Chrome does) — VP9
+    // compresses meaningfully better than VP8 at the same quality, and its SVC mode lets a
+    // single encoder produce layered output instead of SfuMediaManager running three
+    // separate full encoder instances for simulcast (see startScreenShare), which is what
+    // was pushing a 4K share to drop frames at the source regardless of any viewer's
+    // network. VP8 stays below as the fallback for clients/codecs without VP9 support.
+    kind: "video",
+    mimeType: "video/VP9",
+    clockRate: 90000,
+    parameters: {
+      "profile-id": 2,
+      "x-google-start-bitrate": 1000,
+    },
+  },
+  {
     kind: "video",
     mimeType: "video/VP8",
     clockRate: 90000,
