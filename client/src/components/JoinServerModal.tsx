@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { joinServer } from "../api/servers.api";
+import { useEffect, useState } from "react";
+import { fetchFeaturedInvite, joinServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
 
 interface Props {
@@ -17,6 +17,13 @@ export default function JoinServerModal({ onClose }: Props) {
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [featured, setFeatured] = useState<{ name: string; inviteCode: string } | null>(null);
+
+  useEffect(() => {
+    fetchFeaturedInvite()
+      .then(setFeatured)
+      .catch(() => setFeatured(null));
+  }, []);
 
   async function handleJoin() {
     const code = extractInviteCode(input);
@@ -59,9 +66,11 @@ export default function JoinServerModal({ onClose }: Props) {
           autoFocus
         />
 
-        <p className="modal-examples-text">
-          Paste THIS <strong>cmw6c0h3z0004123k7n8dqxww</strong> To Join Twinspark CHannel!
-        </p>
+        {featured && (
+          <p className="modal-examples-text">
+            Paste THIS <strong>{featured.inviteCode}</strong> To Join {featured.name} CHannel!
+          </p>
+        )}
 
         {error && <div className="modal-error">{error}</div>}
 

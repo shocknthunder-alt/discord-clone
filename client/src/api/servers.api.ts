@@ -22,6 +22,10 @@ export function updateServer(serverId: string, data: { name?: string; iconUrl?: 
   return http.patch<{ server: ServerDTO }>(`/api/servers/${serverId}`, data).then((r) => r.data.server);
 }
 
+export function fetchFeaturedInvite() {
+  return http.get<{ name: string; inviteCode: string }>("/api/servers/featured-invite").then((r) => r.data);
+}
+
 export function fetchServer(serverId: string) {
   return http
     .get<{ server: ServerDTO & { textChannels: TextChannelDTO[]; voiceChannels: VoiceChannelDTO[] } }>(

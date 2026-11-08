@@ -29,6 +29,22 @@ export async function createServer(req: Request, res: Response) {
   res.status(201).json({ server });
 }
 
+// Shown on the "Join a server" modal to a brand-new user who isn't a member of anything
+// yet — so this can't be gated by membership. Points at the oldest server in the DB, which
+// for this app is always the one real friend-group server; a hardcoded hint text in the
+// client used to serve the same purpose but went stale the moment that server's invite
+// code was ever regenerated.
+export async function getFeaturedInvite(req: Request, res: Response) {
+  const server = await prisma.server.findFirst({
+    orderBy: { createdAt: "asc" },
+    select: { name: true, inviteCode: true },
+  });
+  if (!server) {
+    return res.status(404).json({ error: "No server to invite to yet" });
+  }
+  res.json(server);
+}
+
 export async function getServer(req: Request, res: Response) {
   const { serverId } = req.params;
 
