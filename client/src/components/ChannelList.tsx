@@ -14,6 +14,7 @@ import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import ChannelContextMenu from "./ChannelContextMenu";
 import CreateChannelModal from "./CreateChannelModal";
 import { LiveIcon } from "./HudIcons";
+import MusicMiniPlayer from "./MusicMiniPlayer";
 import PeerConnectionBadge from "./PeerConnectionBadge";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
@@ -249,6 +250,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
       </div>
 
       <VoiceStatusBar />
+      <MusicMiniPlayer />
       {!activeVoiceChannelId && <UserBar />}
 
       {showServerSettings && activeServer && (

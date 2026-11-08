@@ -355,9 +355,11 @@ export function useVoiceChannel() {
   const addMusic = useCallback((url: string) => {
     const { activeVoiceChannelId } = useVoiceStore.getState();
     if (!activeVoiceChannelId) return;
-    // Catches "typed a song name instead of a link" instantly, without waiting on a round
-    // trip to the server just to find out the same thing.
-    if (!extractYoutubeId(url)) {
+    // Plain text is a valid input now (title search) — only reject something that looks
+    // like a URL but isn't a YouTube link we can parse, catching that instantly instead of
+    // waiting on a round trip to the server just to find out the same thing.
+    const looksLikeUrl = /^https?:\/\//i.test(url.trim());
+    if (looksLikeUrl && !extractYoutubeId(url)) {
       useMusicStore.getState().setAddError("invalid-url");
       return;
     }

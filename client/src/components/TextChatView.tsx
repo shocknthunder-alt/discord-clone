@@ -19,8 +19,12 @@ interface Props {
   channelId: string;
 }
 
-function ThreadAvatar({ name }: { name: string }) {
-  return <div className="thread-avatar">{(name || "?").slice(0, 2).toUpperCase()}</div>;
+function ThreadAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | null }) {
+  return avatarUrl ? (
+    <img className="thread-avatar" src={avatarUrl} alt="" />
+  ) : (
+    <div className="thread-avatar placeholder">{(name || "?").slice(0, 2).toUpperCase()}</div>
+  );
 }
 
 function MessageRow({
@@ -34,7 +38,7 @@ function MessageRow({
   message: MessageDTO;
   isOwn: boolean;
   replyCount: number;
-  replyAuthors: string[];
+  replyAuthors: { authorId: string; username: string; avatarUrl: string | null }[];
   onOpenThread: (messageId: string) => void;
   onAuthorClick: (e: React.MouseEvent, message: MessageDTO) => void;
 }) {
@@ -113,8 +117,8 @@ function MessageRow({
       {replyCount > 0 && (
         <div className="thread-summary" onClick={() => onOpenThread(message.id)}>
           <div className="thread-summary-avatars">
-            {replyAuthors.slice(0, 3).map((name, i) => (
-              <ThreadAvatar key={i} name={name} />
+            {replyAuthors.slice(0, 3).map((author) => (
+              <ThreadAvatar key={author.authorId} name={author.username} avatarUrl={author.avatarUrl} />
             ))}
           </div>
           <span>
@@ -281,13 +285,20 @@ export default function TextChatView({ channelId }: Props) {
           >
             {rootMessages.map((message) => {
               const replies = repliesByRoot.get(message.id) ?? [];
+              // Avatar row shows distinct participants, not one per reply — someone who
+              // replied five times should still only take up one avatar slot.
+              const replyAuthors = Array.from(
+                new Map(
+                  replies.map((r) => [r.authorId, { authorId: r.authorId, username: r.authorUsername, avatarUrl: r.authorAvatarUrl }]),
+                ).values(),
+              );
               return (
                 <MessageRow
                   key={message.id}
                   message={message}
                   isOwn={message.authorId === currentUserId}
                   replyCount={replies.length}
-                  replyAuthors={replies.map((r) => r.authorUsername)}
+                  replyAuthors={replyAuthors}
                   onOpenThread={handleOpenThread}
                   onAuthorClick={handleAuthorClick}
                 />

@@ -72,7 +72,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
           authorId: userId,
           replyToId: replyTarget?.id,
         },
-        include: { author: { select: { username: true } } },
+        include: { author: { select: { username: true, avatarUrl: true } } },
       });
 
       io.to(`channel:${textChannelId}`).emit(SocketEvents.MessageNew, {
@@ -80,6 +80,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
         textChannelId: message.textChannelId,
         authorId: message.authorId,
         authorUsername: message.author.username,
+        authorAvatarUrl: message.author.avatarUrl,
         content: message.content,
         imageUrl: message.imageUrl,
         createdAt: message.createdAt.toISOString(),
@@ -102,13 +103,14 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       if (alsoSendToChannel && replyTarget) {
         const echo = await prisma.message.create({
           data: { content: trimmedContent, imageUrl: safeImageUrl, textChannelId, authorId: userId },
-          include: { author: { select: { username: true } } },
+          include: { author: { select: { username: true, avatarUrl: true } } },
         });
         io.to(`channel:${textChannelId}`).emit(SocketEvents.MessageNew, {
           id: echo.id,
           textChannelId: echo.textChannelId,
           authorId: echo.authorId,
           authorUsername: echo.author.username,
+          authorAvatarUrl: echo.author.avatarUrl,
           content: echo.content,
           imageUrl: echo.imageUrl,
           createdAt: echo.createdAt.toISOString(),

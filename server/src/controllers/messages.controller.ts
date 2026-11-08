@@ -23,7 +23,7 @@ export async function listMessages(req: Request, res: Response) {
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
-      author: { select: { username: true } },
+      author: { select: { username: true, avatarUrl: true } },
       replyTo: { include: { author: { select: { username: true } } } },
     },
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -37,6 +37,7 @@ export async function listMessages(req: Request, res: Response) {
       textChannelId: m.textChannelId,
       authorId: m.authorId,
       authorUsername: m.author.username,
+      authorAvatarUrl: m.author.avatarUrl,
       createdAt: m.createdAt,
       editedAt: m.editedAt,
       replyTo: m.replyTo

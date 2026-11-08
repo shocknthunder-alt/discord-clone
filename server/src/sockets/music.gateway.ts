@@ -1,10 +1,13 @@
 import { extractYoutubeId, SocketEvents, type MusicQueueItem, type MusicState } from "@discord-clone/shared";
 import { randomUUID } from "node:crypto";
 import type { Server as IOServer, Socket } from "socket.io";
+import { env } from "../env.js";
+
+const LOOKS_LIKE_URL = /^https?:\/\//i;
 
 // No API key needed for this — oEmbed is YouTube's public, keyless metadata endpoint. Good
-// enough for title + thumbnail on paste; search-by-title (a separate feature) is the one
-// that actually needs the Data API v3 key.
+// enough for title + thumbnail on paste; search-by-title (below) is the one that actually
+// needs the Data API v3 key, since oEmbed only resolves a URL you already have.
 async function fetchOEmbed(videoId: string): Promise<{ title: string; thumbnailUrl: string } | null> {
   try {
     const res = await fetch(
@@ -14,6 +17,26 @@ async function fetchOEmbed(videoId: string): Promise<{ title: string; thumbnailU
     const data = (await res.json()) as { title?: string; thumbnail_url?: string };
     if (!data.title) return null;
     return { title: data.title, thumbnailUrl: data.thumbnail_url ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+async function searchYoutube(query: string): Promise<{ videoId: string; title: string; thumbnailUrl: string } | null> {
+  if (!env.YOUTUBE_API_KEY) return null;
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(query)}&key=${env.YOUTUBE_API_KEY}`,
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      items?: { id?: { videoId?: string }; snippet?: { title?: string; thumbnails?: { medium?: { url?: string } } } }[];
+    };
+    const first = data.items?.[0];
+    const videoId = first?.id?.videoId;
+    const title = first?.snippet?.title;
+    if (!videoId || !title) return null;
+    return { videoId, title, thumbnailUrl: first?.snippet?.thumbnails?.medium?.url ?? "" };
   } catch {
     return null;
   }
@@ -54,23 +77,43 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
   });
 
   socket.on(SocketEvents.MusicAdd, async ({ voiceChannelId, url }: { voiceChannelId: string; url: string }) => {
-    const videoId = extractYoutubeId(url ?? "");
-    if (!videoId) {
+    const trimmed = (url ?? "").trim();
+    const videoId = extractYoutubeId(trimmed);
+
+    let resolved: { videoId: string; title: string; thumbnailUrl: string } | null = null;
+
+    if (videoId) {
+      // A real YouTube link — oEmbed is keyless and sufficient, no search needed.
+      const meta = await fetchOEmbed(videoId);
+      resolved = meta ? { videoId, title: meta.title, thumbnailUrl: meta.thumbnailUrl } : null;
+      if (!resolved) {
+        socket.emit(SocketEvents.MusicAddError, { reason: "lookup-failed" });
+        return;
+      }
+    } else if (LOOKS_LIKE_URL.test(trimmed)) {
+      // Looks like a URL but not one we could parse a video id out of (wrong site, or a
+      // malformed YouTube link) — don't search for the literal URL text, that's never useful.
       socket.emit(SocketEvents.MusicAddError, { reason: "invalid-url" });
       return;
-    }
-
-    const meta = await fetchOEmbed(videoId);
-    if (!meta) {
-      socket.emit(SocketEvents.MusicAddError, { reason: "lookup-failed" });
+    } else if (!trimmed) {
+      socket.emit(SocketEvents.MusicAddError, { reason: "invalid-url" });
       return;
+    } else {
+      // Plain text — treat it as a title search.
+      resolved = await searchYoutube(trimmed);
+      if (!resolved) {
+        socket.emit(SocketEvents.MusicAddError, {
+          reason: env.YOUTUBE_API_KEY ? "not-found" : "search-unavailable",
+        });
+        return;
+      }
     }
 
     const item: MusicQueueItem = {
       id: randomUUID(),
-      videoId,
-      title: meta.title,
-      thumbnailUrl: meta.thumbnailUrl || null,
+      videoId: resolved.videoId,
+      title: resolved.title,
+      thumbnailUrl: resolved.thumbnailUrl || null,
       addedByUsername: username,
     };
 

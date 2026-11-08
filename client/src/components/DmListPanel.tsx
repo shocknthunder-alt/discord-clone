@@ -4,6 +4,7 @@ import { useDmStore } from "../store/dmStore";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { resetAllPositions } from "../utils/floatingPositions";
+import MusicMiniPlayer from "./MusicMiniPlayer";
 import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
 
@@ -77,6 +78,7 @@ export default function DmListPanel() {
       </div>
 
       <VoiceStatusBar />
+      <MusicMiniPlayer />
       {!activeVoiceChannelId && <UserBar />}
     </div>
   );

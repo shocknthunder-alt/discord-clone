@@ -44,6 +44,7 @@ export interface MessageDTO {
   textChannelId: string;
   authorId: string;
   authorUsername: string;
+  authorAvatarUrl: string | null;
   createdAt: string;
   editedAt: string | null;
   replyTo: ReplyPreview | null;
