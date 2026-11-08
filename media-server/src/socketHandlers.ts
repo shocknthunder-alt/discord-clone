@@ -172,6 +172,21 @@ export function registerMediaSocket(io: IOServer, socket: Socket) {
         const consumer = await transport.consume({ producerId, rtpCapabilities, paused: true });
         peer.consumers.set(consumer.id, consumer);
 
+        // Without this, a simulcast consumer (screen share) starts at mediasoup's default —
+        // the LOWEST spatial layer, climbing only as its own bandwidth estimate allows, which
+        // can take a while and stayed low for a while in practice (reported as the stream
+        // looking blurry/low-res despite the sharer having picked "High" quality). Explicitly
+        // requesting the top layer up front means it opens at full quality and only steps
+        // down from there if real congestion forces it to — the direction viewers actually
+        // want, rather than ramping up from worst-case.
+        if (consumer.type === "simulcast") {
+          // Matches the 3-layer simulcast setup screen-share producers always use (see
+          // SfuMediaManager.startScreenShare) — index 2 is the top layer. Not derived from
+          // consumer.rtpParameters.encodings, which describes the consumer's own single
+          // output stream, not how many layers the producer actually offers.
+          await consumer.setPreferredLayers({ spatialLayer: 2, temporalLayer: 2 });
+        }
+
         consumer.on("transportclose", () => peer.consumers.delete(consumer.id));
         consumer.on("producerclose", () => {
           peer.consumers.delete(consumer.id);
