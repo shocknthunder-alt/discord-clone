@@ -4,6 +4,12 @@ import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudina
 import { useAuthStore } from "../store/authStore";
 import { useVoiceStore } from "../store/voiceStore";
 import {
+  getAutoGainControlEnabled,
+  getEchoCancellationEnabled,
+  getHighpassFilterEnabled,
+  getNoiseGateEnabled,
+  getNoiseGateSensitivity,
+  getNoiseSuppressionEnabled,
   getPreferredMicDeviceId,
   listMicDevices,
   listSpeakerDevices,
@@ -52,8 +58,25 @@ export default function UserSettingsModal({ onClose }: Props) {
   const micMode = useVoiceStore((s) => s.micMode);
   const pushToTalkKey = useVoiceStore((s) => s.pushToTalkKey);
   const screenShareQuality = useVoiceStore((s) => s.screenShareQuality);
-  const { setMicMode, setPushToTalkKey, setScreenShareQuality } = useVoiceChannel();
+  const {
+    setMicMode,
+    setPushToTalkKey,
+    setScreenShareQuality,
+    setEchoCancellationEnabled,
+    setNoiseSuppressionEnabled,
+    setAutoGainControlEnabled,
+    setHighpassFilterEnabled,
+    setNoiseGateEnabled,
+    setNoiseGateSensitivity,
+  } = useVoiceChannel();
   const [listeningForKey, setListeningForKey] = useState(false);
+
+  const [echoCancellation, setEchoCancellationState] = useState(getEchoCancellationEnabled());
+  const [noiseSuppression, setNoiseSuppressionState] = useState(getNoiseSuppressionEnabled());
+  const [autoGainControl, setAutoGainControlState] = useState(getAutoGainControlEnabled());
+  const [highpassFilter, setHighpassFilterState] = useState(getHighpassFilterEnabled());
+  const [noiseGate, setNoiseGateState] = useState(getNoiseGateEnabled());
+  const [noiseGateSensitivity, setNoiseGateSensitivityState] = useState(getNoiseGateSensitivity());
 
   useEffect(() => {
     // Device labels are empty until mic permission has been granted at least once;
@@ -263,6 +286,87 @@ export default function UserSettingsModal({ onClose }: Props) {
           Applies the next time you start a screen share. High encodes 3 quality levels at once
           (so every viewer gets one that fits their connection) — on weaker hardware this can
           cause the shared video itself to stutter.
+        </p>
+
+        <h2 className="modal-section-title">Audio Processing</h2>
+        <p className="modal-hint">All on by default — turn one off if it's fighting your specific mic.</p>
+
+        <label className="modal-checkbox-label">
+          <input
+            type="checkbox"
+            checked={echoCancellation}
+            onChange={(e) => {
+              setEchoCancellationState(e.target.checked);
+              setEchoCancellationEnabled(e.target.checked);
+            }}
+          />
+          Echo Cancellation
+        </label>
+        <label className="modal-checkbox-label">
+          <input
+            type="checkbox"
+            checked={noiseSuppression}
+            onChange={(e) => {
+              setNoiseSuppressionState(e.target.checked);
+              setNoiseSuppressionEnabled(e.target.checked);
+            }}
+          />
+          Noise Suppression
+        </label>
+        <label className="modal-checkbox-label">
+          <input
+            type="checkbox"
+            checked={autoGainControl}
+            onChange={(e) => {
+              setAutoGainControlState(e.target.checked);
+              setAutoGainControlEnabled(e.target.checked);
+            }}
+          />
+          Auto Gain Control (levels out quiet/loud mic volume)
+        </label>
+        <p className="modal-hint">These three take effect next time you join a voice channel.</p>
+
+        <label className="modal-checkbox-label">
+          <input
+            type="checkbox"
+            checked={highpassFilter}
+            onChange={(e) => {
+              setHighpassFilterState(e.target.checked);
+              setHighpassFilterEnabled(e.target.checked);
+            }}
+          />
+          Highpass Filter (cuts low rumble — fan/AC hum, desk thumps)
+        </label>
+        <label className="modal-checkbox-label">
+          <input
+            type="checkbox"
+            checked={noiseGate}
+            onChange={(e) => {
+              setNoiseGateState(e.target.checked);
+              setNoiseGateEnabled(e.target.checked);
+            }}
+          />
+          Noise Gate (mutes your mic between words when it's quiet)
+        </label>
+        {noiseGate && (
+          <div className="ptt-keybind-row">
+            <span>Sensitivity</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={noiseGateSensitivity}
+              onChange={(e) => {
+                const value = Number(e.target.value);
+                setNoiseGateSensitivityState(value);
+                setNoiseGateSensitivity(value);
+              }}
+            />
+          </div>
+        )}
+        <p className="modal-hint">
+          Higher sensitivity picks up quieter speech too, but may also let more background
+          noise through. These two apply immediately to a call already in progress.
         </p>
 
         {error && <div className="modal-error">{error}</div>}

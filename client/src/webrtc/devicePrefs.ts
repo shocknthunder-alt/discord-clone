@@ -67,6 +67,60 @@ export function supportsOutputDeviceSelection(): boolean {
   return typeof HTMLMediaElement !== "undefined" && "setSinkId" in HTMLMediaElement.prototype;
 }
 
+const ECHO_CANCELLATION_KEY = "audioEchoCancellation";
+const NOISE_SUPPRESSION_KEY = "audioNoiseSuppression";
+const AUTO_GAIN_CONTROL_KEY = "audioAutoGainControl";
+const HIGHPASS_FILTER_KEY = "audioHighpassFilter";
+const NOISE_GATE_ENABLED_KEY = "audioNoiseGateEnabled";
+const NOISE_GATE_SENSITIVITY_KEY = "audioNoiseGateSensitivity";
+
+// Every one of these defaults ON — browser-native echo/noise/gain correction plus our own
+// highpass + noise gate, stacked, is the "just sounds better out of the box" set most people
+// want without ever opening Settings. Each is still a real toggle for the minority of mic
+// setups one of these fights with (a gate clipping breathy speech, AGC pumping on a cheap
+// USB mic, etc.).
+function getBoolPref(key: string, defaultValue: boolean): boolean {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return defaultValue;
+  return raw === "true";
+}
+
+function setBoolPref(key: string, value: boolean) {
+  localStorage.setItem(key, String(value));
+}
+
+export const getEchoCancellationEnabled = () => getBoolPref(ECHO_CANCELLATION_KEY, true);
+export const setEchoCancellationEnabled = (v: boolean) => setBoolPref(ECHO_CANCELLATION_KEY, v);
+
+export const getNoiseSuppressionEnabled = () => getBoolPref(NOISE_SUPPRESSION_KEY, true);
+export const setNoiseSuppressionEnabled = (v: boolean) => setBoolPref(NOISE_SUPPRESSION_KEY, v);
+
+export const getAutoGainControlEnabled = () => getBoolPref(AUTO_GAIN_CONTROL_KEY, true);
+export const setAutoGainControlEnabled = (v: boolean) => setBoolPref(AUTO_GAIN_CONTROL_KEY, v);
+
+// Cuts low-frequency rumble (fan/AC hum, desk thumps) below ~100Hz — below where voice
+// actually lives, so it's near-impossible to notice except for the noise it removes.
+export const getHighpassFilterEnabled = () => getBoolPref(HIGHPASS_FILTER_KEY, true);
+export const setHighpassFilterEnabled = (v: boolean) => setBoolPref(HIGHPASS_FILTER_KEY, v);
+
+// Mutes the mic between words/sentences once volume drops below a threshold — what
+// actually "isolates" steady background noise (keyboard, fan, side conversation) that
+// browser noiseSuppression alone tends to just quiet rather than fully remove.
+export const getNoiseGateEnabled = () => getBoolPref(NOISE_GATE_ENABLED_KEY, true);
+export const setNoiseGateEnabled = (v: boolean) => setBoolPref(NOISE_GATE_ENABLED_KEY, v);
+
+// 0-100 "sensitivity" as shown to the user; higher = gate opens more easily (lower volume
+// still counts as speech). Internally mapped to a dB threshold — see micProcessing.ts.
+export function getNoiseGateSensitivity(): number {
+  const raw = localStorage.getItem(NOISE_GATE_SENSITIVITY_KEY);
+  const parsed = raw === null ? NaN : Number(raw);
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 50;
+}
+
+export function setNoiseGateSensitivity(value: number) {
+  localStorage.setItem(NOISE_GATE_SENSITIVITY_KEY, String(value));
+}
+
 const PEER_VOLUME_PREFIX = "peerVolume:";
 
 // Keyed by userId, not socketId — socketId is a fresh value every reconnect/rejoin, so a

@@ -5,7 +5,22 @@ import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore } from "../store/voiceStore";
-import { getPreferredMicDeviceId } from "./devicePrefs";
+import {
+  getAutoGainControlEnabled,
+  getEchoCancellationEnabled,
+  getHighpassFilterEnabled,
+  getNoiseGateEnabled,
+  getNoiseGateSensitivity,
+  getNoiseSuppressionEnabled,
+  getPreferredMicDeviceId,
+  setAutoGainControlEnabled as persistAutoGainControlEnabled,
+  setEchoCancellationEnabled as persistEchoCancellationEnabled,
+  setHighpassFilterEnabled as persistHighpassFilterEnabled,
+  setNoiseGateEnabled as persistNoiseGateEnabled,
+  setNoiseGateSensitivity as persistNoiseGateSensitivity,
+  setNoiseSuppressionEnabled as persistNoiseSuppressionEnabled,
+} from "./devicePrefs";
+import { startMicProcessing, type MicProcessingHandle } from "./micProcessing";
 import { SfuMediaManager } from "./SfuMediaManager";
 import { playVoiceJoinLeaveSound } from "../utils/voiceSounds";
 
@@ -13,6 +28,7 @@ import { playVoiceJoinLeaveSound } from "../utils/voiceSounds";
 // components (ChannelList, FloatingVoiceHud), all of which must share the same manager
 // and live connections rather than each hook instance getting its own.
 let activeMediaManager: SfuMediaManager | null = null;
+let activeMicProcessing: MicProcessingHandle | null = null;
 
 // Looks up a roster entry by userId to resolve a RemotePeer's socketId — the SFU's own
 // callbacks carry userId (the only identifier shared between it and the Render roster;
@@ -78,9 +94,9 @@ export function useVoiceChannel() {
     const localStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         ...(preferredMicId ? { deviceId: { exact: preferredMicId } } : {}),
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
+        echoCancellation: getEchoCancellationEnabled(),
+        noiseSuppression: getNoiseSuppressionEnabled(),
+        autoGainControl: getAutoGainControlEnabled(),
         // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
         // default capture rate, paired with the bitrate tuning in mediasoupConfig.ts.
         sampleRate: { ideal: 48000 },
@@ -89,6 +105,17 @@ export function useVoiceChannel() {
     });
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);
+
+    // Our own highpass + noise gate, layered on top of the browser's native
+    // echo/noise/gain correction above — this is what actually gets sent to the SFU. The
+    // raw localStream is untouched (still used for the self-speaking-indicator and for
+    // mute, which this graph transparently respects — see micProcessing.ts).
+    activeMicProcessing?.destroy();
+    activeMicProcessing = startMicProcessing(localStream, {
+      highpassEnabled: getHighpassFilterEnabled(),
+      noiseGateEnabled: getNoiseGateEnabled(),
+      noiseGateSensitivity: getNoiseGateSensitivity(),
+    });
 
     const mediaSocket = connectMediaSocket(token);
     const manager = new SfuMediaManager(mediaSocket, {
@@ -245,7 +272,7 @@ export function useVoiceChannel() {
 
     try {
       await manager.join(voiceChannelId);
-      await manager.produceMic(localStream.getAudioTracks()[0]);
+      await manager.produceMic(activeMicProcessing.outputTrack);
       attachPushToTalkListeners();
       applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
     } catch (err) {
@@ -276,6 +303,8 @@ export function useVoiceChannel() {
 
     activeMediaManager?.leave();
     activeMediaManager = null;
+    activeMicProcessing?.destroy();
+    activeMicProcessing = null;
     disconnectMediaSocket();
     detachPushToTalkListeners();
 
@@ -384,6 +413,33 @@ export function useVoiceChannel() {
     store.setScreenShareQuality(quality);
   }, [store]);
 
+  // Native browser constraints — changing these mid-call would need re-acquiring the mic
+  // track, so (like the mic device picker above) they just persist and take effect next
+  // join, kept consistent with that existing behavior/messaging.
+  const setEchoCancellationEnabled = useCallback((enabled: boolean) => {
+    persistEchoCancellationEnabled(enabled);
+  }, []);
+  const setNoiseSuppressionEnabled = useCallback((enabled: boolean) => {
+    persistNoiseSuppressionEnabled(enabled);
+  }, []);
+  const setAutoGainControlEnabled = useCallback((enabled: boolean) => {
+    persistAutoGainControlEnabled(enabled);
+  }, []);
+
+  // Our own Web Audio nodes — these DO apply live to whatever call is already active.
+  const setHighpassFilterEnabled = useCallback((enabled: boolean) => {
+    persistHighpassFilterEnabled(enabled);
+    activeMicProcessing?.setHighpassEnabled(enabled);
+  }, []);
+  const setNoiseGateEnabled = useCallback((enabled: boolean) => {
+    persistNoiseGateEnabled(enabled);
+    activeMicProcessing?.setNoiseGateEnabled(enabled);
+  }, []);
+  const setNoiseGateSensitivity = useCallback((sensitivity: number) => {
+    persistNoiseGateSensitivity(sensitivity);
+    activeMicProcessing?.setNoiseGateSensitivity(sensitivity);
+  }, []);
+
   const addMusic = useCallback((url: string) => {
     const { activeVoiceChannelId } = useVoiceStore.getState();
     if (!activeVoiceChannelId) return;
@@ -438,6 +494,12 @@ export function useVoiceChannel() {
     setMicMode,
     setPushToTalkKey,
     setScreenShareQuality,
+    setEchoCancellationEnabled,
+    setNoiseSuppressionEnabled,
+    setAutoGainControlEnabled,
+    setHighpassFilterEnabled,
+    setNoiseGateEnabled,
+    setNoiseGateSensitivity,
     addMusic,
     removeMusic,
     playMusic,
