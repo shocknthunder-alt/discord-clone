@@ -138,7 +138,14 @@ export function useVoiceChannel() {
     socket.on(
       SocketEvents.ScreenShareStarted,
       ({ socketId, label }: { socketId: string; label: string | null }) => {
-        useVoiceStore.getState().upsertPeer({ socketId, screenShareLabel: label });
+        // isScreenSharing has to be set here, not just screenShareLabel — the UI's "someone
+        // is sharing" indicator reads isScreenSharing directly, and it would otherwise only
+        // ever flip true once the SFU consumer for the screen track happens to arrive
+        // (onScreenStream below), which is a separate, best-effort path that can lag behind
+        // or — for a peer who joined the voice channel after this share already started —
+        // never fire the "started" transition at all, leaving a share that's actually live
+        // showing no indicator whatsoever.
+        useVoiceStore.getState().upsertPeer({ socketId, screenShareLabel: label, isScreenSharing: true });
       },
     );
 
