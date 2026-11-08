@@ -1,4 +1,3 @@
-import os from "node:os";
 import * as mediasoup from "mediasoup";
 import { env } from "./env.js";
 import { webRtcServerListenInfos, workerSettings } from "./mediasoupConfig.js";
@@ -12,10 +11,13 @@ const workers: WorkerHandle[] = [];
 let nextWorkerIndex = 0;
 
 export async function initWorkerPool(): Promise<void> {
-  // One worker per CPU core — matches the 4 OCPUs on the VM. Each worker's WebRtcServer
-  // binds the SAME announced port via SO_REUSEPORT (mediasoup's standard pattern for this),
-  // so the firewall only ever needs that one port open regardless of worker count.
-  const count = Math.max(1, os.cpus().length);
+  // A single worker, deliberately: each worker's WebRtcServer needs its own UDP/TCP port
+  // (mediasoup does NOT share one port across workers via SO_REUSEPORT the way per-worker
+  // rtcMinPort/rtcMaxPort ranges can), and one open port is what the firewall is configured
+  // for. An SFU that only forwards RTP (no transcoding) is light enough that one worker
+  // comfortably handles a 10-person voice/video channel — this isn't the bottleneck to
+  // reach for first. Bumping to N workers later means opening N ports instead of one.
+  const count = 1;
 
   for (let i = 0; i < count; i++) {
     const worker = await mediasoup.createWorker(workerSettings);
