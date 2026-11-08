@@ -55,17 +55,20 @@ export async function me(req: Request, res: Response) {
   res.json({ user: toUserDTO(user) });
 }
 
+// Lives on the login screen, not the settings menu — proving identity via the current
+// password stands in for being logged in, so this intentionally doesn't require a session.
 export async function changePassword(req: Request, res: Response) {
   const { currentPassword, newPassword } = req.body ?? {};
+  const email: string | undefined = req.body?.email?.trim().toLowerCase();
 
-  if (!currentPassword || !newPassword) {
-    return res.status(400).json({ error: "currentPassword and newPassword are required" });
+  if (!email || !currentPassword || !newPassword) {
+    return res.status(400).json({ error: "email, currentPassword and newPassword are required" });
   }
   if (typeof newPassword !== "string" || newPassword.length < 6) {
     return res.status(400).json({ error: "newPassword must be at least 6 characters" });
   }
 
-  const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+  const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }
@@ -76,7 +79,7 @@ export async function changePassword(req: Request, res: Response) {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({ where: { id: req.userId! }, data: { passwordHash } });
+  await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
 
   res.json({ ok: true });
 }

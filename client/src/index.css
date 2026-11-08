@@ -84,6 +84,28 @@ button {
   margin-top: 8px;
 }
 
+.auth-card .success {
+  color: #3ba55d;
+  font-size: 14px;
+  margin-top: 8px;
+}
+
+.auth-card .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  font-size: 14px;
+  font-weight: 400;
+  text-transform: none;
+  color: #dbdee1;
+  cursor: pointer;
+}
+
+.auth-card .checkbox-label input[type="checkbox"] {
+  width: auto;
+}
+
 .app-shell {
   display: flex;
   height: 100vh;

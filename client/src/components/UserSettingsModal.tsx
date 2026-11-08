@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { changePassword, updateProfile } from "../api/auth.api";
+import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
 import { useVoiceStore } from "../store/voiceStore";
@@ -23,13 +23,6 @@ export default function UserSettingsModal({ onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordSaving, setPasswordSaving] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedMicId, setSelectedMicId] = useState(getPreferredMicDeviceId() ?? "");
@@ -107,35 +100,6 @@ export default function UserSettingsModal({ onClose }: Props) {
     onClose();
   }
 
-  async function handleChangePassword() {
-    setPasswordError(null);
-    setPasswordSuccess(false);
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setPasswordError("Fill in all password fields.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordError("New password must be at least 6 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordError("New passwords don't match.");
-      return;
-    }
-    setPasswordSaving(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      setPasswordSuccess(true);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err: any) {
-      setPasswordError(err?.response?.data?.error ?? "Could not change password.");
-    } finally {
-      setPasswordSaving(false);
-    }
-  }
-
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
@@ -209,55 +173,6 @@ export default function UserSettingsModal({ onClose }: Props) {
 
         <button className="modal-join-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
           {saving ? "Saving…" : "Save Changes"}
-        </button>
-
-        <h2 className="modal-section-title">Change Password</h2>
-
-        <label className="modal-label" htmlFor="current-password-input">
-          Current Password
-        </label>
-        <input
-          id="current-password-input"
-          type="password"
-          autoComplete="current-password"
-          className="modal-input"
-          value={currentPassword}
-          onChange={(e) => setCurrentPassword(e.target.value)}
-        />
-
-        <label className="modal-label" htmlFor="new-password-input">
-          New Password
-        </label>
-        <input
-          id="new-password-input"
-          type="password"
-          autoComplete="new-password"
-          className="modal-input"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-        />
-
-        <label className="modal-label" htmlFor="confirm-password-input">
-          Confirm New Password
-        </label>
-        <input
-          id="confirm-password-input"
-          type="password"
-          autoComplete="new-password"
-          className="modal-input"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-
-        {passwordError && <div className="modal-error">{passwordError}</div>}
-        {passwordSuccess && <div className="modal-success">Password changed successfully.</div>}
-
-        <button
-          className="modal-join-button"
-          onClick={handleChangePassword}
-          disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-        >
-          {passwordSaving ? "Saving…" : "Change Password"}
         </button>
 
         <button className="modal-logout-button" onClick={handleLogout}>
