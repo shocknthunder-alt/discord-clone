@@ -9,6 +9,12 @@ interface Props {
 }
 
 const ICON_SIZE = 32;
+// Pixels of movement required before a pointerdown counts as a drag rather than a click.
+// Without this, capturing the pointer on every pointerdown (even one that never moves)
+// hijacked the click event of whatever button lives inside the icon — the lock toggle
+// button specifically became unclickable while unlocked, since every press of it looked
+// like the start of a drag.
+const DRAG_THRESHOLD = 4;
 
 function clampToViewport(pos: Position): Position {
   const maxX = Math.max(0, window.innerWidth - ICON_SIZE);
@@ -25,23 +31,42 @@ function clampToViewport(pos: Position): Position {
 export default function FloatingIcon({ id, defaultPosition, children }: Props) {
   const locked = useLayoutLockStore((s) => s.locked);
   const [pos, setPos] = useState(() => clampToViewport(loadPosition(id, defaultPosition)));
-  const dragRef = useRef<{ startClientX: number; startClientY: number; origin: Position; current: Position } | null>(
-    null,
-  );
+  const dragRef = useRef<{
+    pointerId: number;
+    startClientX: number;
+    startClientY: number;
+    origin: Position;
+    current: Position;
+    dragging: boolean;
+  } | null>(null);
 
   function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (locked) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    dragRef.current = { startClientX: e.clientX, startClientY: e.clientY, origin: pos, current: pos };
+    // Record the press but don't capture the pointer yet — see DRAG_THRESHOLD above.
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origin: pos,
+      current: pos,
+      dragging: false,
+    };
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current;
     if (!drag) return;
-    const next = clampToViewport({
-      x: drag.origin.x + (e.clientX - drag.startClientX),
-      y: drag.origin.y + (e.clientY - drag.startClientY),
-    });
+
+    const dx = e.clientX - drag.startClientX;
+    const dy = e.clientY - drag.startClientY;
+
+    if (!drag.dragging) {
+      if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+      drag.dragging = true;
+      e.currentTarget.setPointerCapture(drag.pointerId);
+    }
+
+    const next = clampToViewport({ x: drag.origin.x + dx, y: drag.origin.y + dy });
     drag.current = next;
     setPos(next);
   }
@@ -49,7 +74,7 @@ export default function FloatingIcon({ id, defaultPosition, children }: Props) {
   function handlePointerUp() {
     const drag = dragRef.current;
     if (!drag) return;
-    savePosition(id, drag.current);
+    if (drag.dragging) savePosition(id, drag.current);
     dragRef.current = null;
   }
 

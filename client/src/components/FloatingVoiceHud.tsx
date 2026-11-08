@@ -78,11 +78,12 @@ export default function FloatingVoiceHud() {
 
       <FloatingIcon id="hud-lock" defaultPosition={positions[6]}>
         <button
-          className="hud-icon-button"
+          className={`hud-lock-button ${locked ? "locked" : "unlocked"}`}
           onClick={toggleLocked}
           title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
         >
-          <LockIcon locked={locked} />
+          <LockIcon locked={locked} size={14} color={locked ? "#949ba4" : "#1e1f22"} />
+          {locked ? "Unlock buttons" : "Lock buttons"}
         </button>
       </FloatingIcon>
 
