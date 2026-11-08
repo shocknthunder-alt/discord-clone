@@ -49,6 +49,7 @@ export const SocketEvents = {
   // synced music ("watch party" style — no real audio bot, see MusicState)
   MusicState: "music:state",
   MusicAdd: "music:add",
+  MusicAddError: "music:add-error",
   MusicRemove: "music:remove",
   MusicPlay: "music:play",
   MusicPause: "music:pause",

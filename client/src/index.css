@@ -878,6 +878,12 @@ button {
   color: #fa777c;
 }
 
+.music-add-error {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #f87171;
+}
+
 .music-add-form {
   display: flex;
   gap: 6px;

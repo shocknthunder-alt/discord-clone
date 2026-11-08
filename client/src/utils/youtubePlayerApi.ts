@@ -49,6 +49,8 @@ export namespace YT {
     getCurrentTime(): number;
     getPlayerState(): number;
     setVolume(volume: number): void;
+    mute(): void;
+    unMute(): void;
     destroy(): void;
   }
 

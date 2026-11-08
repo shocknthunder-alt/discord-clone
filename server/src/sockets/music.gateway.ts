@@ -1,13 +1,6 @@
-import { SocketEvents, type MusicQueueItem, type MusicState } from "@discord-clone/shared";
+import { extractYoutubeId, SocketEvents, type MusicQueueItem, type MusicState } from "@discord-clone/shared";
 import { randomUUID } from "node:crypto";
 import type { Server as IOServer, Socket } from "socket.io";
-
-const YOUTUBE_ID_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/;
-
-function extractYoutubeId(url: string): string | null {
-  const match = url.trim().match(YOUTUBE_ID_REGEX);
-  return match ? match[1] : null;
-}
 
 // No API key needed for this — oEmbed is YouTube's public, keyless metadata endpoint. Good
 // enough for title + thumbnail on paste; search-by-title (a separate feature) is the one
@@ -62,10 +55,16 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
 
   socket.on(SocketEvents.MusicAdd, async ({ voiceChannelId, url }: { voiceChannelId: string; url: string }) => {
     const videoId = extractYoutubeId(url ?? "");
-    if (!videoId) return;
+    if (!videoId) {
+      socket.emit(SocketEvents.MusicAddError, { reason: "invalid-url" });
+      return;
+    }
 
     const meta = await fetchOEmbed(videoId);
-    if (!meta) return;
+    if (!meta) {
+      socket.emit(SocketEvents.MusicAddError, { reason: "lookup-failed" });
+      return;
+    }
 
     const item: MusicQueueItem = {
       id: randomUUID(),

@@ -1,4 +1,4 @@
-import { SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
+import { extractYoutubeId, SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
 import { useCallback } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
@@ -220,6 +220,10 @@ export function useVoiceChannel() {
     socket.on(SocketEvents.MusicState, ({ state }: { voiceChannelId: string; state: MusicState }) => {
       useMusicStore.getState().setState(state);
     });
+
+    socket.on(SocketEvents.MusicAddError, ({ reason }: { reason: string }) => {
+      useMusicStore.getState().setAddError(reason);
+    });
   }, [store]);
 
   const leaveVoiceChannel = useCallback(() => {
@@ -235,6 +239,7 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.ScreenShareStarted);
       socket.off(SocketEvents.ScreenShareStopped);
       socket.off(SocketEvents.MusicState);
+      socket.off(SocketEvents.MusicAddError);
     }
 
     activeMediaManager?.leave();
@@ -350,6 +355,13 @@ export function useVoiceChannel() {
   const addMusic = useCallback((url: string) => {
     const { activeVoiceChannelId } = useVoiceStore.getState();
     if (!activeVoiceChannelId) return;
+    // Catches "typed a song name instead of a link" instantly, without waiting on a round
+    // trip to the server just to find out the same thing.
+    if (!extractYoutubeId(url)) {
+      useMusicStore.getState().setAddError("invalid-url");
+      return;
+    }
+    useMusicStore.getState().setAddError(null);
     getSocket()?.emit(SocketEvents.MusicAdd, { voiceChannelId: activeVoiceChannelId, url });
   }, []);
 

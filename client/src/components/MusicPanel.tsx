@@ -3,6 +3,11 @@ import { useMusicStore } from "../store/musicStore";
 import { loadYouTubeIframeApi, YT } from "../utils/youtubePlayerApi";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 
+const ADD_ERROR_MESSAGES: Record<string, string> = {
+  "invalid-url": "That doesn't look like a YouTube link — paste a youtube.com or youtu.be URL.",
+  "lookup-failed": "Couldn't look that video up — it may be private, age-restricted, or removed.",
+};
+
 // How far the local player's actual position may drift from the server-extrapolated
 // expected position before we force a correction — small drift is inaudible/invisible and
 // constantly re-seeking would itself be jarring, so this is deliberately loose.
@@ -16,6 +21,8 @@ function extrapolatedPosition(state: { positionSeconds: number; isPlaying: boole
 
 export default function MusicPanel() {
   const musicState = useMusicStore((s) => s.state);
+  const addError = useMusicStore((s) => s.addError);
+  const setAddError = useMusicStore((s) => s.setAddError);
   const { addMusic, removeMusic, playMusic, pauseMusic, skipMusic, seekMusic } = useVoiceChannel();
   const [urlInput, setUrlInput] = useState("");
   const [volume, setVolume] = useState(70);
@@ -24,6 +31,25 @@ export default function MusicPanel() {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<YT.Player | null>(null);
   const loadedVideoIdRef = useRef<string | null>(null);
+  // Browsers block unmuted autoplay unless it's tied to a direct user gesture, and our
+  // playback is driven by server state arriving over a socket — never a gesture by the
+  // time it reaches here. The player therefore starts muted (always allowed to autoplay)
+  // and gets unmuted from inside real click/submit handlers below, which DO count as a
+  // gesture and unlock audio for the rest of this player instance's session.
+  const unmutedRef = useRef(false);
+
+  useEffect(() => {
+    if (addError) {
+      const timeout = setTimeout(() => setAddError(null), 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, [addError, setAddError]);
+
+  function unlockAudio() {
+    if (unmutedRef.current) return;
+    unmutedRef.current = true;
+    playerRef.current?.unMute();
+  }
 
   const currentItem = musicState && musicState.currentIndex < musicState.queue.length ? musicState.queue[musicState.currentIndex] : null;
 
@@ -35,7 +61,7 @@ export default function MusicPanel() {
     loadYouTubeIframeApi().then((YTApi) => {
       if (cancelled || !containerRef.current) return;
       player = new YTApi.Player(containerRef.current, {
-        playerVars: { playsinline: 1 },
+        playerVars: { playsinline: 1, mute: 1 },
         events: {
           onReady: () => {
             player?.setVolume(volume);
@@ -105,6 +131,7 @@ export default function MusicPanel() {
 
   function handleAddUrl(e: React.FormEvent) {
     e.preventDefault();
+    unlockAudio();
     if (!urlInput.trim()) return;
     addMusic(urlInput.trim());
     setUrlInput("");
@@ -127,10 +154,21 @@ export default function MusicPanel() {
             <div className="music-now-playing">
               <div className="music-now-playing-title">{currentItem.title}</div>
               <div className="music-controls">
-                <button onClick={musicState?.isPlaying ? pauseMusic : playMusic}>
+                <button
+                  onClick={() => {
+                    unlockAudio();
+                    (musicState?.isPlaying ? pauseMusic : playMusic)();
+                  }}
+                >
                   {musicState?.isPlaying ? "⏸" : "▶"}
                 </button>
-                <button onClick={skipMusic} title="Skip">
+                <button
+                  onClick={() => {
+                    unlockAudio();
+                    skipMusic();
+                  }}
+                  title="Skip"
+                >
                   ⏭
                 </button>
                 <input
@@ -160,6 +198,8 @@ export default function MusicPanel() {
               ))}
             </div>
           )}
+
+          {addError && <p className="music-add-error">{ADD_ERROR_MESSAGES[addError] ?? "Couldn't add that."}</p>}
 
           <form className="music-add-form" onSubmit={handleAddUrl}>
             <input
