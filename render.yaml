@@ -4,7 +4,14 @@ services:
     runtime: node
     plan: free
     rootDir: .
-    buildCommand: npm install && npm run build -w packages/shared && npm run build -w server
+    # Scoped to just the workspaces this service actually runs (packages/shared, server) —
+    # an unscoped root "npm install" also resolves media-server's dependencies, including
+    # mediasoup, which compiles a native C++ worker on install. Render's build image fails
+    # that compile; media-server deploys separately to its own VM and was never meant to be
+    # installed here at all. This has been silently breaking every deploy since the
+    # media-server workspace was added (see Render deploy history) because the root-level
+    # install failure happens before any of a given commit's actual code is ever reached.
+    buildCommand: npm install --workspace=packages/shared --workspace=server && npm run build -w packages/shared && npm run build -w server
     startCommand: npm run start -w server
     envVars:
       - key: NODE_VERSION
