@@ -234,10 +234,17 @@ export class SfuMediaManager {
 
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,
-        // Capture resolution is requested up to 4K in useVoiceChannel.ts — unlike the old
-        // mesh sender, this bitrate is no longer multiplied by viewer count (the SFU gets
-        // ONE copy of this stream regardless of audience size), so it can afford to be high.
-        encodings: [{ maxBitrate: 8_000_000 }],
+        // Simulcast: send three quality layers instead of one. Without this, every viewer
+        // gets the exact same 8 Mbps stream regardless of their own downlink — someone on a
+        // weaker connection (a VPN, in one reported case) just sees packet loss and choppy
+        // playback, with no fallback available. With multiple layers, mediasoup picks
+        // whichever one each viewer's connection can actually sustain, automatically and
+        // per-viewer, and switches as conditions change.
+        encodings: [
+          { scaleResolutionDownBy: 4, maxBitrate: 400_000 },
+          { scaleResolutionDownBy: 2, maxBitrate: 1_500_000 },
+          { scaleResolutionDownBy: 1, maxBitrate: 8_000_000 },
+        ],
         onRtpSender: (sender) => {
           const params = sender.getParameters();
           params.degradationPreference = "maintain-resolution";

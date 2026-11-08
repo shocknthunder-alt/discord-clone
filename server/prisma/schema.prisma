@@ -95,11 +95,14 @@ model Message {
   imageUrl      String?
   textChannelId String
   authorId      String
+  replyToId     String?
   createdAt     DateTime  @default(now())
   editedAt      DateTime?
 
   textChannel TextChannel @relation(fields: [textChannelId], references: [id])
   author      User        @relation(fields: [authorId], references: [id])
+  replyTo     Message?    @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies     Message[]   @relation("MessageReplies")
 }
 
 model VoiceChannel {

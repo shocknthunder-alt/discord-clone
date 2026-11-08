@@ -30,6 +30,13 @@ export interface VoiceChannelDTO {
   position: number;
 }
 
+export interface ReplyPreview {
+  id: string;
+  authorUsername: string;
+  content: string;
+  imageUrl: string | null;
+}
+
 export interface MessageDTO {
   id: string;
   content: string;
@@ -39,6 +46,7 @@ export interface MessageDTO {
   authorUsername: string;
   createdAt: string;
   editedAt: string | null;
+  replyTo: ReplyPreview | null;
 }
 
 export interface VoicePeerInfo {

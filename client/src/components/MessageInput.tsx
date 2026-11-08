@@ -1,22 +1,29 @@
-import { SocketEvents } from "@discord-clone/shared";
+import { SocketEvents, type ReplyPreview } from "@discord-clone/shared";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
 
 interface Props {
   channelId: string;
+  replyingTo: ReplyPreview | null;
+  onCancelReply: () => void;
 }
 
 const TYPING_IDLE_MS = 2000;
 
-export default function MessageInput({ channelId }: Props) {
+export default function MessageInput({ channelId, replyingTo, onCancelReply }: Props) {
   const [value, setValue] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File | Blob; previewUrl: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (replyingTo) inputRef.current?.focus();
+  }, [replyingTo]);
 
   function stopTyping() {
     const socket = getSocket();
@@ -80,15 +87,33 @@ export default function MessageInput({ channelId }: Props) {
       setUploading(false);
     }
 
-    socket.emit(SocketEvents.MessageSend, { textChannelId: channelId, content: value.trim(), imageUrl });
+    socket.emit(SocketEvents.MessageSend, {
+      textChannelId: channelId,
+      content: value.trim(),
+      imageUrl,
+      replyToId: replyingTo?.id,
+    });
 
     stopTyping();
     setValue("");
     removePendingImage();
+    onCancelReply();
   }
 
   return (
     <div className="message-input-bar">
+      {replyingTo && (
+        <div className="reply-preview-bar">
+          <span>
+            Replying to <strong>{replyingTo.authorUsername}</strong>
+            {replyingTo.content ? `: ${replyingTo.content.slice(0, 80)}` : ""}
+          </span>
+          <button type="button" onClick={onCancelReply} aria-label="Cancel reply">
+            ✕
+          </button>
+        </div>
+      )}
+
       {pendingImage && (
         <div className="pending-image-preview">
           <img src={pendingImage.previewUrl} alt="Pasted" />

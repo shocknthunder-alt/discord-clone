@@ -1,19 +1,38 @@
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
+import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useChatStore } from "../store/chatStore";
+import { useDmStore } from "../store/dmStore";
+import { useIgnoredUsersStore } from "../store/ignoredUsersStore";
 import { useServerStore } from "../store/serverStore";
+import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { linkifyText } from "../utils/linkify";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import MessageInput from "./MessageInput";
+import UserContextMenu from "./UserContextMenu";
 
 interface Props {
   channelId: string;
 }
 
-function MessageRow({ message, isOwn }: { message: MessageDTO; isOwn: boolean }) {
+function scrollToMessage(id: string) {
+  document.getElementById(`message-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function MessageRow({
+  message,
+  isOwn,
+  onReply,
+  onAuthorClick,
+}: {
+  message: MessageDTO;
+  isOwn: boolean;
+  onReply: (message: MessageDTO) => void;
+  onAuthorClick: (e: React.MouseEvent, message: MessageDTO) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(message.content);
 
@@ -35,21 +54,37 @@ function MessageRow({ message, isOwn }: { message: MessageDTO; isOwn: boolean })
   }
 
   return (
-    <div className="message-row">
-      <span className="author">{message.authorUsername}</span>
+    <div className="message-row" id={`message-${message.id}`}>
+      {message.replyTo && (
+        <div className="reply-reference" onClick={() => scrollToMessage(message.replyTo!.id)}>
+          ↩ <strong>{message.replyTo.authorUsername}</strong>
+          {message.replyTo.content ? `: ${message.replyTo.content.slice(0, 80)}` : message.replyTo.imageUrl ? " sent an image" : ""}
+        </div>
+      )}
+
+      <span className="author" onClick={(e) => onAuthorClick(e, message)}>
+        {message.authorUsername}
+      </span>
       <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
       {message.editedAt && <span className="edited-tag">(edited)</span>}
 
-      {isOwn && !editing && (
+      {!editing && (
         <span className="message-actions">
-          {message.content && (
-            <button onClick={() => setEditing(true)} title="Edit">
-              ✏️
-            </button>
-          )}
-          <button onClick={handleDelete} title="Delete">
-            🗑️
+          <button onClick={() => onReply(message)} title="Reply">
+            ↩️
           </button>
+          {isOwn && (
+            <>
+              {message.content && (
+                <button onClick={() => setEditing(true)} title="Edit">
+                  ✏️
+                </button>
+              )}
+              <button onClick={handleDelete} title="Delete">
+                🗑️
+              </button>
+            </>
+          )}
         </span>
       )}
 
@@ -85,13 +120,18 @@ export default function TextChatView({ channelId }: Props) {
     useChatStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { textChannels, servers, activeServerId } = useServerStore();
+  const ignoredUserIds = useIgnoredUsersStore((s) => s.ignoredUserIds);
+  const { setView, setActiveConversation, upsertConversation } = useDmStore();
+  const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<MessageDTO | null>(null);
+  const [userMenu, setUserMenu] = useState<{ userId: string; username: string; x: number; y: number } | null>(null);
 
   const channel = textChannels.find((c) => c.id === channelId);
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
-  const messages = messagesByChannel[channelId] ?? [];
+  const messages = (messagesByChannel[channelId] ?? []).filter((m) => !ignoredUserIds.has(m.authorId));
   const typingUsers = Array.from(typingByChannel[channelId] ?? []).filter((id) => id !== currentUserId);
 
   useEffect(() => {
@@ -146,8 +186,37 @@ export default function TextChatView({ channelId }: Props) {
   }, [channelId]);
 
   useEffect(() => {
+    setReplyingTo(null);
+  }, [channelId]);
+
+  useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  function handleAuthorClick(e: React.MouseEvent, message: MessageDTO) {
+    if (message.authorId === currentUserId) return;
+    setUserMenu({ userId: message.authorId, username: message.authorUsername, x: e.clientX, y: e.clientY });
+  }
+
+  async function goToDm(userId: string) {
+    const conversation = await startConversationWith(userId);
+    upsertConversation(conversation);
+    setActiveConversation(conversation.id);
+    setView("dms");
+    return conversation;
+  }
+
+  async function handleMessageUser(userId: string) {
+    await goToDm(userId);
+  }
+
+  async function handleCallUser(userId: string) {
+    const conversation = await goToDm(userId);
+    const voiceRoomId = `dm:${conversation.id}`;
+    leaveVoiceChannel();
+    await joinVoiceChannel(voiceRoomId);
+    getSocket()?.emit(SocketEvents.DmRing, { conversationId: conversation.id });
+  }
 
   return (
     <div className="main-content">
@@ -172,17 +241,43 @@ export default function TextChatView({ channelId }: Props) {
         }
       >
         {messages.map((message) => (
-          <MessageRow key={message.id} message={message} isOwn={message.authorId === currentUserId} />
+          <MessageRow
+            key={message.id}
+            message={message}
+            isOwn={message.authorId === currentUserId}
+            onReply={setReplyingTo}
+            onAuthorClick={handleAuthorClick}
+          />
         ))}
         <div ref={bottomRef} />
       </div>
       <div className="typing-indicator">
         {typingUsers.length > 0 ? `${typingUsers.length} user(s) typing…` : ""}
       </div>
-      <MessageInput channelId={channelId} />
+      <MessageInput
+        channelId={channelId}
+        replyingTo={
+          replyingTo
+            ? { id: replyingTo.id, authorUsername: replyingTo.authorUsername, content: replyingTo.content, imageUrl: replyingTo.imageUrl }
+            : null
+        }
+        onCancelReply={() => setReplyingTo(null)}
+      />
 
       {showChannelSettings && channel && (
         <ChannelSettingsModal channel={channel} onClose={() => setShowChannelSettings(false)} />
+      )}
+
+      {userMenu && (
+        <UserContextMenu
+          userId={userMenu.userId}
+          username={userMenu.username}
+          x={userMenu.x}
+          y={userMenu.y}
+          onClose={() => setUserMenu(null)}
+          onMessage={handleMessageUser}
+          onCall={handleCallUser}
+        />
       )}
     </div>
   );

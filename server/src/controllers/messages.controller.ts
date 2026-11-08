@@ -22,7 +22,10 @@ export async function listMessages(req: Request, res: Response) {
     where: { textChannelId: channelId },
     orderBy: { createdAt: "desc" },
     take: limit,
-    include: { author: { select: { username: true } } },
+    include: {
+      author: { select: { username: true } },
+      replyTo: { include: { author: { select: { username: true } } } },
+    },
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
@@ -36,6 +39,14 @@ export async function listMessages(req: Request, res: Response) {
       authorUsername: m.author.username,
       createdAt: m.createdAt,
       editedAt: m.editedAt,
+      replyTo: m.replyTo
+        ? {
+            id: m.replyTo.id,
+            authorUsername: m.replyTo.author.username,
+            content: m.replyTo.content,
+            imageUrl: m.replyTo.imageUrl,
+          }
+        : null,
     })),
   });
 }

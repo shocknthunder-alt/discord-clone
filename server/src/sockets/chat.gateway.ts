@@ -25,10 +25,12 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       textChannelId,
       content,
       imageUrl,
+      replyToId,
     }: {
       textChannelId: string;
       content: string;
       imageUrl?: string;
+      replyToId?: string;
     }) => {
       const trimmedContent = content?.trim() ?? "";
       const safeImageUrl = typeof imageUrl === "string" && imageUrl.length <= 2000 ? imageUrl : undefined;
@@ -42,8 +44,25 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       });
       if (!membership) return;
 
+      // Only honor a reply target if it's a real message in THIS channel — otherwise drop
+      // it silently rather than let a stale/forged id attach a reply preview to content
+      // from somewhere the sender has no business referencing.
+      const replyTarget =
+        typeof replyToId === "string"
+          ? await prisma.message.findFirst({
+              where: { id: replyToId, textChannelId },
+              include: { author: { select: { username: true } } },
+            })
+          : null;
+
       const message = await prisma.message.create({
-        data: { content: trimmedContent, imageUrl: safeImageUrl, textChannelId, authorId: userId },
+        data: {
+          content: trimmedContent,
+          imageUrl: safeImageUrl,
+          textChannelId,
+          authorId: userId,
+          replyToId: replyTarget?.id,
+        },
         include: { author: { select: { username: true } } },
       });
 
@@ -56,6 +75,14 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
         imageUrl: message.imageUrl,
         createdAt: message.createdAt.toISOString(),
         editedAt: message.editedAt?.toISOString() ?? null,
+        replyTo: replyTarget
+          ? {
+              id: replyTarget.id,
+              authorUsername: replyTarget.author.username,
+              content: replyTarget.content,
+              imageUrl: replyTarget.imageUrl,
+            }
+          : null,
       });
     },
   );
