@@ -1,5 +1,5 @@
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
@@ -12,25 +12,30 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { linkifyText } from "../utils/linkify";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import MessageInput from "./MessageInput";
+import ThreadPanel from "./ThreadPanel";
 import UserContextMenu from "./UserContextMenu";
 
 interface Props {
   channelId: string;
 }
 
-function scrollToMessage(id: string) {
-  document.getElementById(`message-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+function ThreadAvatar({ name }: { name: string }) {
+  return <div className="thread-avatar">{(name || "?").slice(0, 2).toUpperCase()}</div>;
 }
 
 function MessageRow({
   message,
   isOwn,
-  onReply,
+  replyCount,
+  replyAuthors,
+  onOpenThread,
   onAuthorClick,
 }: {
   message: MessageDTO;
   isOwn: boolean;
-  onReply: (message: MessageDTO) => void;
+  replyCount: number;
+  replyAuthors: string[];
+  onOpenThread: (messageId: string) => void;
   onAuthorClick: (e: React.MouseEvent, message: MessageDTO) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -54,14 +59,7 @@ function MessageRow({
   }
 
   return (
-    <div className="message-row" id={`message-${message.id}`}>
-      {message.replyTo && (
-        <div className="reply-reference" onClick={() => scrollToMessage(message.replyTo!.id)}>
-          ↩ <strong>{message.replyTo.authorUsername}</strong>
-          {message.replyTo.content ? `: ${message.replyTo.content.slice(0, 80)}` : message.replyTo.imageUrl ? " sent an image" : ""}
-        </div>
-      )}
-
+    <div className="message-row">
       <span className="author" onClick={(e) => onAuthorClick(e, message)}>
         {message.authorUsername}
       </span>
@@ -70,8 +68,8 @@ function MessageRow({
 
       {!editing && (
         <span className="message-actions">
-          <button onClick={() => onReply(message)} title="Reply">
-            ↩️
+          <button onClick={() => onOpenThread(message.id)} title="Reply in thread">
+            💬
           </button>
           {isOwn && (
             <>
@@ -111,6 +109,19 @@ function MessageRow({
           <img className="message-image" src={message.imageUrl} alt="attachment" />
         </a>
       )}
+
+      {replyCount > 0 && (
+        <div className="thread-summary" onClick={() => onOpenThread(message.id)}>
+          <div className="thread-summary-avatars">
+            {replyAuthors.slice(0, 3).map((name, i) => (
+              <ThreadAvatar key={i} name={name} />
+            ))}
+          </div>
+          <span>
+            {replyCount} {replyCount === 1 ? "reply" : "replies"}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -125,14 +136,31 @@ export default function TextChatView({ channelId }: Props) {
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<MessageDTO | null>(null);
+  const [openThreadRootId, setOpenThreadRootId] = useState<string | null>(null);
   const [userMenu, setUserMenu] = useState<{ userId: string; username: string; x: number; y: number } | null>(null);
 
   const channel = textChannels.find((c) => c.id === channelId);
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
-  const messages = (messagesByChannel[channelId] ?? []).filter((m) => !ignoredUserIds.has(m.authorId));
+  const allMessages = (messagesByChannel[channelId] ?? []).filter((m) => !ignoredUserIds.has(m.authorId));
+  // Threads are flat (never nested), so any message's replyTo.id already IS the thread
+  // root — replies never show inline in the channel, only as the "N replies" summary
+  // under their root and inside the thread panel itself.
+  const rootMessages = useMemo(() => allMessages.filter((m) => !m.replyTo), [allMessages]);
+  const repliesByRoot = useMemo(() => {
+    const map = new Map<string, MessageDTO[]>();
+    for (const m of allMessages) {
+      if (!m.replyTo) continue;
+      const list = map.get(m.replyTo.id) ?? [];
+      list.push(m);
+      map.set(m.replyTo.id, list);
+    }
+    return map;
+  }, [allMessages]);
   const typingUsers = Array.from(typingByChannel[channelId] ?? []).filter((id) => id !== currentUserId);
+
+  const openThreadRoot = openThreadRootId ? allMessages.find((m) => m.id === openThreadRootId) : undefined;
+  const openThreadReplies = openThreadRootId ? (repliesByRoot.get(openThreadRootId) ?? []) : [];
 
   useEffect(() => {
     fetchMessages(channelId).then((msgs) => setMessages(channelId, msgs)).catch(console.error);
@@ -186,12 +214,20 @@ export default function TextChatView({ channelId }: Props) {
   }, [channelId]);
 
   useEffect(() => {
-    setReplyingTo(null);
+    setOpenThreadRootId(null);
   }, [channelId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+  }, [rootMessages.length]);
+
+  function handleOpenThread(messageId: string) {
+    // Clicking the thread icon on a message that's already inside a thread (shouldn't
+    // normally be reachable from the flat root list, but defensive) opens its root's
+    // thread rather than trying to nest.
+    const message = allMessages.find((m) => m.id === messageId);
+    setOpenThreadRootId(message?.replyTo?.id ?? messageId);
+  }
 
   function handleAuthorClick(e: React.MouseEvent, message: MessageDTO) {
     if (message.authorId === currentUserId) return;
@@ -228,41 +264,52 @@ export default function TextChatView({ channelId }: Props) {
           </button>
         )}
       </div>
-      <div
-        className="message-list"
-        style={
-          channel?.backgroundUrl
-            ? {
-                backgroundImage: `linear-gradient(rgba(20,21,23,0.35), rgba(20,21,23,0.55)), url(${channel.backgroundUrl})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              }
-            : undefined
-        }
-      >
-        {messages.map((message) => (
-          <MessageRow
-            key={message.id}
-            message={message}
-            isOwn={message.authorId === currentUserId}
-            onReply={setReplyingTo}
-            onAuthorClick={handleAuthorClick}
+
+      <div className="chat-body">
+        <div className="chat-main-column">
+          <div
+            className="message-list"
+            style={
+              channel?.backgroundUrl
+                ? {
+                    backgroundImage: `linear-gradient(rgba(20,21,23,0.35), rgba(20,21,23,0.55)), url(${channel.backgroundUrl})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : undefined
+            }
+          >
+            {rootMessages.map((message) => {
+              const replies = repliesByRoot.get(message.id) ?? [];
+              return (
+                <MessageRow
+                  key={message.id}
+                  message={message}
+                  isOwn={message.authorId === currentUserId}
+                  replyCount={replies.length}
+                  replyAuthors={replies.map((r) => r.authorUsername)}
+                  onOpenThread={handleOpenThread}
+                  onAuthorClick={handleAuthorClick}
+                />
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+          <div className="typing-indicator">
+            {typingUsers.length > 0 ? `${typingUsers.length} user(s) typing…` : ""}
+          </div>
+          <MessageInput channelId={channelId} />
+        </div>
+
+        {openThreadRoot && (
+          <ThreadPanel
+            channelId={channelId}
+            root={openThreadRoot}
+            replies={openThreadReplies}
+            onClose={() => setOpenThreadRootId(null)}
           />
-        ))}
-        <div ref={bottomRef} />
+        )}
       </div>
-      <div className="typing-indicator">
-        {typingUsers.length > 0 ? `${typingUsers.length} user(s) typing…` : ""}
-      </div>
-      <MessageInput
-        channelId={channelId}
-        replyingTo={
-          replyingTo
-            ? { id: replyingTo.id, authorUsername: replyingTo.authorUsername, content: replyingTo.content, imageUrl: replyingTo.imageUrl }
-            : null
-        }
-        onCancelReply={() => setReplyingTo(null)}
-      />
 
       {showChannelSettings && channel && (
         <ChannelSettingsModal channel={channel} onClose={() => setShowChannelSettings(false)} />

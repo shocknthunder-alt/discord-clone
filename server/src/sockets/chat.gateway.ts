@@ -26,11 +26,13 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       content,
       imageUrl,
       replyToId,
+      alsoSendToChannel,
     }: {
       textChannelId: string;
       content: string;
       imageUrl?: string;
       replyToId?: string;
+      alsoSendToChannel?: boolean;
     }) => {
       const trimmedContent = content?.trim() ?? "";
       const safeImageUrl = typeof imageUrl === "string" && imageUrl.length <= 2000 ? imageUrl : undefined;
@@ -46,14 +48,21 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
 
       // Only honor a reply target if it's a real message in THIS channel — otherwise drop
       // it silently rather than let a stale/forged id attach a reply preview to content
-      // from somewhere the sender has no business referencing.
-      const replyTarget =
+      // from somewhere the sender has no business referencing. Threads are flat (like
+      // Slack): replying to a message that is itself a reply attaches to THAT message's
+      // root, not to it directly, so a thread never nests more than one level deep no
+      // matter which reply in it you clicked.
+      const replyTargetRaw =
         typeof replyToId === "string"
-          ? await prisma.message.findFirst({
-              where: { id: replyToId, textChannelId },
-              include: { author: { select: { username: true } } },
-            })
+          ? await prisma.message.findFirst({ where: { id: replyToId, textChannelId } })
           : null;
+      const rootId = replyTargetRaw ? (replyTargetRaw.replyToId ?? replyTargetRaw.id) : null;
+      const replyTarget = rootId
+        ? await prisma.message.findUnique({
+            where: { id: rootId },
+            include: { author: { select: { username: true } } },
+          })
+        : null;
 
       const message = await prisma.message.create({
         data: {
@@ -84,6 +93,29 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
             }
           : null,
       });
+
+      // "Also send to channel": the thread reply above stays in the thread (that's the
+      // message the thread panel renders); this is a second, independent top-level
+      // message with the same content so it's visible in the normal channel feed too —
+      // mirrors the visible outcome of Slack's checkbox without needing one message to
+      // simultaneously belong to two different render contexts.
+      if (alsoSendToChannel && replyTarget) {
+        const echo = await prisma.message.create({
+          data: { content: trimmedContent, imageUrl: safeImageUrl, textChannelId, authorId: userId },
+          include: { author: { select: { username: true } } },
+        });
+        io.to(`channel:${textChannelId}`).emit(SocketEvents.MessageNew, {
+          id: echo.id,
+          textChannelId: echo.textChannelId,
+          authorId: echo.authorId,
+          authorUsername: echo.author.username,
+          content: echo.content,
+          imageUrl: echo.imageUrl,
+          createdAt: echo.createdAt.toISOString(),
+          editedAt: echo.editedAt?.toISOString() ?? null,
+          replyTo: null,
+        });
+      }
     },
   );
 

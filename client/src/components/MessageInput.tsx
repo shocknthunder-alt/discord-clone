@@ -1,29 +1,36 @@
-import { SocketEvents, type ReplyPreview } from "@discord-clone/shared";
+import { SocketEvents } from "@discord-clone/shared";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
 
 interface Props {
   channelId: string;
-  replyingTo: ReplyPreview | null;
-  onCancelReply: () => void;
+  // When set, every message sent through this input attaches to that thread (used by
+  // ThreadPanel) instead of posting as a normal top-level channel message.
+  replyToId?: string;
+  // "Also send to #channel" checkbox — only meaningful (and only rendered) in thread mode.
+  showSendToChannelOption?: boolean;
+  placeholder?: string;
+  autoFocus?: boolean;
 }
 
 const TYPING_IDLE_MS = 2000;
 
-export default function MessageInput({ channelId, replyingTo, onCancelReply }: Props) {
+export default function MessageInput({
+  channelId,
+  replyToId,
+  showSendToChannelOption,
+  placeholder,
+  autoFocus,
+}: Props) {
   const [value, setValue] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File | Blob; previewUrl: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [alsoSendToChannel, setAlsoSendToChannel] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (replyingTo) inputRef.current?.focus();
-  }, [replyingTo]);
 
   function stopTyping() {
     const socket = getSocket();
@@ -91,29 +98,17 @@ export default function MessageInput({ channelId, replyingTo, onCancelReply }: P
       textChannelId: channelId,
       content: value.trim(),
       imageUrl,
-      replyToId: replyingTo?.id,
+      replyToId,
+      alsoSendToChannel: replyToId ? alsoSendToChannel : undefined,
     });
 
     stopTyping();
     setValue("");
     removePendingImage();
-    onCancelReply();
   }
 
   return (
     <div className="message-input-bar">
-      {replyingTo && (
-        <div className="reply-preview-bar">
-          <span>
-            Replying to <strong>{replyingTo.authorUsername}</strong>
-            {replyingTo.content ? `: ${replyingTo.content.slice(0, 80)}` : ""}
-          </span>
-          <button type="button" onClick={onCancelReply} aria-label="Cancel reply">
-            ✕
-          </button>
-        </div>
-      )}
-
       {pendingImage && (
         <div className="pending-image-preview">
           <img src={pendingImage.previewUrl} alt="Pasted" />
@@ -142,14 +137,22 @@ export default function MessageInput({ channelId, replyingTo, onCancelReply }: P
           value={value}
           onChange={handleChange}
           onPaste={handlePaste}
+          autoFocus={autoFocus}
           placeholder={
-            isCloudinaryConfigured() ? "Message… (paste an image/GIF to share it)" : "Message…"
+            placeholder ?? (isCloudinaryConfigured() ? "Message… (paste an image/GIF to share it)" : "Message…")
           }
         />
         <button type="submit" disabled={uploading || (!value.trim() && !pendingImage)}>
           {uploading ? "Uploading…" : "Send"}
         </button>
       </form>
+
+      {showSendToChannelOption && (
+        <label className="also-send-checkbox">
+          <input type="checkbox" checked={alsoSendToChannel} onChange={(e) => setAlsoSendToChannel(e.target.checked)} />
+          Also send to channel
+        </label>
+      )}
     </div>
   );
 }
