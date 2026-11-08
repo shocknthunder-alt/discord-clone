@@ -217,7 +217,7 @@ async function leaveCurrentRoom(io: IOServer, socket: Socket) {
   const room = getRoom(state.roomId);
   if (!room) return;
 
-  const closedProducerIds = await room.closePeer(state.userId);
+  const closedProducerIds = room.closePeer(state.userId, socket.id);
   if (closedProducerIds) {
     for (const producerId of closedProducerIds) {
       io.to(roomName(state.roomId)).emit("sfu:producer-closed", { producerId });

@@ -19,7 +19,9 @@ export class Peer {
     public socketId: string,
   ) {}
 
-  async close() {
+  close() {
+    // Closing a transport cascades to close every Producer/Consumer built on it
+    // (mediasoup's own behavior) — clearing the maps after is just bookkeeping.
     for (const transport of this.transports.values()) transport.close();
     this.transports.clear();
     this.producers.clear();
@@ -45,7 +47,21 @@ export class Room {
   getOrCreatePeer(userId: string, socketId: string): Peer {
     const existing = this.peers.get(userId);
     if (existing) {
-      existing.socketId = socketId;
+      if (existing.socketId !== socketId) {
+        // Reconnect (refresh, dropped connection, rejoin) — the previous connection's
+        // transports/producers are now orphaned. Previously these were left in place and
+        // just got a new socketId stamped on top, so a stale dead producer from the old
+        // connection stayed in peer.producers alongside the live one. listProducers() would
+        // hand both to anyone joining after that point, and since the client consumes the
+        // initial producer list sequentially, consuming the stale one failing aborted the
+        // loop before it ever reached the real, live producer — silently breaking this
+        // peer's audio for every subsequent joiner while everyone else worked fine. Close
+        // the old state out and start this peer fresh instead of merging onto it.
+        existing.close();
+        const peer = new Peer(userId, socketId);
+        this.peers.set(userId, peer);
+        return peer;
+      }
       return existing;
     }
     const peer = new Peer(userId, socketId);
@@ -89,11 +105,19 @@ export class Room {
     return transport;
   }
 
-  async closePeer(userId: string) {
+  /**
+   * socketId, when given, guards against a delayed/stale disconnect from an OLD connection
+   * clobbering a peer that has since reconnected with a NEW socket — e.g. a dropped
+   * connection whose server-side "disconnect" takes a few seconds to fire, by which point
+   * the client already reconnected and getOrCreatePeer replaced this peer's state. Without
+   * this guard, that late disconnect would tear down the newer, currently-active peer.
+   */
+  closePeer(userId: string, socketId?: string): string[] | undefined {
     const peer = this.peers.get(userId);
     if (!peer) return;
+    if (socketId && peer.socketId !== socketId) return;
     const closedProducerIds = Array.from(peer.producers.keys());
-    await peer.close();
+    peer.close();
     this.peers.delete(userId);
     return closedProducerIds;
   }

@@ -85,7 +85,15 @@ export class SfuMediaManager {
 
     for (const producer of producers) {
       this.knownUserIds.add(producer.userId);
-      await this.consume(producer.producerId, producer.userId, producer.appData);
+      // One bad entry (previously: any rejection here, awaited in-loop with no catch,
+      // aborted the whole join() — a single stale/invalid producer silently prevented
+      // consuming every producer listed after it, including other peers' live audio) must
+      // not block the rest.
+      try {
+        await this.consume(producer.producerId, producer.userId, producer.appData);
+      } catch (err) {
+        console.error(`[sfu] failed to consume initial ${producer.kind} producer from ${producer.userId}`, err);
+      }
     }
 
     this.statsInterval = setInterval(() => void this.pollStats(), STATS_POLL_INTERVAL_MS);
