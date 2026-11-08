@@ -286,6 +286,10 @@ button {
 .channel-sidebar-scroll {
   flex: 1;
   overflow-y: auto;
+  /* Per spec, overflow-y: auto alone implicitly promotes overflow-x to auto too — without
+     this, any child even a few px wider than the sidebar (long song title, queue item, …)
+     spawned a horizontal scrollbar for the whole sidebar instead of just clipping/eliding. */
+  overflow-x: hidden;
 }
 
 .channel-sidebar-header {
@@ -1671,6 +1675,11 @@ button {
 }
 
 .hud-lock-button {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
   height: 32px;
   border: none;
   border-radius: 16px;
@@ -1685,21 +1694,21 @@ button {
 }
 
 .hud-lock-button.locked {
-  background: #2b2d31;
-  color: #949ba4;
-}
-
-.hud-lock-button.locked:hover {
-  background: #35373c;
-}
-
-.hud-lock-button.unlocked {
   background: #f0b232;
   color: #1e1f22;
 }
 
-.hud-lock-button.unlocked:hover {
+.hud-lock-button.locked:hover {
   background: #d9a02c;
+}
+
+.hud-lock-button.unlocked {
+  background: #2b2d31;
+  color: #949ba4;
+}
+
+.hud-lock-button.unlocked:hover {
+  background: #35373c;
 }
 
 .peer-connection-badge {
