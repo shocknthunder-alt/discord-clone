@@ -22,7 +22,7 @@ import {
 } from "./devicePrefs";
 import { startMicProcessing, type MicProcessingHandle } from "./micProcessing";
 import { SfuMediaManager } from "./SfuMediaManager";
-import { playVoiceJoinSound, playVoiceLeaveSound } from "../utils/voiceSounds";
+import { playVoiceJoinSound } from "../utils/voiceSounds";
 import { unlockMusicAudio } from "../music/musicPlayerEngine";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
@@ -196,7 +196,6 @@ export function useVoiceChannel() {
 
     socket.on(SocketEvents.VoicePeerLeft, ({ socketId }: { socketId: string }) => {
       useVoiceStore.getState().removePeer(socketId);
-      playVoiceLeaveSound();
     });
 
     socket.on(
