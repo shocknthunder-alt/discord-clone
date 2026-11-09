@@ -2,8 +2,10 @@ import { useRef, useState } from "react";
 import { createCustomEmoji } from "../api/servers.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useServerStore } from "../store/serverStore";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 export default function AddEmojiModal({ serverId, onClose }: { serverId: string; onClose: () => void }) {
+  useEscapeKey(onClose);
   const customEmojis = useServerStore((s) => s.customEmojis);
   const setCustomEmojis = useServerStore((s) => s.setCustomEmojis);
   const [name, setName] = useState("");

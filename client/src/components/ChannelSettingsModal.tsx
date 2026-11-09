@@ -3,12 +3,14 @@ import { useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { updateTextChannel, updateVoiceChannel } from "../api/channels.api";
 import { useServerStore } from "../store/serverStore";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 type Props =
   | { kind: "text"; channel: TextChannelDTO; onClose: () => void }
   | { kind: "voice"; channel: VoiceChannelDTO; onClose: () => void };
 
 export default function ChannelSettingsModal({ kind, channel, onClose }: Props) {
+  useEscapeKey(onClose);
   const updateTextChannelInList = useServerStore((s) => s.updateTextChannelInList);
   const updateVoiceChannelInList = useServerStore((s) => s.updateVoiceChannelInList);
   const [name, setName] = useState(channel.name);

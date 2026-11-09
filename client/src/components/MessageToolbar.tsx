@@ -61,8 +61,15 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
       const target = e.target as Node;
       if (!rootRef.current?.contains(target) && !popoverRef.current?.contains(target)) setPopover(null);
     }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setPopover(null);
+    }
     document.addEventListener("mousedown", onMouseDown);
-    return () => document.removeEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
   }, [popover]);
 
   function pickEmoji(data: EmojiClickData) {

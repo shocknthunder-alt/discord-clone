@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchFeaturedInvite, joinServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 interface Props {
   onClose: () => void;
@@ -13,6 +14,7 @@ function extractInviteCode(input: string): string {
 }
 
 export default function JoinServerModal({ onClose }: Props) {
+  useEscapeKey(onClose);
   const { addServer, setActiveServer } = useServerStore();
   const [input, setInput] = useState("");
   const [error, setError] = useState<string | null>(null);

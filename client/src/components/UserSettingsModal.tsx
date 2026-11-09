@@ -17,6 +17,7 @@ import {
   supportsOutputDeviceSelection,
 } from "../webrtc/devicePrefs";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 // A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
 // PTT to (modifiers, function keys, mouse-adjacent keys like CapsLock); falls back to the
@@ -70,6 +71,10 @@ export default function UserSettingsModal({ onClose }: Props) {
     setNoiseGateSensitivity,
   } = useVoiceChannel();
   const [listeningForKey, setListeningForKey] = useState(false);
+  // Escape is a valid key to bind for push-to-talk, so it must not also close the modal then.
+  useEscapeKey(() => {
+    if (!listeningForKey) onClose();
+  });
 
   const [echoCancellation, setEchoCancellationState] = useState(getEchoCancellationEnabled());
   const [noiseSuppression, setNoiseSuppressionState] = useState(getNoiseSuppressionEnabled());

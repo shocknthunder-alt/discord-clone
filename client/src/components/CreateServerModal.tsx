@@ -2,12 +2,14 @@ import { useRef, useState } from "react";
 import { createServer, updateServer } from "../api/servers.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useServerStore } from "../store/serverStore";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 interface Props {
   onClose: () => void;
 }
 
 export default function CreateServerModal({ onClose }: Props) {
+  useEscapeKey(onClose);
   const { addServer, setActiveServer } = useServerStore();
   const [name, setName] = useState("");
   const [iconUrl, setIconUrl] = useState<string | null>(null);

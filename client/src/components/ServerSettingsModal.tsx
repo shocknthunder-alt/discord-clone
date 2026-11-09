@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { updateServer } from "../api/servers.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useServerStore } from "../store/serverStore";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 interface Props {
   server: ServerDTO;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function ServerSettingsModal({ server, onClose }: Props) {
+  useEscapeKey(onClose);
   const updateServerInList = useServerStore((s) => s.updateServerInList);
   const [name, setName] = useState(server.name);
   const [iconUrl, setIconUrl] = useState(server.iconUrl);

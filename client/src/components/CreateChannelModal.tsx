@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createTextChannel, createVoiceChannel } from "../api/channels.api";
 import { useServerStore } from "../store/serverStore";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 interface Props {
   serverId: string;
@@ -9,6 +10,7 @@ interface Props {
 }
 
 export default function CreateChannelModal({ serverId, type, onClose }: Props) {
+  useEscapeKey(onClose);
   const { addTextChannel, addVoiceChannel } = useServerStore();
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
