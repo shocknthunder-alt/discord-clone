@@ -2019,14 +2019,14 @@ button {
 .welcome-screen {
   align-items: center;
   justify-content: center;
-  gap: 22px;
-  padding: 32px;
+  gap: 18px;
+  padding: 20px;
   background: radial-gradient(ellipse at center, #3a3c43 0%, #26272b 80%);
 }
 
 .welcome-image {
-  max-width: min(760px, 90%);
-  max-height: 62vh;
+  max-width: min(1200px, 96%);
+  max-height: 72vh;
   object-fit: contain;
   border-radius: 14px;
   border: 3px solid #1a1b1e;

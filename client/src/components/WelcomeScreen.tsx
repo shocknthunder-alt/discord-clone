@@ -4,7 +4,7 @@ export default function WelcomeScreen() {
   return (
     <div className="main-content welcome-screen">
       <img className="welcome-image" src="/welcome/chichaci.jpg" alt="" draggable={false} />
-      <h1 className="welcome-title">Welcome to ШмиркаТа</h1>
+      <h1 className="welcome-title">Welcome to ШмиркаТа Чички !</h1>
     </div>
   );
 }
