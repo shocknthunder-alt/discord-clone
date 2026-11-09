@@ -1164,6 +1164,10 @@ button {
   position: relative;
   width: 440px;
   max-width: 90vw;
+  /* Tall modals (User Settings) must scroll inside the card instead of running off-screen
+     on small displays. */
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: #2b2d31;
   border-radius: 8px;
   padding: 48px 32px 32px;
