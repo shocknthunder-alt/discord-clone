@@ -128,15 +128,26 @@ export default function VoiceChannelPanel() {
         }
       >
         {watchedStream && (
-          <div className="screen-share-viewer">
-            <button
-              className="stop-watching-button"
-              onClick={() => setWatchingSocketId(null)}
-              title="Stop watching this stream"
-            >
-              Stop Watching
-            </button>
-            <ScreenSharePlayer stream={watchedStream} />
+          <div className="cinema">
+            <div className="cinema-curtain left" />
+            <div className="cinema-curtain right" />
+            <div className="cinema-valance" />
+            <div className="cinema-marquee">
+              <span>Now showing</span>
+              <strong>{watchedPeer?.username ?? "Live stream"}</strong>
+            </div>
+            <div className="screen-share-viewer cinema-screen">
+              <button
+                className="stop-watching-button"
+                onClick={() => setWatchingSocketId(null)}
+                title="Stop watching this stream"
+              >
+                Stop Watching
+              </button>
+              <ScreenSharePlayer stream={watchedStream} />
+            </div>
+            <div className="cinema-floor-glow" />
+            <div className="cinema-seats" />
           </div>
         )}
 
