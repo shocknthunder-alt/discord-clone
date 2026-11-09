@@ -1922,21 +1922,21 @@ button {
 /* ---- Retro CRT TV frame around a watched stream ----
    The cabinet is a real picture (public/tv/crt-tv.webp) with the glass cut out to
    transparent; the video sits behind it, so the frame is the artwork 1:1. Percentages are
-   the glass rectangle measured on that image (1140x805). */
+   the glass rectangle measured on that image (1098x625). */
 .tv {
   position: relative;
-  width: min(100%, 1100px, calc(76vh * 1140 / 805));
-  aspect-ratio: 1140 / 805;
+  width: min(100%, 1100px, calc(76vh * 1098 / 625));
+  aspect-ratio: 1098 / 625;
   margin: 0 auto;
   filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.5));
 }
 
 .tv-screen {
   position: absolute;
-  left: 17.63%;
-  top: 29.81%;
-  width: 54.74%;
-  height: 57.64%;
+  left: 16.39%;
+  top: 12.16%;
+  width: 56.83%;
+  height: 74.24%;
   background: #000;
   z-index: 1;
 }
@@ -1969,7 +1969,6 @@ button {
 }
 
 .tv-frame {
-  border-radius: 14px;
   position: absolute;
   inset: 0;
   width: 100%;
