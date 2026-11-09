@@ -1,4 +1,4 @@
-import type { MessageDTO } from "@discord-clone/shared";
+import type { MessageDTO, ReactionDTO } from "@discord-clone/shared";
 import { create } from "zustand";
 
 interface ChatState {
@@ -8,6 +8,7 @@ interface ChatState {
   addMessage: (message: MessageDTO) => void;
   updateMessage: (channelId: string, messageId: string, content: string, editedAt: string | null) => void;
   removeMessage: (channelId: string, messageId: string) => void;
+  setReactions: (channelId: string, messageId: string, reactions: ReactionDTO[]) => void;
   setTyping: (channelId: string, userId: string, isTyping: boolean) => void;
 }
 
@@ -46,6 +47,13 @@ export const useChatStore = create<ChatState>((set) => ({
         },
       };
     }),
+  setReactions: (channelId, messageId, reactions) =>
+    set((s) => ({
+      messagesByChannel: {
+        ...s.messagesByChannel,
+        [channelId]: (s.messagesByChannel[channelId] ?? []).map((m) => (m.id === messageId ? { ...m, reactions } : m)),
+      },
+    })),
   setTyping: (channelId, userId, isTyping) =>
     set((s) => {
       const existing = new Set(s.typingByChannel[channelId] ?? []);

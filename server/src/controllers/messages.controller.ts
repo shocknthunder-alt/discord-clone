@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db.js";
+import { groupReactions } from "../sockets/chat.gateway.js";
 
 export async function listMessages(req: Request, res: Response) {
   const { channelId } = req.params;
@@ -25,6 +26,7 @@ export async function listMessages(req: Request, res: Response) {
     include: {
       author: { select: { username: true, avatarUrl: true } },
       replyTo: { include: { author: { select: { username: true } } } },
+      reactions: { orderBy: { createdAt: "asc" } },
     },
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
@@ -40,6 +42,7 @@ export async function listMessages(req: Request, res: Response) {
       authorAvatarUrl: m.author.avatarUrl,
       createdAt: m.createdAt,
       editedAt: m.editedAt,
+      reactions: groupReactions(m.reactions),
       replyTo: m.replyTo
         ? {
             id: m.replyTo.id,

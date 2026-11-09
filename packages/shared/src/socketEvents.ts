@@ -9,6 +9,8 @@ export const SocketEvents = {
   MessageUpdated: "message:updated",
   MessageDelete: "message:delete",
   MessageDeleted: "message:deleted",
+  MessageReact: "message:react",
+  MessageReactionsUpdated: "message:reactions-updated",
   TypingStart: "typing:start",
   TypingStop: "typing:stop",
   TypingUpdate: "typing:update",

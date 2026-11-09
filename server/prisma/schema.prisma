@@ -17,6 +17,7 @@ model User {
 
   memberships          Membership[]
   messages             Message[]
+  messageReactions     MessageReaction[]
   ownedServers         Server[]         @relation("ServerOwner")
   directMessages       DirectMessage[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
@@ -103,6 +104,20 @@ model Message {
   author      User        @relation(fields: [authorId], references: [id])
   replyTo     Message?    @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies     Message[]   @relation("MessageReplies")
+  reactions   MessageReaction[]
+}
+
+model MessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
 }
 
 model VoiceChannel {

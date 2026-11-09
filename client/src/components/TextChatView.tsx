@@ -12,6 +12,7 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { linkifyText } from "../utils/linkify";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import MessageInput from "./MessageInput";
+import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
 import UserContextMenu from "./UserContextMenu";
 
@@ -30,6 +31,7 @@ function ThreadAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | n
 function MessageRow({
   message,
   isOwn,
+  currentUserId,
   replyCount,
   replyAuthors,
   onOpenThread,
@@ -37,6 +39,7 @@ function MessageRow({
 }: {
   message: MessageDTO;
   isOwn: boolean;
+  currentUserId: string | undefined;
   replyCount: number;
   replyAuthors: { authorId: string; username: string; avatarUrl: string | null }[];
   onOpenThread: (messageId: string) => void;
@@ -57,38 +60,22 @@ function MessageRow({
     setEditing(false);
   }
 
-  function handleDelete() {
-    if (!window.confirm("Delete this message?")) return;
-    getSocket()?.emit(SocketEvents.MessageDelete, { messageId: message.id });
-  }
-
   return (
     <div className="message-row">
+      <div className="message-main">
+      {!editing && (
+        <MessageToolbar
+          message={message}
+          isOwn={isOwn}
+          onReply={() => onOpenThread(message.id)}
+          onEdit={() => setEditing(true)}
+        />
+      )}
       <span className="author" onClick={(e) => onAuthorClick(e, message)}>
         {message.authorUsername}
       </span>
       <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
       {message.editedAt && <span className="edited-tag">(edited)</span>}
-
-      {!editing && (
-        <span className="message-actions">
-          <button onClick={() => onOpenThread(message.id)} title="Reply in thread">
-            💬
-          </button>
-          {isOwn && (
-            <>
-              {message.content && (
-                <button onClick={() => setEditing(true)} title="Edit">
-                  ✏️
-                </button>
-              )}
-              <button onClick={handleDelete} title="Delete">
-                🗑️
-              </button>
-            </>
-          )}
-        </span>
-      )}
 
       {editing ? (
         <div className="message-edit-form">
@@ -113,6 +100,24 @@ function MessageRow({
           <img className="message-image" src={message.imageUrl} alt="attachment" />
         </a>
       )}
+      </div>
+
+      {message.reactions.length > 0 && (
+        <div className="reaction-row">
+          {message.reactions.map((r) => {
+            const mine = !!currentUserId && r.userIds.includes(currentUserId);
+            return (
+              <button
+                key={r.emoji}
+                className={`reaction-chip ${mine ? "mine" : ""}`}
+                onClick={() => getSocket()?.emit(SocketEvents.MessageReact, { messageId: message.id, emoji: r.emoji })}
+              >
+                {r.emoji} {r.userIds.length}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {replyCount > 0 && (
         <div className="thread-summary" onClick={() => onOpenThread(message.id)}>
@@ -131,7 +136,7 @@ function MessageRow({
 }
 
 export default function TextChatView({ channelId }: Props) {
-  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setTyping } =
+  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setReactions, setTyping } =
     useChatStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { textChannels, servers, activeServerId } = useServerStore();
@@ -203,12 +208,18 @@ export default function TextChatView({ channelId }: Props) {
       }
     }
 
+    function onReactions({ id, textChannelId, reactions }: { id: string; textChannelId: string; reactions: MessageDTO["reactions"] }) {
+      if (textChannelId === channelId) setReactions(channelId, id, reactions);
+    }
+
+    socket?.on(SocketEvents.MessageReactionsUpdated, onReactions);
     socket?.on(SocketEvents.MessageNew, onMessage);
     socket?.on(SocketEvents.TypingUpdate, onTyping);
     socket?.on(SocketEvents.MessageUpdated, onUpdated);
     socket?.on(SocketEvents.MessageDeleted, onDeleted);
 
     return () => {
+      socket?.off(SocketEvents.MessageReactionsUpdated, onReactions);
       socket?.off(SocketEvents.MessageNew, onMessage);
       socket?.off(SocketEvents.TypingUpdate, onTyping);
       socket?.off(SocketEvents.MessageUpdated, onUpdated);
@@ -297,6 +308,7 @@ export default function TextChatView({ channelId }: Props) {
                   key={message.id}
                   message={message}
                   isOwn={message.authorId === currentUserId}
+                  currentUserId={currentUserId}
                   replyCount={replies.length}
                   replyAuthors={replyAuthors}
                   onOpenThread={handleOpenThread}

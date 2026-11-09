@@ -38,6 +38,11 @@ export interface ReplyPreview {
   imageUrl: string | null;
 }
 
+export interface ReactionDTO {
+  emoji: string;
+  userIds: string[];
+}
+
 export interface MessageDTO {
   id: string;
   content: string;
@@ -49,6 +54,7 @@ export interface MessageDTO {
   createdAt: string;
   editedAt: string | null;
   replyTo: ReplyPreview | null;
+  reactions: ReactionDTO[];
 }
 
 export interface VoicePeerInfo {

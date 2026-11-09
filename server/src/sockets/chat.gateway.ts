@@ -2,6 +2,12 @@ import { SocketEvents } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
 
+export function groupReactions(rows: { emoji: string; userId: string }[]) {
+  const map = new Map<string, string[]>();
+  for (const r of rows) map.set(r.emoji, [...(map.get(r.emoji) ?? []), r.userId]);
+  return Array.from(map, ([emoji, userIds]) => ({ emoji, userIds }));
+}
+
 export function registerChatGateway(io: IOServer, socket: Socket) {
   const userId: string = socket.data.userId;
 
@@ -85,6 +91,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
         imageUrl: message.imageUrl,
         createdAt: message.createdAt.toISOString(),
         editedAt: message.editedAt?.toISOString() ?? null,
+        reactions: [],
         replyTo: replyTarget
           ? {
               id: replyTarget.id,
@@ -115,6 +122,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
           imageUrl: echo.imageUrl,
           createdAt: echo.createdAt.toISOString(),
           editedAt: echo.editedAt?.toISOString() ?? null,
+          reactions: [],
           replyTo: null,
         });
       }
@@ -155,6 +163,41 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       textChannelId: existing.textChannelId,
     });
   });
+
+  socket.on(
+    SocketEvents.MessageReact,
+    async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      if (typeof emoji !== "string" || !emoji || emoji.length > 32) return;
+
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        include: { textChannel: true },
+      });
+      if (!message) return;
+
+      const membership = await prisma.membership.findUnique({
+        where: { userId_serverId: { userId, serverId: message.textChannel.serverId } },
+      });
+      if (!membership) return;
+
+      // Toggle: reacting with an emoji you already used removes it.
+      const existing = await prisma.messageReaction.findUnique({
+        where: { messageId_userId_emoji: { messageId, userId, emoji } },
+      });
+      if (existing) await prisma.messageReaction.delete({ where: { id: existing.id } });
+      else await prisma.messageReaction.create({ data: { messageId, userId, emoji } });
+
+      const rows = await prisma.messageReaction.findMany({
+        where: { messageId },
+        orderBy: { createdAt: "asc" },
+      });
+      io.to(`channel:${message.textChannelId}`).emit(SocketEvents.MessageReactionsUpdated, {
+        id: messageId,
+        textChannelId: message.textChannelId,
+        reactions: groupReactions(rows),
+      });
+    },
+  );
 
   socket.on(SocketEvents.TypingStart, ({ textChannelId }: { textChannelId: string }) => {
     socket.to(`channel:${textChannelId}`).emit(SocketEvents.TypingUpdate, {
