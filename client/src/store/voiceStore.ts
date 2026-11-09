@@ -45,6 +45,8 @@ interface VoiceState {
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;
+  // Shown to the sharer when the capture came back without an audio track.
+  screenShareNotice: string | null;
   peers: Map<string, RemotePeer>;
   preferredSpeakerId: string;
   connectionQuality: ConnectionQuality;
@@ -63,6 +65,7 @@ interface VoiceState {
   setMuted: (muted: boolean) => void;
   setDeafened: (deafened: boolean) => void;
   setScreenSharing: (sharing: boolean) => void;
+  setScreenShareNotice: (notice: string | null) => void;
   upsertPeer: (peer: Partial<RemotePeer> & { socketId: string }) => void;
   removePeer: (socketId: string) => void;
   setPeerLocalVolume: (socketId: string, volume: number) => void;
@@ -104,6 +107,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   isMuted: false,
   isDeafened: false,
   isScreenSharing: false,
+  screenShareNotice: null,
   peers: new Map(),
   preferredSpeakerId: getPreferredSpeakerDeviceId() ?? "",
   connectionQuality: "unknown",
@@ -119,6 +123,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setMuted: (muted) => set({ isMuted: muted }),
   setDeafened: (deafened) => set({ isDeafened: deafened }),
   setScreenSharing: (sharing) => set({ isScreenSharing: sharing }),
+  setScreenShareNotice: (screenShareNotice) => set({ screenShareNotice }),
 
   upsertPeer: (partial) =>
     set((s) => {
@@ -207,6 +212,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       localStream: null,
       localScreenStream: null,
       isMuted: false,
+      screenShareNotice: null,
       isDeafened: false,
       isScreenSharing: false,
       peers: new Map(),

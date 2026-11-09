@@ -367,6 +367,7 @@ export function useVoiceChannel() {
       activeMediaManager.stopScreenShare();
       store.setLocalScreenStream(null);
       store.setScreenSharing(false);
+      store.setScreenShareNotice(null);
       socket.emit(SocketEvents.ScreenShareStop, { voiceChannelId: activeVoiceChannelId });
       return;
     }
@@ -396,6 +397,14 @@ export function useVoiceChannel() {
     });
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);
+    // Browsers only hand over audio if the picker option for it was ticked and the surface
+    // supports it (a Chrome tab, or the entire screen on Windows) — never for a plain window,
+    // and Firefox never. Viewers silently get a video with no sound, so tell the sharer.
+    store.setScreenShareNotice(
+      screenStream.getAudioTracks().length === 0
+        ? "No audio is being shared. Share a browser tab or entire screen and tick “Share audio”."
+        : null,
+    );
     await activeMediaManager.startScreenShare(screenStream, quality);
 
     const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;

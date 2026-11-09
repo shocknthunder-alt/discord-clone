@@ -1915,125 +1915,222 @@ button {
   cursor: pointer;
 }
 
-/* ---- Cinema screening room around a watched stream ---- */
-.cinema {
+/* ---- Retro TV frame around a watched stream ---- */
+.tv {
   position: relative;
   width: 100%;
-  max-width: 1300px;
-  padding: 78px 9% 86px;
-  display: flex;
-  justify-content: center;
-  border-radius: 12px;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse 60% 55% at 50% 45%, rgba(255, 236, 200, 0.1), transparent 70%),
-    linear-gradient(#0b0508, #140a0d 60%, #0b0508);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  max-width: 1180px;
+  margin-top: 84px;
+  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.55));
 }
 
-.cinema-curtain {
+.tv-antennas {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 9%;
-  background:
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0 6px, rgba(0, 0, 0, 0) 6px 16px),
-    linear-gradient(90deg, #5b0f1a, #8e1b2c 50%, #5b0f1a);
-  z-index: 2;
-}
-
-.cinema-curtain.left {
-  left: 0;
-  border-right: 2px solid #3a0a11;
-  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.7);
-}
-
-.cinema-curtain.right {
-  right: 0;
-  border-left: 2px solid #3a0a11;
-  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.7);
-}
-
-.cinema-valance {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  z-index: 3;
-  background:
-    radial-gradient(circle at 50% 100%, #8e1b2c 0 18px, transparent 19px) 0 100% / 36px 20px repeat-x,
-    linear-gradient(#4a0c15, #6e1422);
-  border-bottom: 3px solid #c9a24b;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
-}
-
-.cinema-marquee {
-  position: absolute;
-  top: 46px;
   left: 50%;
-  transform: translateX(-50%);
-  z-index: 3;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 3px 18px;
-  border: 1px solid #c9a24b;
-  border-radius: 4px;
-  background: rgba(20, 8, 10, 0.85);
-  color: #e8c76a;
-  font-size: 11px;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  text-shadow: 0 0 8px rgba(232, 199, 106, 0.6);
-  white-space: nowrap;
-}
-
-.cinema-marquee strong {
-  letter-spacing: 0.08em;
-  font-size: 13px;
-  color: #fff3cf;
-}
-
-.cinema-screen {
-  position: relative;
-  z-index: 1;
-  padding: 6px;
-  border-radius: 4px;
-  background: #050505;
-  border: 3px solid #1a1a1a;
-  outline: 2px solid #c9a24b;
-  box-shadow:
-    0 0 60px 14px rgba(255, 236, 200, 0.16),
-    0 0 140px 40px rgba(255, 236, 200, 0.07);
-}
-
-.cinema .screen-share-video {
-  border-radius: 0;
-  max-width: min(1000px, 100%);
-  max-height: 58vh;
-}
-
-.cinema-floor-glow {
-  position: absolute;
-  left: 20%;
-  right: 20%;
-  bottom: 62px;
-  height: 26px;
-  background: radial-gradient(ellipse at 50% 0%, rgba(255, 236, 200, 0.22), transparent 70%);
+  top: -80px;
+  width: 0;
+  height: 80px;
   z-index: 0;
 }
 
-.cinema-seats {
+.tv-antennas::before,
+.tv-antennas::after {
+  content: "";
   position: absolute;
+  bottom: -4px;
   left: 0;
-  right: 0;
-  bottom: 0;
-  height: 58px;
-  z-index: 2;
-  /* A row of seat backs: rounded tops over a dark base, repeated across the room. */
+  width: 3px;
+  height: 120px;
+  background: linear-gradient(90deg, #8d8d8d, #e8e8e8, #8d8d8d);
+  border-radius: 2px;
+  transform-origin: bottom center;
+}
+
+.tv-antennas::before {
+  transform: rotate(-26deg);
+}
+
+.tv-antennas::after {
+  transform: rotate(24deg);
+}
+
+.tv-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 22px;
+  padding: 26px;
+  border-radius: 22px;
+  border: 2px solid #5a4a32;
   background:
-    radial-gradient(ellipse 30px 28px at 50% 100%, #2a0a10 0 70%, transparent 72%) 0 100% / 78px 100% repeat-x,
-    radial-gradient(ellipse 30px 26px at 50% 100%, #3b0f18 0 70%, transparent 72%) 39px 100% / 78px 82% repeat-x,
-    linear-gradient(transparent, #070304 70%);
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 5px),
+    linear-gradient(145deg, #e0d2b4, #b9a77f 55%, #9c8a63);
+  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
+}
+
+.tv-bezel {
+  flex: 1;
+  min-width: 0;
+  padding: 14px;
+  border-radius: 34px;
+  background: linear-gradient(145deg, #1c1c1c, #070707);
+  box-shadow: inset 0 0 0 3px #2a2a2a, 0 2px 0 rgba(255, 255, 255, 0.35);
+}
+
+.tv-screen {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 28px / 22px;
+  background: #000;
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.85), 0 0 22px rgba(120, 190, 255, 0.12);
+}
+
+/* Curved-glass glare and a faint scanline texture over the picture. */
+.tv-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  border-radius: inherit;
+  background:
+    linear-gradient(125deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 32%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px);
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.55);
+}
+
+.tv .screen-share-viewer {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+}
+
+.tv .screen-share-video {
+  width: 100%;
+  max-width: 100%;
+  max-height: 58vh;
+  border-radius: 0;
+}
+
+.tv-panel {
+  flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-radius: 8px;
+  background: linear-gradient(#2a2118, #17110b);
+  border: 2px solid #43362a;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.7);
+}
+
+.tv-dial {
+  position: relative;
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, #f1f1f1, #8b8b8b 70%, #5c5c5c);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.7), inset 0 -3px 5px rgba(0, 0, 0, 0.35);
+}
+
+.tv-dial::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  width: 6px;
+  height: 26px;
+  margin-left: -3px;
+  border-radius: 3px;
+  background: #222;
+  transform-origin: 50% 31px;
+  transform: rotate(35deg);
+}
+
+.tv-dial.uhf::before {
+  transform: rotate(-60deg);
+}
+
+.tv-dial-label {
+  margin-top: -6px;
+  color: #cdbf9e;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+}
+
+.tv-small-knobs {
+  display: flex;
+  gap: 10px;
+}
+
+.tv-small-knobs span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #eee, #777);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.7);
+}
+
+.tv-nameplate {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 3px;
+  background: #0d0905;
+  color: #e8c76a;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tv-grille {
+  flex: 1;
+  width: 100%;
+  min-height: 60px;
+  border-radius: 4px;
+  background: repeating-linear-gradient(0deg, #0b0805 0 3px, #5e5040 3px 6px);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+.tv-power {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 8px 2px rgba(255, 59, 48, 0.7);
+}
+
+.tv-feet {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 70px;
+}
+
+.tv-feet span {
+  width: 60px;
+  height: 14px;
+  border-radius: 0 0 8px 8px;
+  background: linear-gradient(#2a2118, #0f0a06);
+}
+
+@media (max-width: 800px) {
+  .tv-panel {
+    display: none;
+  }
+}
+
+.screen-share-notice {
+  max-width: 200px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #f0b232;
+  text-align: center;
 }

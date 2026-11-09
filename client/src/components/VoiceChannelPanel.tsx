@@ -68,6 +68,7 @@ function PeerTile({
 }
 
 export default function VoiceChannelPanel() {
+  const screenShareNotice = useVoiceStore((s) => s.screenShareNotice);
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream } = useVoiceStore();
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const voiceChannels = useServerStore((s) => s.voiceChannels);
@@ -128,26 +129,42 @@ export default function VoiceChannelPanel() {
         }
       >
         {watchedStream && (
-          <div className="cinema">
-            <div className="cinema-curtain left" />
-            <div className="cinema-curtain right" />
-            <div className="cinema-valance" />
-            <div className="cinema-marquee">
-              <span>Now showing</span>
-              <strong>{watchedPeer?.username ?? "Live stream"}</strong>
+          <div className="tv">
+            <div className="tv-antennas" />
+            <div className="tv-body">
+              <div className="tv-bezel">
+                <div className="tv-screen">
+                  <div className="screen-share-viewer">
+                    <button
+                      className="stop-watching-button"
+                      onClick={() => setWatchingSocketId(null)}
+                      title="Stop watching this stream"
+                    >
+                      Stop Watching
+                    </button>
+                    <ScreenSharePlayer stream={watchedStream} />
+                  </div>
+                </div>
+              </div>
+              <div className="tv-panel">
+                <div className="tv-dial" />
+                <div className="tv-dial-label">VHF</div>
+                <div className="tv-dial uhf" />
+                <div className="tv-dial-label">UHF</div>
+                <div className="tv-small-knobs">
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div className="tv-nameplate">{watchedPeer?.username ?? "Live"}</div>
+                <div className="tv-grille" />
+                <div className="tv-power" />
+              </div>
             </div>
-            <div className="screen-share-viewer cinema-screen">
-              <button
-                className="stop-watching-button"
-                onClick={() => setWatchingSocketId(null)}
-                title="Stop watching this stream"
-              >
-                Stop Watching
-              </button>
-              <ScreenSharePlayer stream={watchedStream} />
+            <div className="tv-feet">
+              <span />
+              <span />
             </div>
-            <div className="cinema-floor-glow" />
-            <div className="cinema-seats" />
           </div>
         )}
 
@@ -171,6 +188,7 @@ export default function VoiceChannelPanel() {
                 <LiveIcon size={12} color="#ffffff" /> You're sharing
               </div>
             )}
+            {isScreenSharing && screenShareNotice && <div className="screen-share-notice">{screenShareNotice}</div>}
           </div>
         </div>
       </div>
