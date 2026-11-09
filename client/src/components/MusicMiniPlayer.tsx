@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { initMusicPlayerEngine, setMusicVolume, unlockMusicAudio } from "../music/musicPlayerEngine";
+import { initMusicPlayerEngine, setMusicLocallyMuted, setMusicVolume, unlockMusicAudio } from "../music/musicPlayerEngine";
 import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -19,6 +19,7 @@ export default function MusicMiniPlayer() {
   const setAddError = useMusicStore((s) => s.setAddError);
   const { addMusic, removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
   const [expanded, setExpanded] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [input, setInput] = useState("");
   const [volume, setVolume] = useState(70);
 
@@ -74,6 +75,16 @@ export default function MusicMiniPlayer() {
         <div className="music-mini-title" title={currentItem?.title ?? ""}>
           {currentItem ? currentItem.title : "No music playing"}
         </div>
+        <button
+          className="music-mini-control"
+          onClick={() => {
+            setMuted(!muted);
+            setMusicLocallyMuted(!muted);
+          }}
+          title={muted ? "Unmute music (only for you)" : "Mute music (only for you)"}
+        >
+          {muted ? "🔇" : "🔊"}
+        </button>
         <button
           className="music-mini-control"
           onClick={() => {

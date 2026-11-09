@@ -91,6 +91,16 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
   }
   tick();
 
+  // requestAnimationFrame doesn't run while the tab is in the background, so the gate stops
+  // updating and stays frozen at whatever it was when you switched away — usually closed,
+  // which is exactly "I tab out to type somewhere else and my friend stops hearing me".
+  // Hold the gate open while hidden (the browser's own noise suppression still applies);
+  // the tick loop resumes gating as soon as the tab is visible again.
+  function onVisibilityChange() {
+    if (document.hidden) gateGain.gain.setTargetAtTime(1, audioContext.currentTime, ATTACK_SECONDS);
+  }
+  document.addEventListener("visibilitychange", onVisibilityChange);
+
   const outputTrack = destination.stream.getAudioTracks()[0];
 
   return {
@@ -107,6 +117,7 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
     },
     destroy: () => {
       cancelAnimationFrame(rafId);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       source.disconnect();
       highpass.disconnect();
       analyser.disconnect();

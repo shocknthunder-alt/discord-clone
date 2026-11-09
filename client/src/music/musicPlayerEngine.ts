@@ -25,6 +25,7 @@ let player: YT.Player | null = null;
 let loadedItemId: string | null = null;
 let unmuted = false;
 let volume = 70;
+let locallyMuted = false;
 let initPromise: Promise<void> | null = null;
 
 function applyState() {
@@ -84,7 +85,7 @@ export function initMusicPlayerEngine(): Promise<void> {
       playerVars: { playsinline: 1, mute: 1 },
       events: {
         onReady: () => {
-          if (unmuted) player?.unMute();
+          if (unmuted && !locallyMuted) player?.unMute();
           player?.setVolume(volume);
           applyState();
         },
@@ -92,7 +93,7 @@ export function initMusicPlayerEngine(): Promise<void> {
           if (e.data === YTApi.PlayerState.PLAYING) {
             // Re-assert on every start: an unMute sent before the video was really playing
             // can be dropped, and a track that starts while locked needs to tell the UI.
-            if (unmuted) player?.unMute();
+            if (unmuted && !locallyMuted) player?.unMute();
             player?.setVolume(volume);
             useMusicStore.getState().setAudioLocked(!unmuted);
           }
@@ -140,7 +141,7 @@ export function initMusicPlayerEngine(): Promise<void> {
 export function unlockMusicAudio() {
   if (unmuted) return;
   unmuted = true;
-  player?.unMute();
+  if (!locallyMuted) player?.unMute();
   player?.setVolume(volume);
   useMusicStore.getState().setAudioLocked(false);
 }
@@ -152,4 +153,12 @@ export function setMusicVolume(next: number) {
 
 export function getMusicCurrentTime(): number {
   return player?.getCurrentTime() ?? 0;
+}
+
+// Personal mute — only silences this listener's own player, unlike play/pause which is
+// shared by everyone in the channel.
+export function setMusicLocallyMuted(muted: boolean) {
+  locallyMuted = muted;
+  if (muted) player?.mute();
+  else if (unmuted) player?.unMute();
 }

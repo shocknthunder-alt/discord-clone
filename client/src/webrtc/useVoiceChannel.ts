@@ -23,6 +23,7 @@ import {
 import { startMicProcessing, type MicProcessingHandle } from "./micProcessing";
 import { SfuMediaManager } from "./SfuMediaManager";
 import { playVoiceJoinLeaveSound } from "../utils/voiceSounds";
+import { unlockMusicAudio } from "../music/musicPlayerEngine";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
 // components (ChannelList, FloatingVoiceHud), all of which must share the same manager
@@ -89,6 +90,10 @@ export function useVoiceChannel() {
     const socket = getSocket();
     const token = useAuthStore.getState().token;
     if (!socket || !token) return;
+
+    // Joining is the click that satisfies the browser's autoplay policy — unlock the shared
+    // music player now so the queue is audible without anyone touching it.
+    unlockMusicAudio();
 
     const preferredMicId = getPreferredMicDeviceId();
     const localStream = await navigator.mediaDevices.getUserMedia({
