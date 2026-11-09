@@ -15,6 +15,7 @@ export default function MusicMiniPlayer() {
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const musicState = useMusicStore((s) => s.state);
   const addError = useMusicStore((s) => s.addError);
+  const audioLocked = useMusicStore((s) => s.audioLocked);
   const setAddError = useMusicStore((s) => s.setAddError);
   const { addMusic, removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
   const [expanded, setExpanded] = useState(false);
@@ -97,6 +98,12 @@ export default function MusicMiniPlayer() {
           ⏭
         </button>
       </div>
+
+      {audioLocked && (
+        <button className="music-enable-sound" onClick={unlockMusicAudio}>
+          🔇 Click to enable sound
+        </button>
+      )}
 
       {expanded && (
         <div className="music-mini-expanded">

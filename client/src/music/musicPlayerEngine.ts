@@ -24,6 +24,7 @@ let player: YT.Player | null = null;
 // items with one videoId, and keying on videoId would never reload the second one.
 let loadedItemId: string | null = null;
 let unmuted = false;
+let volume = 70;
 let initPromise: Promise<void> | null = null;
 
 function applyState() {
@@ -84,9 +85,17 @@ export function initMusicPlayerEngine(): Promise<void> {
       events: {
         onReady: () => {
           if (unmuted) player?.unMute();
+          player?.setVolume(volume);
           applyState();
         },
         onStateChange: (e) => {
+          if (e.data === YTApi.PlayerState.PLAYING) {
+            // Re-assert on every start: an unMute sent before the video was really playing
+            // can be dropped, and a track that starts while locked needs to tell the UI.
+            if (unmuted) player?.unMute();
+            player?.setVolume(volume);
+            useMusicStore.getState().setAudioLocked(!unmuted);
+          }
           if (e.data !== YTApi.PlayerState.ENDED) return;
           // Without this nothing ever advanced the queue: the song ended, then the next
           // server-state update (or the drift correction below seeking past the end) just
@@ -132,10 +141,13 @@ export function unlockMusicAudio() {
   if (unmuted) return;
   unmuted = true;
   player?.unMute();
+  player?.setVolume(volume);
+  useMusicStore.getState().setAudioLocked(false);
 }
 
-export function setMusicVolume(volume: number) {
-  player?.setVolume(volume);
+export function setMusicVolume(next: number) {
+  volume = next;
+  player?.setVolume(next);
 }
 
 export function getMusicCurrentTime(): number {
