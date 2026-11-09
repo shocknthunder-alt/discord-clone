@@ -2015,3 +2015,29 @@ button {
 .channel-item.drag-over {
   box-shadow: 0 -2px 0 #5865f2;
 }
+
+.welcome-screen {
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  padding: 32px;
+  background: radial-gradient(ellipse at center, #3a3c43 0%, #26272b 80%);
+}
+
+.welcome-image {
+  max-width: min(760px, 90%);
+  max-height: 62vh;
+  object-fit: contain;
+  border-radius: 14px;
+  border: 3px solid #1a1b1e;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+.welcome-title {
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: 0.02em;
+  color: #f2f3f5;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  text-align: center;
+}

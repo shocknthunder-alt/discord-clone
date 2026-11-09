@@ -11,6 +11,7 @@ import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
 import VoiceAudioBridge from "../components/VoiceAudioBridge";
 import VoiceChannelPanel from "../components/VoiceChannelPanel";
+import WelcomeScreen from "../components/WelcomeScreen";
 import { connectSocket, getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import type { IncomingRing } from "../store/dmStore";
@@ -87,7 +88,7 @@ export default function AppShell() {
       {view === "dms" ? (
         <>
           <DmListPanel />
-          {activeConversationId ? <DmChatView conversationId={activeConversationId} /> : <div className="main-content" />}
+          {activeConversationId ? <DmChatView conversationId={activeConversationId} /> : <WelcomeScreen />}
         </>
       ) : (
         <>
@@ -97,7 +98,7 @@ export default function AppShell() {
           ) : activeTextChannelId ? (
             <TextChatView channelId={activeTextChannelId} />
           ) : (
-            <div className="main-content" />
+            <WelcomeScreen />
           )}
         </>
       )}
