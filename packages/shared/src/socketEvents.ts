@@ -2,6 +2,7 @@ export const SocketEvents = {
   // chat / presence
   ServerJoin: "server:join",
   ServerJoined: "server:joined",
+  ChannelsChanged: "channels:changed",
   ChannelJoin: "channel:join",
   MessageSend: "message:send",
   MessageNew: "message:new",
@@ -52,6 +53,7 @@ export const SocketEvents = {
   MusicState: "music:state",
   MusicAdd: "music:add",
   MusicAddError: "music:add-error",
+  MusicEnded: "music:ended",
   MusicRemove: "music:remove",
   MusicPlay: "music:play",
   MusicPause: "music:pause",

@@ -1,4 +1,7 @@
+import { SocketEvents } from "@discord-clone/shared";
+import { getSocket } from "../socket/socket";
 import { useMusicStore } from "../store/musicStore";
+import { useVoiceStore } from "../store/voiceStore";
 import { loadYouTubeIframeApi, YT } from "../utils/youtubePlayerApi";
 
 // A module-level singleton, not a React component's state: the UI that displays/controls
@@ -17,7 +20,9 @@ function extrapolatedPosition(state: { positionSeconds: number; isPlaying: boole
 }
 
 let player: YT.Player | null = null;
-let loadedVideoId: string | null = null;
+// Tracked by queue item id, not video id — the same song queued twice in a row is two
+// items with one videoId, and keying on videoId would never reload the second one.
+let loadedItemId: string | null = null;
 let unmuted = false;
 let initPromise: Promise<void> | null = null;
 
@@ -27,15 +32,15 @@ function applyState() {
   const currentItem = state.currentIndex < state.queue.length ? state.queue[state.currentIndex] : null;
 
   if (!currentItem) {
-    loadedVideoId = null;
+    loadedItemId = null;
     player.pauseVideo();
     return;
   }
 
   const expected = extrapolatedPosition(state);
 
-  if (loadedVideoId !== currentItem.videoId) {
-    loadedVideoId = currentItem.videoId;
+  if (loadedItemId !== currentItem.id) {
+    loadedItemId = currentItem.id;
     player.loadVideoById(currentItem.videoId, Math.max(0, expected));
     if (!state.isPlaying) {
       // loadVideoById always starts playing — pause right back if the server says paused
@@ -51,6 +56,17 @@ function applyState() {
 
 export function initMusicPlayerEngine(): Promise<void> {
   if (initPromise) return initPromise;
+
+  // The first click/keypress ANYWHERE unlocks audio — previously only clicks inside the
+  // music controls did, so a listener who never touched them heard nothing (the player
+  // stayed muted) until they pressed play/pause themselves.
+  const unlockOnFirstGesture = () => {
+    unlockMusicAudio();
+    document.removeEventListener("pointerdown", unlockOnFirstGesture, true);
+    document.removeEventListener("keydown", unlockOnFirstGesture, true);
+  };
+  document.addEventListener("pointerdown", unlockOnFirstGesture, true);
+  document.addEventListener("keydown", unlockOnFirstGesture, true);
 
   initPromise = loadYouTubeIframeApi().then((YTApi) => {
     // Audio only, by design — off-screen rather than display:none, since some browsers
@@ -70,6 +86,17 @@ export function initMusicPlayerEngine(): Promise<void> {
           if (unmuted) player?.unMute();
           applyState();
         },
+        onStateChange: (e) => {
+          if (e.data !== YTApi.PlayerState.ENDED) return;
+          // Without this nothing ever advanced the queue: the song ended, then the next
+          // server-state update (or the drift correction below seeking past the end) just
+          // restarted it — the "loops the same song and eventually freezes" behavior.
+          const state = useMusicStore.getState().state;
+          const voiceChannelId = useVoiceStore.getState().activeVoiceChannelId;
+          const current = state?.queue[state.currentIndex];
+          if (!voiceChannelId || !current) return;
+          getSocket()?.emit(SocketEvents.MusicEnded, { voiceChannelId, itemId: current.id });
+        },
       },
     });
   });
@@ -83,6 +110,10 @@ export function initMusicPlayerEngine(): Promise<void> {
   setInterval(() => {
     const state = useMusicStore.getState().state;
     if (!player || !state?.isPlaying) return;
+    // Only correct drift while actually playing — seeking an ended/paused/cued player
+    // (e.g. waiting on the server to advance the queue) would restart it.
+    const playerState = player.getPlayerState();
+    if (playerState !== YT.PlayerState.PLAYING && playerState !== YT.PlayerState.BUFFERING) return;
     const expected = extrapolatedPosition(state);
     const actual = player.getCurrentTime();
     if (Math.abs(actual - expected) > RESYNC_THRESHOLD_SECONDS) {

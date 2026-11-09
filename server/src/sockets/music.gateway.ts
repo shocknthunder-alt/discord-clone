@@ -172,6 +172,22 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     broadcastState(io, voiceChannelId, state);
   });
 
+  // Every listener's player reports the end of the same song, so this must be idempotent:
+  // it only advances if the reported item is still the current one, otherwise N listeners
+  // would skip N songs at once.
+  socket.on(
+    SocketEvents.MusicEnded,
+    ({ voiceChannelId, itemId }: { voiceChannelId: string; itemId: string }) => {
+      const state = musicStates.get(voiceChannelId);
+      if (!state || state.queue[state.currentIndex]?.id !== itemId) return;
+      state.currentIndex += 1;
+      state.positionSeconds = 0;
+      state.isPlaying = state.currentIndex < state.queue.length;
+      state.updatedAt = Date.now();
+      broadcastState(io, voiceChannelId, state);
+    },
+  );
+
   socket.on(SocketEvents.MusicSkip, ({ voiceChannelId }: { voiceChannelId: string }) => {
     const state = musicStates.get(voiceChannelId);
     if (!state) return;

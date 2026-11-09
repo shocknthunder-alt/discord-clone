@@ -33,6 +33,13 @@ export default function AppShell() {
       setUserOnline(userId, status === "online");
     });
 
+    socket.on(SocketEvents.ChannelsChanged, ({ serverId }: { serverId: string }) => {
+      if (useServerStore.getState().activeServerId !== serverId) return;
+      fetchChannels(serverId)
+        .then(({ textChannels, voiceChannels }) => useServerStore.getState().setChannels(textChannels, voiceChannels))
+        .catch(console.error);
+    });
+
     socket.on(SocketEvents.DmRing, (ring: IncomingRing) => {
       setIncomingRing(ring);
     });

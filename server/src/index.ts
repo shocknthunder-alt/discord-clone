@@ -34,6 +34,7 @@ const io = new IOServer(httpServer, {
   cors: { origin: env.CLIENT_ORIGIN },
 });
 
+app.set("io", io);
 io.use(socketAuthMiddleware);
 
 io.on("connection", (socket) => {

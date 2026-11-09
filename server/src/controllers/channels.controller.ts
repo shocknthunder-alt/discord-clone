@@ -1,5 +1,13 @@
 import type { Request, Response } from "express";
+import { SocketEvents } from "@discord-clone/shared";
 import { prisma } from "../db.js";
+
+// Tells everyone viewing the server to refetch its channel list, so renames and new
+// channels show up live instead of only after a refresh.
+function notifyChannelsChanged(req: Request, serverId: string) {
+  const io = req.app.get("io");
+  io?.to(`server:${serverId}`).emit(SocketEvents.ChannelsChanged, { serverId });
+}
 
 async function requireMembership(userId: string, serverId: string) {
   return prisma.membership.findUnique({ where: { userId_serverId: { userId, serverId } } });
@@ -33,6 +41,7 @@ export async function createTextChannel(req: Request, res: Response) {
   }
 
   const textChannel = await prisma.textChannel.create({ data: { name, serverId } });
+  notifyChannelsChanged(req, serverId);
   res.status(201).json({ textChannel });
 }
 
@@ -65,6 +74,7 @@ export async function updateTextChannel(req: Request, res: Response) {
     },
   });
 
+  notifyChannelsChanged(req, textChannel.serverId);
   res.json({ textChannel: updated });
 }
 
@@ -81,6 +91,7 @@ export async function createVoiceChannel(req: Request, res: Response) {
   }
 
   const voiceChannel = await prisma.voiceChannel.create({ data: { name, serverId } });
+  notifyChannelsChanged(req, serverId);
   res.status(201).json({ voiceChannel });
 }
 
@@ -113,5 +124,6 @@ export async function updateVoiceChannel(req: Request, res: Response) {
     },
   });
 
+  notifyChannelsChanged(req, voiceChannel.serverId);
   res.json({ voiceChannel: updated });
 }

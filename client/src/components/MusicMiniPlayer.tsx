@@ -36,7 +36,18 @@ export default function MusicMiniPlayer() {
     }
   }, [addError, setAddError]);
 
-  if (!activeVoiceChannelId) return null;
+  // Music is synced per voice channel, so there's nothing to control until you're in one —
+  // but hiding the player entirely left new users with no sign it exists at all.
+  if (!activeVoiceChannelId) {
+    return (
+      <div className="music-mini">
+        <div className="music-mini-row">
+          <span className="music-mini-toggle">🎵</span>
+          <div className="music-mini-title">Join a voice channel to listen together</div>
+        </div>
+      </div>
+    );
+  }
 
   const currentItem =
     musicState && musicState.currentIndex < musicState.queue.length ? musicState.queue[musicState.currentIndex] : null;
