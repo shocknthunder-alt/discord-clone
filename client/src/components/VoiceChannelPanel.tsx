@@ -130,41 +130,20 @@ export default function VoiceChannelPanel() {
       >
         {watchedStream && (
           <div className="tv">
-            <div className="tv-antennas" />
-            <div className="tv-body">
-              <div className="tv-bezel">
-                <div className="tv-screen">
-                  <div className="screen-share-viewer">
-                    <button
-                      className="stop-watching-button"
-                      onClick={() => setWatchingSocketId(null)}
-                      title="Stop watching this stream"
-                    >
-                      Stop Watching
-                    </button>
-                    <ScreenSharePlayer stream={watchedStream} />
-                  </div>
-                </div>
-              </div>
-              <div className="tv-panel">
-                <div className="tv-dial" />
-                <div className="tv-dial-label">VHF</div>
-                <div className="tv-dial uhf" />
-                <div className="tv-dial-label">UHF</div>
-                <div className="tv-small-knobs">
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="tv-nameplate">{watchedPeer?.username ?? "Live"}</div>
-                <div className="tv-grille" />
-                <div className="tv-power" />
+            <div className="tv-screen">
+              <div className="screen-share-viewer">
+                <ScreenSharePlayer stream={watchedStream} />
               </div>
             </div>
-            <div className="tv-feet">
-              <span />
-              <span />
-            </div>
+            <img className="tv-frame" src="/tv/crt-tv.webp" alt="" draggable={false} />
+            <button
+              className="stop-watching-button"
+              onClick={() => setWatchingSocketId(null)}
+              title="Stop watching this stream"
+            >
+              Stop Watching
+            </button>
+            <div className="tv-caption">{watchedPeer?.username ?? "Live"}</div>
           </div>
         )}
 

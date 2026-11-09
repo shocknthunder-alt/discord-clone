@@ -1919,216 +1919,86 @@ button {
   cursor: pointer;
 }
 
-/* ---- Retro TV frame around a watched stream ---- */
+/* ---- Retro CRT TV frame around a watched stream ----
+   The cabinet is a real picture (public/tv/crt-tv.webp) with the glass cut out to
+   transparent; the video sits behind it, so the frame is the artwork 1:1. Percentages are
+   the glass rectangle measured on that image (1140x805). */
 .tv {
   position: relative;
-  width: 100%;
-  max-width: 1180px;
-  margin-top: 84px;
-  filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.55));
-}
-
-.tv-antennas {
-  position: absolute;
-  left: 50%;
-  top: -80px;
-  width: 0;
-  height: 80px;
-  z-index: 0;
-}
-
-.tv-antennas::before,
-.tv-antennas::after {
-  content: "";
-  position: absolute;
-  bottom: -4px;
-  left: 0;
-  width: 3px;
-  height: 120px;
-  background: linear-gradient(90deg, #8d8d8d, #e8e8e8, #8d8d8d);
-  border-radius: 2px;
-  transform-origin: bottom center;
-}
-
-.tv-antennas::before {
-  transform: rotate(-26deg);
-}
-
-.tv-antennas::after {
-  transform: rotate(24deg);
-}
-
-.tv-body {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  gap: 22px;
-  padding: 26px;
-  border-radius: 22px;
-  border: 2px solid #5a4a32;
-  background:
-    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.03) 0 2px, transparent 2px 5px),
-    linear-gradient(145deg, #e0d2b4, #b9a77f 55%, #9c8a63);
-  box-shadow: inset 0 2px 3px rgba(255, 255, 255, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.25);
-}
-
-.tv-bezel {
-  flex: 1;
-  min-width: 0;
-  padding: 14px;
-  border-radius: 34px;
-  background: linear-gradient(145deg, #1c1c1c, #070707);
-  box-shadow: inset 0 0 0 3px #2a2a2a, 0 2px 0 rgba(255, 255, 255, 0.35);
+  width: min(100%, 1100px, calc(76vh * 1140 / 805));
+  aspect-ratio: 1140 / 805;
+  margin: 0 auto;
+  filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.5));
 }
 
 .tv-screen {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 28px / 22px;
+  position: absolute;
+  left: 17.63%;
+  top: 29.81%;
+  width: 54.74%;
+  height: 57.64%;
   background: #000;
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.85), 0 0 22px rgba(120, 190, 255, 0.12);
+  z-index: 1;
 }
 
-/* Curved-glass glare and a faint scanline texture over the picture. */
+.tv-screen .screen-share-viewer {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.tv-screen .screen-share-video {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  object-fit: contain;
+}
+
+/* Glass glare + scanlines + vignette over the picture. */
 .tv-screen::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 2;
-  border-radius: inherit;
   background:
-    linear-gradient(125deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 32%),
-    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.07) 0 1px, transparent 1px 3px);
-  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.55);
+    linear-gradient(120deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0) 30%),
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.45) 100%);
 }
 
-.tv .screen-share-viewer {
-  display: flex;
-  width: 100%;
-  justify-content: center;
-}
-
-.tv .screen-share-video {
-  width: 100%;
-  max-width: 100%;
-  max-height: 58vh;
-  border-radius: 0;
-}
-
-.tv-panel {
-  flex: 0 0 150px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 10px;
-  border-radius: 8px;
-  background: linear-gradient(#2a2118, #17110b);
-  border: 2px solid #43362a;
-  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.7);
-}
-
-.tv-dial {
-  position: relative;
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 30%, #f1f1f1, #8b8b8b 70%, #5c5c5c);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.7), inset 0 -3px 5px rgba(0, 0, 0, 0.35);
-}
-
-.tv-dial::before {
-  content: "";
+.tv-frame {
+  border-radius: 14px;
   position: absolute;
-  left: 50%;
-  top: 8px;
-  width: 6px;
-  height: 26px;
-  margin-left: -3px;
-  border-radius: 3px;
-  background: #222;
-  transform-origin: 50% 31px;
-  transform: rotate(35deg);
-}
-
-.tv-dial.uhf::before {
-  transform: rotate(-60deg);
-}
-
-.tv-dial-label {
-  margin-top: -6px;
-  color: #cdbf9e;
-  font-size: 9px;
-  letter-spacing: 0.15em;
-}
-
-.tv-small-knobs {
-  display: flex;
-  gap: 10px;
-}
-
-.tv-small-knobs span {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #eee, #777);
-  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.7);
-}
-
-.tv-nameplate {
+  inset: 0;
   width: 100%;
-  padding: 4px 6px;
-  border-radius: 3px;
-  background: #0d0905;
-  color: #e8c76a;
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The Stop button has to sit above the artwork to stay clickable. */
+.tv .stop-watching-button {
+  z-index: 3;
+  top: 14px;
+  right: 18px;
+}
+
+.tv-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 1.5%;
+  z-index: 3;
   text-align: center;
+  color: #e8c76a;
+  font-size: 11px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tv-grille {
-  flex: 1;
-  width: 100%;
-  min-height: 60px;
-  border-radius: 4px;
-  background: repeating-linear-gradient(0deg, #0b0805 0 3px, #5e5040 3px 6px);
-  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.9);
-}
-
-.tv-power {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #ff3b30;
-  box-shadow: 0 0 8px 2px rgba(255, 59, 48, 0.7);
-}
-
-.tv-feet {
-  display: flex;
-  justify-content: space-between;
-  padding: 0 70px;
-}
-
-.tv-feet span {
-  width: 60px;
-  height: 14px;
-  border-radius: 0 0 8px 8px;
-  background: linear-gradient(#2a2118, #0f0a06);
-}
-
-@media (max-width: 800px) {
-  .tv-panel {
-    display: none;
-  }
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
 }
 
 .screen-share-notice {
