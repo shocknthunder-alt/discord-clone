@@ -2007,3 +2007,11 @@ button {
   color: #f0b232;
   text-align: center;
 }
+
+.channel-item[draggable="true"] {
+  cursor: grab;
+}
+
+.channel-item.drag-over {
+  box-shadow: 0 -2px 0 #5865f2;
+}

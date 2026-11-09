@@ -1,5 +1,6 @@
 import { SocketEvents, type TextChannelDTO, type VoiceChannelDTO, type VoicePeerInfo } from "@discord-clone/shared";
 import { useState } from "react";
+import { fetchChannels, reorderChannels } from "../api/channels.api";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -87,7 +88,7 @@ function OccupantRow({ occupant }: { occupant: VoicePeerInfo }) {
 }
 
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
-  const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel } =
+  const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel, setChannels } =
     useServerStore();
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, channelOccupants } =
     useVoiceStore();
@@ -107,9 +108,63 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     { kind: "text"; channel: TextChannelDTO } | { kind: "voice"; channel: VoiceChannelDTO } | null
   >(null);
   const { locked } = useLayoutLockStore();
+  const [drag, setDrag] = useState<{ kind: "text" | "voice"; id: string } | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = activeServer?.ownerId === currentUserId;
+
+
+  // Moves the dragged channel to the position of the one it was dropped on. Applied locally
+  // right away, then saved; a failed save just refetches the server's real order.
+  async function moveChannel(kind: "text" | "voice", draggedId: string, targetId: string) {
+    if (!activeServer || draggedId === targetId) return;
+    const list = kind === "text" ? textChannels : voiceChannels;
+    const ids = list.map((c) => c.id);
+    const from = ids.indexOf(draggedId);
+    const to = ids.indexOf(targetId);
+    if (from === -1 || to === -1) return;
+    ids.splice(to, 0, ids.splice(from, 1)[0]);
+
+    const byId = new Map(list.map((c) => [c.id, c]));
+    const reordered = ids.map((id, position) => ({ ...byId.get(id)!, position }));
+    if (kind === "text") setChannels(reordered as TextChannelDTO[], voiceChannels);
+    else setChannels(textChannels, reordered as VoiceChannelDTO[]);
+
+    try {
+      await reorderChannels(activeServer.id, kind, ids);
+    } catch {
+      const fresh = await fetchChannels(activeServer.id);
+      setChannels(fresh.textChannels, fresh.voiceChannels);
+    }
+  }
+
+  function dragProps(kind: "text" | "voice", id: string) {
+    if (!isOwner) return {};
+    return {
+      draggable: true,
+      onDragStart: (e: React.DragEvent) => {
+        e.dataTransfer.effectAllowed = "move";
+        setDrag({ kind, id });
+      },
+      onDragOver: (e: React.DragEvent) => {
+        if (drag?.kind !== kind) return;
+        e.preventDefault();
+        setDragOverId(id);
+      },
+      onDragLeave: () => setDragOverId((current) => (current === id ? null : current)),
+      onDrop: (e: React.DragEvent) => {
+        e.preventDefault();
+        if (drag?.kind === kind) void moveChannel(kind, drag.id, id);
+        setDrag(null);
+        setDragOverId(null);
+      },
+      onDragEnd: () => {
+        setDrag(null);
+        setDragOverId(null);
+      },
+    };
+  }
 
   async function handleVoiceClick(voiceChannelId: string) {
     if (activeVoiceChannelId === voiceChannelId) {
@@ -192,7 +247,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
               {textChannels.map((channel) => (
                 <div
                   key={channel.id}
-                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""}`}
+                  {...dragProps("text", channel.id)}
+                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
                   onClick={() => {
                     setActiveTextChannel(channel.id);
                     onSelectText();
@@ -223,7 +279,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 return (
                   <div key={channel.id}>
                     <div
-                      className={`channel-item ${isActive ? "active" : ""}`}
+                      {...dragProps("voice", channel.id)}
+                      className={`channel-item ${isActive ? "active" : ""} ${dragOverId === channel.id && drag?.kind === "voice" ? "drag-over" : ""}`}
                       onClick={() => handleVoiceClick(channel.id)}
                     >
                       <span className="channel-item-name">🔊 {channel.name}</span>

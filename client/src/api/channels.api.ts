@@ -38,3 +38,7 @@ export function fetchMessages(channelId: string, cursor?: string) {
     })
     .then((r) => r.data.messages);
 }
+
+export function reorderChannels(serverId: string, kind: "text" | "voice", orderedIds: string[]) {
+  return http.put(`/api/servers/${serverId}/channel-order`, { kind, orderedIds }).then((r) => r.data);
+}

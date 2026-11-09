@@ -40,7 +40,10 @@ export async function createTextChannel(req: Request, res: Response) {
     return res.status(403).json({ error: "Only the server owner can create channels" });
   }
 
-  const textChannel = await prisma.textChannel.create({ data: { name, serverId } });
+  const last = await prisma.textChannel.aggregate({ where: { serverId }, _max: { position: true } });
+  const textChannel = await prisma.textChannel.create({
+    data: { name, serverId, position: (last._max.position ?? -1) + 1 },
+  });
   notifyChannelsChanged(req, serverId);
   res.status(201).json({ textChannel });
 }
@@ -90,7 +93,10 @@ export async function createVoiceChannel(req: Request, res: Response) {
     return res.status(403).json({ error: "Only the server owner can create channels" });
   }
 
-  const voiceChannel = await prisma.voiceChannel.create({ data: { name, serverId } });
+  const last = await prisma.voiceChannel.aggregate({ where: { serverId }, _max: { position: true } });
+  const voiceChannel = await prisma.voiceChannel.create({
+    data: { name, serverId, position: (last._max.position ?? -1) + 1 },
+  });
   notifyChannelsChanged(req, serverId);
   res.status(201).json({ voiceChannel });
 }
@@ -126,4 +132,38 @@ export async function updateVoiceChannel(req: Request, res: Response) {
 
   notifyChannelsChanged(req, voiceChannel.serverId);
   res.json({ voiceChannel: updated });
+}
+
+export async function reorderChannels(req: Request, res: Response) {
+  const { serverId } = req.params;
+  const { kind, orderedIds } = req.body ?? {};
+
+  if ((kind !== "text" && kind !== "voice") || !Array.isArray(orderedIds) || orderedIds.some((id) => typeof id !== "string")) {
+    return res.status(400).json({ error: "kind ('text'|'voice') and orderedIds are required" });
+  }
+
+  const membership = await requireMembership(req.userId!, serverId);
+  if (!membership || membership.role !== "OWNER") {
+    return res.status(403).json({ error: "Only the server owner can reorder channels" });
+  }
+
+  const existing =
+    kind === "text"
+      ? await prisma.textChannel.findMany({ where: { serverId }, select: { id: true } })
+      : await prisma.voiceChannel.findMany({ where: { serverId }, select: { id: true } });
+  const existingIds = new Set(existing.map((c) => c.id));
+  if (orderedIds.length !== existingIds.size || orderedIds.some((id: string) => !existingIds.has(id))) {
+    return res.status(400).json({ error: "orderedIds must list every channel of that kind exactly once" });
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id: string, position: number) =>
+      kind === "text"
+        ? prisma.textChannel.update({ where: { id }, data: { position } })
+        : prisma.voiceChannel.update({ where: { id }, data: { position } }),
+    ),
+  );
+
+  notifyChannelsChanged(req, serverId);
+  res.json({ ok: true });
 }
