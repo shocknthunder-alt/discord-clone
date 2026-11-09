@@ -252,10 +252,14 @@ async function leaveCurrentRoom(io: IOServer, socket: Socket) {
   if (!room) return;
 
   const closedProducerIds = room.closePeer(state.userId, socket.id);
-  if (closedProducerIds) {
-    for (const producerId of closedProducerIds) {
-      io.to(roomName(state.roomId)).emit("sfu:producer-closed", { producerId });
-    }
+  // closePeer returns undefined when this socket no longer owns the peer — the user already
+  // reconnected (refresh, dropped connection) and a newer socket took over. This stale
+  // socket's disconnect lands late, and announcing "peer-left" for that userId anyway made
+  // everyone drop the audio/video of someone who had in fact just rejoined, leaving each side
+  // stuck in a different "instance" of the call until the next full rejoin.
+  if (!closedProducerIds) return;
+  for (const producerId of closedProducerIds) {
+    io.to(roomName(state.roomId)).emit("sfu:producer-closed", { producerId });
   }
   io.to(roomName(state.roomId)).emit("sfu:peer-left", { userId: state.userId });
   removeRoomIfEmpty(state.roomId);
