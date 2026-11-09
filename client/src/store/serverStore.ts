@@ -1,4 +1,4 @@
-import type { ServerDTO, TextChannelDTO, VoiceChannelDTO } from "@discord-clone/shared";
+import type { CustomEmojiDTO, ServerDTO, TextChannelDTO, VoiceChannelDTO } from "@discord-clone/shared";
 import { create } from "zustand";
 
 interface ServerState {
@@ -8,6 +8,8 @@ interface ServerState {
   voiceChannels: VoiceChannelDTO[];
   activeTextChannelId: string | null;
   onlineUserIds: Set<string>;
+  customEmojis: CustomEmojiDTO[];
+  setCustomEmojis: (emojis: CustomEmojiDTO[]) => void;
   setServers: (servers: ServerDTO[]) => void;
   addServer: (server: ServerDTO) => void;
   updateServerInList: (server: ServerDTO) => void;
@@ -28,6 +30,8 @@ export const useServerStore = create<ServerState>((set) => ({
   voiceChannels: [],
   activeTextChannelId: null,
   onlineUserIds: new Set(),
+  customEmojis: [],
+  setCustomEmojis: (customEmojis) => set({ customEmojis }),
   setServers: (servers) => set({ servers }),
   addServer: (server) => set((s) => ({ servers: [...s.servers, server] })),
   updateServerInList: (server) =>

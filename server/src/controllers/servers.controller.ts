@@ -114,3 +114,42 @@ export async function joinServer(req: Request, res: Response) {
 
   res.status(201).json({ server, membership });
 }
+
+async function requireMember(userId: string, serverId: string) {
+  return prisma.membership.findUnique({ where: { userId_serverId: { userId, serverId } } });
+}
+
+export async function listCustomEmojis(req: Request, res: Response) {
+  const { serverId } = req.params;
+  if (!(await requireMember(req.userId!, serverId))) {
+    return res.status(403).json({ error: "Not a member of this server" });
+  }
+  const emojis = await prisma.customEmoji.findMany({
+    where: { serverId },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true, imageUrl: true },
+  });
+  res.json({ emojis });
+}
+
+export async function createCustomEmoji(req: Request, res: Response) {
+  const { serverId } = req.params;
+  const { name, imageUrl } = req.body ?? {};
+  if (!(await requireMember(req.userId!, serverId))) {
+    return res.status(403).json({ error: "Not a member of this server" });
+  }
+  if (typeof name !== "string" || !/^[a-z0-9_]{2,32}$/.test(name)) {
+    return res.status(400).json({ error: "Name must be 2-32 characters: lowercase letters, numbers, underscores" });
+  }
+  if (typeof imageUrl !== "string" || !/^https:\/\//.test(imageUrl) || imageUrl.length > 2000) {
+    return res.status(400).json({ error: "A valid image is required" });
+  }
+  const taken = await prisma.customEmoji.findUnique({ where: { serverId_name: { serverId, name } } });
+  if (taken) return res.status(409).json({ error: "An emoji with that name already exists" });
+
+  const emoji = await prisma.customEmoji.create({
+    data: { serverId, name, imageUrl },
+    select: { id: true, name: true, imageUrl: true },
+  });
+  res.status(201).json({ emoji });
+}

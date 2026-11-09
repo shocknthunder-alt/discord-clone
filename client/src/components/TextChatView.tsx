@@ -11,6 +11,7 @@ import { useServerStore } from "../store/serverStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { linkifyText } from "../utils/linkify";
 import ChannelSettingsModal from "./ChannelSettingsModal";
+import EmojiGlyph from "./EmojiGlyph";
 import MessageInput from "./MessageInput";
 import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
@@ -112,7 +113,7 @@ function MessageRow({
                 className={`reaction-chip ${mine ? "mine" : ""}`}
                 onClick={() => getSocket()?.emit(SocketEvents.MessageReact, { messageId: message.id, emoji: r.emoji })}
               >
-                {r.emoji} {r.userIds.length}
+                <EmojiGlyph emoji={r.emoji} /> {r.userIds.length}
               </button>
             );
           })}

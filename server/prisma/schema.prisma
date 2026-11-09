@@ -60,6 +60,7 @@ model Server {
   createdAt  DateTime @default(now())
 
   memberships   Membership[]
+  customEmojis  CustomEmoji[]
   textChannels  TextChannel[]
   voiceChannels VoiceChannel[]
 }
@@ -128,4 +129,16 @@ model VoiceChannel {
   position      Int     @default(0)
 
   server Server @relation(fields: [serverId], references: [id])
+}
+
+model CustomEmoji {
+  id        String   @id @default(cuid())
+  serverId  String
+  name      String
+  imageUrl  String
+  createdAt DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, name])
 }

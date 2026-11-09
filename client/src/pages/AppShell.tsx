@@ -1,7 +1,7 @@
 import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
-import { fetchServers } from "../api/servers.api";
+import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
 import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
@@ -64,6 +64,8 @@ export default function AppShell() {
     fetchChannels(activeServerId)
       .then(({ textChannels, voiceChannels }) => setChannels(textChannels, voiceChannels))
       .catch(console.error);
+
+    fetchCustomEmojis(activeServerId).then(useServerStore.getState().setCustomEmojis).catch(console.error);
 
     const socket = getSocket();
     socket?.emit(SocketEvents.ServerJoin, { serverId: activeServerId });

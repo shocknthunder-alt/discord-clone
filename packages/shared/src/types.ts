@@ -13,6 +13,12 @@ export interface ServerDTO {
   inviteCode: string;
 }
 
+export interface CustomEmojiDTO {
+  id: string;
+  name: string;
+  imageUrl: string;
+}
+
 export type MembershipRole = "OWNER" | "MEMBER";
 
 export interface TextChannelDTO {

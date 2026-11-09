@@ -1,4 +1,4 @@
-import type { ServerDTO, TextChannelDTO, VoiceChannelDTO } from "@discord-clone/shared";
+import type { CustomEmojiDTO, ServerDTO, TextChannelDTO, VoiceChannelDTO } from "@discord-clone/shared";
 import { http } from "./http";
 
 export function fetchServers() {
@@ -32,4 +32,14 @@ export function fetchServer(serverId: string) {
       `/api/servers/${serverId}`,
     )
     .then((r) => r.data.server);
+}
+
+export function fetchCustomEmojis(serverId: string) {
+  return http.get<{ emojis: CustomEmojiDTO[] }>(`/api/servers/${serverId}/emojis`).then((r) => r.data.emojis);
+}
+
+export function createCustomEmoji(serverId: string, name: string, imageUrl: string) {
+  return http
+    .post<{ emoji: CustomEmojiDTO }>(`/api/servers/${serverId}/emojis`, { name, imageUrl })
+    .then((r) => r.data.emoji);
 }
