@@ -31,6 +31,10 @@ app.use(errorHandler);
 
 const httpServer = createServer(app);
 const io = new IOServer(httpServer, {
+  // Notice a vanished client (closed app, dropped network) in ~20s instead of the ~45s default, so
+  // a ghost doesn't linger in the voice channel list.
+  pingInterval: 10_000,
+  pingTimeout: 10_000,
   cors: { origin: env.CLIENT_ORIGIN },
 });
 

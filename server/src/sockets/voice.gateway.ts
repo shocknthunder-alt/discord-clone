@@ -22,7 +22,22 @@ async function getServerIdForVoiceChannel(voiceChannelId: string): Promise<strin
   return channel?.serverId ?? null;
 }
 
+// Drops roster entries whose socket no longer exists (a disconnect that was missed or raced a
+// reconnect) so a user who has left can't linger as a ghost in the channel list.
+function pruneDeadPeers(io: IOServer, voiceChannelId: string) {
+  const roster = voiceRosters.get(voiceChannelId);
+  if (!roster) return;
+  for (const [socketId, peer] of Array.from(roster.entries())) {
+    if (io.sockets.sockets.has(socketId)) continue;
+    roster.delete(socketId);
+    socketVoiceChannel.delete(socketId);
+    io.to(roomName(voiceChannelId)).emit(SocketEvents.VoicePeerLeft, { userId: peer.userId, socketId });
+  }
+  if (roster.size === 0) voiceRosters.delete(voiceChannelId);
+}
+
 async function broadcastOccupants(io: IOServer, voiceChannelId: string) {
+  pruneDeadPeers(io, voiceChannelId);
   const serverId = await getServerIdForVoiceChannel(voiceChannelId);
   if (!serverId) return;
 
@@ -68,6 +83,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     const channels = await prisma.voiceChannel.findMany({ where: { serverId }, select: { id: true } });
     for (const channel of channels) {
       voiceChannelServerId.set(channel.id, serverId);
+      pruneDeadPeers(io, channel.id);
       const roster = voiceRosters.get(channel.id);
       socket.emit(SocketEvents.VoiceChannelOccupants, {
         voiceChannelId: channel.id,
@@ -81,6 +97,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     removeFromRoster(io, socket.id);
 
     await socket.join(roomName(voiceChannelId));
+    pruneDeadPeers(io, voiceChannelId);
 
     const roster = voiceRosters.get(voiceChannelId) ?? new Map<string, VoicePeerInfo>();
     const existingPeers = Array.from(roster.values());

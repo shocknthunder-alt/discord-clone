@@ -484,7 +484,10 @@ export function useVoiceChannel() {
         echoCancellation: false,
         noiseSuppression: false,
         autoGainControl: false,
-      },
+        // Keep this app's own sound (the friends' voices) out of the shared system audio, or
+        // viewers would hear themselves with an echo. Chromium-only option, not in the DOM types.
+        restrictOwnAudio: true,
+      } as MediaTrackConstraints,
     });
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);

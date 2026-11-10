@@ -12,7 +12,7 @@ function PickerDialog() {
   useEscapeKey(() => closeScreenPicker(null));
   const [sources, setSources] = useState<DesktopScreenSource[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [audio, setAudio] = useState(false);
+  const audio = true; // streams always carry sound
 
   useEffect(() => {
     let cancelled = false;
@@ -73,14 +73,7 @@ function PickerDialog() {
         {renderGroup("Екрани", screens)}
         {renderGroup("Прозорци", windows)}
 
-        <label className="screen-picker-audio">
-          <input type="checkbox" checked={audio} onChange={(e) => setAudio(e.target.checked)} />
-          Сподели и звука на компютъра
-        </label>
-        <p className="modal-subtitle screen-picker-hint">
-          Внимание: това включва всичко, което чуваш, и гласовете от канала, така че другите може да чуят себе си с
-          ехо. Най-добре е със слушалки и само когато трябва.
-        </p>
+        <p className="modal-subtitle screen-picker-hint">Звукът на компютъра се споделя винаги.</p>
 
         <button
           className="modal-join-button"
