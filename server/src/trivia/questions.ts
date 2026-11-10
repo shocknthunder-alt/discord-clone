@@ -1,15 +1,16 @@
 export interface TriviaQuestion {
   category: string;
   question: string;
-  options: string[];
-  /** Index into `options` of the right answer. */
-  correct: number;
+  /** The answer shown to players. */
+  answer: string;
+  /** Other spellings / short forms that also count as correct. */
+  aliases: string[];
 }
 
 type Raw = [category: string, question: string, answer: string, wrong: [string, string, string]];
 
-// Built-in Bulgarian question bank. Each entry is [category, question, correct answer, 3 wrong answers];
-// the options are shuffled when a question is asked.
+// Built-in Bulgarian question bank. Each entry is [category, question, answer, (unused wrong answers)].
+// Players type the answer freely, so ALIASES lists the other forms that should be accepted.
 const RAW: Raw[] = [
   // --- България ---
   ["България", "Коя е столицата на България?", "София", ["Пловдив", "Варна", "Бургас"]],
@@ -81,16 +82,60 @@ function shuffle<T>(items: T[]): T[] {
   return a;
 }
 
-export function buildQuestion(category: string, question: string, answer: string, wrong: string[]): TriviaQuestion {
-  const options = shuffle([answer, ...wrong]);
-  return { category, question, options, correct: options.indexOf(answer) };
+const ALIASES: Record<string, string[]> = {
+  "Прасковка (Peach)": ["прасковка", "праскова", "peach", "принцеса праскова"],
+  "Исак Нютон": ["нютон", "newton", "исак нютон", "isaac newton"],
+  "Борис I": ["борис", "борис 1", "борис първи", "цар борис"],
+  "Дж. К. Роулинг": ["роулинг", "rowling", "jk rowling", "дж к роулинг", "джоан роулинг"],
+  "Леонардо да Винчи": ["да винчи", "леонардо", "davinci", "da vinci", "леонардо да винчи"],
+  "Нийл Армстронг": ["армстронг", "нийл", "neil armstrong", "armstrong"],
+  "Уилям Шекспир": ["шекспир", "shakespeare", "уилям шекспир"],
+  "Иван Вазов": ["вазов", "иван вазов"],
+  "Димитър Талев": ["талев", "димитър талев"],
+  "Свети Иван Рилски": ["иван рилски", "рилски", "св иван рилски", "свети иван рилски"],
+  "Blizzard Entertainment": ["blizzard", "близард", "близзард", "blizzard entertainment"],
+  "Grinding Gear Games": ["ggg", "grinding gear", "grinding gear games"],
+  "Valve": ["валв", "valve software"],
+  "Гералт от Ривия": ["гералт", "geralt", "геральт", "гералт от ривия"],
+  "Тихият": ["тихия", "тихи океан", "тихият океан", "тихия океан", "pacific"],
+  "Диамантът": ["диамант", "диамантът", "diamond"],
+  "Сърцето": ["сърце", "сърцето", "heart"],
+  "Крипъри": ["крипър", "крипъри", "creeper", "creepers", "крийпър", "крийпъри"],
+  "Азот": ["азот", "nitrogen", "n2"],
+  "Русия": ["русия", "russia", "ссср"],
+  "Африка": ["африка", "africa"],
+  "Дунав": ["дунав", "danube", "река дунав"],
+  "Искър": ["искър", "iskar", "река искър"],
+  "Еверест": ["еверест", "everest", "връх еверест", "джомолунгма"],
+  "Ватикана": ["ватикана", "ватикан", "vatican"],
+  "Токио": ["токио", "tokyo"],
+  "Канбера": ["канбера", "canberra"],
+  "Отава": ["отава", "ottawa"],
+  "Анкара": ["анкара", "ankara"],
+  "Електрически": ["електрически", "електричество", "електрически тип", "electric"],
+  "Нео": ["нео", "neo", "томас андерсън"],
+  "Линк": ["линк", "link"],
+  "Гърция": ["гърция", "древна гърция", "greece", "елада"],
+  "Франция": ["франция", "france"],
+  "Освобождението на България": ["освобождението", "освобождението на българия", "освобождение", "ден на освобождението"],
+  "Мусала": ["мусала", "musala", "връх мусала"],
+  "Плиска": ["плиска", "pliska"],
+  "Au": ["au", "злато", "аурум"],
+  "Юпитер": ["юпитер", "jupiter"],
+  "Марс": ["марс", "mars"],
+  "Меркурий": ["меркурий", "mercury"],
+  "Хамлет": ["хамлет", "hamlet"],
+};
+
+export function buildQuestion(category: string, question: string, answer: string, aliases: string[] = []): TriviaQuestion {
+  return { category, question, answer, aliases: [...(ALIASES[answer] ?? []), ...aliases] };
 }
 
 /** `count` distinct random questions from the built-in Bulgarian bank. */
 export function pickBulgarian(count: number): TriviaQuestion[] {
   return shuffle(RAW)
     .slice(0, count)
-    .map(([c, q, a, w]) => buildQuestion(c, q, a, w));
+    .map(([c, q, a]) => buildQuestion(c, q, a));
 }
 
 /** English questions from the free Open Trivia DB API; null if it can't be reached. */
@@ -101,13 +146,11 @@ export async function fetchEnglish(count: number): Promise<TriviaQuestion[] | nu
     });
     const json = (await res.json()) as {
       response_code: number;
-      results: { category: string; question: string; correct_answer: string; incorrect_answers: string[] }[];
+      results: { category: string; question: string; correct_answer: string }[];
     };
     if (json.response_code !== 0 || !json.results?.length) return null;
     const dec = (s: string) => decodeURIComponent(s);
-    return json.results.map((r) =>
-      buildQuestion(dec(r.category), dec(r.question), dec(r.correct_answer), r.incorrect_answers.map(dec)),
-    );
+    return json.results.map((r) => buildQuestion(dec(r.category), dec(r.question), dec(r.correct_answer)));
   } catch {
     return null;
   }

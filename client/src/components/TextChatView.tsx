@@ -362,7 +362,7 @@ export default function TextChatView({ channelId }: Props) {
           </div>
           {channel?.type === "trivia" && (
             <div className="trivia-hint">
-              🎲 <b>!trivia</b> — игра с 5 въпроса · <b>!trivia 10</b> · <b>!trivia en</b> (английски) · <b>!top</b> класация · <b>!стоп</b> · отговаряш с <b>A / B / C / D</b>
+              🎲 <b>!trivia</b> — безкрайна игра · <b>!trivia 15</b> · <b>!trivia en</b> · <b>!hint</b> подсказка · <b>!skip</b> · <b>!score</b> · <b>!top</b> · <b>!стоп</b> — пиши отговорите свободно, като в чата
             </div>
           )}
           <MessageInput channelId={channelId} />
