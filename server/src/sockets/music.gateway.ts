@@ -52,6 +52,18 @@ function emptyState(): MusicState {
 
 const musicStates = new Map<string, MusicState>();
 
+/**
+ * Listeners work out "where are we in the song" as positionSeconds + (now - updatedAt) while
+ * playing. Anything that bumps updatedAt WITHOUT folding the elapsed time into positionSeconds
+ * first makes every client think the song is back at its old position and seek there — which is
+ * exactly the "song restarts when someone adds another one" bug. Call this before touching a
+ * playing state.
+ */
+function settlePosition(state: MusicState) {
+  if (state.isPlaying) state.positionSeconds += (Date.now() - state.updatedAt) / 1000;
+  state.updatedAt = Date.now();
+}
+
 function getOrCreateState(voiceChannelId: string): MusicState {
   let state = musicStates.get(voiceChannelId);
   if (!state) {
@@ -119,6 +131,7 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
 
     const state = getOrCreateState(voiceChannelId);
     const wasEmpty = state.currentIndex >= state.queue.length;
+    settlePosition(state);
     state.queue.push(item);
     if (wasEmpty) {
       // Nothing was playing — the thing that was just added starts immediately instead of
@@ -138,6 +151,7 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     const index = state.queue.findIndex((i) => i.id === itemId);
     if (index === -1) return;
 
+    settlePosition(state);
     state.queue.splice(index, 1);
     if (index < state.currentIndex) {
       state.currentIndex -= 1;

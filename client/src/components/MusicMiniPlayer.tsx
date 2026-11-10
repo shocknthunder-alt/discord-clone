@@ -18,7 +18,14 @@ export default function MusicMiniPlayer() {
   const audioLocked = useMusicStore((s) => s.audioLocked);
   const setAddError = useMusicStore((s) => s.setAddError);
   const { addMusic, removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
-  const [expanded, setExpanded] = useState(false);
+  // Open by default; the choice is remembered per browser.
+  const [expanded, setExpanded] = useState(() => {
+    try {
+      return localStorage.getItem("musicPlayerExpanded") !== "false";
+    } catch {
+      return true;
+    }
+  });
   const [muted, setMuted] = useState(false);
   const [input, setInput] = useState("");
   const [volume, setVolume] = useState(70);
@@ -26,6 +33,17 @@ export default function MusicMiniPlayer() {
   useEffect(() => {
     initMusicPlayerEngine();
   }, []);
+
+  function toggleExpanded() {
+    setExpanded((v) => {
+      try {
+        localStorage.setItem("musicPlayerExpanded", String(!v));
+      } catch {
+        // private mode etc. — the toggle still works for this session
+      }
+      return !v;
+    });
+  }
 
   useEffect(() => {
     setMusicVolume(volume);
@@ -67,8 +85,8 @@ export default function MusicMiniPlayer() {
       <div className="music-mini-row">
         <button
           className="music-mini-toggle"
-          onClick={() => setExpanded((v) => !v)}
-          title={expanded ? "Collapse" : "Expand music"}
+          onClick={toggleExpanded}
+          title={expanded ? "Collapse the player" : "Expand the player"}
         >
           🎵
         </button>
@@ -107,6 +125,14 @@ export default function MusicMiniPlayer() {
           title="Skip"
         >
           ⏭
+        </button>
+        <button
+          className="music-mini-control music-mini-collapse"
+          onClick={toggleExpanded}
+          title={expanded ? "Collapse the player" : "Expand the player"}
+          aria-label={expanded ? "Collapse the player" : "Expand the player"}
+        >
+          {expanded ? "▾" : "▸"}
         </button>
       </div>
 
