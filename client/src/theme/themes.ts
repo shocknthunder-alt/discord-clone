@@ -82,7 +82,7 @@ export const THEMES: ThemeDef[] = [
   },
 ];
 
-export const DEFAULT_THEME_ID = "graphite";
+export const DEFAULT_THEME_ID = "poe2";
 const STORAGE_KEY = "shmirka-theme";
 
 const clamp = (n: number) => Math.max(0, Math.min(100, n));
