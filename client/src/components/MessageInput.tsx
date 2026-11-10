@@ -120,7 +120,7 @@ export default function MessageInput({
 
       {showEmojiPicker && (
         <div className="emoji-picker-popover">
-          <EmojiPicker onEmojiClick={addEmoji} theme={"dark" as never} />
+          <EmojiPicker onEmojiClick={addEmoji} theme={"light" as never} />
         </div>
       )}
 

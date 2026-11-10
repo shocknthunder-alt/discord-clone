@@ -67,7 +67,7 @@ export function LiveIcon({ size = 14, color = "#23a559" }: IconProps) {
 /** Closed padlock (shackle fully down into the body) vs. open (shackle swung up and away) —
  * color also shifts so the locked/unlocked state reads at a glance, not just from shape. */
 export function LockIcon({ size = 16, color, locked }: IconProps & { locked: boolean }) {
-  const resolvedColor = color ?? (locked ? "#93a0ba" : "#f0b232");
+  const resolvedColor = color ?? (locked ? "#5c6372" : "#f0b232");
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <rect x="5" y="11" width="14" height="9" rx="2" stroke={resolvedColor} strokeWidth="1.8" />
