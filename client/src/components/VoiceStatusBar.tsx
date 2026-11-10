@@ -6,7 +6,7 @@ const QUALITY_COLOR: Record<ConnectionQuality, string> = {
   good: "#23a559",
   medium: "#f0b232",
   poor: "#da373c",
-  unknown: "#a0a1a7",
+  unknown: "var(--t-4)",
 };
 
 export function SignalIcon({ quality, size = 16 }: { quality: ConnectionQuality; size?: number }) {
@@ -25,7 +25,7 @@ export function SignalIcon({ quality, size = 16 }: { quality: ConnectionQuality;
             width="4"
             height={barHeight}
             rx="1"
-            fill={i < activeBars ? color : "#777777"}
+            fill={i < activeBars ? color : "var(--c-line)"}
           />
         );
       })}

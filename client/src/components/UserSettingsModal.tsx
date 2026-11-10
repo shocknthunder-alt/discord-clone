@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
+import { THEMES, applyTheme, getStoredThemeId } from "../theme/themes";
 import { useVoiceStore } from "../store/voiceStore";
 import {
   getAutoGainControlEnabled,
@@ -44,6 +45,7 @@ interface Props {
 
 export default function UserSettingsModal({ onClose }: Props) {
   const { user, setUser, logout } = useAuthStore();
+  const [themeId, setThemeId] = useState(getStoredThemeId());
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? null);
   const [uploading, setUploading] = useState(false);
@@ -234,6 +236,33 @@ export default function UserSettingsModal({ onClose }: Props) {
             Your browser doesn't support choosing an output device — audio plays through your system default.
           </p>
         )}
+
+        <h2 className="modal-section-title">Theme</h2>
+        <div className="theme-grid">
+          {THEMES.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              className={`theme-swatch ${themeId === t.id ? "selected" : ""}`}
+              title={t.name}
+              onClick={() => {
+                setThemeId(t.id);
+                applyTheme(t.id, true);
+              }}
+            >
+              <span
+                className="theme-swatch-preview"
+                style={{
+                  background: `hsl(${t.h} ${t.s}% ${t.l}%)`,
+                  borderColor: `hsl(${t.h} ${t.s}% ${t.light ? t.l - 14 : t.l + 14}%)`,
+                }}
+              >
+                <span className="theme-swatch-accent" style={{ background: t.accent }} />
+              </span>
+              <span className="theme-swatch-name">{t.name}</span>
+            </button>
+          ))}
+        </div>
 
         <h2 className="modal-section-title">Input Mode</h2>
 
