@@ -65,10 +65,12 @@ export default function UserSettingsModal({ onClose }: Props) {
   const micMode = useVoiceStore((s) => s.micMode);
   const pushToTalkKey = useVoiceStore((s) => s.pushToTalkKey);
   const screenShareQuality = useVoiceStore((s) => s.screenShareQuality);
+  const screenShareMode = useVoiceStore((s) => s.screenShareMode);
   const {
     setMicMode,
     setPushToTalkKey,
     setScreenShareQuality,
+    setScreenShareMode,
     setEchoCancellationEnabled,
     setNoiseSuppressionEnabled,
     setAutoGainControlEnabled,
@@ -321,6 +323,27 @@ export default function UserSettingsModal({ onClose }: Props) {
           </div>
         )}
 
+        <h2 className="modal-section-title">Screen Share Mode</h2>
+
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="screen-share-mode"
+            checked={screenShareMode === "smooth"}
+            onChange={() => setScreenShareMode("smooth")}
+          />
+          Smooth — up to 60 FPS, for games and videos
+        </label>
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="screen-share-mode"
+            checked={screenShareMode === "sharp"}
+            onChange={() => setScreenShareMode("sharp")}
+          />
+          Sharp — 30 FPS, maximum detail, for text, slides and code
+        </label>
+
         <h2 className="modal-section-title">Screen Share Quality</h2>
 
         <label className="modal-radio-label">
@@ -339,12 +362,12 @@ export default function UserSettingsModal({ onClose }: Props) {
             checked={screenShareQuality === "high"}
             onChange={() => setScreenShareQuality("high")}
           />
-          High — 4K, needs a stronger CPU while sharing
+          High — 4K, needs a strong computer and a fast upload
         </label>
         <p className="modal-hint">
-          Applies the next time you start a screen share. High encodes 3 quality levels at once
-          (so every viewer gets one that fits their connection) — on weaker hardware this can
-          cause the shared video itself to stutter.
+          Both apply the next time you start a screen share. Tip: a game on the screen you share
+          costs the same power as a game — use Smooth + Standard, and share a whole screen (not
+          a window) if you also want the sound.
         </p>
 
         <h2 className="modal-section-title">Audio Processing</h2>

@@ -51,7 +51,7 @@ export default function FloatingVoiceHud() {
 
       <FloatingIcon id="hud-screenshare" getDefaultPosition={() => defaultColumnPosition(2, 7)}>
         <button
-          className={`hud-icon-button ${isScreenSharing ? "active" : ""}`}
+          className={`hud-icon-button ${isScreenSharing ? "active live" : ""}`}
           onClick={() => toggleScreenShare()}
           title={isScreenSharing ? "Stop Sharing" : "Go Live"}
         >

@@ -242,51 +242,50 @@ export class SfuMediaManager {
     else void this.micProducer.pause();
   }
 
-  async startScreenShare(screenStream: MediaStream, quality: "standard" | "high" = "standard") {
+  async startScreenShare(
+    screenStream: MediaStream,
+    quality: "standard" | "high" = "standard",
+    mode: "smooth" | "sharp" = "smooth",
+  ) {
     if (!this.sendTransport) return;
 
     const videoTrack = screenStream.getVideoTracks()[0];
     if (videoTrack) {
-      // Hints the encoder that this is screen/text content rather than a camera, so it
-      // favors sharpness over smooth motion.
+      const smooth = mode === "smooth";
+      // The content hint decides which encoder mode Chrome uses. "detail" switches it to
+      // *screencast* mode, which caps the frame rate hard and sits on whatever it can sharpen —
+      // great for slides, awful for a game or a clip (that was the low-FPS, smeary picture).
+      // "motion" keeps the normal video pipeline: full frame rate, sharpness traded for speed.
       try {
-        videoTrack.contentHint = "detail";
+        videoTrack.contentHint = smooth ? "motion" : "detail";
       } catch {
         // contentHint isn't supported in every browser — fine to skip.
       }
 
-      // Simulcast: send three quality layers instead of one. Without this, every viewer
-      // gets the exact same stream regardless of their own downlink — someone on a weaker
-      // connection (a VPN, in one reported case) just sees packet loss and choppy
-      // playback, with no fallback available. With multiple layers, mediasoup picks
-      // whichever one each viewer's connection can actually sustain, automatically and
-      // per-viewer, and switches as conditions change.
-      //
-      // Bitrates track the "standard" (1080p, safe default) vs "high" (4K, opt-in in
-      // Settings) capture resolution requested in useVoiceChannel.ts — top layer = capture
-      // resolution. Encoding three layers at once is real sustained CPU work on the
-      // sharer's machine; "high" is there for people whose hardware can take it, not the
-      // default, since tuning this for a 4K top layer unconditionally was enough to drop
-      // frames at the source regardless of any viewer's network.
-      const encodings: MsTypes.RtpEncodingParameters[] =
-        quality === "high"
-          ? [
-              { scaleResolutionDownBy: 4, maxBitrate: 400_000 },
-              { scaleResolutionDownBy: 2, maxBitrate: 2_000_000 },
-              { scaleResolutionDownBy: 1, maxBitrate: 8_000_000 },
-            ]
-          : [
-              { scaleResolutionDownBy: 4, maxBitrate: 300_000 },
-              { scaleResolutionDownBy: 2, maxBitrate: 1_000_000 },
-              { scaleResolutionDownBy: 1, maxBitrate: 4_000_000 },
-            ];
+      // ONE layer, not three. The old three-layer simulcast meant the sharer's machine encoded
+      // 1080p three times per frame — with a game already eating the CPU/GPU that is exactly
+      // what dropped the frame rate at the source. A friend-group call doesn't need per-viewer
+      // layers, it needs one good stream.
+      const maxBitrate = quality === "high" ? (smooth ? 14_000_000 : 10_000_000) : smooth ? 8_000_000 : 5_000_000;
+      const maxFramerate = smooth ? 60 : 30;
+
+      // H.264 gets hardware-encoded by the GPU (NVENC / Quick Sync / AMF), so 1080p60 costs almost
+      // no CPU — but only if the SFU's router offers it (media-server mediaCodecs). Otherwise VP8.
+      const h264 = smooth
+        ? this.device?.rtpCapabilities.codecs?.find((c) => c.mimeType.toLowerCase() === "video/h264")
+        : undefined;
 
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,
-        encodings,
+        encodings: [{ maxBitrate, maxFramerate }],
+        ...(h264 ? { codec: h264 } : {}),
+        // Start near the target instead of ramping from a trickle (the blurry first seconds).
+        codecOptions: { videoGoogleStartBitrate: Math.round(maxBitrate / 2000) },
         onRtpSender: (sender) => {
           const params = sender.getParameters();
-          params.degradationPreference = "maintain-resolution";
+          // Smooth: when the machine or the link is short on something, shed resolution, not
+          // frames. Sharp: the opposite.
+          params.degradationPreference = smooth ? "maintain-framerate" : "maintain-resolution";
           void sender.setParameters(params).catch((err) => console.error("Failed to set screen-share encoding params", err));
         },
         appData: { type: "screen-video" } satisfies ProducerAppData,

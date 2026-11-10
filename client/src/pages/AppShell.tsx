@@ -7,6 +7,7 @@ import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
 import FloatingVoiceHud from "../components/FloatingVoiceHud";
 import IncomingCallToast from "../components/IncomingCallToast";
+import LiveBanner from "../components/LiveBanner";
 import SearchModal from "../components/SearchModal";
 import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
@@ -86,6 +87,7 @@ export default function AppShell() {
       <FloatingVoiceHud />
       <IncomingCallToast />
       <SearchModal />
+      <LiveBanner />
       <ServerSidebar />
       {view === "dms" ? (
         <>

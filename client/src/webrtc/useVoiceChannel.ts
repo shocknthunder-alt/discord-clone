@@ -438,6 +438,7 @@ export function useVoiceChannel() {
       activeMediaManager.stopScreenShare();
       store.setLocalScreenStream(null);
       store.setScreenSharing(false);
+      store.setScreenShareStartedAt(null);
       store.setScreenShareNotice(null);
       socket.emit(SocketEvents.ScreenShareStop, { voiceChannelId: activeVoiceChannelId });
       return;
@@ -450,11 +451,14 @@ export function useVoiceChannel() {
     // ~1100px-wide display area; High (4K) is opt-in for people whose hardware can handle
     // three layers of it, picked in Settings → Screen Share Quality.
     const quality = useVoiceStore.getState().screenShareQuality;
+    const mode = useVoiceStore.getState().screenShareMode;
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         width: { ideal: quality === "high" ? 3840 : 1920 },
         height: { ideal: quality === "high" ? 2160 : 1080 },
-        frameRate: { ideal: 30, max: 60 },
+        // Smooth mode asks for the full 60 fps (games, clips); sharp mode is for text, where
+        // 30 fps is plenty and the bits go into detail instead.
+        frameRate: mode === "smooth" ? { ideal: 60, max: 60 } : { ideal: 30, max: 30 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
       // viewer only ever gets video. Chrome asks separately for this when sharing a tab;
@@ -476,7 +480,8 @@ export function useVoiceChannel() {
         ? "No audio is being shared. Share a browser tab or entire screen and tick “Share audio”."
         : null,
     );
-    await activeMediaManager.startScreenShare(screenStream, quality);
+    await activeMediaManager.startScreenShare(screenStream, quality, mode);
+    store.setScreenShareStartedAt(Date.now());
 
     const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;
     const label =
@@ -496,6 +501,10 @@ export function useVoiceChannel() {
 
   const setScreenShareQuality = useCallback((quality: "standard" | "high") => {
     store.setScreenShareQuality(quality);
+  }, [store]);
+
+  const setScreenShareMode = useCallback((mode: "smooth" | "sharp") => {
+    store.setScreenShareMode(mode);
   }, [store]);
 
   // Native browser constraints — changing these mid-call would need re-acquiring the mic
@@ -580,6 +589,7 @@ export function useVoiceChannel() {
     setMicMode,
     setPushToTalkKey,
     setScreenShareQuality,
+    setScreenShareMode,
     setEchoCancellationEnabled,
     setNoiseSuppressionEnabled,
     setAutoGainControlEnabled,

@@ -26,6 +26,19 @@ export const mediaCodecs: mediasoup.types.RouterRtpCodecCapability[] = [
       "x-google-start-bitrate": 1000,
     },
   },
+  // H.264 lets browsers use the GPU's hardware encoder — screen shares of games run at full
+  // frame rate without eating the CPU. Clients fall back to VP8 when this isn't offered.
+  {
+    kind: "video",
+    mimeType: "video/H264",
+    clockRate: 90000,
+    parameters: {
+      "packetization-mode": 1,
+      "profile-level-id": "42e01f",
+      "level-asymmetry-allowed": 1,
+      "x-google-start-bitrate": 1000,
+    },
+  },
 ];
 
 export const workerSettings: mediasoup.types.WorkerSettings = {

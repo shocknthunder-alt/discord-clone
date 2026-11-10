@@ -14,6 +14,19 @@ export function setScreenShareQuality(quality: ScreenShareQuality) {
   localStorage.setItem(SCREEN_SHARE_QUALITY_KEY, quality);
 }
 
+const SCREEN_SHARE_MODE_KEY = "screenShareMode";
+
+/** "smooth": keep the frame rate up (games, clips). "sharp": keep every pixel (text, slides). */
+export type ScreenShareMode = "smooth" | "sharp";
+
+export function getScreenShareMode(): ScreenShareMode {
+  return localStorage.getItem(SCREEN_SHARE_MODE_KEY) === "sharp" ? "sharp" : "smooth";
+}
+
+export function setScreenShareMode(mode: ScreenShareMode) {
+  localStorage.setItem(SCREEN_SHARE_MODE_KEY, mode);
+}
+
 export type MicMode = "voice-activation" | "push-to-talk";
 
 export function getMicMode(): MicMode {

@@ -6,6 +6,9 @@ import {
   getPreferredSpeakerDeviceId,
   getPushToTalkKey,
   getScreenShareQuality,
+  getScreenShareMode,
+  setScreenShareMode as persistScreenShareMode,
+  type ScreenShareMode,
   setMicMode as persistMicMode,
   setPeerVolume,
   setPreferredSpeakerDeviceId,
@@ -61,6 +64,9 @@ interface VoiceState {
   // Whether the push-to-talk key is currently held — irrelevant in voice-activation mode.
   isPushToTalkActive: boolean;
   screenShareQuality: ScreenShareQuality;
+  screenShareMode: ScreenShareMode;
+  // When the local screen share began (ms since epoch) — drives the LIVE timer.
+  screenShareStartedAt: number | null;
 
   setActiveVoiceChannel: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
@@ -83,6 +89,8 @@ interface VoiceState {
   setPushToTalkKey: (code: string | null) => void;
   setPushToTalkActive: (active: boolean) => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
+  setScreenShareMode: (mode: ScreenShareMode) => void;
+  setScreenShareStartedAt: (at: number | null) => void;
   reset: () => void;
 }
 
@@ -124,6 +132,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   pushToTalkKey: getPushToTalkKey(),
   isPushToTalkActive: false,
   screenShareQuality: getScreenShareQuality(),
+  screenShareMode: getScreenShareMode(),
+  screenShareStartedAt: null,
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
   setLocalStream: (stream) => set({ localStream: stream }),
@@ -216,6 +226,13 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     set({ screenShareQuality: quality });
   },
 
+  setScreenShareMode: (mode) => {
+    persistScreenShareMode(mode);
+    set({ screenShareMode: mode });
+  },
+
+  setScreenShareStartedAt: (at) => set({ screenShareStartedAt: at }),
+
   reset: () =>
     set({
       activeVoiceChannelId: null,
@@ -227,6 +244,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       screenShareNotice: null,
       isDeafened: false,
       isScreenSharing: false,
+      screenShareStartedAt: null,
       peers: new Map(),
       connectionQuality: "unknown",
       isPushToTalkActive: false,
