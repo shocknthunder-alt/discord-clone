@@ -98,7 +98,7 @@ export default function DmMessageInput({ conversationId }: Props) {
 
       {showEmojiPicker && (
         <div className="emoji-picker-popover">
-          <EmojiPicker onEmojiClick={addEmoji} theme={"light" as never} />
+          <EmojiPicker onEmojiClick={addEmoji} theme={"dark" as never} />
         </div>
       )}
 

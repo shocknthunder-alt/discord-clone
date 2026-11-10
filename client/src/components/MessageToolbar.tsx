@@ -107,7 +107,7 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
               <div className="emoji-popover-card">
                 <EmojiPicker
                   onEmojiClick={pickEmoji}
-                  theme={"light" as never}
+                  theme={"dark" as never}
                   width={PICKER_WIDTH}
                   height={PICKER_HEIGHT}
                   customEmojis={customEmojis.map((e) => ({ id: `:${e.name}:`, names: [e.name], imgUrl: e.imageUrl }))}

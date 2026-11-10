@@ -85,7 +85,7 @@ export default function FloatingVoiceHud() {
         onClick={toggleLocked}
         title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
       >
-        <LockIcon locked={locked} size={14} color={locked ? "#dcdde1" : "#5c6372"} />
+        <LockIcon locked={locked} size={14} color={locked ? "#3f3f3f" : "#b4b5ba"} />
         {locked ? "Unlock buttons" : "Lock buttons"}
       </button>
 
