@@ -1,6 +1,7 @@
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
+import { useSearchStore } from "../store/searchStore";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -37,7 +38,9 @@ function MessageRow({
   replyAuthors,
   onOpenThread,
   onAuthorClick,
+  highlighted = false,
 }: {
+  highlighted?: boolean;
   message: MessageDTO;
   isOwn: boolean;
   currentUserId: string | undefined;
@@ -62,7 +65,7 @@ function MessageRow({
   }
 
   return (
-    <div className="message-row">
+    <div className={`message-row ${highlighted ? "jump-highlight" : ""}`} id={`msg-${message.id}`}>
       <div className="message-main">
       {!editing && (
         <MessageToolbar
@@ -173,7 +176,10 @@ export default function TextChatView({ channelId }: Props) {
   const openThreadReplies = openThreadRootId ? (repliesByRoot.get(openThreadRootId) ?? []) : [];
 
   useEffect(() => {
-    fetchMessages(channelId).then((msgs) => setMessages(channelId, msgs)).catch(console.error);
+    const jt = useChatStore.getState().jumpTarget;
+    fetchMessages(channelId, undefined, jt && jt.channelId === channelId ? jt.messageId : undefined)
+      .then((msgs) => setMessages(channelId, msgs))
+      .catch(console.error);
 
     const socket = getSocket();
     socket?.emit(SocketEvents.ChannelJoin, { textChannelId: channelId });
@@ -233,7 +239,35 @@ export default function TextChatView({ channelId }: Props) {
     setOpenThreadRootId(null);
   }, [channelId]);
 
+  // "Jump to message" from search: once the target is in the loaded list, scroll to it,
+  // flash it, and (for thread replies) open the thread. If the message is older than what's
+  // loaded, fetch a window around it first.
+  const jumpTarget = useChatStore((s) => s.jumpTarget);
+  const setJumpTarget = useChatStore((s) => s.setJumpTarget);
+  const [flashId, setFlashId] = useState<string | null>(null);
   useEffect(() => {
+    if (!jumpTarget || jumpTarget.channelId !== channelId) return;
+    const loaded = (messagesByChannel[channelId] ?? []).some((m) => m.id === jumpTarget.messageId);
+    if (!loaded) {
+      fetchMessages(channelId, undefined, jumpTarget.messageId)
+        .then((msgs) => setMessages(channelId, msgs))
+        .catch(console.error);
+      return;
+    }
+    const target = jumpTarget;
+    const t = setTimeout(() => {
+      document.getElementById(`msg-${target.messageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      setFlashId(target.messageId);
+      if (target.rootId) setOpenThreadRootId(target.rootId);
+      setJumpTarget(null);
+      setTimeout(() => setFlashId(null), 2600);
+    }, 150);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jumpTarget, channelId, messagesByChannel]);
+
+  useEffect(() => {
+    if (useChatStore.getState().jumpTarget) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [rootMessages.length]);
 
@@ -274,6 +308,9 @@ export default function TextChatView({ channelId }: Props) {
     <div className="main-content">
       <div className="chat-header">
         <span className="chat-header-title"># {channel?.name ?? ""}</span>
+        <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title="Search messages (Ctrl+K)">
+          🔍
+        </button>
         {isOwner && (
           <button className="server-settings-button" onClick={() => setShowChannelSettings(true)} title="Channel settings">
             ⚙️
@@ -314,6 +351,7 @@ export default function TextChatView({ channelId }: Props) {
                   replyAuthors={replyAuthors}
                   onOpenThread={handleOpenThread}
                   onAuthorClick={handleAuthorClick}
+                  highlighted={flashId === message.id}
                 />
               );
             })}

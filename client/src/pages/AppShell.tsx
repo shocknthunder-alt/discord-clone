@@ -7,6 +7,7 @@ import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
 import FloatingVoiceHud from "../components/FloatingVoiceHud";
 import IncomingCallToast from "../components/IncomingCallToast";
+import SearchModal from "../components/SearchModal";
 import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
 import VoiceAudioBridge from "../components/VoiceAudioBridge";
@@ -84,6 +85,7 @@ export default function AppShell() {
       <VoiceAudioBridge />
       <FloatingVoiceHud />
       <IncomingCallToast />
+      <SearchModal />
       <ServerSidebar />
       {view === "dms" ? (
         <>

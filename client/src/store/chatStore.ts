@@ -10,11 +10,16 @@ interface ChatState {
   removeMessage: (channelId: string, messageId: string) => void;
   setReactions: (channelId: string, messageId: string, reactions: ReactionDTO[]) => void;
   setTyping: (channelId: string, userId: string, isTyping: boolean) => void;
+  // Set by the search modal; TextChatView scrolls to / flashes it once the message is loaded.
+  jumpTarget: { channelId: string; messageId: string; rootId: string | null } | null;
+  setJumpTarget: (t: { channelId: string; messageId: string; rootId: string | null } | null) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   messagesByChannel: {},
   typingByChannel: {},
+  jumpTarget: null,
+  setJumpTarget: (jumpTarget) => set({ jumpTarget }),
   setMessages: (channelId, messages) =>
     set((s) => ({ messagesByChannel: { ...s.messagesByChannel, [channelId]: messages } })),
   addMessage: (message) =>
