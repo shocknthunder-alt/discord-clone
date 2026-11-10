@@ -8,6 +8,7 @@ import DmListPanel from "../components/DmListPanel";
 import FloatingVoiceHud from "../components/FloatingVoiceHud";
 import IncomingCallToast from "../components/IncomingCallToast";
 import LiveBanner from "../components/LiveBanner";
+import StreamStatsPanel from "../components/StreamStatsPanel";
 import SearchModal from "../components/SearchModal";
 import ServerSidebar from "../components/ServerSidebar";
 import TextChatView from "../components/TextChatView";
@@ -88,6 +89,7 @@ export default function AppShell() {
       <IncomingCallToast />
       <SearchModal />
       <LiveBanner />
+      <StreamStatsPanel />
       <ServerSidebar />
       {view === "dms" ? (
         <>

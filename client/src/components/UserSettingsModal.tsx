@@ -66,6 +66,8 @@ export default function UserSettingsModal({ onClose }: Props) {
   const pushToTalkKey = useVoiceStore((s) => s.pushToTalkKey);
   const screenShareQuality = useVoiceStore((s) => s.screenShareQuality);
   const screenShareMode = useVoiceStore((s) => s.screenShareMode);
+  const screenShareSimulcast = useVoiceStore((s) => s.screenShareSimulcast);
+  const setScreenShareSimulcast = useVoiceStore((s) => s.setScreenShareSimulcast);
   const {
     setMicMode,
     setPushToTalkKey,
@@ -350,6 +352,15 @@ export default function UserSettingsModal({ onClose }: Props) {
           <input
             type="radio"
             name="screen-share-quality"
+            checked={screenShareQuality === "low"}
+            onChange={() => setScreenShareQuality("low")}
+          />
+          Light — 720p, for weaker computers or a slow upload (often smoother than 1080p)
+        </label>
+        <label className="modal-radio-label">
+          <input
+            type="radio"
+            name="screen-share-quality"
             checked={screenShareQuality === "standard"}
             onChange={() => setScreenShareQuality("standard")}
           />
@@ -369,6 +380,15 @@ export default function UserSettingsModal({ onClose }: Props) {
           costs the same power as a game — use Smooth + Standard, and share a whole screen (not
           a window) if you also want the sound.
         </p>
+
+        <label className="modal-radio-label">
+          <input
+            type="checkbox"
+            checked={screenShareSimulcast}
+            onChange={(e) => setScreenShareSimulcast(e.target.checked)}
+          />
+          Experimental: also send a lighter copy for viewers with a weak connection (uses more of your PC)
+        </label>
 
         <h2 className="modal-section-title">Audio Processing</h2>
         <p className="modal-hint">All on by default — turn one off if it's fighting your specific mic.</p>

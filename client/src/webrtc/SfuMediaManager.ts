@@ -244,8 +244,9 @@ export class SfuMediaManager {
 
   async startScreenShare(
     screenStream: MediaStream,
-    quality: "standard" | "high" = "standard",
+    quality: "low" | "standard" | "high" = "standard",
     mode: "smooth" | "sharp" = "smooth",
+    simulcast = false,
   ) {
     if (!this.sendTransport) return;
 
@@ -266,7 +267,12 @@ export class SfuMediaManager {
       // 1080p three times per frame — with a game already eating the CPU/GPU that is exactly
       // what dropped the frame rate at the source. A friend-group call doesn't need per-viewer
       // layers, it needs one good stream.
-      const maxBitrate = quality === "high" ? (smooth ? 14_000_000 : 10_000_000) : smooth ? 8_000_000 : 5_000_000;
+      const maxBitrate =
+        quality === "high"
+          ? smooth ? 14_000_000 : 10_000_000
+          : quality === "low"
+            ? smooth ? 4_500_000 : 3_000_000
+            : smooth ? 8_000_000 : 5_000_000;
       const maxFramerate = smooth ? 60 : 30;
 
       // H.264 gets hardware-encoded by the GPU (NVENC / Quick Sync / AMF), so 1080p60 costs almost
@@ -277,7 +283,14 @@ export class SfuMediaManager {
 
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,
-        encodings: [{ maxBitrate, maxFramerate }],
+        // Opt-in simulcast: a half-size, much lighter copy first (lowest layer first), so a viewer
+        // on a weak link degrades to it instead of stuttering. Costs the sharer extra encoding.
+        encodings: simulcast
+          ? [
+              { scaleResolutionDownBy: 2, maxBitrate: Math.round(maxBitrate / 5), maxFramerate },
+              { scaleResolutionDownBy: 1, maxBitrate, maxFramerate },
+            ]
+          : [{ maxBitrate, maxFramerate }],
         ...(h264 ? { codec: h264 } : {}),
         // Start near the target instead of ramping from a trickle (the blurry first seconds).
         codecOptions: { videoGoogleStartBitrate: Math.round(maxBitrate / 2000) },
@@ -299,6 +312,49 @@ export class SfuMediaManager {
         appData: { type: "screen-audio" } satisfies ProducerAppData,
       });
     }
+  }
+
+  private lastScreenStats: { at: number; bytes: number } | null = null;
+
+  /** What the browser is actually doing with the outgoing screen share (fps, size, bitrate, codec, limit). */
+  async getScreenStats(): Promise<ScreenShareStats | null> {
+    const producer = this.screenVideoProducer;
+    if (!producer || producer.closed) {
+      this.lastScreenStats = null;
+      return null;
+    }
+    const report = await producer.getStats();
+    let outbound: Record<string, unknown> | null = null;
+    const codecs = new Map<string, string>();
+    report.forEach((stat: Record<string, unknown>) => {
+      if (stat.type === "codec" && typeof stat.id === "string") codecs.set(stat.id, String(stat.mimeType ?? ""));
+      if (stat.type === "outbound-rtp" && stat.kind === "video") {
+        // With simulcast there are several; report the biggest.
+        if (!outbound || Number(stat.frameWidth ?? 0) >= Number(outbound.frameWidth ?? 0)) outbound = stat;
+      }
+    });
+    if (!outbound) return null;
+    const o = outbound as Record<string, unknown>;
+    // Bitrate = bytes sent since the previous poll (all layers).
+    let totalBytes = 0;
+    report.forEach((stat: Record<string, unknown>) => {
+      if (stat.type === "outbound-rtp" && stat.kind === "video") totalBytes += Number(stat.bytesSent ?? 0);
+    });
+    const now = performance.now();
+    const prev = this.lastScreenStats;
+    this.lastScreenStats = { at: now, bytes: totalBytes };
+    const kbps = prev && now > prev.at ? ((totalBytes - prev.bytes) * 8) / (now - prev.at) : 0;
+    const encoder = String(o.encoderImplementation ?? "");
+    return {
+      fps: Math.round(Number(o.framesPerSecond ?? 0)),
+      width: Number(o.frameWidth ?? 0),
+      height: Number(o.frameHeight ?? 0),
+      kbps: Math.round(kbps),
+      codec: (codecs.get(String(o.codecId ?? "")) ?? "").replace("video/", ""),
+      encoder,
+      hardware: o.powerEfficientEncoder === true || /nvenc|mediafoundation|mft|videotoolbox|vaapi|hardware|externalencoder/i.test(encoder),
+      limitation: String(o.qualityLimitationReason ?? "none") as ScreenShareStats["limitation"],
+    };
   }
 
   async startCamera(track: MediaStreamTrack) {
@@ -417,4 +473,16 @@ export class SfuMediaManager {
     this.knownUserIds.clear();
     this.roomId = null;
   }
+}
+
+export interface ScreenShareStats {
+  fps: number;
+  width: number;
+  height: number;
+  kbps: number;
+  codec: string;
+  encoder: string;
+  hardware: boolean;
+  /** Why the browser is lowering quality: "cpu" = the PC can't keep up, "bandwidth" = upload too slow. */
+  limitation: "none" | "cpu" | "bandwidth" | "other";
 }

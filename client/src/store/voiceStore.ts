@@ -7,6 +7,8 @@ import {
   getPushToTalkKey,
   DEFAULT_PEER_VOLUME,
   getScreenShareQuality,
+  getScreenShareSimulcast,
+  setScreenShareSimulcast as persistScreenShareSimulcast,
   getScreenShareMode,
   setScreenShareMode as persistScreenShareMode,
   type ScreenShareMode,
@@ -66,6 +68,7 @@ interface VoiceState {
   isPushToTalkActive: boolean;
   screenShareQuality: ScreenShareQuality;
   screenShareMode: ScreenShareMode;
+  screenShareSimulcast: boolean;
   // When the local screen share began (ms since epoch) — drives the LIVE timer.
   screenShareStartedAt: number | null;
 
@@ -91,6 +94,7 @@ interface VoiceState {
   setPushToTalkActive: (active: boolean) => void;
   setScreenShareQuality: (quality: ScreenShareQuality) => void;
   setScreenShareMode: (mode: ScreenShareMode) => void;
+  setScreenShareSimulcast: (on: boolean) => void;
   setScreenShareStartedAt: (at: number | null) => void;
   reset: () => void;
 }
@@ -134,6 +138,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   isPushToTalkActive: false,
   screenShareQuality: getScreenShareQuality(),
   screenShareMode: getScreenShareMode(),
+  screenShareSimulcast: getScreenShareSimulcast(),
   screenShareStartedAt: null,
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
@@ -230,6 +235,11 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setScreenShareMode: (mode) => {
     persistScreenShareMode(mode);
     set({ screenShareMode: mode });
+  },
+
+  setScreenShareSimulcast: (on) => {
+    persistScreenShareSimulcast(on);
+    set({ screenShareSimulcast: on });
   },
 
   setScreenShareStartedAt: (at) => set({ screenShareStartedAt: at }),

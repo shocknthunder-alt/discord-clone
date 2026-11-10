@@ -89,6 +89,11 @@ function detachPushToTalkListeners() {
   pttGlobalUnsubscribe = null;
 }
 
+/** Live numbers about the screen share being sent (null when not sharing). */
+export function getScreenShareStats() {
+  return activeMediaManager?.getScreenStats() ?? Promise.resolve(null);
+}
+
 export function useVoiceChannel() {
   const store = useVoiceStore();
 
@@ -465,8 +470,8 @@ export function useVoiceChannel() {
     }
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        width: { ideal: quality === "high" ? 3840 : 1920 },
-        height: { ideal: quality === "high" ? 2160 : 1080 },
+        width: { ideal: quality === "high" ? 3840 : quality === "low" ? 1280 : 1920 },
+        height: { ideal: quality === "high" ? 2160 : quality === "low" ? 720 : 1080 },
         // Smooth mode asks for the full 60 fps (games, clips); sharp mode is for text, where
         // 30 fps is plenty and the bits go into detail instead.
         frameRate: mode === "smooth" ? { ideal: 60, max: 60 } : { ideal: 30, max: 30 },
@@ -491,7 +496,7 @@ export function useVoiceChannel() {
         ? "No audio is being shared. Share a browser tab or entire screen and tick “Share audio”."
         : null,
     );
-    await activeMediaManager.startScreenShare(screenStream, quality, mode);
+    await activeMediaManager.startScreenShare(screenStream, quality, mode, useVoiceStore.getState().screenShareSimulcast);
     store.setScreenShareStartedAt(Date.now());
 
     const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;
@@ -510,7 +515,7 @@ export function useVoiceChannel() {
     };
   }, [store]);
 
-  const setScreenShareQuality = useCallback((quality: "standard" | "high") => {
+  const setScreenShareQuality = useCallback((quality: "low" | "standard" | "high") => {
     store.setScreenShareQuality(quality);
   }, [store]);
 

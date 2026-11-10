@@ -4,14 +4,27 @@ const MIC_MODE_KEY = "micMode";
 const PUSH_TO_TALK_KEY_KEY = "pushToTalkKey";
 const SCREEN_SHARE_QUALITY_KEY = "screenShareQuality";
 
-export type ScreenShareQuality = "standard" | "high";
+/** low = 720p (weak PC / slow upload), standard = 1080p, high = 4K. */
+export type ScreenShareQuality = "low" | "standard" | "high";
 
 export function getScreenShareQuality(): ScreenShareQuality {
-  return localStorage.getItem(SCREEN_SHARE_QUALITY_KEY) === "high" ? "high" : "standard";
+  const v = localStorage.getItem(SCREEN_SHARE_QUALITY_KEY);
+  return v === "high" || v === "low" ? v : "standard";
 }
 
 export function setScreenShareQuality(quality: ScreenShareQuality) {
   localStorage.setItem(SCREEN_SHARE_QUALITY_KEY, quality);
+}
+
+const SCREEN_SHARE_SIMULCAST_KEY = "screenShareSimulcast";
+
+/** Experimental: send a second, lighter copy of the stream so viewers on a weak link still get a picture. */
+export function getScreenShareSimulcast(): boolean {
+  return localStorage.getItem(SCREEN_SHARE_SIMULCAST_KEY) === "1";
+}
+
+export function setScreenShareSimulcast(on: boolean) {
+  localStorage.setItem(SCREEN_SHARE_SIMULCAST_KEY, on ? "1" : "0");
 }
 
 const SCREEN_SHARE_MODE_KEY = "screenShareMode";
