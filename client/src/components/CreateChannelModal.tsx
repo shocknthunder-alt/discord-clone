@@ -13,6 +13,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
   useEscapeKey(onClose);
   const { addTextChannel, addVoiceChannel } = useServerStore();
   const [name, setName] = useState("");
+  const [trivia, setTrivia] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,7 +23,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
     setError(null);
     try {
       if (type === "text") {
-        addTextChannel(await createTextChannel(serverId, name.trim()));
+        addTextChannel(await createTextChannel(serverId, name.trim(), trivia ? "trivia" : "text"));
       } else {
         addVoiceChannel(await createVoiceChannel(serverId, name.trim()));
       }
@@ -55,6 +56,13 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
           placeholder={type === "text" ? "e.g. announcements" : "e.g. Gaming"}
           autoFocus
         />
+
+        {type === "text" && (
+          <label className="modal-checkbox-label">
+            <input type="checkbox" checked={trivia} onChange={(e) => setTrivia(e.target.checked)} />
+            🎲 Trivia channel (Trivia Bot answers here)
+          </label>
+        )}
 
         {error && <div className="modal-error">{error}</div>}
 

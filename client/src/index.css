@@ -2453,3 +2453,19 @@ input[type="range"] {
 .frame-berserk {
   filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55));
 }
+
+.message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.trivia-hint {
+  margin: 0 16px 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(var(--accent-rgb), 0.14);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  color: var(--t-2);
+  font-size: 12.5px;
+  line-height: 1.5;
+}

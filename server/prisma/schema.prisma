@@ -20,6 +20,7 @@ model User {
   messageReactions     MessageReaction[]
   ownedServers         Server[]         @relation("ServerOwner")
   directMessages       DirectMessage[]
+  triviaScores         TriviaScore[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
 }
@@ -85,6 +86,8 @@ model TextChannel {
   backgroundUrl String?
   serverId      String
   position      Int      @default(0)
+  // "text" (normal) or "trivia" (the Trivia Bot listens in this channel)
+  type          String   @default("text")
   createdAt     DateTime @default(now())
 
   server   Server    @relation(fields: [serverId], references: [id])
@@ -141,4 +144,16 @@ model CustomEmoji {
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@unique([serverId, name])
+}
+
+model TriviaScore {
+  id       String @id @default(cuid())
+  serverId String
+  userId   String
+  points   Int    @default(0)
+  correct  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId])
 }

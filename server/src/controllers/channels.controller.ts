@@ -30,7 +30,7 @@ export async function listChannels(req: Request, res: Response) {
 
 export async function createTextChannel(req: Request, res: Response) {
   const { serverId } = req.params;
-  const { name } = req.body ?? {};
+  const { name, type } = req.body ?? {};
   if (!name) {
     return res.status(400).json({ error: "name is required" });
   }
@@ -42,7 +42,7 @@ export async function createTextChannel(req: Request, res: Response) {
 
   const last = await prisma.textChannel.aggregate({ where: { serverId }, _max: { position: true } });
   const textChannel = await prisma.textChannel.create({
-    data: { name, serverId, position: (last._max.position ?? -1) + 1 },
+    data: { name, serverId, position: (last._max.position ?? -1) + 1, type: type === "trivia" ? "trivia" : "text" },
   });
   notifyChannelsChanged(req, serverId);
   res.status(201).json({ textChannel });

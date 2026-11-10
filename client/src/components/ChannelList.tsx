@@ -255,7 +255,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                     onSelectText();
                   }}
                 >
-                  <span className="channel-item-name"># {channel.name}</span>
+                  <span className="channel-item-name">{channel.type === "trivia" ? "🎲" : "#"} {channel.name}</span>
                   {isOwner && (
                     <button
                       className="channel-item-settings"

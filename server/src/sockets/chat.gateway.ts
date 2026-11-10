@@ -1,6 +1,7 @@
 import { SocketEvents } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
+import { handleTriviaMessage } from "../trivia/bot.js";
 
 export function groupReactions(rows: { emoji: string; userId: string }[]) {
   const map = new Map<string, string[]>();
@@ -101,6 +102,13 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
             }
           : null,
       });
+
+      // Trivia channels: the bot reads every user message (commands and answers).
+      if (textChannel.type === "trivia" && !replyTarget) {
+        void handleTriviaMessage(io, textChannel, userId, message.author.username, trimmedContent).catch((err) =>
+          console.error("trivia bot error", err),
+        );
+      }
 
       // "Also send to channel": the thread reply above stays in the thread (that's the
       // message the thread panel renders); this is a second, independent top-level

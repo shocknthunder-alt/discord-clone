@@ -96,7 +96,7 @@ function MessageRow({
           <button onClick={cancelEdit}>Cancel</button>
         </div>
       ) : (
-        message.content && <div>{linkifyText(message.content)}</div>
+        message.content && <div className="message-text">{linkifyText(message.content)}</div>
       )}
 
       {message.imageUrl && (
@@ -307,7 +307,7 @@ export default function TextChatView({ channelId }: Props) {
   return (
     <div className="main-content">
       <div className="chat-header">
-        <span className="chat-header-title"># {channel?.name ?? ""}</span>
+        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : "#"} {channel?.name ?? ""}</span>
         <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title="Search messages (Ctrl+K)">
           🔍
         </button>
@@ -360,6 +360,11 @@ export default function TextChatView({ channelId }: Props) {
           <div className="typing-indicator">
             {typingUsers.length > 0 ? `${typingUsers.length} user(s) typing…` : ""}
           </div>
+          {channel?.type === "trivia" && (
+            <div className="trivia-hint">
+              🎲 <b>!trivia</b> — игра с 5 въпроса · <b>!trivia 10</b> · <b>!trivia en</b> (английски) · <b>!top</b> класация · <b>!стоп</b> · отговаряш с <b>A / B / C / D</b>
+            </div>
+          )}
           <MessageInput channelId={channelId} />
         </div>
 

@@ -27,6 +27,8 @@ export interface TextChannelDTO {
   backgroundUrl: string | null;
   serverId: string;
   position: number;
+  /** "trivia" channels are handled by the Trivia Bot. */
+  type: "text" | "trivia";
 }
 
 export interface VoiceChannelDTO {
