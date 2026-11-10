@@ -505,6 +505,12 @@ function ExileArt() {
   );
 }
 
+/* ───────────────────────── Path of Exile 2 key-art frame ───────────────────────── */
+
+function Poe2Art() {
+  return <img className="stream-frame-art" src="/tv/poe2-frame.webp" alt="" draggable={false} />;
+}
+
 export const STREAM_FRAMES: StreamFrameDef[] = [
   { id: "retro", name: "Ретро телевизор", screen: RETRO, crt: true, Art: RetroArt },
   { id: "cinema", name: "Кино салон", screen: rect(CINEMA_SCREEN.x, CINEMA_SCREEN.y, CINEMA_SCREEN.w, CINEMA_SCREEN.h), Art: CinemaArt },
@@ -512,6 +518,7 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
   { id: "neon", name: "Неоново стъкло", screen: rect(NEON_SCREEN.x, NEON_SCREEN.y, NEON_SCREEN.w, NEON_SCREEN.h), Art: NeonArt },
   { id: "monster", name: "Синьо космато чудовище", screen: rect(MONSTER_SCREEN.x, MONSTER_SCREEN.y, MONSTER_SCREEN.w, MONSTER_SCREEN.h), Art: MonsterArt },
   { id: "exile", name: "Тъмна фантазия", screen: rect(EXILE_SCREEN.x, EXILE_SCREEN.y, EXILE_SCREEN.w, EXILE_SCREEN.h), Art: ExileArt },
+  { id: "poe2", name: "Path of Exile 2", screen: rect(150, 150, 800, 450), Art: Poe2Art },
 ];
 
 export const DEFAULT_FRAME_ID = "retro";
