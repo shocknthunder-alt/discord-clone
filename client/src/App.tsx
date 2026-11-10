@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import AppShell from "./pages/AppShell";
 import UpdateBanner from "./components/UpdateBanner";
+import ScreenSourcePicker from "./components/ScreenSourcePicker";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -15,6 +16,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <UpdateBanner />
+      <ScreenSourcePicker />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />

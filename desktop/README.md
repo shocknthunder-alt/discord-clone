@@ -25,7 +25,7 @@ npm run dist       # Windows installer in desktop/dist/ (Shmirka Setup x.y.z.exe
 ## TODO
 1. ~~`npm install` and the first real run~~ done; still test login/voice/screen share by hand.
 2. ~~Global push-to-talk~~ implemented (uiohook-napi in `globalKeys.js` -> IPC -> `handlePushToTalkKey`); needs a hands-on test with a game in the foreground.
-3. Screen/window picker so games can be shared, with optional system audio (loopback).
+3. ~~Screen/window picker~~ implemented (in-app picker + optional loopback system audio); needs a hands-on test.
 4. App icon (`build.win.icon`), then the installer; test the SmartScreen "More info → Run anyway" flow.
 5. ~~Client: skip `UpdateBanner` when `window.shmirkaDesktop` exists.~~ done.
 6. Check YouTube embeds work from the `localhost` origin.

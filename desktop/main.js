@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, desktopCapturer, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, session, shell } = require("electron");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -60,11 +60,35 @@ app.whenReady().then(async () => {
     callback(["media", "display-capture", "notifications", "fullscreen", "clipboard-sanitized-write"].includes(permission));
   });
 
-  // TODO: replace with a proper window/screen picker (list games, optional system audio).
-  // For now screen sharing shares the primary screen.
+  // Screen sharing: the client first asks for the source list (screens + windows with thumbnails),
+  // shows its own picker, and reports the choice back. The display-media handler below then hands
+  // exactly that source to getDisplayMedia (optionally with system "loopback" audio).
+  let chosenSource = null; // { id, audio }
+  ipcMain.handle("screen-sources", async () => {
+    const sources = await desktopCapturer.getSources({
+      types: ["screen", "window"],
+      thumbnailSize: { width: 320, height: 180 },
+      fetchWindowIcons: true,
+    });
+    return sources.map((src) => ({
+      id: src.id,
+      name: src.name,
+      isScreen: src.id.startsWith("screen:"),
+      thumbnail: src.thumbnail.toDataURL(),
+      icon: src.appIcon ? src.appIcon.toDataURL() : null,
+    }));
+  });
+  ipcMain.handle("screen-select", (_event, id, audio) => {
+    chosenSource = typeof id === "string" ? { id, audio: !!audio } : null;
+  });
+
   ses.setDisplayMediaRequestHandler(async (_request, callback) => {
-    const sources = await desktopCapturer.getSources({ types: ["screen"] });
-    callback(sources[0] ? { video: sources[0] } : {});
+    const choice = chosenSource;
+    chosenSource = null; // one-shot: a stale choice must never be reused
+    const sources = await desktopCapturer.getSources({ types: ["screen", "window"] });
+    const source = (choice && sources.find((s) => s.id === choice.id)) || sources.find((s) => s.id.startsWith("screen:"));
+    if (!source) return callback({});
+    callback(choice && choice.audio ? { video: source, audio: "loopback" } : { video: source });
   });
 
   const win = new BrowserWindow({

@@ -1,4 +1,5 @@
 import { extractYoutubeId, SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
+import { requestDesktopScreenSource } from "../store/screenPickerStore";
 import { useCallback } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
@@ -456,6 +457,12 @@ export function useVoiceChannel() {
     // three layers of it, picked in Settings → Screen Share Quality.
     const quality = useVoiceStore.getState().screenShareQuality;
     const mode = useVoiceStore.getState().screenShareMode;
+    // Desktop app: pick the screen/window ourselves (browsers show their own native picker).
+    if (window.shmirkaDesktop) {
+      const choice = await requestDesktopScreenSource();
+      if (!choice) return; // cancelled
+      await window.shmirkaDesktop.selectScreenSource(choice.id, choice.audio);
+    }
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
         width: { ideal: quality === "high" ? 3840 : 1920 },

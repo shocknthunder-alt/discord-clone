@@ -7,6 +7,16 @@ interface Window {
   shmirkaDesktop?: {
     isDesktop: true;
     /** System-wide key events (works while a game has focus). Returns an unsubscribe function. */
+    getScreenSources(): Promise<DesktopScreenSource[]>;
+    selectScreenSource(id: string, audio: boolean): Promise<void>;
     onGlobalKey(cb: (code: string, down: boolean) => void): () => void;
   };
+}
+
+interface DesktopScreenSource {
+  id: string;
+  name: string;
+  isScreen: boolean;
+  thumbnail: string;
+  icon: string | null;
 }
