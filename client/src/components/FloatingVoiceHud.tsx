@@ -96,7 +96,7 @@ export default function FloatingVoiceHud() {
         title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
       >
         <LockIcon locked={locked} size={14} color={locked ? "var(--c-backdrop)" : "var(--t-3)"} />
-        {locked ? "Unlock buttons" : "Lock buttons"}
+        {locked ? "Unlock layout" : "Lock layout"}
       </button>
 
       {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} />}

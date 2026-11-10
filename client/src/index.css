@@ -2414,3 +2414,17 @@ input[type="range"] {
     background: transparent;
   }
 }
+
+/* ---- Movable user tiles (unlocked layout) ---- */
+.voice-tile.movable {
+  cursor: grab;
+  touch-action: none;
+  outline: 1px dashed rgba(var(--line-rgb), 0.25);
+}
+
+.voice-tile.dragging {
+  cursor: grabbing;
+  z-index: 20;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  background: rgba(var(--line-rgb), 0.06);
+}

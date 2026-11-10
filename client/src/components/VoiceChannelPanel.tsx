@@ -15,6 +15,7 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
 import StreamFrame from "./StreamFrame";
+import { useMovableTile } from "../hooks/useMovableTile";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -47,10 +48,14 @@ function PeerTile({
   onWatch: (socketId: string) => void;
 }) {
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
+  const movable = useMovableTile(`peer-${peer.userId}`);
 
   return (
     <div
-      className="voice-tile clickable"
+      ref={movable.ref}
+      className={`voice-tile clickable ${movable.className}`}
+      style={movable.style}
+      {...movable.handlers}
       onClick={(e) => onContextMenu(e, peer)}
       onContextMenu={(e) => onContextMenu(e, peer)}
     >
@@ -90,6 +95,7 @@ function PeerTile({
 export default function VoiceChannelPanel() {
   const screenShareNotice = useVoiceStore((s) => s.screenShareNotice);
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, localCameraStream } = useVoiceStore();
+  const selfMovable = useMovableTile("self");
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
@@ -169,7 +175,7 @@ export default function VoiceChannelPanel() {
                 onWatch={setWatchingSocketId}
               />
             ))}
-          <div className="voice-tile self">
+          <div ref={selfMovable.ref} className={`voice-tile self ${selfMovable.className}`} style={selfMovable.style} {...selfMovable.handlers}>
             {localCameraStream ? (
               <div className={`voice-tile-video-wrap ${selfSpeaking ? "speaking" : ""}`}>
                 <TileVideo stream={localCameraStream} mirrored />
