@@ -33,8 +33,7 @@ Owner pronouns unknown: use they/them.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
 ## Pending / ideas
-1. **Deploy media-server** (H.264 added to `mediasoupConfig.ts`; not yet redeployed on the VM).
-2. Streamer diagnostics panel (real fps, bitrate, `qualityLimitationReason`) — colleague saw stutter only in
+1. ~~Deploy media-server~~ done 2026-11-10 (H.264 live). SSH: `ssh -i ~/.ssh/oracle_sfu_ed25519 ubuntu@130.61.251.202`; the VM repo can have a local `package-lock.json` change - `git checkout` it before `git pull`.
    Torchlight Infinite (particle-heavy) while CS2/Apex were smooth.
 3. Electron desktop app (bundled client, global PTT via uiohook-napi, screen/window picker + loopback audio,
    icon, installer; friends keep the installed version until given a new one).
