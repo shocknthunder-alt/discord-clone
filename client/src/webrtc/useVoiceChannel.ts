@@ -58,30 +58,34 @@ function applyMicTransmitState() {
 
 let pttKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
 let pttKeyupHandler: ((e: KeyboardEvent) => void) | null = null;
+let pttGlobalUnsubscribe: (() => void) | null = null;
+
+// Shared by the window key events (browser + focused desktop app) and the desktop app's
+// system-wide key events (game in the foreground). Duplicates are harmless: both are no-ops
+// when the state already matches.
+function handlePushToTalkKey(code: string, down: boolean) {
+  const { micMode, pushToTalkKey, isPushToTalkActive } = useVoiceStore.getState();
+  if (micMode !== "push-to-talk" || !pushToTalkKey || code !== pushToTalkKey || isPushToTalkActive === down) return;
+  useVoiceStore.getState().setPushToTalkActive(down);
+  applyMicTransmitState();
+}
 
 function attachPushToTalkListeners() {
   if (pttKeydownHandler) return; // already attached for this call
-  pttKeydownHandler = (e: KeyboardEvent) => {
-    const { micMode, pushToTalkKey, isPushToTalkActive } = useVoiceStore.getState();
-    if (micMode !== "push-to-talk" || !pushToTalkKey || e.code !== pushToTalkKey || isPushToTalkActive) return;
-    useVoiceStore.getState().setPushToTalkActive(true);
-    applyMicTransmitState();
-  };
-  pttKeyupHandler = (e: KeyboardEvent) => {
-    const { micMode, pushToTalkKey } = useVoiceStore.getState();
-    if (micMode !== "push-to-talk" || !pushToTalkKey || e.code !== pushToTalkKey) return;
-    useVoiceStore.getState().setPushToTalkActive(false);
-    applyMicTransmitState();
-  };
+  pttKeydownHandler = (e: KeyboardEvent) => handlePushToTalkKey(e.code, true);
+  pttKeyupHandler = (e: KeyboardEvent) => handlePushToTalkKey(e.code, false);
   window.addEventListener("keydown", pttKeydownHandler);
   window.addEventListener("keyup", pttKeyupHandler);
+  pttGlobalUnsubscribe = window.shmirkaDesktop?.onGlobalKey(handlePushToTalkKey) ?? null;
 }
 
 function detachPushToTalkListeners() {
   if (pttKeydownHandler) window.removeEventListener("keydown", pttKeydownHandler);
   if (pttKeyupHandler) window.removeEventListener("keyup", pttKeyupHandler);
+  pttGlobalUnsubscribe?.();
   pttKeydownHandler = null;
   pttKeyupHandler = null;
+  pttGlobalUnsubscribe = null;
 }
 
 export function useVoiceChannel() {

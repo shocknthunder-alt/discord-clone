@@ -16,7 +16,7 @@ export default function UpdateBanner() {
 
   useEffect(() => {
     // The desktop app ships a fixed bundled version; it never self-updates from the website.
-    if (import.meta.env.DEV || (window as unknown as { shmirkaDesktop?: unknown }).shmirkaDesktop) return;
+    if (import.meta.env.DEV || window.shmirkaDesktop) return;
     let cancelled = false;
 
     async function check() {

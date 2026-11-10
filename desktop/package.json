@@ -17,8 +17,21 @@
   "build": {
     "appId": "bg.shmirka.desktop",
     "productName": "ШмиркаТа",
-    "files": ["main.js", "preload.js", "client-dist/**/*"],
-    "win": { "target": "nsis" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true }
+    "files": [
+      "main.js",
+      "preload.js",
+      "globalKeys.js",
+      "client-dist/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.5"
   }
 }

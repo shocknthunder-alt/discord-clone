@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, desktopCapturer, session, shell } = require("e
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
+const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 
 // The built client is served from a tiny local web server rather than file://, because the app
 // needs a real http origin (secure context for mic/camera, YouTube embeds, SPA routing). The port
@@ -88,6 +89,10 @@ app.whenReady().then(async () => {
     }
   });
 
+  startGlobalKeys((code, down) => {
+    if (!win.isDestroyed()) win.webContents.send("global-key", code, down);
+  });
+
   win.loadURL(ORIGIN);
 });
 
@@ -100,3 +105,4 @@ app.on("second-instance", () => {
 });
 
 app.on("window-all-closed", () => app.quit());
+app.on("will-quit", stopGlobalKeys);
