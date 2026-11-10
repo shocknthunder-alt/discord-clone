@@ -17,7 +17,14 @@ export default function StreamFrame({ children, caption, onStop }: Props) {
   const { l, t, w, h } = frame.screen;
 
   return (
-    <div className={`tv stream-frame frame-${frame.id}`}>
+    <div
+      className={`tv stream-frame frame-${frame.id}`}
+      style={
+        frame.height
+          ? { aspectRatio: `1100 / ${frame.height}`, width: `min(100%, 1100px, calc(76vh * 1100 / ${frame.height}))` }
+          : undefined
+      }
+    >
       <div
         className={`tv-screen ${frame.crt ? "crt" : ""}`}
         style={{ left: `${l}%`, top: `${t}%`, width: `${w}%`, height: `${h}%` }}

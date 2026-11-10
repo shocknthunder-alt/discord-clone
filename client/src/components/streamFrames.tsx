@@ -13,6 +13,8 @@ export interface StreamFrameDef {
   screen: { l: number; t: number; w: number; h: number };
   /** Retro TV keeps scanlines/vignette over the glass; others just get a soft glare. */
   crt?: boolean;
+  /** Canvas height in units (width is always 1100); defaults to 625. */
+  height?: number;
   Art: () => ReactNode;
 }
 
@@ -518,7 +520,13 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
   { id: "neon", name: "Неоново стъкло", screen: rect(NEON_SCREEN.x, NEON_SCREEN.y, NEON_SCREEN.w, NEON_SCREEN.h), Art: NeonArt },
   { id: "monster", name: "Синьо космато чудовище", screen: rect(MONSTER_SCREEN.x, MONSTER_SCREEN.y, MONSTER_SCREEN.w, MONSTER_SCREEN.h), Art: MonsterArt },
   { id: "exile", name: "Тъмна фантазия", screen: rect(EXILE_SCREEN.x, EXILE_SCREEN.y, EXILE_SCREEN.w, EXILE_SCREEN.h), Art: ExileArt },
-  { id: "poe2", name: "Path of Exile 2", screen: rect(150, 150, 800, 450), Art: Poe2Art },
+  {
+    id: "poe2",
+    name: "Path of Exile 2",
+    height: 680,
+    screen: { l: (212 / 1100) * 100, t: (162 / 680) * 100, w: (676 / 1100) * 100, h: (380 / 680) * 100 },
+    Art: Poe2Art,
+  },
 ];
 
 export const DEFAULT_FRAME_ID = "retro";

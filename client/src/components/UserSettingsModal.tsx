@@ -277,7 +277,7 @@ export default function UserSettingsModal({ onClose }: Props) {
               className={`stream-frame-option ${streamFrameId === f.id ? "selected" : ""}`}
               onClick={() => setStreamFrameId(f.id)}
             >
-              <div className="tv">
+              <div className="tv" style={f.height ? { aspectRatio: `1100 / ${f.height}` } : undefined}>
                 <div
                   className="tv-screen"
                   style={{ left: `${f.screen.l}%`, top: `${f.screen.t}%`, width: `${f.screen.w}%`, height: `${f.screen.h}%` }}

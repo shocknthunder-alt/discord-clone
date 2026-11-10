@@ -2270,4 +2270,5 @@ input[type="range"] {
 .stream-frame-option.selected .tv {
   outline-color: var(--accent);
 }
-.frame-poe2 .tv-caption { bottom: 0.6%; font-size: 10px; }
+.frame-poe2 .tv-caption { display: none; }
+.frame-poe2 { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
