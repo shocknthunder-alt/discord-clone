@@ -35,7 +35,13 @@ function clampToViewport(pos: Position): Position {
  */
 export default function FloatingIcon({ id, getDefaultPosition, children }: Props) {
   const locked = useLayoutLockStore((s) => s.locked);
-  const [pos, setPos] = useState(() => clampToViewport(loadPosition(id, getDefaultPosition())));
+  // `pos` is where the icon WANTS to be (saved or dragged-to), deliberately never clamped:
+  // the viewport can shrink temporarily (a stream going fullscreen, a smaller window, DevTools)
+  // and the icon is only *displayed* clamped. When the viewport grows back it returns to its
+  // real spot instead of staying at the shoved-aside one.
+  const [pos, setPos] = useState(() => loadPosition(id, getDefaultPosition()));
+  const [, forceRender] = useState(0);
+  const shown = clampToViewport(pos);
   const dragRef = useRef<{
     pointerId: number;
     startClientX: number;
@@ -49,11 +55,8 @@ export default function FloatingIcon({ id, getDefaultPosition, children }: Props
   // explicitly dragged ones stay exactly where the user put them regardless of resize.
   useEffect(() => {
     function handleResize() {
-      if (hasSavedPosition(id)) {
-        setPos((p) => clampToViewport(p));
-      } else {
-        setPos(clampToViewport(getDefaultPosition()));
-      }
+      if (!hasSavedPosition(id)) setPos(getDefaultPosition());
+      forceRender((n) => n + 1); // re-clamp the displayed position against the new viewport
     }
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -67,8 +70,8 @@ export default function FloatingIcon({ id, getDefaultPosition, children }: Props
       pointerId: e.pointerId,
       startClientX: e.clientX,
       startClientY: e.clientY,
-      origin: pos,
-      current: pos,
+      origin: shown,
+      current: shown,
       dragging: false,
     };
   }
@@ -101,7 +104,7 @@ export default function FloatingIcon({ id, getDefaultPosition, children }: Props
   return (
     <div
       className={`floating-icon ${locked ? "locked" : ""}`}
-      style={{ left: pos.x, top: pos.y }}
+      style={{ left: shown.x, top: shown.y }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
