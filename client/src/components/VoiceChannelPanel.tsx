@@ -1,3 +1,4 @@
+import VoiceChannelIcon from "./VoiceChannelIcon";
 import { SocketEvents } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { startConversationWith } from "../api/dm.api";
@@ -115,7 +116,9 @@ export default function VoiceChannelPanel() {
 
   return (
     <div className="main-content">
-      <div className="chat-header">🔊 {channel?.name ?? ""}</div>
+      <div className="chat-header">
+        <VoiceChannelIcon size={20} /> {channel?.name ?? ""}
+      </div>
       <div
         className="voice-panel"
         style={

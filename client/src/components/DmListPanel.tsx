@@ -50,7 +50,7 @@ export default function DmListPanel() {
         </div>
 
         {conversations.length === 0 && (
-          <div style={{ padding: 16, fontSize: 13, color: "#a8968a" }}>
+          <div style={{ padding: 16, fontSize: 13, color: "#93a0ba" }}>
             No conversations yet. Right-click someone in a voice channel to message or call them.
           </div>
         )}

@@ -20,6 +20,7 @@ import MusicMiniPlayer from "./MusicMiniPlayer";
 import PeerConnectionBadge from "./PeerConnectionBadge";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
+import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 
@@ -238,7 +239,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 </button>
               )}
             </div>
-            <div style={{ padding: "0 16px", fontSize: 12, color: "#a8968a" }}>
+            <div style={{ padding: "0 16px", fontSize: 12, color: "#93a0ba" }}>
               Invite code: {activeServer.inviteCode}
             </div>
 
@@ -283,7 +284,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                       className={`channel-item ${isActive ? "active" : ""} ${dragOverId === channel.id && drag?.kind === "voice" ? "drag-over" : ""}`}
                       onClick={() => handleVoiceClick(channel.id)}
                     >
-                      <span className="channel-item-name">🔊 {channel.name}</span>
+                      <span className="channel-item-name">
+                        <VoiceChannelIcon /> {channel.name}
+                      </span>
                       {isOwner && (
                         <button
                           className="channel-item-settings"

@@ -5,8 +5,8 @@
 body {
   margin: 0;
   font-family: "Nunito", "Helvetica Neue", Arial, sans-serif;
-  background: #2b211b;
-  color: #f1e6dc;
+  background: #27344f;
+  color: #e8edf7;
 }
 
 input,
@@ -26,7 +26,7 @@ button {
 }
 
 .auth-card {
-  background: #221a16;
+  background: #1f2840;
   padding: 32px;
   border-radius: 8px;
   width: 400px;
@@ -42,7 +42,7 @@ button {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #cdbcae;
+  color: #b9c4d9;
   margin-bottom: 8px;
   margin-top: 16px;
 }
@@ -52,8 +52,8 @@ button {
   padding: 10px;
   border-radius: 3px;
   border: none;
-  background: #17120f;
-  color: #f1e6dc;
+  background: #151c2b;
+  color: #e8edf7;
 }
 
 .auth-card button[type="submit"] {
@@ -70,7 +70,7 @@ button {
 .auth-card .switch-link {
   margin-top: 16px;
   font-size: 14px;
-  color: #a8968a;
+  color: #93a0ba;
 }
 
 .auth-card .switch-link a {
@@ -98,7 +98,7 @@ button {
   font-size: 14px;
   font-weight: 400;
   text-transform: none;
-  color: #f1e6dc;
+  color: #e8edf7;
   cursor: pointer;
 }
 
@@ -113,7 +113,7 @@ button {
 
 .server-sidebar {
   width: 96px;
-  background: #17120f;
+  background: #151c2b;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -125,12 +125,12 @@ button {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #2b211b;
+  background: #27344f;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  color: #f1e6dc;
+  color: #e8edf7;
   border: none;
   overflow: hidden;
   padding: 0;
@@ -160,7 +160,7 @@ button {
   padding: 0 4px;
   border-radius: 8px;
   background: #da373c;
-  border: 3px solid #17120f;
+  border: 3px solid #151c2b;
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -191,7 +191,7 @@ button {
   padding: 8px 4px;
   border-radius: 8px;
   border: none;
-  background: #2b211b;
+  background: #27344f;
   color: #23a559;
   font-size: 11px;
   font-weight: 600;
@@ -202,7 +202,7 @@ button {
 }
 
 .sidebar-action-button:hover {
-  background: #221a16;
+  background: #1f2840;
   color: #2dc06c;
 }
 
@@ -214,17 +214,17 @@ button {
   width: 100%;
   padding: 8px 0;
   text-align: center;
-  color: #8f7e72;
+  color: #7a88a6;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 2px;
   border-radius: 8px;
-  background: #2b211b;
+  background: #27344f;
 }
 
 .sidebar-actions-group:hover .sidebar-actions-trigger {
-  background: #221a16;
-  color: #cdbcae;
+  background: #1f2840;
+  color: #b9c4d9;
 }
 
 .sidebar-actions-buttons {
@@ -278,7 +278,7 @@ button {
 
 .channel-sidebar {
   width: 240px;
-  background: #221a16;
+  background: #1f2840;
   display: flex;
   flex-direction: column;
 }
@@ -297,7 +297,7 @@ button {
   align-items: center;
   gap: 8px;
   padding: 16px;
-  border-bottom: 1px solid #17120f;
+  border-bottom: 1px solid #151c2b;
 }
 
 .channel-sidebar-header h2 {
@@ -325,7 +325,7 @@ button {
 }
 
 .server-settings-button:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .channel-section {
@@ -333,7 +333,7 @@ button {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #a8968a;
+  color: #93a0ba;
 }
 
 .channel-item {
@@ -343,18 +343,18 @@ button {
   margin: 1px 8px;
   padding: 6px 8px;
   border-radius: 4px;
-  color: #a8968a;
+  color: #93a0ba;
   font-size: 15px;
   cursor: pointer;
 }
 
 .channel-item.active {
-  background: #4a382e;
+  background: #3f517d;
   color: white;
 }
 
 .channel-item:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .channel-item-name {
@@ -381,7 +381,7 @@ button {
 }
 
 .channel-item-settings:hover {
-  background: #5a463a;
+  background: #4d6190;
 }
 
 .voice-participant-list {
@@ -389,7 +389,7 @@ button {
   padding-top: 4px;
   padding-bottom: 8px;
   font-size: 13px;
-  color: #a8968a;
+  color: #93a0ba;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -412,7 +412,7 @@ button {
 
 .participant-row.clickable:hover,
 .participant-row.self:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .participant-avatar {
@@ -456,7 +456,7 @@ button {
 
 .chat-header {
   padding: 12px 16px;
-  border-bottom: 1px solid #17120f;
+  border-bottom: 1px solid #151c2b;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -474,9 +474,9 @@ button {
 
 .channel-background-preview-wrap.empty {
   padding: 20px;
-  border: 1px dashed #5a463a;
+  border: 1px dashed #4d6190;
   border-radius: 8px;
-  color: #a8968a;
+  color: #93a0ba;
   font-size: 13px;
 }
 
@@ -512,7 +512,7 @@ button {
 
 .message-row .author {
   font-weight: 600;
-  color: #fff4ea;
+  color: #f5f8ff;
   margin-right: 8px;
   cursor: pointer;
 }
@@ -548,7 +548,7 @@ button {
 }
 
 .thread-summary:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .thread-summary-avatars {
@@ -566,7 +566,7 @@ button {
   align-items: center;
   justify-content: center;
   margin-left: -6px;
-  border: 2px solid #2b211b;
+  border: 2px solid #27344f;
   object-fit: cover;
 }
 
@@ -583,8 +583,8 @@ button {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid #17120f;
-  background: #221a16;
+  border-left: 1px solid #151c2b;
+  background: #1f2840;
 }
 
 .thread-panel-header {
@@ -592,20 +592,20 @@ button {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid #17120f;
+  border-bottom: 1px solid #151c2b;
   font-weight: 600;
 }
 
 .thread-panel-close {
   background: none;
   border: none;
-  color: #cdbcae;
+  color: #b9c4d9;
   font-size: 16px;
   cursor: pointer;
 }
 
 .thread-panel-close:hover {
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .thread-panel-messages {
@@ -616,12 +616,12 @@ button {
 
 .thread-panel-divider {
   font-size: 12px;
-  color: #a8968a;
+  color: #93a0ba;
   text-transform: uppercase;
   font-weight: 700;
   margin: 12px 0;
   padding-bottom: 6px;
-  border-bottom: 1px solid #45342b;
+  border-bottom: 1px solid #3b4d78;
 }
 
 .also-send-checkbox {
@@ -630,7 +630,7 @@ button {
   gap: 6px;
   padding: 6px 12px 10px;
   font-size: 12px;
-  color: #a8968a;
+  color: #93a0ba;
   cursor: pointer;
 }
 
@@ -640,12 +640,12 @@ button {
 
 .message-row .timestamp {
   font-size: 11px;
-  color: #a8968a;
+  color: #93a0ba;
 }
 
 .message-row .edited-tag {
   font-size: 11px;
-  color: #a8968a;
+  color: #93a0ba;
   margin-left: 4px;
 }
 
@@ -662,7 +662,7 @@ button {
   top: 4px;
   display: inline-flex;
   gap: 4px;
-  background: #221a16;
+  background: #1f2840;
   padding: 3px;
   border-radius: 6px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
@@ -671,7 +671,7 @@ button {
 }
 
 .message-actions button {
-  background: #3a2c24;
+  background: #32426a;
   border: none;
   border-radius: 4px;
   padding: 2px 6px;
@@ -679,7 +679,7 @@ button {
 }
 
 .message-actions button:hover {
-  background: #4a382e;
+  background: #3f517d;
 }
 
 .message-edit-form {
@@ -693,15 +693,15 @@ button {
   padding: 6px 10px;
   border-radius: 4px;
   border: none;
-  background: #17120f;
-  color: #f1e6dc;
+  background: #151c2b;
+  color: #e8edf7;
 }
 
 .message-edit-form button {
   padding: 4px 10px;
   border-radius: 4px;
   border: none;
-  background: #5a463a;
+  background: #4d6190;
   color: white;
   font-size: 12px;
 }
@@ -709,7 +709,7 @@ button {
 .typing-indicator {
   padding: 4px 16px;
   font-size: 12px;
-  color: #a8968a;
+  color: #93a0ba;
   min-height: 18px;
 }
 
@@ -722,7 +722,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #3a2c24;
+  background: #32426a;
   border-radius: 8px;
   padding: 4px 8px;
 }
@@ -732,7 +732,7 @@ button {
   padding: 11px 4px;
   border: none;
   background: transparent;
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .message-input-form input:focus {
@@ -748,7 +748,7 @@ button {
 }
 
 .emoji-toggle-button:hover {
-  background: #5a463a;
+  background: #4d6190;
 }
 
 .message-input-form button[type="submit"] {
@@ -814,14 +814,14 @@ button {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  background: #2b211b;
+  background: #27344f;
   padding: 32px;
 }
 
 .music-mini {
-  background: #17120f;
-  border-top: 1px solid #221a16;
-  color: #f1e6dc;
+  background: #151c2b;
+  border-top: 1px solid #1f2840;
+  color: #e8edf7;
   font-size: 12px;
 }
 
@@ -847,11 +847,11 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #cdbcae;
+  color: #b9c4d9;
 }
 
 .music-mini-control {
-  background: #221a16;
+  background: #1f2840;
   border: none;
   border-radius: 4px;
   color: white;
@@ -866,7 +866,7 @@ button {
 }
 
 .music-mini-control:hover:not(:disabled) {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .music-mini-control:disabled {
@@ -909,7 +909,7 @@ button {
 }
 
 .music-queue-item.active {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .music-queue-title {
@@ -917,11 +917,11 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .music-queue-meta {
-  color: #a8968a;
+  color: #93a0ba;
   font-size: 11px;
   flex-shrink: 0;
 }
@@ -929,7 +929,7 @@ button {
 .music-queue-item button {
   background: none;
   border: none;
-  color: #a8968a;
+  color: #93a0ba;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -955,8 +955,8 @@ button {
   padding: 6px 8px;
   border-radius: 4px;
   border: none;
-  background: #17120f;
-  color: #f1e6dc;
+  background: #151c2b;
+  color: #e8edf7;
   font-size: 12px;
 }
 
@@ -1050,7 +1050,7 @@ button {
 }
 
 .screen-share-badge.self {
-  background: #3f3027;
+  background: #364670;
   cursor: default;
 }
 
@@ -1066,7 +1066,7 @@ button {
 
 .screen-share-label {
   font-size: 11px;
-  color: #cdbcae;
+  color: #b9c4d9;
   text-align: center;
   display: flex;
   align-items: center;
@@ -1101,24 +1101,24 @@ button {
 
 .voice-control-bar {
   padding: 8px 12px;
-  background: #1c1511;
+  background: #111726;
   display: flex;
   justify-content: center;
 }
 
 .voice-control-trigger {
   padding: 4px 16px;
-  color: #8f7e72;
+  color: #7a88a6;
   font-size: 16px;
   font-weight: 700;
   letter-spacing: 2px;
   border-radius: 8px;
-  background: #2b211b;
+  background: #27344f;
 }
 
 .voice-control-bar:hover .voice-control-trigger {
-  background: #221a16;
-  color: #cdbcae;
+  background: #1f2840;
+  color: #b9c4d9;
 }
 
 .voice-control-buttons {
@@ -1138,7 +1138,7 @@ button {
   padding: 8px 16px;
   border-radius: 4px;
   border: none;
-  background: #5a463a;
+  background: #4d6190;
   color: white;
 }
 
@@ -1168,7 +1168,7 @@ button {
      on small displays. */
   max-height: calc(100vh - 32px);
   overflow-y: auto;
-  background: #221a16;
+  background: #1f2840;
   border-radius: 8px;
   padding: 48px 32px 32px;
 }
@@ -1179,7 +1179,7 @@ button {
   left: 16px;
   background: none;
   border: none;
-  color: #f1e6dc;
+  color: #e8edf7;
   font-size: 20px;
   line-height: 1;
   padding: 4px;
@@ -1187,7 +1187,7 @@ button {
 }
 
 .modal-back:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .modal-title {
@@ -1200,7 +1200,7 @@ button {
   margin: 0 0 24px;
   text-align: center;
   font-size: 14px;
-  color: #cdbcae;
+  color: #b9c4d9;
 }
 
 .modal-label {
@@ -1208,7 +1208,7 @@ button {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #cdbcae;
+  color: #b9c4d9;
   margin-bottom: 8px;
 }
 
@@ -1217,7 +1217,7 @@ button {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #f1e6dc;
+  color: #e8edf7;
   margin-bottom: 10px;
   cursor: pointer;
 }
@@ -1231,7 +1231,7 @@ button {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #f1e6dc;
+  color: #e8edf7;
   margin-bottom: 8px;
   cursor: pointer;
 }
@@ -1247,30 +1247,30 @@ button {
   gap: 12px;
   margin: 4px 0 16px;
   padding: 10px 12px;
-  background: #17120f;
+  background: #151c2b;
   border-radius: 4px;
   font-size: 13px;
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .ptt-keybind-row button {
   padding: 6px 12px;
   border-radius: 4px;
   border: none;
-  background: #5a463a;
+  background: #4d6190;
   color: white;
   font-size: 12px;
   font-weight: 600;
 }
 
 .ptt-keybind-row button:hover {
-  background: #7d6c60;
+  background: #697796;
 }
 
 .modal-hint {
   margin: 6px 0 0;
   font-size: 12px;
-  color: #8f7e72;
+  color: #7a88a6;
 }
 
 .modal-input {
@@ -1278,8 +1278,8 @@ button {
   padding: 11px 12px;
   border-radius: 4px;
   border: none;
-  background: #17120f;
-  color: #f1e6dc;
+  background: #151c2b;
+  color: #e8edf7;
   font-size: 14px;
 }
 
@@ -1288,18 +1288,18 @@ button {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #cdbcae;
+  color: #b9c4d9;
 }
 
 .modal-examples-text {
   margin: 8px 0 0;
   font-size: 13px;
-  color: #a8968a;
+  color: #93a0ba;
   line-height: 1.5;
 }
 
 .modal-examples-text strong {
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .modal-error {
@@ -1317,10 +1317,10 @@ button {
 .modal-section-title {
   margin: 28px 0 16px;
   padding-top: 20px;
-  border-top: 1px solid #45342b;
+  border-top: 1px solid #3b4d78;
   font-size: 16px;
   font-weight: 600;
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .modal-join-button {
@@ -1395,20 +1395,20 @@ button {
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  background: #2b211b;
+  background: #27344f;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 24px;
-  color: #f1e6dc;
+  color: #e8edf7;
 }
 
 .avatar-picker button {
   padding: 6px 14px;
   border-radius: 4px;
   border: none;
-  background: #5a463a;
+  background: #4d6190;
   color: white;
   font-size: 13px;
 }
@@ -1422,7 +1422,7 @@ button {
   align-items: center;
   gap: 8px;
   padding: 8px 10px;
-  background: #17120f;
+  background: #151c2b;
 }
 
 .voice-status-bar-text {
@@ -1438,7 +1438,7 @@ button {
 
 .voice-status-bar-subtitle {
   font-size: 12px;
-  color: #cdbcae;
+  color: #b9c4d9;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1455,7 +1455,7 @@ button {
   height: 22px;
   border-radius: 50%;
   border: none;
-  background: #3a2c24;
+  background: #32426a;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1464,7 +1464,7 @@ button {
 }
 
 .voice-status-icon-button:hover {
-  background: #5a463a;
+  background: #4d6190;
 }
 
 .voice-status-icon-button.static {
@@ -1487,8 +1487,8 @@ button {
   align-items: center;
   gap: 8px;
   padding: 8px;
-  background: #1c1511;
-  border-top: 1px solid #17120f;
+  background: #111726;
+  border-top: 1px solid #151c2b;
 }
 
 .user-bar-avatar {
@@ -1526,7 +1526,7 @@ button {
 }
 
 .user-bar-settings-button:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .dm-list-avatar {
@@ -1550,7 +1550,7 @@ button {
 .context-menu {
   position: fixed;
   z-index: 200;
-  background: #0d0907;
+  background: #0a0e17;
   border-radius: 8px;
   padding: 8px;
   width: 220px;
@@ -1562,7 +1562,7 @@ button {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  color: #a8968a;
+  color: #93a0ba;
 }
 
 .context-menu-volume {
@@ -1571,7 +1571,7 @@ button {
   flex-direction: column;
   gap: 4px;
   font-size: 12px;
-  color: #cdbcae;
+  color: #b9c4d9;
 }
 
 .context-menu-volume input[type="range"] {
@@ -1586,12 +1586,12 @@ button {
   border-radius: 4px;
   border: none;
   background: transparent;
-  color: #f1e6dc;
+  color: #e8edf7;
   font-size: 13px;
 }
 
 .context-menu-item:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .incoming-call-toast {
@@ -1599,7 +1599,7 @@ button {
   bottom: 24px;
   right: 24px;
   z-index: 300;
-  background: #221a16;
+  background: #1f2840;
   border-radius: 8px;
   padding: 16px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
@@ -1623,7 +1623,7 @@ button {
   padding: 8px 12px;
   border-radius: 4px;
   border: none;
-  background: #5a463a;
+  background: #4d6190;
   color: white;
 }
 
@@ -1679,7 +1679,7 @@ button {
   height: 32px;
   border-radius: 50%;
   border: none;
-  background: #221a16;
+  background: #1f2840;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
@@ -1689,7 +1689,7 @@ button {
 }
 
 .hud-icon-button:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .hud-icon-button.active {
@@ -1740,7 +1740,7 @@ button {
 
 .hud-lock-button.locked {
   background: #f0b232;
-  color: #17120f;
+  color: #151c2b;
 }
 
 .hud-lock-button.locked:hover {
@@ -1748,12 +1748,12 @@ button {
 }
 
 .hud-lock-button.unlocked {
-  background: #221a16;
-  color: #a8968a;
+  background: #1f2840;
+  color: #93a0ba;
 }
 
 .hud-lock-button.unlocked:hover {
-  background: #3a2c24;
+  background: #32426a;
 }
 
 .peer-connection-badge {
@@ -1761,7 +1761,7 @@ button {
   align-items: center;
   gap: 3px;
   font-size: 10px;
-  color: #a8968a;
+  color: #93a0ba;
 }
 
 .peer-connection-ms {
@@ -1783,8 +1783,8 @@ button {
   align-items: center;
   gap: 2px;
   padding: 2px 4px;
-  background: #221a16;
-  border: 1px solid #45342b;
+  background: #1f2840;
+  border: 1px solid #3b4d78;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   opacity: 0;
@@ -1806,12 +1806,12 @@ button {
   border-radius: 4px;
   padding: 3px 6px;
   font-size: 13px;
-  color: #f1e6dc;
+  color: #e8edf7;
   cursor: pointer;
 }
 
 .message-toolbar > button:hover {
-  background: #4a382e;
+  background: #3f517d;
 }
 
 .toolbar-popover {
@@ -1820,8 +1820,8 @@ button {
 }
 
 .emoji-popover-card {
-  background: #17120f;
-  border: 1px solid #45342b;
+  background: #151c2b;
+  border: 1px solid #3b4d78;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   overflow: hidden;
@@ -1829,21 +1829,21 @@ button {
 
 .emoji-popover-footer {
   padding: 8px;
-  border-top: 1px solid #45342b;
+  border-top: 1px solid #3b4d78;
 }
 
 .emoji-popover-footer button {
-  background: #221a16;
-  border: 1px solid #45342b;
+  background: #1f2840;
+  border: 1px solid #3b4d78;
   border-radius: 4px;
-  color: #f1e6dc;
+  color: #e8edf7;
   padding: 5px 10px;
   font-size: 13px;
   cursor: pointer;
 }
 
 .emoji-popover-footer button:hover {
-  background: #4a382e;
+  background: #3f517d;
 }
 
 .toolbar-menu {
@@ -1851,8 +1851,8 @@ button {
   flex-direction: column;
   min-width: 190px;
   padding: 6px;
-  background: #17120f;
-  border: 1px solid #45342b;
+  background: #151c2b;
+  border: 1px solid #3b4d78;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
 }
@@ -1864,12 +1864,12 @@ button {
   text-align: left;
   padding: 7px 10px;
   font-size: 13px;
-  color: #f1e6dc;
+  color: #e8edf7;
   cursor: pointer;
 }
 
 .toolbar-menu button:hover {
-  background: #4a382e;
+  background: #3f517d;
 }
 
 .toolbar-menu button.danger {
@@ -1891,12 +1891,12 @@ button {
 }
 
 .reaction-chip {
-  background: #221a16;
-  border: 1px solid #45342b;
+  background: #1f2840;
+  border: 1px solid #3b4d78;
   border-radius: 12px;
   padding: 1px 8px;
   font-size: 13px;
-  color: #f1e6dc;
+  color: #e8edf7;
   cursor: pointer;
 }
 
@@ -1913,7 +1913,7 @@ button {
   border: none;
   border-radius: 4px;
   background: #f0b232;
-  color: #17120f;
+  color: #151c2b;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -2021,7 +2021,7 @@ button {
   justify-content: center;
   gap: 18px;
   padding: 20px;
-  background: radial-gradient(ellipse at center, #3a2c24 0%, #1c1511 80%);
+  background: radial-gradient(ellipse at center, #32426a 0%, #111726 80%);
 }
 
 .welcome-image {
@@ -2029,7 +2029,7 @@ button {
   max-height: 72vh;
   object-fit: contain;
   border-radius: 14px;
-  border: 3px solid #120d0a;
+  border: 3px solid #0f1420;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
 }
 
@@ -2037,7 +2037,7 @@ button {
   margin: 0;
   font-size: 34px;
   letter-spacing: 0.02em;
-  color: #fff4ea;
+  color: #f5f8ff;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
   text-align: center;
 }
@@ -2047,7 +2047,7 @@ button {
    them instead of Discord's edge-to-edge columns, squircle server icons, display font for
    headings. Pure visual — no layout metrics other components depend on. */
 body {
-  background: #120d0a;
+  background: #0f1420;
   background-image: radial-gradient(900px 500px at 8% -10%, rgba(255, 122, 69, 0.12), transparent 60%),
     radial-gradient(700px 500px at 100% 110%, rgba(255, 179, 107, 0.07), transparent 60%);
   background-attachment: fixed;
@@ -2083,22 +2083,22 @@ body {
 .main-content {
   border-radius: 22px;
   overflow: hidden;
-  border: 1px solid rgba(255, 220, 190, 0.06);
+  border: 1px solid rgba(190, 210, 255, 0.06);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
 .channel-sidebar {
-  background: #221a16;
+  background: #1f2840;
 }
 
 .main-content {
-  background: #2b211b;
+  background: #27344f;
   min-width: 0;
 }
 
 .channel-sidebar-header,
 .chat-header {
-  border-bottom: 1px dashed rgba(255, 220, 190, 0.12);
+  border-bottom: 1px dashed rgba(190, 210, 255, 0.12);
 }
 
 .channel-sidebar-header h2,
@@ -2135,4 +2135,9 @@ input[type="checkbox"],
 input[type="radio"],
 input[type="range"] {
   accent-color: #ff7a45;
+}
+
+.voice-channel-icon {
+  vertical-align: -4px;
+  flex-shrink: 0;
 }

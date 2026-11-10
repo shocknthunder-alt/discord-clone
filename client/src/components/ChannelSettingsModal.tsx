@@ -1,3 +1,4 @@
+import VoiceChannelIcon from "./VoiceChannelIcon";
 import type { TextChannelDTO, VoiceChannelDTO } from "@discord-clone/shared";
 import { useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
@@ -73,7 +74,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
         </button>
 
         <h1 className="modal-title">Channel Settings</h1>
-        <p className="modal-subtitle">{kind === "text" ? "#" : "🔊"} {channel.name}</p>
+        <p className="modal-subtitle">{kind === "text" ? "#" : <VoiceChannelIcon size={16} />} {channel.name}</p>
 
         <label className="modal-label" htmlFor="channel-settings-name-input">
           Channel Name
