@@ -2441,3 +2441,15 @@ input[type="range"] {
 .voice-tile.movable video {
   pointer-events: none;
 }
+
+.frame-fireice .tv-caption,
+.frame-dragon .tv-caption,
+.frame-berserk .tv-caption {
+  display: none;
+}
+
+.frame-fireice,
+.frame-dragon,
+.frame-berserk {
+  filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55));
+}

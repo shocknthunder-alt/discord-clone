@@ -507,137 +507,7 @@ function ExileArt() {
   );
 }
 
-/* ───────────────────────── Everyday objects: beer mug, coffee cup, pickle jar ───────────────────────── */
-
-const BEER_SCREEN = { x: 250, y: 215, w: 470, h: 264 };
-
-function BeerArt() {
-  const sc = BEER_SCREEN;
-  const bubbles = Array.from({ length: 46 }, (_, i) => ({
-    x: 232 + ((i * 53) % 506),
-    y: 190 + ((i * 97) % 340),
-    r: 2 + (i % 5) * 1.4,
-  }));
-  const foam: Array<[number, number, number]> = [
-    [260, 100, 17], [318, 82, 22], [380, 66, 18], [450, 74, 24], [520, 66, 19], [590, 78, 23], [650, 84, 17], [706, 110, 20],
-    [282, 140, 14], [352, 126, 19], [430, 132, 15], [505, 120, 20], [585, 134, 14], [660, 126, 18], [738, 140, 14],
-  ];
-  return (
-    <Svg>
-      <defs>
-        <Hole id="be-hole" x={sc.x} y={sc.y} w={sc.w} h={sc.h} r={8} />
-        <linearGradient id="be-beer" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#f8c24a" />
-          <stop offset="0.45" stopColor="#e8951a" />
-          <stop offset="1" stopColor="#a85c08" />
-        </linearGradient>
-        <linearGradient id="be-glass" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.65" />
-          <stop offset="0.12" stopColor="#cfe6ee" stopOpacity="0.25" />
-          <stop offset="0.88" stopColor="#cfe6ee" stopOpacity="0.22" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0.55" />
-        </linearGradient>
-        <radialGradient id="be-foam" cx="0.5" cy="0.3" r="0.8">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.7" stopColor="#fbf1d6" />
-          <stop offset="1" stopColor="#e9d9ab" />
-        </radialGradient>
-        <linearGradient id="be-handle" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#ffffff" stopOpacity="0.8" />
-          <stop offset="0.5" stopColor="#bfdbe4" stopOpacity="0.45" />
-          <stop offset="1" stopColor="#ffffff" stopOpacity="0.7" />
-        </linearGradient>
-        <filter id="be-soft" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="6" />
-        </filter>
-        <filter id="be-shadow" x="-10%" y="-10%" width="120%" height="130%">
-          <feDropShadow dx="0" dy="10" stdDeviation="9" floodOpacity="0.45" />
-        </filter>
-      </defs>
-      <g filter="url(#be-shadow)">
-        <path d="M758,215 C905,195 935,275 930,345 C925,430 885,500 748,492" fill="none" stroke="url(#be-handle)" strokeWidth="38" strokeLinecap="round" />
-        <path d="M758,215 C905,195 935,275 930,345 C925,430 885,500 748,492" fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="5" strokeLinecap="round" transform="translate(-6,-4)" />
-        <g mask="url(#be-hole)">
-          <path d="M203,150 H767 L751,562 Q749,588 722,588 H248 Q221,588 219,562 Z" fill="#cfe9f0" fillOpacity="0.55" />
-          <path d="M219,160 H751 L738,546 H232 Z" fill="url(#be-beer)" />
-          {bubbles.map((b, i) => (
-            <circle key={i} cx={b.x} cy={b.y} r={b.r} fill="#fff" fillOpacity="0.16" stroke="#fff" strokeOpacity="0.45" strokeWidth="1" />
-          ))}
-          <path d="M231,546 H739 L736,580 Q734,588 722,588 H248 Q236,588 234,580 Z" fill="#e8f6fa" fillOpacity="0.8" />
-          <path d="M246,556 H724" stroke="#fff" strokeOpacity="0.7" strokeWidth="3" />
-          <path d="M203,150 H767 L751,562 Q749,588 722,588 H248 Q221,588 219,562 Z" fill="url(#be-glass)" />
-          <path d="M236,190 L246,520" stroke="#fff" strokeOpacity="0.55" strokeWidth="14" strokeLinecap="round" filter="url(#be-soft)" />
-          <path d="M728,200 L722,500" stroke="#fff" strokeOpacity="0.4" strokeWidth="8" strokeLinecap="round" filter="url(#be-soft)" />
-        </g>
-        <path
-          d="M198,165 Q186,98 238,92 Q256,40 318,64 Q362,22 432,56 Q484,18 545,54 Q606,24 654,60 Q716,42 738,94 Q792,100 774,166 Q770,196 746,176 Q736,214 716,176 Q690,168 660,178 H300 Q262,170 246,206 Q232,176 198,165 Z"
-          fill="url(#be-foam)"
-        />
-        {foam.map(([cx, cy, r], i) => (
-          <circle key={i} cx={cx} cy={cy} r={r} fill="#fff" fillOpacity="0.5" stroke="#d9c690" strokeOpacity="0.7" strokeWidth="1.4" />
-        ))}
-      </g>
-      <rect x={sc.x} y={sc.y} width={sc.w} height={sc.h} rx="8" fill="#f0a020" fillOpacity="0.1" />
-      <rect x={sc.x} y={sc.y} width={sc.w} height={sc.h} rx="8" fill="none" stroke="#7a4306" strokeOpacity="0.5" strokeWidth="3" />
-    </Svg>
-  );
-}
-
-const COFFEE_SCREEN = { x: 260, y: 205, w: 480, h: 270 };
-
-function CoffeeArt() {
-  const sc = COFFEE_SCREEN;
-  return (
-    <Svg>
-      <defs>
-        <Hole id="co-hole" x={sc.x} y={sc.y} w={sc.w} h={sc.h} r={14} />
-        <linearGradient id="co-ceramic" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#c7ccd4" />
-          <stop offset="0.22" stopColor="#f7f8fa" />
-          <stop offset="0.6" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#b9bec8" />
-        </linearGradient>
-        <linearGradient id="co-saucer" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#b8bdc7" />
-        </linearGradient>
-        <radialGradient id="co-coffee" cx="0.5" cy="0.4" r="0.7">
-          <stop offset="0" stopColor="#a9713f" />
-          <stop offset="0.55" stopColor="#6b3e1c" />
-          <stop offset="1" stopColor="#35190a" />
-        </radialGradient>
-        <filter id="co-blur" x="-30%" y="-30%" width="160%" height="160%">
-          <feGaussianBlur stdDeviation="9" />
-        </filter>
-        <filter id="co-shadow" x="-10%" y="-10%" width="120%" height="140%">
-          <feDropShadow dx="0" dy="12" stdDeviation="10" floodOpacity="0.4" />
-        </filter>
-      </defs>
-      <g fill="none" stroke="#fff" strokeOpacity="0.4" strokeWidth="14" strokeLinecap="round" filter="url(#co-blur)">
-        <path d="M400,96 C360,60 440,40 400,0" />
-        <path d="M500,92 C460,50 540,30 500,-8" />
-        <path d="M600,96 C560,60 640,40 600,0" />
-      </g>
-      <g filter="url(#co-shadow)">
-        <ellipse cx="500" cy="584" rx="430" ry="38" fill="url(#co-saucer)" />
-        <ellipse cx="500" cy="576" rx="330" ry="24" fill="#aab0bb" fillOpacity="0.55" />
-        <path d="M818,215 C965,195 985,355 838,420" fill="none" stroke="url(#co-ceramic)" strokeWidth="42" strokeLinecap="round" />
-        <path d="M818,215 C965,195 985,355 838,420" fill="none" stroke="#fff" strokeOpacity="0.7" strokeWidth="6" strokeLinecap="round" transform="translate(-7,-5)" />
-        <g mask="url(#co-hole)">
-          <path d="M170,140 L186,330 C196,460 230,525 300,540 Q320,545 340,547 H660 Q680,545 700,540 C770,525 804,460 814,330 L830,140 Z" fill="url(#co-ceramic)" />
-          <path d="M170,140 L186,330 C196,460 230,525 300,540 L330,300 Z" fill="#9aa1ad" fillOpacity="0.18" />
-          <path d="M236,170 L252,420" stroke="#fff" strokeOpacity="0.8" strokeWidth="12" strokeLinecap="round" filter="url(#co-blur)" />
-        </g>
-        <ellipse cx="500" cy="140" rx="330" ry="52" fill="url(#co-ceramic)" />
-        <ellipse cx="500" cy="142" rx="300" ry="40" fill="url(#co-coffee)" />
-        <ellipse cx="500" cy="136" rx="262" ry="28" fill="none" stroke="#d9a76a" strokeOpacity="0.55" strokeWidth="4" />
-        <path d="M500,162 C440,140 452,118 482,124 C494,128 500,138 500,138 C500,138 506,128 518,124 C548,118 560,140 500,162 Z" fill="#f2dcb4" fillOpacity="0.85" />
-      </g>
-      <rect x={sc.x} y={sc.y} width={sc.w} height={sc.h} rx="14" fill="none" stroke="#8a919d" strokeOpacity="0.8" strokeWidth="4" />
-      <rect x={sc.x - 6} y={sc.y - 6} width={sc.w + 12} height={sc.h + 12} rx="18" fill="none" stroke="#fff" strokeOpacity="0.9" strokeWidth="3" />
-    </Svg>
-  );
-}
+/* ───────────────────────── Everyday objects: pickle jar ───────────────────────── */
 
 const JAR_SCREEN = { x: 250, y: 205, w: 600, h: 338 };
 
@@ -743,6 +613,32 @@ function Poe2Art() {
   return <img className="stream-frame-art" src="/tv/poe2-frame.webp" alt="" draggable={false} />;
 }
 
+/* ───────────────────────── Frames cut out of generated artwork ─────────────────────────
+   Each is a transparent WebP (public/tv) — the ornaments wrap the window and everything
+   else is see-through. The video is tucked a few pixels under the art so no seam shows. */
+
+function ImgArt({ src }: { src: string }) {
+  return <img className="stream-frame-art" src={src} alt="" draggable={false} />;
+}
+
+/** Percent-based screen rect for an image canvas, with the video slipped under the art. */
+function imgFrame(id: string, name: string, file: string, w: number, h: number, hole: [number, number, number, number]): StreamFrameDef {
+  const tuck = 6;
+  const [x0, y0, x1, y1] = hole;
+  return {
+    id,
+    name,
+    height: Math.round((1100 * h) / w),
+    screen: {
+      l: ((x0 - tuck) / w) * 100,
+      t: ((y0 - tuck) / h) * 100,
+      w: ((x1 - x0 + tuck * 2) / w) * 100,
+      h: ((y1 - y0 + tuck * 2) / h) * 100,
+    },
+    Art: () => <ImgArt src={`/tv/${file}.webp`} />,
+  };
+}
+
 export const STREAM_FRAMES: StreamFrameDef[] = [
   { id: "retro", name: "Ретро телевизор", screen: RETRO, crt: true, Art: RetroArt },
   { id: "cinema", name: "Кино салон", screen: rect(CINEMA_SCREEN.x, CINEMA_SCREEN.y, CINEMA_SCREEN.w, CINEMA_SCREEN.h), Art: CinemaArt },
@@ -757,8 +653,9 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
     screen: { l: (212 / 1100) * 100, t: (162 / 680) * 100, w: (676 / 1100) * 100, h: (380 / 680) * 100 },
     Art: Poe2Art,
   },
-  { id: "beer", name: "Халба бира", screen: rect(BEER_SCREEN.x, BEER_SCREEN.y, BEER_SCREEN.w, BEER_SCREEN.h), Art: BeerArt },
-  { id: "coffee", name: "Чаша кафе", screen: rect(COFFEE_SCREEN.x, COFFEE_SCREEN.y, COFFEE_SCREEN.w, COFFEE_SCREEN.h), Art: CoffeeArt },
+  imgFrame("fireice", "Огън и лед", "frame-fireice", 1011, 733, [124, 126, 877, 496]),
+  imgFrame("dragon", "Дракон", "frame-dragon", 943, 580, [151, 173, 788, 501]),
+  imgFrame("berserk", "Берсерк", "frame-berserk", 1326, 567, [316, 162, 1018, 499]),
   { id: "jar", name: "Буркан с туршия", screen: rect(JAR_SCREEN.x, JAR_SCREEN.y, JAR_SCREEN.w, JAR_SCREEN.h), Art: JarArt },
 ];
 
