@@ -7,7 +7,7 @@
   "author": "ШмиркаТа",
   "scripts": {
     "build:client": "node build-client.mjs",
-    "start": "npm run build:client && electron .",
+    "start": "npm run build:client && node start.mjs",
     "dist": "npm run build:client && electron-builder --win nsis"
   },
   "devDependencies": {

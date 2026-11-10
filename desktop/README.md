@@ -4,7 +4,9 @@ Shell that serves the **built client from inside the app** (a fixed version, ind
 website) and talks to the same production servers.
 
 ## Status
-First skeleton — **not built or run yet.** Written so the work isn't lost; see the TODO list.
+Skeleton **builds and launches** (verified: `npm install`, client build, window + local server). Not yet tested end-to-end (login, voice, screen share); see the TODO list.
+
+Note: `npm start` goes through `start.mjs`, which unsets `ELECTRON_RUN_AS_NODE` (VS Code's terminal sets it and breaks Electron).
 
 ## Run / build
 ```
@@ -21,9 +23,9 @@ npm run dist       # Windows installer in desktop/dist/ (Shmirka Setup x.y.z.exe
   permissions and opens external links in the browser.
 
 ## TODO
-1. `npm install` and the first real run; fix whatever breaks.
+1. ~~`npm install` and the first real run~~ done; still test login/voice/screen share by hand.
 2. Global push-to-talk that works inside games (`uiohook-napi`, forward keys to the client's PTT logic).
 3. Screen/window picker so games can be shared, with optional system audio (loopback).
 4. App icon (`build.win.icon`), then the installer; test the SmartScreen "More info → Run anyway" flow.
-5. Client: skip `UpdateBanner` when `window.shmirkaDesktop` exists.
+5. ~~Client: skip `UpdateBanner` when `window.shmirkaDesktop` exists.~~ done.
 6. Check YouTube embeds work from the `localhost` origin.
