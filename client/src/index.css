@@ -2272,3 +2272,33 @@ input[type="range"] {
 }
 .frame-poe2 .tv-caption { display: none; }
 .frame-poe2 { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
+
+/* ---- Camera pictures inside voice tiles ---- */
+.voice-tile:has(.voice-tile-video-wrap) {
+  width: 260px;
+}
+
+.voice-tile-video-wrap {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 3px transparent, 0 8px 22px rgba(0, 0, 0, 0.35);
+  transition: box-shadow 0.1s ease;
+}
+
+.voice-tile-video-wrap.speaking {
+  box-shadow: 0 0 0 3px #23a559, 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+.voice-tile-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.voice-tile-video.mirrored {
+  transform: scaleX(-1);
+}

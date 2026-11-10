@@ -22,6 +22,7 @@ export interface RemotePeer {
   socketId: string;
   audioStream: MediaStream | null;
   screenStream: MediaStream | null;
+  cameraStream: MediaStream | null;
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;
@@ -42,6 +43,8 @@ interface VoiceState {
   activeVoiceChannelId: string | null;
   localStream: MediaStream | null;
   localScreenStream: MediaStream | null;
+  localCameraStream: MediaStream | null;
+  isCameraOn: boolean;
   isMuted: boolean;
   isDeafened: boolean;
   isScreenSharing: boolean;
@@ -65,6 +68,8 @@ interface VoiceState {
   setMuted: (muted: boolean) => void;
   setDeafened: (deafened: boolean) => void;
   setScreenSharing: (sharing: boolean) => void;
+  setLocalCameraStream: (stream: MediaStream | null) => void;
+  setCameraOn: (on: boolean) => void;
   setScreenShareNotice: (notice: string | null) => void;
   upsertPeer: (peer: Partial<RemotePeer> & { socketId: string }) => void;
   removePeer: (socketId: string) => void;
@@ -89,6 +94,7 @@ function emptyPeer(socketId: string): RemotePeer {
     socketId,
     audioStream: null,
     screenStream: null,
+    cameraStream: null,
     isMuted: false,
     isDeafened: false,
     isScreenSharing: false,
@@ -104,6 +110,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   activeVoiceChannelId: null,
   localStream: null,
   localScreenStream: null,
+  localCameraStream: null,
+  isCameraOn: false,
   isMuted: false,
   isDeafened: false,
   isScreenSharing: false,
@@ -123,6 +131,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   setMuted: (muted) => set({ isMuted: muted }),
   setDeafened: (deafened) => set({ isDeafened: deafened }),
   setScreenSharing: (sharing) => set({ isScreenSharing: sharing }),
+  setLocalCameraStream: (stream) => set({ localCameraStream: stream }),
+  setCameraOn: (on) => set({ isCameraOn: on }),
   setScreenShareNotice: (screenShareNotice) => set({ screenShareNotice }),
 
   upsertPeer: (partial) =>
@@ -211,6 +221,8 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       activeVoiceChannelId: null,
       localStream: null,
       localScreenStream: null,
+      localCameraStream: null,
+      isCameraOn: false,
       isMuted: false,
       screenShareNotice: null,
       isDeafened: false,

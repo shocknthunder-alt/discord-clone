@@ -3,7 +3,7 @@ import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import FloatingIcon from "./FloatingIcon";
-import { HangupIcon, HeadphoneIcon, LockIcon, MicIcon, ScreenShareIcon } from "./HudIcons";
+import { CameraIcon, HangupIcon, HeadphoneIcon, LockIcon, MicIcon, ScreenShareIcon } from "./HudIcons";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
 
@@ -24,8 +24,8 @@ function defaultColumnPosition(index: number, count: number) {
 }
 
 export default function FloatingVoiceHud() {
-  const { activeVoiceChannelId, isMuted, isDeafened, isScreenSharing, connectionQuality } = useVoiceStore();
-  const { leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare } = useVoiceChannel();
+  const { activeVoiceChannelId, isMuted, isDeafened, isScreenSharing, isCameraOn, connectionQuality } = useVoiceStore();
+  const { leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare, toggleCamera } = useVoiceChannel();
   const { locked, toggleLocked } = useLayoutLockStore();
   const [showSettings, setShowSettings] = useState(false);
 
@@ -33,13 +33,13 @@ export default function FloatingVoiceHud() {
 
   return (
     <>
-      <FloatingIcon id="hud-mute" getDefaultPosition={() => defaultColumnPosition(0, 6)}>
+      <FloatingIcon id="hud-mute" getDefaultPosition={() => defaultColumnPosition(0, 7)}>
         <button className={`hud-icon-button ${isMuted ? "active" : ""}`} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
           <MicIcon muted={isMuted} />
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-deafen" getDefaultPosition={() => defaultColumnPosition(1, 6)}>
+      <FloatingIcon id="hud-deafen" getDefaultPosition={() => defaultColumnPosition(1, 7)}>
         <button
           className={`hud-icon-button ${isDeafened ? "active" : ""}`}
           onClick={toggleDeafen}
@@ -49,7 +49,7 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-screenshare" getDefaultPosition={() => defaultColumnPosition(2, 6)}>
+      <FloatingIcon id="hud-screenshare" getDefaultPosition={() => defaultColumnPosition(2, 7)}>
         <button
           className={`hud-icon-button ${isScreenSharing ? "active" : ""}`}
           onClick={() => toggleScreenShare()}
@@ -59,19 +59,29 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-disconnect" getDefaultPosition={() => defaultColumnPosition(3, 6)}>
+      <FloatingIcon id="hud-camera" getDefaultPosition={() => defaultColumnPosition(3, 7)}>
+        <button
+          className={`hud-icon-button ${isCameraOn ? "active" : ""}`}
+          onClick={() => void toggleCamera()}
+          title={isCameraOn ? "Turn off camera" : "Turn on camera"}
+        >
+          <CameraIcon off={!isCameraOn} />
+        </button>
+      </FloatingIcon>
+
+      <FloatingIcon id="hud-disconnect" getDefaultPosition={() => defaultColumnPosition(4, 7)}>
         <button className="hud-icon-button hangup" onClick={leaveVoiceChannel} title="Disconnect">
           <HangupIcon />
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-settings" getDefaultPosition={() => defaultColumnPosition(4, 6)}>
+      <FloatingIcon id="hud-settings" getDefaultPosition={() => defaultColumnPosition(5, 7)}>
         <button className="hud-icon-button" onClick={() => setShowSettings(true)} title="Settings">
           ⚙️
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-network" getDefaultPosition={() => defaultColumnPosition(5, 6)}>
+      <FloatingIcon id="hud-network" getDefaultPosition={() => defaultColumnPosition(6, 7)}>
         <div className="hud-icon-button static" title={`Connection: ${connectionQuality}`}>
           <SignalIcon quality={connectionQuality} size={14} />
         </div>

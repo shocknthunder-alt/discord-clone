@@ -4,13 +4,14 @@ import type { Socket } from "socket.io-client";
 export type ConnectionQuality = "good" | "medium" | "poor" | "unknown";
 
 interface ProducerAppData {
-  type: "mic" | "screen-video" | "screen-audio";
+  type: "mic" | "screen-video" | "screen-audio" | "camera";
   userId?: string;
 }
 
 interface ProducerMeta {
   userId: string;
   isScreen: boolean;
+  isCamera: boolean;
 }
 
 interface NewProducerPayload {
@@ -23,6 +24,7 @@ interface NewProducerPayload {
 interface SfuMediaManagerCallbacks {
   onAudioStream: (userId: string, stream: MediaStream | null) => void;
   onScreenStream: (userId: string, stream: MediaStream | null) => void;
+  onCameraStream: (userId: string, stream: MediaStream | null) => void;
   onQualityChange?: (quality: ConnectionQuality) => void;
   onPeerQualityChange?: (userId: string, quality: ConnectionQuality, rttMs: number | null) => void;
 }
@@ -47,11 +49,13 @@ export class SfuMediaManager {
   private micProducer: MsTypes.Producer | null = null;
   private screenVideoProducer: MsTypes.Producer | null = null;
   private screenAudioProducer: MsTypes.Producer | null = null;
+  private cameraProducer: MsTypes.Producer | null = null;
 
   private consumers = new Map<string, MsTypes.Consumer>(); // producerId -> consumer
   private producerMeta = new Map<string, ProducerMeta>(); // producerId -> meta
   private remoteAudioStreams = new Map<string, MediaStream>(); // userId -> stream
   private remoteScreenStreams = new Map<string, MediaStream>(); // userId -> stream
+  private remoteCameraStreams = new Map<string, MediaStream>(); // userId -> stream
 
   private statsInterval: ReturnType<typeof setInterval> | null = null;
   private knownUserIds = new Set<string>();
@@ -161,12 +165,19 @@ export class SfuMediaManager {
     this.consumers.set(producerId, consumer);
 
     const isScreen = appData.type === "screen-video" || appData.type === "screen-audio";
-    this.producerMeta.set(producerId, { userId, isScreen });
+    const isCamera = appData.type === "camera";
+    this.producerMeta.set(producerId, { userId, isScreen, isCamera });
 
     await this.request("sfu:resume-consumer", { consumerId: consumer.id });
     console.log(`[sfu] consuming ${kind} from ${userId}${isScreen ? " (screen)" : ""}`);
 
-    if (isScreen) {
+    if (isCamera) {
+      // A fresh stream per camera start: reusing one would keep a dead track around after a
+      // quick off/on, and the <video> would show a frozen last frame.
+      const stream = new MediaStream([consumer.track]);
+      this.remoteCameraStreams.set(userId, stream);
+      this.callbacks.onCameraStream(userId, stream);
+    } else if (isScreen) {
       const stream = this.remoteScreenStreams.get(userId) ?? new MediaStream();
       // Only one video / one screen-audio track should ever be live per user at once — drop
       // any stale same-kind track first (mirrors the old mesh manager's black-frame fix).
@@ -193,7 +204,10 @@ export class SfuMediaManager {
     this.consumers.delete(producerId);
     this.producerMeta.delete(producerId);
 
-    if (meta.isScreen) {
+    if (meta.isCamera) {
+      this.remoteCameraStreams.delete(meta.userId);
+      this.callbacks.onCameraStream(meta.userId, null);
+    } else if (meta.isScreen) {
       const stream = this.remoteScreenStreams.get(meta.userId);
       stream?.removeTrack(consumer.track);
       const stillHasTracks = !!stream && stream.getTracks().length > 0;
@@ -210,6 +224,7 @@ export class SfuMediaManager {
     this.knownUserIds.delete(userId);
     this.remoteAudioStreams.delete(userId);
     this.remoteScreenStreams.delete(userId);
+    this.remoteCameraStreams.delete(userId);
   };
 
   async produceMic(track: MediaStreamTrack) {
@@ -287,6 +302,32 @@ export class SfuMediaManager {
     }
   }
 
+  async startCamera(track: MediaStreamTrack) {
+    if (!this.sendTransport || this.cameraProducer) return;
+    try {
+      // Motion matters more than sharpness for a face.
+      track.contentHint = "motion";
+    } catch {
+      // not supported everywhere
+    }
+    this.cameraProducer = await this.sendTransport.produce({
+      track,
+      encodings: [
+        { scaleResolutionDownBy: 2, maxBitrate: 250_000 },
+        { scaleResolutionDownBy: 1, maxBitrate: 1_200_000 },
+      ],
+      appData: { type: "camera" } satisfies ProducerAppData,
+    });
+  }
+
+  stopCamera() {
+    const producer = this.cameraProducer;
+    if (!producer) return;
+    this.socket.emit("sfu:close-producer", { roomId: this.roomId, producerId: producer.id });
+    producer.close();
+    this.cameraProducer = null;
+  }
+
   stopScreenShare() {
     for (const producer of [this.screenVideoProducer, this.screenAudioProducer]) {
       if (!producer) continue;
@@ -326,7 +367,7 @@ export class SfuMediaManager {
 
       for (const [producerId, consumer] of this.consumers) {
         const meta = this.producerMeta.get(producerId);
-        if (!meta || meta.isScreen) continue;
+        if (!meta || meta.isScreen || meta.isCamera) continue;
 
         let peerQuality = baseQuality;
         try {

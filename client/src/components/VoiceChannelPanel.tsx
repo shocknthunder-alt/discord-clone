@@ -1,6 +1,6 @@
 import VoiceChannelIcon from "./VoiceChannelIcon";
 import { SocketEvents } from "@discord-clone/shared";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -25,6 +25,18 @@ function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; n
   );
 }
 
+/** Live camera picture inside a voice tile (own preview is mirrored, like a mirror). */
+function TileVideo({ stream, mirrored = false }: { stream: MediaStream; mirrored?: boolean }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    void el.play().catch(() => {});
+  }, [stream]);
+  return <video ref={ref} className={`voice-tile-video ${mirrored ? "mirrored" : ""}`} autoPlay playsInline muted />;
+}
+
 function PeerTile({
   peer,
   onContextMenu,
@@ -42,7 +54,13 @@ function PeerTile({
       onClick={(e) => onContextMenu(e, peer)}
       onContextMenu={(e) => onContextMenu(e, peer)}
     >
-      <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
+      {peer.cameraStream ? (
+        <div className={`voice-tile-video-wrap ${speaking ? "speaking" : ""}`}>
+          <TileVideo stream={peer.cameraStream} />
+        </div>
+      ) : (
+        <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
+      )}
       <div>{peer.username || "connecting…"}</div>
       <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
@@ -71,7 +89,7 @@ function PeerTile({
 
 export default function VoiceChannelPanel() {
   const screenShareNotice = useVoiceStore((s) => s.screenShareNotice);
-  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream } = useVoiceStore();
+  const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, localCameraStream } = useVoiceStore();
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
@@ -152,7 +170,13 @@ export default function VoiceChannelPanel() {
               />
             ))}
           <div className="voice-tile self">
-            <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />
+            {localCameraStream ? (
+              <div className={`voice-tile-video-wrap ${selfSpeaking ? "speaking" : ""}`}>
+                <TileVideo stream={localCameraStream} mirrored />
+              </div>
+            ) : (
+              <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />
+            )}
             <div>{currentUsername}</div>
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
             {isScreenSharing && (

@@ -160,6 +160,9 @@ export function useVoiceChannel() {
       onScreenStream: (userId, stream) => {
         upsertPeerMediaByUserId(userId, { screenStream: stream, isScreenSharing: !!stream });
       },
+      onCameraStream: (userId, stream) => {
+        upsertPeerMediaByUserId(userId, { cameraStream: stream });
+      },
       onQualityChange: (quality) => {
         useVoiceStore.getState().setConnectionQuality(quality);
       },
@@ -321,7 +324,7 @@ export function useVoiceChannel() {
 
   const leaveVoiceChannel = useCallback(() => {
     const socket = getSocket();
-    const { activeVoiceChannelId, localStream, localScreenStream } = useVoiceStore.getState();
+    const { activeVoiceChannelId, localStream, localScreenStream, localCameraStream } = useVoiceStore.getState();
 
     if (socket && activeVoiceChannelId) {
       socket.emit(SocketEvents.VoiceLeave, { voiceChannelId: activeVoiceChannelId });
@@ -344,6 +347,7 @@ export function useVoiceChannel() {
 
     localStream?.getTracks().forEach((t) => t.stop());
     localScreenStream?.getTracks().forEach((t) => t.stop());
+    localCameraStream?.getTracks().forEach((t) => t.stop());
 
     useVoiceStore.getState().reset();
     useMusicStore.getState().setState(null);
@@ -385,6 +389,44 @@ export function useVoiceChannel() {
 
   const setPushToTalkKey = useCallback((code: string | null) => {
     store.setPushToTalkKey(code);
+  }, [store]);
+
+  const toggleCamera = useCallback(async () => {
+    const { activeVoiceChannelId, isCameraOn, localCameraStream } = useVoiceStore.getState();
+    if (!activeVoiceChannelId || !activeMediaManager) return;
+
+    if (isCameraOn) {
+      activeMediaManager.stopCamera();
+      localCameraStream?.getTracks().forEach((t) => t.stop());
+      store.setLocalCameraStream(null);
+      store.setCameraOn(false);
+      return;
+    }
+
+    try {
+      const cameraStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
+        audio: false,
+      });
+      store.setLocalCameraStream(cameraStream);
+      store.setCameraOn(true);
+      await activeMediaManager.startCamera(cameraStream.getVideoTracks()[0]!);
+      // The camera can be unplugged or revoked from the browser UI.
+      cameraStream.getVideoTracks()[0]!.onended = () => {
+        if (useVoiceStore.getState().isCameraOn) void toggleCamera();
+      };
+    } catch (err) {
+      store.setLocalCameraStream(null);
+      store.setCameraOn(false);
+      const name = (err as DOMException).name;
+      window.alert(
+        name === "NotAllowedError"
+          ? "Camera access is blocked. Allow it for this site in the browser's address bar and try again."
+          : name === "NotFoundError"
+            ? "No camera was found."
+            : "Couldn't start the camera.",
+      );
+    }
   }, [store]);
 
   const toggleScreenShare = useCallback(async () => {
@@ -534,6 +576,7 @@ export function useVoiceChannel() {
     toggleMute,
     toggleDeafen,
     toggleScreenShare,
+    toggleCamera,
     setMicMode,
     setPushToTalkKey,
     setScreenShareQuality,

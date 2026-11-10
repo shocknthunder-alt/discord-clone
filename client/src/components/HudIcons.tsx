@@ -89,3 +89,13 @@ export function ScreenShareIcon({ size = 16, color = "#ffffff" }: IconProps) {
     </svg>
   );
 }
+
+export function CameraIcon({ size = 16, color = "#ffffff", off = false }: IconProps & { off?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2.5" y="6" width="13.5" height="12" rx="2.2" stroke={color} strokeWidth="1.8" />
+      <path d="M16 10.5l5-3v9l-5-3z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
+      {off && <line x1="4" y1="4" x2="20" y2="20" stroke="#da373c" strokeWidth="2.4" strokeLinecap="round" />}
+    </svg>
+  );
+}
