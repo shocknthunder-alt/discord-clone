@@ -12,10 +12,13 @@
   },
   "devDependencies": {
     "electron": "^33.2.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "rcedit": "^5.0.2"
   },
   "build": {
     "appId": "bg.shmirka.desktop",
+    "npmRebuild": false,
+    "afterPack": "after-pack.js",
     "productName": "ШмиркаТа",
     "files": [
       "main.js",
@@ -24,7 +27,9 @@
       "client-dist/**/*"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,

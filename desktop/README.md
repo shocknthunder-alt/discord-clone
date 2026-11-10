@@ -26,6 +26,6 @@ npm run dist       # Windows installer in desktop/dist/ (Shmirka Setup x.y.z.exe
 1. ~~`npm install` and the first real run~~ done; still test login/voice/screen share by hand.
 2. ~~Global push-to-talk~~ implemented (uiohook-napi in `globalKeys.js` -> IPC -> `handlePushToTalkKey`); needs a hands-on test with a game in the foreground.
 3. ~~Screen/window picker~~ implemented (in-app picker + optional loopback system audio); needs a hands-on test.
-4. App icon (`build.win.icon`), then the installer; test the SmartScreen "More info → Run anyway" flow.
+4. ~~App icon + installer~~ done: `npm run dist` -> `desktop/dist/ШмиркаТа Setup 1.0.0.exe` (unsigned; SmartScreen "More info -> Run anyway"). Icon: `build/icon.*` (regenerate with `make-icon.js`).
 5. ~~Client: skip `UpdateBanner` when `window.shmirkaDesktop` exists.~~ done.
 6. Check YouTube embeds work from the `localhost` origin.
