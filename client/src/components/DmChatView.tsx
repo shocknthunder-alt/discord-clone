@@ -1,4 +1,5 @@
 import { SocketEvents, type DirectMessageDTO } from "@discord-clone/shared";
+import ChatImage from "./ChatImage";
 import { useEffect, useRef, useState } from "react";
 import { fetchDmMessages } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
@@ -72,9 +73,7 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
       )}
 
       {message.imageUrl && (
-        <a href={message.imageUrl} target="_blank" rel="noreferrer">
-          <img className="message-image" src={message.imageUrl} alt="attachment" />
-        </a>
+        <ChatImage url={message.imageUrl} />
       )}
     </div>
   );

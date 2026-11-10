@@ -1,4 +1,5 @@
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
+import ChatImage from "./ChatImage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { useSearchStore } from "../store/searchStore";
@@ -100,9 +101,7 @@ function MessageRow({
       )}
 
       {message.imageUrl && (
-        <a href={message.imageUrl} target="_blank" rel="noreferrer">
-          <img className="message-image" src={message.imageUrl} alt="attachment" />
-        </a>
+        <ChatImage url={message.imageUrl} />
       )}
       </div>
 

@@ -13,7 +13,7 @@ interface Props {
   children: React.ReactNode;
 }
 
-const ICON_SIZE = 32;
+const ICON_SIZE = 44;
 // Pixels of movement required before a pointerdown counts as a drag rather than a click.
 // Without this, capturing the pointer on every pointerdown (even one that never moves)
 // hijacked the click event of whatever button lives inside the icon — the lock toggle
