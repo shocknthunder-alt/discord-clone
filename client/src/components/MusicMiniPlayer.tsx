@@ -28,7 +28,15 @@ export default function MusicMiniPlayer() {
   });
   const [muted, setMuted] = useState(false);
   const [input, setInput] = useState("");
-  const [volume, setVolume] = useState(70);
+  // Starts low (and is remembered once changed): a new joiner used to be blasted by the music.
+  const [volume, setVolume] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem("musicVolume"));
+      return localStorage.getItem("musicVolume") !== null && Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 100) : 15;
+    } catch {
+      return 15;
+    }
+  });
 
   useEffect(() => {
     initMusicPlayerEngine();
@@ -47,6 +55,11 @@ export default function MusicMiniPlayer() {
 
   useEffect(() => {
     setMusicVolume(volume);
+    try {
+      localStorage.setItem("musicVolume", String(volume));
+    } catch {
+      // not fatal
+    }
   }, [volume]);
 
   useEffect(() => {

@@ -40,7 +40,7 @@ export default function StreamFrame({ children, caption, onStop }: Props) {
         >
           🎬 {frame.name}
         </button>
-        <button className="stop-watching-button" onClick={onStop} title="Stop watching this stream">
+        <button className="stop-watching-button danger" onClick={onStop} title="Stop watching this stream">
           Stop Watching
         </button>
       </div>

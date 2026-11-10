@@ -135,6 +135,7 @@ export function setNoiseGateSensitivity(value: number) {
 }
 
 const PEER_VOLUME_PREFIX = "peerVolume:";
+export const DEFAULT_PEER_VOLUME = 50;
 
 // Keyed by userId, not socketId — socketId is a fresh value every reconnect/rejoin, so a
 // per-socketId volume would never survive the exact moment it's needed for (someone leaving
@@ -142,7 +143,8 @@ const PEER_VOLUME_PREFIX = "peerVolume:";
 export function getPeerVolume(userId: string): number {
   const raw = localStorage.getItem(PEER_VOLUME_PREFIX + userId);
   const parsed = raw === null ? NaN : Number(raw);
-  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 100;
+  // Quieter than full by default — other people's voices at 100% were too loud for new users.
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : DEFAULT_PEER_VOLUME;
 }
 
 export function setPeerVolume(userId: string, volume: number) {
