@@ -253,7 +253,7 @@ export default function UserSettingsModal({ onClose }: Props) {
               <span
                 className="theme-swatch-preview"
                 style={{
-                  background: `hsl(${t.h} ${t.s}% ${t.l}%)`,
+                  background: t.bodyImage ? `${t.bodyImage}, hsl(${t.h} ${t.s}% ${t.l}%)` : `hsl(${t.h} ${t.s}% ${t.l}%)`,
                   borderColor: `hsl(${t.h} ${t.s}% ${t.light ? t.l - 14 : t.l + 14}%)`,
                 }}
               >

@@ -2049,8 +2049,7 @@ button {
    headings. Pure visual — no layout metrics other components depend on. */
 body {
   background: var(--c-backdrop);
-  background-image: radial-gradient(900px 500px at 8% -10%, rgba(var(--accent-rgb), 0.10), transparent 60%),
-    radial-gradient(700px 500px at 100% 110%, rgba(255, 179, 107, 0.07), transparent 60%);
+  background-image: var(--body-image);
   background-attachment: fixed;
 }
 
@@ -2084,8 +2083,8 @@ body {
 .main-content {
   border-radius: 22px;
   overflow: hidden;
-  border: 1px solid rgba(var(--line-rgb), 0.06);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
 }
 
 .channel-sidebar {
@@ -2105,7 +2104,7 @@ body {
 .channel-sidebar-header h2,
 .chat-header,
 .auth-card h1 {
-  font-family: "Bricolage Grotesque", "Nunito", sans-serif;
+  font-family: var(--heading-font);
   letter-spacing: -0.01em;
 }
 
