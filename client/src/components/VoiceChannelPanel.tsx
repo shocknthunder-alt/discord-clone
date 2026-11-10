@@ -20,7 +20,7 @@ import { useMovableTile } from "../hooks/useMovableTile";
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
   return avatarUrl ? (
-    <img className={className} src={avatarUrl} alt="" />
+    <img className={className} src={avatarUrl} alt="" draggable={false} />
   ) : (
     <div className={`${className} placeholder`}>{(name || "?").slice(0, 2).toUpperCase()}</div>
   );

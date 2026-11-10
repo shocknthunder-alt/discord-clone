@@ -2428,3 +2428,16 @@ input[type="range"] {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
   background: rgba(var(--line-rgb), 0.06);
 }
+
+/* The browser's native image/video drag would otherwise swallow the pointer events and make
+   the picture in the middle of a tile impossible to grab. */
+.voice-tile img,
+.voice-tile video {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.voice-tile.movable img,
+.voice-tile.movable video {
+  pointer-events: none;
+}

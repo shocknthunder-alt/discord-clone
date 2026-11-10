@@ -37,7 +37,7 @@ export function useMovableTile(id: string) {
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (locked || e.button !== 0) return;
       // Don't start a drag from the interactive bits inside a tile (watch button, etc.).
-      if ((e.target as HTMLElement).closest("button, a, input, video")) return;
+      if ((e.target as HTMLElement).closest("button, a, input")) return;
       drag.current = { startX: e.clientX, startY: e.clientY, origin: offset, bounds: null, active: false, current: offset };
     },
     [locked, offset],
