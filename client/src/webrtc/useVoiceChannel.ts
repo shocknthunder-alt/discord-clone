@@ -13,6 +13,7 @@ import {
   getNoiseGateSensitivity,
   getNoiseSuppressionEnabled,
   getPreferredMicDeviceId,
+  setPreferredMicDeviceId,
   setAutoGainControlEnabled as persistAutoGainControlEnabled,
   setEchoCancellationEnabled as persistEchoCancellationEnabled,
   setHighpassFilterEnabled as persistHighpassFilterEnabled,
@@ -101,18 +102,42 @@ export function useVoiceChannel() {
     }
 
     const preferredMicId = getPreferredMicDeviceId();
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        ...(preferredMicId ? { deviceId: { exact: preferredMicId } } : {}),
-        echoCancellation: getEchoCancellationEnabled(),
-        noiseSuppression: getNoiseSuppressionEnabled(),
-        autoGainControl: getAutoGainControlEnabled(),
-        // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
-        // default capture rate, paired with the bitrate tuning in mediasoupConfig.ts.
-        sampleRate: { ideal: 48000 },
-        channelCount: 1,
-      },
-    });
+    const audioConstraints = {
+      echoCancellation: getEchoCancellationEnabled(),
+      noiseSuppression: getNoiseSuppressionEnabled(),
+      autoGainControl: getAutoGainControlEnabled(),
+      // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
+      // default capture rate, paired with the bitrate tuning in mediasoupConfig.ts.
+      sampleRate: { ideal: 48000 },
+      channelCount: 1,
+    };
+    let localStream: MediaStream;
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: { ...(preferredMicId ? { deviceId: { exact: preferredMicId } } : {}), ...audioConstraints },
+      });
+    } catch (err) {
+      const name = (err as DOMException).name;
+      if (preferredMicId && (name === "NotFoundError" || name === "OverconstrainedError")) {
+        // The saved microphone isn't available any more (unplugged, renamed, a different
+        // browser profile) — `exact` made that fatal and joining just silently failed.
+        // Forget it and fall back to the system default.
+        setPreferredMicDeviceId(null);
+        try {
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+        } catch (retryErr) {
+          window.alert("Couldn't access a microphone. Plug one in (or allow microphone access) and try again.");
+          throw retryErr;
+        }
+      } else {
+        window.alert(
+          name === "NotAllowedError"
+            ? "Microphone access is blocked. Allow it for this site in the browser's address bar and try again."
+            : "Couldn't access a microphone. Plug one in and try again.",
+        );
+        throw err;
+      }
+    }
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);
 
