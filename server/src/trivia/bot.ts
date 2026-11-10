@@ -1,7 +1,7 @@
 import { SocketEvents } from "@discord-clone/shared";
 import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
-import { fetchEnglish, pickBulgarian, type TriviaQuestion } from "./questions.js";
+import { CATEGORIES, POOL_SIZE, buildDeck, fetchEnglish, resolveCategory, type TriviaQuestion } from "./questions.js";
 
 /**
  * Old-school IRC trivia (in the spirit of the classic mIRC trivia scripts): a question is
@@ -28,6 +28,8 @@ interface Game {
   queue: TriviaQuestion[];
   endless: boolean;
   english: boolean;
+  /** Limit to these categories (Bulgarian mode); null = everything. */
+  categories: string[] | null;
   total: number; // finite games only
   asked: number;
   current: TriviaQuestion | null;
@@ -42,6 +44,8 @@ interface Game {
 }
 
 const games = new Map<string, Game>(); // channelId -> running game
+// Questions already asked per server (kept while the process lives), so games don't repeat each other.
+const seenByServer = new Map<string, Set<string>>();
 let botUserId: string | null = null;
 
 async function getBotUserId(): Promise<string> {
@@ -80,7 +84,9 @@ async function say(io: IOServer, channelId: string, content: string) {
 const HELP = [
   "🎲 Тривия бот — команди:",
   "!trivia — безкрайна игра на български (до !стоп)",
-  "!trivia 15 — точно 15 въпроса · !trivia en — на английски",
+  "!trivia 15 — точно 15 въпроса",
+  "!trivia география / наука / игри … — само една категория (!cats — списък)",
+  "!trivia en — английски въпроси от интернет базите (хиляди)",
   "!hint — подсказка веднага · !skip — пропуска въпроса",
   "!score — твоите точки · !score име — на друг · !top — топ 10 на сървъра",
   "!стоп — спира играта",
@@ -163,10 +169,21 @@ async function ask(io: IOServer, game: Game) {
   if (!game.endless && game.asked >= game.total) return finish(io, game, "Това беше последният въпрос.");
 
   if (game.queue.length === 0) {
-    const more = game.english ? await fetchEnglish(10) : null;
-    game.queue = more ?? pickBulgarian(10);
+    const seen = seenByServer.get(game.serverId) ?? new Set<string>();
+    seenByServer.set(game.serverId, seen);
+    let more = game.english ? await fetchEnglish(20) : null;
+    if (!more) {
+      more = buildDeck(game.categories, seen);
+      if (more.length === 0) {
+        // the whole (selected) pool has been asked — start over
+        seen.clear();
+        more = buildDeck(game.categories, seen);
+      }
+    }
+    game.queue = more;
   }
   const q = game.queue.shift()!;
+  seenByServer.get(game.serverId)?.add(q.key);
   game.asked += 1;
   game.current = q;
   game.openedAt = Date.now();
@@ -278,16 +295,31 @@ async function start(io: IOServer, channelId: string, serverId: string, args: st
   const endless = nArg === undefined;
   const total = Math.min(Math.max(nArg ?? 0, 1), 50);
 
-  let queue = english ? await fetchEnglish(endless ? 10 : Math.min(total, 50)) : null;
-  if (english && !queue) await say(io, channelId, "Не успях да взема английски въпроси — играем на български.");
-  queue ??= pickBulgarian(endless ? 10 : total);
+  const wanted = args.filter((a) => a !== "en" && a !== "mix" && !/^\d+$/.test(a));
+  const categories: string[] = [];
+  for (const w of wanted) {
+    const c = resolveCategory(w);
+    if (!c) {
+      await say(io, channelId, `Не познавам категория „${w}“. Налични: ${CATEGORIES.join(", ")}.`);
+      return;
+    }
+    if (!categories.includes(c)) categories.push(c);
+  }
+
+  let queue: TriviaQuestion[] = [];
+  if (english) {
+    const got = await fetchEnglish(20);
+    if (got) queue = got;
+    else await say(io, channelId, "Не успях да взема английски въпроси — играем на български.");
+  }
 
   const game: Game = {
     channelId,
     serverId,
     queue,
     endless,
-    english: english && !!queue,
+    english: english && queue.length > 0,
+    categories: categories.length ? categories : null,
     total,
     asked: 0,
     current: null,
@@ -304,7 +336,7 @@ async function start(io: IOServer, channelId: string, serverId: string, args: st
   await say(
     io,
     channelId,
-    `🎲 Тривия започва! ${endless ? "Играем, докато някой напише !стоп." : `${total} въпроса.`}\nПиши отговорите като обикновени съобщения. Подсказки: !hint · пропускане: !skip · помощ: !help`,
+    `🎲 Тривия започва!${categories.length ? ` Категория: ${categories.join(", ")}.` : english ? " (английски)" : ""} ${endless ? "Играем, докато някой напише !стоп." : `${total} въпроса.`}\nПиши отговорите като обикновени съобщения. Подсказки: !hint · пропускане: !skip · помощ: !help · категории: !cats`,
   );
   game.timers.push(setTimeout(() => void ask(io, game), PAUSE_MS));
 }
@@ -333,6 +365,9 @@ export async function handleTriviaMessage(
       case "score":
       case "точки":
         return score(io, channel.id, channel.serverId, userId, username, text.split(/\s+/)[1]);
+      case "cats":
+      case "категории":
+        return say(io, channel.id, `🗂 Категории: ${CATEGORIES.join(", ")}\nНапример: !trivia география · !trivia математика 10\nВъпроси в базата: ${POOL_SIZE}+ на български (плюс безкрайна математика и анаграми) и хиляди на английски с !trivia en.`);
       case "help":
       case "помощ":
         return say(io, channel.id, HELP);
