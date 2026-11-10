@@ -20,6 +20,10 @@ function extrapolatedPosition(state: { positionSeconds: number; isPlaying: boole
 }
 
 let player: YT.Player | null = null;
+// The YT.Player object exists immediately but its methods (setVolume, unMute, playVideo, …)
+// don't until onReady fires — calling them before that throws a TypeError. That bit hardest
+// via unlockMusicAudio() at the start of joinVoiceChannel, which aborted the whole join.
+let ready = false;
 // Tracked by queue item id, not video id — the same song queued twice in a row is two
 // items with one videoId, and keying on videoId would never reload the second one.
 let loadedItemId: string | null = null;
@@ -30,7 +34,7 @@ let initPromise: Promise<void> | null = null;
 
 function applyState() {
   const state = useMusicStore.getState().state;
-  if (!player || !state) return;
+  if (!player || !ready || !state) return;
   const currentItem = state.currentIndex < state.queue.length ? state.queue[state.currentIndex] : null;
 
   if (!currentItem) {
@@ -85,6 +89,7 @@ export function initMusicPlayerEngine(): Promise<void> {
       playerVars: { playsinline: 1, mute: 1 },
       events: {
         onReady: () => {
+          ready = true;
           if (unmuted && !locallyMuted) player?.unMute();
           player?.setVolume(volume);
           applyState();
@@ -119,7 +124,7 @@ export function initMusicPlayerEngine(): Promise<void> {
   // one-time seek on state change wouldn't catch.
   setInterval(() => {
     const state = useMusicStore.getState().state;
-    if (!player || !state?.isPlaying) return;
+    if (!player || !ready || !state?.isPlaying) return;
     // Only correct drift while actually playing — seeking an ended/paused/cued player
     // (e.g. waiting on the server to advance the queue) would restart it.
     const playerState = player.getPlayerState();
@@ -141,14 +146,17 @@ export function initMusicPlayerEngine(): Promise<void> {
 export function unlockMusicAudio() {
   if (unmuted) return;
   unmuted = true;
-  if (!locallyMuted) player?.unMute();
-  player?.setVolume(volume);
+  if (ready) {
+    if (!locallyMuted) player?.unMute();
+    player?.setVolume(volume);
+  }
+  // If the player isn't ready yet, onReady applies the unmute (it checks `unmuted`).
   useMusicStore.getState().setAudioLocked(false);
 }
 
 export function setMusicVolume(next: number) {
   volume = next;
-  player?.setVolume(next);
+  if (ready) player?.setVolume(next);
 }
 
 export function getMusicCurrentTime(): number {
@@ -159,6 +167,7 @@ export function getMusicCurrentTime(): number {
 // shared by everyone in the channel.
 export function setMusicLocallyMuted(muted: boolean) {
   locallyMuted = muted;
+  if (!ready) return;
   if (muted) player?.mute();
   else if (unmuted) player?.unMute();
 }

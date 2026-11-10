@@ -93,7 +93,12 @@ export function useVoiceChannel() {
 
     // Joining is the click that satisfies the browser's autoplay policy — unlock the shared
     // music player now so the queue is audible without anyone touching it.
-    unlockMusicAudio();
+    // Never let the music player's state be able to block joining a call.
+    try {
+      unlockMusicAudio();
+    } catch (err) {
+      console.warn("music unlock failed", err);
+    }
 
     const preferredMicId = getPreferredMicDeviceId();
     const localStream = await navigator.mediaDevices.getUserMedia({
