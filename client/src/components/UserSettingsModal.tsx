@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
+import { STREAM_FRAMES } from "./streamFrames";
+import { useStreamFrameStore } from "../store/streamFrameStore";
 import { THEMES, applyTheme, getStoredThemeId } from "../theme/themes";
 import { useVoiceStore } from "../store/voiceStore";
 import {
@@ -45,6 +47,8 @@ interface Props {
 
 export default function UserSettingsModal({ onClose }: Props) {
   const { user, setUser, logout } = useAuthStore();
+  const streamFrameId = useStreamFrameStore((st) => st.frameId);
+  const setStreamFrameId = useStreamFrameStore((st) => st.setFrameId);
   const [themeId, setThemeId] = useState(getStoredThemeId());
   const [username, setUsername] = useState(user?.username ?? "");
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? null);
@@ -260,6 +264,27 @@ export default function UserSettingsModal({ onClose }: Props) {
                 <span className="theme-swatch-accent" style={{ background: t.accent }} />
               </span>
               <span className="theme-swatch-name">{t.name}</span>
+            </button>
+          ))}
+        </div>
+
+        <h2 className="modal-section-title">Stream Frame</h2>
+        <div className="stream-frame-picker">
+          {STREAM_FRAMES.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={`stream-frame-option ${streamFrameId === f.id ? "selected" : ""}`}
+              onClick={() => setStreamFrameId(f.id)}
+            >
+              <div className="tv">
+                <div
+                  className="tv-screen"
+                  style={{ left: `${f.screen.l}%`, top: `${f.screen.t}%`, width: `${f.screen.w}%`, height: `${f.screen.h}%` }}
+                />
+                <f.Art />
+              </div>
+              <span>{f.name}</span>
             </button>
           ))}
         </div>

@@ -1926,8 +1926,8 @@ button {
    the glass rectangle measured on that image (1098x625). */
 .tv {
   position: relative;
-  width: min(100%, 1100px, calc(76vh * 1098 / 625));
-  aspect-ratio: 1098 / 625;
+  width: min(100%, 1100px, calc(76vh * 1100 / 625));
+  aspect-ratio: 1100 / 625;
   margin: 0 auto;
   filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.5));
 }
@@ -1957,8 +1957,16 @@ button {
   object-fit: contain;
 }
 
-/* Glass glare + scanlines + vignette over the picture. */
+/* Glass glare for every frame; scanlines + vignette only on the CRT. */
 .tv-screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 28%);
+}
+
+.tv-screen.crt::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1969,7 +1977,8 @@ button {
     radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.4) 100%);
 }
 
-.tv-frame {
+.tv-frame,
+.stream-frame-art {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -1979,11 +1988,23 @@ button {
   user-select: none;
 }
 
-/* The Stop button has to sit above the artwork to stay clickable. */
-.tv .stop-watching-button {
+/* The buttons have to sit above the artwork to stay clickable. */
+.stream-frame-buttons {
+  position: absolute;
+  top: 10px;
+  right: 14px;
   z-index: 3;
-  top: 14px;
-  right: 18px;
+  display: flex;
+  gap: 6px;
+}
+
+.stream-frame-buttons .stop-watching-button {
+  position: static;
+  opacity: 0.85;
+}
+
+.stream-frame-buttons .stop-watching-button:hover {
+  opacity: 1;
 }
 
 .tv-caption {
@@ -2190,4 +2211,62 @@ input[type="range"] {
   width: 14px;
   height: 14px;
   border-radius: 50%;
+}
+
+.frame-cinema .tv-caption,
+.frame-exile .tv-caption,
+.frame-monster .tv-caption {
+  bottom: 3%;
+  color: #f3e3b0;
+}
+
+.frame-exile .tv-caption {
+  display: none;
+}
+
+.frame-slate .tv-caption,
+.frame-neon .tv-caption {
+  display: none;
+}
+
+.stream-frame-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.stream-frame-option {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--t-3);
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.stream-frame-option .tv {
+  width: 100%;
+  filter: none;
+  border-radius: 8px;
+  outline: 2px solid transparent;
+  background: linear-gradient(135deg, #1a2433, #3a4a63);
+  overflow: hidden;
+  transition: transform 0.15s ease;
+}
+
+.stream-frame-option:hover .tv {
+  transform: translateY(-2px);
+}
+
+.stream-frame-option.selected {
+  color: var(--t-1);
+  font-weight: 700;
+}
+
+.stream-frame-option.selected .tv {
+  outline-color: var(--accent);
 }

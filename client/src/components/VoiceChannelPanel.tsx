@@ -14,6 +14,7 @@ import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
+import StreamFrame from "./StreamFrame";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -132,22 +133,11 @@ export default function VoiceChannelPanel() {
         }
       >
         {watchedStream && (
-          <div className="tv">
-            <div className="tv-screen">
-              <div className="screen-share-viewer">
-                <ScreenSharePlayer stream={watchedStream} />
-              </div>
+          <StreamFrame caption={watchedPeer?.username ?? "Live"} onStop={() => setWatchingSocketId(null)}>
+            <div className="screen-share-viewer">
+              <ScreenSharePlayer stream={watchedStream} />
             </div>
-            <img className="tv-frame" src="/tv/crt-tv.webp" alt="" draggable={false} />
-            <button
-              className="stop-watching-button"
-              onClick={() => setWatchingSocketId(null)}
-              title="Stop watching this stream"
-            >
-              Stop Watching
-            </button>
-            <div className="tv-caption">{watchedPeer?.username ?? "Live"}</div>
-          </div>
+          </StreamFrame>
         )}
 
         <div className="voice-tiles">
