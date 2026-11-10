@@ -238,7 +238,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 </button>
               )}
             </div>
-            <div style={{ padding: "0 16px", fontSize: 12, color: "#949ba4" }}>
+            <div style={{ padding: "0 16px", fontSize: 12, color: "#a8968a" }}>
               Invite code: {activeServer.inviteCode}
             </div>
 
