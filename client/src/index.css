@@ -2681,3 +2681,6 @@ input[type="range"] {
 .settings-tab { background: none; border: none; color: inherit; opacity: 0.65; padding: 8px 14px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .settings-tab:hover { opacity: 1; }
 .settings-tab.active { opacity: 1; border-bottom-color: var(--accent, #5865f2); font-weight: 600; }
+
+.hud-icon-button.static { flex-direction: column; gap: 0; line-height: 1; }
+.hud-ping { font-size: 10px; margin-top: 1px; opacity: 0.85; }

@@ -397,11 +397,15 @@ export class SfuMediaManager {
   }
 
   private async pollStats() {
-    if (!this.recvTransport) return;
+    if (!this.recvTransport && !this.sendTransport) return;
     try {
-      const report = await this.recvTransport.getStats();
       let rttMs: number | null = null;
       let fallbackRttMs: number | null = null;
+      // Ask the receive transport first, then the send transport: alone in a channel nothing is
+      // being received, so the receive side may have no RTT yet while the send side (our mic) does.
+      for (const transport of [this.recvTransport, this.sendTransport]) {
+        if (!transport || rttMs !== null) continue;
+        const report = await transport.getStats();
       report.forEach((stat: any) => {
         if (stat.type !== "candidate-pair" || typeof stat.currentRoundTripTime !== "number") return;
         // Chrome marks the active pair with state "succeeded"; Firefox instead marks it
@@ -414,7 +418,8 @@ export class SfuMediaManager {
           fallbackRttMs = stat.currentRoundTripTime * 1000;
         }
       });
-      if (rttMs === null) rttMs = fallbackRttMs;
+        if (rttMs === null) rttMs = fallbackRttMs;
+      }
 
       // The RTT measured here is OUR link to the SFU — it says nothing about anyone else's, so it
       // is only reported as our own (onLocalRtt). Each peer's ping arrives in their own report.

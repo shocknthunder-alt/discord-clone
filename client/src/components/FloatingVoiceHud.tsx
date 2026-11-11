@@ -83,7 +83,8 @@ export default function FloatingVoiceHud() {
 
       <FloatingIcon id="hud-network" getDefaultPosition={() => defaultColumnPosition(6, 7)}>
         <div className="hud-icon-button static" title={`Connection: ${connectionQuality}${localRttMs !== null ? ` — ${localRttMs}ms (твоят пинг)` : ""}`}>
-          <SignalIcon quality={connectionQuality} size={20} />
+          <SignalIcon quality={connectionQuality} size={localRttMs !== null ? 16 : 20} />
+          {localRttMs !== null && <span className="hud-ping">{localRttMs}ms</span>}
         </div>
       </FloatingIcon>
 
