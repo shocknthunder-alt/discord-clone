@@ -18,6 +18,11 @@ function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): st
       ? "Твоят upload е тесен. Избери Light (720p), за да има повече бит за всеки кадър."
       : "Upload-ът на стриймъра е тесен.";
   }
+  if (!stats.audio) {
+    return own
+      ? "Стриймът е БЕЗ звук. В десктоп приложението избери отново екрана/прозореца; в браузър трябва да отметнеш „Share audio“."
+      : "Този стрийм е без звук.";
+  }
   if (stats.fps > 0 && stats.fps < targetFps * 0.75) {
     return `Излизат само ${stats.fps} кадъра/сек при цел ${targetFps}. Често това значи, че играта или екранът дават малко кадри (напр. заключен fps или прозорец на заден план).`;
   }
@@ -63,6 +68,8 @@ function StatsPill({ title, stats, own }: { title: string; stats: RemoteStreamSt
             <dd>
               {stats.codec || "?"} {stats.hardware ? "· видеокарта" : "· процесор"}
             </dd>
+            <dt>Звук</dt>
+            <dd>{stats.audio ? "има" : "няма"}</dd>
             <dt>Ограничение</dt>
             <dd>{LIMIT_TEXT[stats.limitation]}</dd>
           </dl>

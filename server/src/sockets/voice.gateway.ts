@@ -152,6 +152,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
               codec: typeof stats.codec === "string" ? stats.codec.slice(0, 16) : "",
               encoder: typeof stats.encoder === "string" ? stats.encoder.slice(0, 40) : "",
               hardware: stats.hardware === true,
+              audio: stats.audio === true,
               limitation: limitations.includes(String(stats.limitation)) ? String(stats.limitation) : "none",
             }
           : null;

@@ -415,6 +415,7 @@ export class SfuMediaManager {
       encoder,
       hardware: o.powerEfficientEncoder === true || /nvenc|mediafoundation|mft|videotoolbox|vaapi|hardware|externalencoder/i.test(encoder),
       limitation: String(o.qualityLimitationReason ?? "none") as ScreenShareStats["limitation"],
+      audio: !!this.screenAudioProducer && !this.screenAudioProducer.closed && this.screenAudioProducer.track?.readyState === "live",
     };
   }
 
@@ -553,4 +554,6 @@ export interface ScreenShareStats {
   hardware: boolean;
   /** Why the browser is lowering quality: "cpu" = the PC can't keep up, "bandwidth" = upload too slow. */
   limitation: "none" | "cpu" | "bandwidth" | "other";
+  /** Whether the stream is carrying a live audio track. */
+  audio: boolean;
 }
