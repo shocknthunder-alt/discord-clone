@@ -57,7 +57,7 @@ let unsubscribe: (() => void) | null = null;
 /** Starts feeding the native capture into a new audio track. Resolves null if it can't be set up. */
 export async function startNativeAppAudio(): Promise<MediaStreamTrack | null> {
   const desktop = window.shmirkaDesktop;
-  if (!desktop) return null;
+  if (!desktop || typeof desktop.onAppAudio !== "function") return null;
   releaseLocal();
   try {
     const ctx = new AudioContext({ sampleRate: 48000 });
@@ -95,5 +95,10 @@ function releaseLocal() {
 /** Stops the page side and tells the shell to stop capturing. */
 export function stopNativeAppAudio() {
   releaseLocal();
-  window.shmirkaDesktop?.stopAppAudio();
+  // Older installed desktop shells don't have this method; never let that break leaving a call.
+  try {
+    window.shmirkaDesktop?.stopAppAudio?.();
+  } catch {
+    // ignore
+  }
 }

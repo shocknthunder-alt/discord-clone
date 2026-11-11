@@ -1,7 +1,7 @@
 import { extractYoutubeId, SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
 import { requestDesktopScreenSource } from "../store/screenPickerStore";
 import { startNativeAppAudio, stopNativeAppAudio } from "./appAudio";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -96,7 +96,9 @@ export function getScreenShareStats() {
 }
 
 export function useVoiceChannel() {
-  const store = useVoiceStore();
+  // Only the (stable) actions are used from here. Subscribing to the whole store would re-render
+  // every component that calls this hook on each ping / speaking / stats update.
+  const store = useMemo(() => useVoiceStore.getState(), []);
 
   const joinVoiceChannel = useCallback(async (voiceChannelId: string) => {
     const socket = getSocket();
@@ -360,17 +362,25 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.MusicAddError);
     }
 
-    activeMediaManager?.leave();
+    // Every teardown step is isolated: one failing must never leave the user stuck in the call.
+    const safely = (step: () => void) => {
+      try {
+        step();
+      } catch (err) {
+        console.warn("voice teardown step failed", err);
+      }
+    };
+    safely(() => activeMediaManager?.leave());
     activeMediaManager = null;
-    activeMicProcessing?.destroy();
+    safely(() => activeMicProcessing?.destroy());
     activeMicProcessing = null;
-    disconnectMediaSocket();
-    detachPushToTalkListeners();
+    safely(disconnectMediaSocket);
+    safely(detachPushToTalkListeners);
 
-    localStream?.getTracks().forEach((t) => t.stop());
-    localScreenStream?.getTracks().forEach((t) => t.stop());
-    stopNativeAppAudio();
-    localCameraStream?.getTracks().forEach((t) => t.stop());
+    safely(() => localStream?.getTracks().forEach((t) => t.stop()));
+    safely(() => localScreenStream?.getTracks().forEach((t) => t.stop()));
+    safely(stopNativeAppAudio);
+    safely(() => localCameraStream?.getTracks().forEach((t) => t.stop()));
 
     useVoiceStore.getState().reset();
     useMusicStore.getState().setState(null);

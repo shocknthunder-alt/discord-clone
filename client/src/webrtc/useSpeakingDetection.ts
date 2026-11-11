@@ -34,7 +34,7 @@ export function useSpeakingDetection(stream: MediaStream | null, enabled = true)
     source.connect(analyser);
 
     const data = new Uint8Array(analyser.frequencyBinCount);
-    let rafId: number;
+    let timerId: ReturnType<typeof setInterval>;
     let silenceTimer: ReturnType<typeof setTimeout> | null = null;
     let speaking = false;
 
@@ -60,13 +60,14 @@ export function useSpeakingDetection(stream: MediaStream | null, enabled = true)
           silenceTimer = null;
         }, SILENCE_HOLD_MS);
       }
-
-      rafId = requestAnimationFrame(tick);
     }
     tick();
+    // ~15 checks a second is plenty for a speaking dot (was every frame, per person) and, unlike
+    // requestAnimationFrame, keeps working while the window is in the background.
+    timerId = setInterval(tick, 66);
 
     return () => {
-      cancelAnimationFrame(rafId);
+      clearInterval(timerId);
       if (silenceTimer) clearTimeout(silenceTimer);
       source.disconnect();
       analyser.disconnect();

@@ -10,6 +10,8 @@ interface Props {
   // when the component mounts. A static default baked in at mount time is exactly what
   // left these icons stranded mid-screen after DevTools closed.
   getDefaultPosition: () => Position;
+  /** Stays draggable even while the layout is locked (used by the lock button itself). */
+  alwaysMovable?: boolean;
   children: React.ReactNode;
 }
 
@@ -33,8 +35,9 @@ function clampToViewport(pos: Position): Position {
  * and persisted per-id in localStorage so it survives reloads. Dragging is disabled while
  * the layout is locked (layoutLockStore), same lock used by the row-reorder groups.
  */
-export default function FloatingIcon({ id, getDefaultPosition, children }: Props) {
-  const locked = useLayoutLockStore((s) => s.locked);
+export default function FloatingIcon({ id, getDefaultPosition, alwaysMovable, children }: Props) {
+  const layoutLocked = useLayoutLockStore((s) => s.locked);
+  const locked = layoutLocked && !alwaysMovable;
   // `pos` is where the icon WANTS to be (saved or dragged-to), deliberately never clamped:
   // the viewport can shrink temporarily (a stream going fullscreen, a smaller window, DevTools)
   // and the icon is only *displayed* clamped. When the viewport grows back it returns to its

@@ -221,17 +221,19 @@ export const useVoiceStore = create<VoiceState>((set) => ({
 
   setPeerQuality: (socketId, lossQuality) =>
     set((s) => {
+      const existing = s.peers.get(socketId);
+      if (!existing || existing.lossQuality === lossQuality) return s; // unchanged: no re-render
       const peers = new Map(s.peers);
-      const existing = peers.get(socketId);
-      if (existing) peers.set(socketId, withCombinedQuality({ ...existing, lossQuality }));
+      peers.set(socketId, withCombinedQuality({ ...existing, lossQuality }));
       return { peers };
     }),
 
   setPeerRtt: (socketId, rttMs) =>
     set((s) => {
+      const existing = s.peers.get(socketId);
+      if (!existing || existing.rttMs === rttMs) return s; // unchanged: no re-render
       const peers = new Map(s.peers);
-      const existing = peers.get(socketId);
-      if (existing) peers.set(socketId, withCombinedQuality({ ...existing, rttMs }));
+      peers.set(socketId, withCombinedQuality({ ...existing, rttMs }));
       return { peers };
     }),
 

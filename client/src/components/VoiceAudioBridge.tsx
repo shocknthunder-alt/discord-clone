@@ -40,7 +40,9 @@ function RemoteAudio({
  * even though the underlying RTCPeerConnections stay alive.
  */
 export default function VoiceAudioBridge() {
-  const { peers, isDeafened, preferredSpeakerId } = useVoiceStore();
+  const peers = useVoiceStore((s) => s.peers);
+  const isDeafened = useVoiceStore((s) => s.isDeafened);
+  const preferredSpeakerId = useVoiceStore((s) => s.preferredSpeakerId);
 
   if (isDeafened) return null;
 

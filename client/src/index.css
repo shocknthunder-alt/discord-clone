@@ -1728,11 +1728,6 @@ button {
 }
 
 .hud-lock-button {
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
   height: 32px;
   border: none;
   border-radius: 16px;

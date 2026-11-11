@@ -88,17 +88,17 @@ export default function FloatingVoiceHud() {
         </div>
       </FloatingIcon>
 
-      {/* Fixed top-center, deliberately NOT part of the draggable column — it's the control
-          for whether everything else can be dragged, so it needs to always be found in the
-          same place rather than needing to be found-and-dragged itself. */}
-      <button
-        className={`hud-lock-button ${locked ? "locked" : "unlocked"}`}
-        onClick={toggleLocked}
-        title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
-      >
-        <LockIcon locked={locked} size={14} color={locked ? "var(--c-backdrop)" : "var(--t-3)"} />
-        {locked ? "Unlock layout" : "Lock layout"}
-      </button>
+      {/* Movable even when locked, so it can be parked away from the LIVE banner. */}
+      <FloatingIcon id="hud-lock" alwaysMovable getDefaultPosition={() => ({ x: Math.max(16, window.innerWidth / 2 - 60), y: 60 })}>
+        <button
+          className={`hud-lock-button ${locked ? "locked" : "unlocked"}`}
+          onClick={toggleLocked}
+          title={(locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)") + " — drag to move this button"}
+        >
+          <LockIcon locked={locked} size={14} color={locked ? "var(--c-backdrop)" : "var(--t-3)"} />
+          {locked ? "Unlock layout" : "Lock layout"}
+        </button>
+      </FloatingIcon>
 
       {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} />}
     </>
