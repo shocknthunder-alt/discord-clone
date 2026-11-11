@@ -8,7 +8,10 @@ interface Window {
     isDesktop: true;
     /** System-wide key events (works while a game has focus). Returns an unsubscribe function. */
     getScreenSources(): Promise<DesktopScreenSource[]>;
-    selectScreenSource(id: string, audio: boolean): Promise<void>;
+    /** "native" = the shell streams per-app audio (see onAppAudio); "loopback" = system audio rides on the video; older shells return undefined. */
+    selectScreenSource(id: string, audio: boolean): Promise<"native" | "loopback" | "none" | undefined>;
+    onAppAudio(cb: (pcm: Uint8Array) => void): () => void;
+    stopAppAudio(): void;
     onGlobalKey(cb: (code: string, down: boolean) => void): () => void;
   };
 }

@@ -24,6 +24,13 @@ reaches desktop users immediately - a new installer is only needed when the shel
 `window.shmirkaDesktop`, so an older installed shell keeps working with a newer site. Offline -> a retry page.
 (v1.0 bundled the client inside the installer; those installs stay on that old client until reinstalled.)
 
+## Per-app audio (v1.2+)
+`appAudio.js` uses `loopback-capture` (Windows process loopback, build 20348+): sharing a **window** sends only
+that program's sound (its process tree), sharing a **screen** sends all sound except this app's own (so the
+friends' voices don't echo). PCM goes main -> IPC -> `client/src/webrtc/appAudio.ts` (AudioWorklet) -> an audio
+track added to the screen stream. Older Windows / failure -> falls back to Chromium's whole-system loopback.
+Verified by hand: include/exclude by PID isolates correctly; not yet tested on a real game/YouTube share.
+
 ## TODO
 1. ~~`npm install` and the first real run~~ done; still test login/voice/screen share by hand.
 2. ~~Global push-to-talk~~ implemented (uiohook-napi in `globalKeys.js` -> IPC -> `handlePushToTalkKey`); needs a hands-on test with a game in the foreground.

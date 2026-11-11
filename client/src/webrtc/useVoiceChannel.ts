@@ -1,5 +1,6 @@
 import { extractYoutubeId, SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
 import { requestDesktopScreenSource } from "../store/screenPickerStore";
+import { startNativeAppAudio, stopNativeAppAudio } from "./appAudio";
 import { useCallback } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
@@ -368,6 +369,7 @@ export function useVoiceChannel() {
 
     localStream?.getTracks().forEach((t) => t.stop());
     localScreenStream?.getTracks().forEach((t) => t.stop());
+    stopNativeAppAudio();
     localCameraStream?.getTracks().forEach((t) => t.stop());
 
     useVoiceStore.getState().reset();
@@ -457,6 +459,7 @@ export function useVoiceChannel() {
 
     if (isScreenSharing) {
       activeMediaManager.stopScreenShare();
+      stopNativeAppAudio();
       store.setLocalScreenStream(null);
       store.setScreenSharing(false);
       store.setScreenShareStartedAt(null);
@@ -473,11 +476,12 @@ export function useVoiceChannel() {
     // three layers of it, picked in Settings → Screen Share Quality.
     const quality = useVoiceStore.getState().screenShareQuality;
     const mode = useVoiceStore.getState().screenShareMode;
+    let desktopAudioMode: "native" | "loopback" | "none" | undefined;
     // Desktop app: pick the screen/window ourselves (browsers show their own native picker).
     if (window.shmirkaDesktop) {
       const choice = await requestDesktopScreenSource();
       if (!choice) return; // cancelled
-      await window.shmirkaDesktop.selectScreenSource(choice.id, choice.audio);
+      desktopAudioMode = await window.shmirkaDesktop.selectScreenSource(choice.id, choice.audio);
     }
     const screenStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
@@ -500,6 +504,11 @@ export function useVoiceChannel() {
         restrictOwnAudio: true,
       } as MediaTrackConstraints,
     });
+    // Desktop app with per-app capture: add the shared program's own sound as the stream's audio track.
+    if (desktopAudioMode === "native") {
+      const appAudioTrack = await startNativeAppAudio();
+      if (appAudioTrack) screenStream.addTrack(appAudioTrack);
+    }
     store.setLocalScreenStream(screenStream);
     store.setScreenSharing(true);
     // Browsers only hand over audio if the picker option for it was ticked and the surface

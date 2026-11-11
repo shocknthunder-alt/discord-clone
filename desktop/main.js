@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, session, shell } = require("electron");
 const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
+const appAudio = require("./appAudio");
 
 // The app is a thin native shell around the live website, so every client update reaches the
 // desktop users immediately (no new installer). The shell only adds what a browser can't do:
@@ -42,9 +43,23 @@ app.whenReady().then(async () => {
       icon: src.appIcon ? src.appIcon.toDataURL() : null,
     }));
   });
-  ipcMain.handle("screen-select", (_event, id, audio) => {
-    chosenSource = typeof id === "string" ? { id, audio: !!audio } : null;
+  // Returns how the sound will be captured: "native" = per-app audio streamed over IPC (the client
+  // turns it into a track), "loopback" = Chromium's whole-system audio attached to the video.
+  ipcMain.handle("screen-select", async (event, id, audio) => {
+    if (typeof id !== "string") {
+      chosenSource = null;
+      return "none";
+    }
+    let mode = "none";
+    if (audio) {
+      mode = await appAudio.start(id, (chunk) => {
+        if (!event.sender.isDestroyed()) event.sender.send("app-audio", chunk);
+      });
+    }
+    chosenSource = { id, mode };
+    return mode;
   });
+  ipcMain.on("app-audio-stop", () => appAudio.stop());
 
   ses.setDisplayMediaRequestHandler(async (_request, callback) => {
     const choice = chosenSource;
@@ -52,7 +67,7 @@ app.whenReady().then(async () => {
     const sources = await desktopCapturer.getSources({ types: ["screen", "window"] });
     const source = (choice && sources.find((s) => s.id === choice.id)) || sources.find((s) => s.id.startsWith("screen:"));
     if (!source) return callback({});
-    callback(choice && choice.audio ? { video: source, audio: "loopback" } : { video: source });
+    callback(choice && choice.mode === "loopback" ? { video: source, audio: "loopback" } : { video: source });
   });
 
   const win = new BrowserWindow({
@@ -97,4 +112,7 @@ app.on("second-instance", () => {
 });
 
 app.on("window-all-closed", () => app.quit());
-app.on("will-quit", stopGlobalKeys);
+app.on("will-quit", () => {
+  stopGlobalKeys();
+  appAudio.stop();
+});

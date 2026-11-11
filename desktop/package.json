@@ -1,12 +1,11 @@
 {
   "name": "shmirka-desktop",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "ШмиркаТа — desktop app (Electron shell with the built client inside)",
   "main": "main.js",
   "author": "ШмиркаТа",
   "scripts": {
-    
     "start": "node start.mjs",
     "dist": "electron-builder --win nsis"
   },
@@ -23,7 +22,8 @@
     "files": [
       "main.js",
       "preload.js",
-      "globalKeys.js"
+      "globalKeys.js",
+      "appAudio.js"
     ],
     "win": {
       "target": "nsis",
@@ -36,6 +36,7 @@
     }
   },
   "dependencies": {
+    "loopback-capture": "^4.0.0",
     "uiohook-napi": "^1.5.5"
   }
 }
