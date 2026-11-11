@@ -24,7 +24,7 @@ function defaultColumnPosition(index: number, count: number) {
 }
 
 export default function FloatingVoiceHud() {
-  const { activeVoiceChannelId, isMuted, isDeafened, isScreenSharing, isCameraOn, connectionQuality } = useVoiceStore();
+  const { activeVoiceChannelId, isMuted, isDeafened, isScreenSharing, isCameraOn, connectionQuality, localRttMs } = useVoiceStore();
   const { leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare, toggleCamera } = useVoiceChannel();
   const { locked, toggleLocked } = useLayoutLockStore();
   const [showSettings, setShowSettings] = useState(false);
@@ -82,7 +82,7 @@ export default function FloatingVoiceHud() {
       </FloatingIcon>
 
       <FloatingIcon id="hud-network" getDefaultPosition={() => defaultColumnPosition(6, 7)}>
-        <div className="hud-icon-button static" title={`Connection: ${connectionQuality}`}>
+        <div className="hud-icon-button static" title={`Connection: ${connectionQuality}${localRttMs !== null ? ` — ${localRttMs}ms (твоят пинг)` : ""}`}>
           <SignalIcon quality={connectionQuality} size={20} />
         </div>
       </FloatingIcon>

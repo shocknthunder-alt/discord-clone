@@ -27,6 +27,8 @@ export const SocketEvents = {
   VoiceMute: "voice:mute",
   VoiceDeafen: "voice:deafen",
   VoicePeerState: "voice:peer-state",
+  // Each client reports its OWN round-trip time to the SFU; the server relays it to the room.
+  VoicePing: "voice:ping",
   VoiceChannelOccupants: "voice:channel-occupants",
 
   // screen share

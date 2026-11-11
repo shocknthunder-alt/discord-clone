@@ -176,11 +176,17 @@ export function useVoiceChannel() {
       onQualityChange: (quality) => {
         useVoiceStore.getState().setConnectionQuality(quality);
       },
-      onPeerQualityChange: (userId, quality, rttMs) => {
+      onPeerQualityChange: (userId, lossQuality) => {
         for (const peer of useVoiceStore.getState().peers.values()) {
           if (peer.userId !== userId) continue;
-          useVoiceStore.getState().setPeerQuality(peer.socketId, quality, rttMs);
+          useVoiceStore.getState().setPeerQuality(peer.socketId, lossQuality);
         }
+      },
+      onLocalRtt: (rttMs) => {
+        useVoiceStore.getState().setLocalRtt(rttMs);
+        // Tell the others OUR ping; each person's tile shows their own number, not ours.
+        const channelId = useVoiceStore.getState().activeVoiceChannelId;
+        if (channelId) getSocket()?.emit(SocketEvents.VoicePing, { voiceChannelId: channelId, rttMs });
       },
     });
     activeMediaManager = manager;
@@ -239,6 +245,10 @@ export function useVoiceChannel() {
 
     socket.on(SocketEvents.VoicePeerLeft, ({ socketId }: { socketId: string }) => {
       useVoiceStore.getState().removePeer(socketId);
+    });
+
+    socket.on(SocketEvents.VoicePing, ({ socketId, rttMs }: { socketId: string; rttMs: number | null }) => {
+      useVoiceStore.getState().setPeerRtt(socketId, rttMs);
     });
 
     socket.on(
@@ -342,6 +352,7 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.VoicePeerJoined);
       socket.off(SocketEvents.VoicePeerLeft);
       socket.off(SocketEvents.VoicePeerState);
+      socket.off(SocketEvents.VoicePing);
       socket.off(SocketEvents.ScreenShareStarted);
       socket.off(SocketEvents.ScreenShareStopped);
       socket.off(SocketEvents.MusicState);

@@ -40,6 +40,8 @@ export interface RemotePeer {
   // Per-peer, since in a mesh call quality to one person is independent of quality to
   // another — a single global indicator can't represent that.
   connectionQuality: ConnectionQuality;
+  // Quality judged from packet loss on what this peer sends us (rttMs is THEIR own ping to the SFU).
+  lossQuality: ConnectionQuality;
   rttMs: number | null;
 }
 
@@ -59,6 +61,8 @@ interface VoiceState {
   peers: Map<string, RemotePeer>;
   preferredSpeakerId: string;
   connectionQuality: ConnectionQuality;
+  // This client's own ping to the SFU.
+  localRttMs: number | null;
   // Lightweight roster per voice channel (name/avatar/mute, no media) — covers channels
   // the local user hasn't joined, so the sidebar can show who's already in them.
   channelOccupants: Map<string, VoicePeerInfo[]>;
@@ -87,7 +91,9 @@ interface VoiceState {
   setPeerLocalMuted: (socketId: string, muted: boolean) => void;
   setPreferredSpeakerId: (deviceId: string) => void;
   setConnectionQuality: (quality: ConnectionQuality) => void;
-  setPeerQuality: (socketId: string, quality: ConnectionQuality, rttMs: number | null) => void;
+  setPeerQuality: (socketId: string, lossQuality: ConnectionQuality) => void;
+  setPeerRtt: (socketId: string, rttMs: number | null) => void;
+  setLocalRtt: (rttMs: number | null) => void;
   setChannelOccupants: (voiceChannelId: string, peers: VoicePeerInfo[]) => void;
   setMicMode: (mode: MicMode) => void;
   setPushToTalkKey: (code: string | null) => void;
@@ -115,8 +121,20 @@ function emptyPeer(socketId: string): RemotePeer {
     localVolume: DEFAULT_PEER_VOLUME,
     localMuted: false,
     connectionQuality: "unknown",
+    lossQuality: "good",
     rttMs: null,
   };
+}
+
+const QUALITY_RANK: Record<ConnectionQuality, number> = { good: 0, medium: 1, poor: 2, unknown: 0 };
+
+// A peer's displayed quality = the worse of their own ping to the SFU and the packet loss we see
+// on what they send. Until their first ping arrives it stays "unknown" (connecting).
+function withCombinedQuality(peer: RemotePeer): RemotePeer {
+  if (peer.rttMs === null) return { ...peer, connectionQuality: peer.lossQuality === "good" ? "unknown" : peer.lossQuality };
+  const rttQuality: ConnectionQuality = peer.rttMs > 300 ? "poor" : peer.rttMs > 150 ? "medium" : "good";
+  const worst = QUALITY_RANK[rttQuality] >= QUALITY_RANK[peer.lossQuality] ? rttQuality : peer.lossQuality;
+  return { ...peer, connectionQuality: worst };
 }
 
 export const useVoiceStore = create<VoiceState>((set) => ({
@@ -132,6 +150,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   peers: new Map(),
   preferredSpeakerId: getPreferredSpeakerDeviceId() ?? "",
   connectionQuality: "unknown",
+  localRttMs: null,
   channelOccupants: new Map(),
   micMode: getMicMode(),
   pushToTalkKey: getPushToTalkKey(),
@@ -200,13 +219,23 @@ export const useVoiceStore = create<VoiceState>((set) => ({
 
   setConnectionQuality: (quality) => set({ connectionQuality: quality }),
 
-  setPeerQuality: (socketId, quality, rttMs) =>
+  setPeerQuality: (socketId, lossQuality) =>
     set((s) => {
       const peers = new Map(s.peers);
       const existing = peers.get(socketId);
-      if (existing) peers.set(socketId, { ...existing, connectionQuality: quality, rttMs });
+      if (existing) peers.set(socketId, withCombinedQuality({ ...existing, lossQuality }));
       return { peers };
     }),
+
+  setPeerRtt: (socketId, rttMs) =>
+    set((s) => {
+      const peers = new Map(s.peers);
+      const existing = peers.get(socketId);
+      if (existing) peers.set(socketId, withCombinedQuality({ ...existing, rttMs }));
+      return { peers };
+    }),
+
+  setLocalRtt: (rttMs) => set({ localRttMs: rttMs }),
 
   setChannelOccupants: (voiceChannelId, peers) =>
     set((s) => {

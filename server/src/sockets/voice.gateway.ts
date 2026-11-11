@@ -126,6 +126,15 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     void broadcastOccupants(io, voiceChannelId);
   });
 
+  socket.on(
+    SocketEvents.VoicePing,
+    ({ voiceChannelId, rttMs }: { voiceChannelId: string; rttMs: number | null }) => {
+      if (!voiceRosters.get(voiceChannelId)?.has(socket.id)) return;
+      const rtt = typeof rttMs === "number" && Number.isFinite(rttMs) ? Math.min(Math.max(Math.round(rttMs), 0), 9999) : null;
+      socket.to(roomName(voiceChannelId)).emit(SocketEvents.VoicePing, { userId, socketId: socket.id, rttMs: rtt });
+    },
+  );
+
   socket.on(SocketEvents.VoiceLeave, ({ voiceChannelId }: { voiceChannelId: string }) => {
     removeFromRoster(io, socket.id);
     socket.leave(roomName(voiceChannelId));

@@ -26,7 +26,10 @@ interface SfuMediaManagerCallbacks {
   onScreenStream: (userId: string, stream: MediaStream | null) => void;
   onCameraStream: (userId: string, stream: MediaStream | null) => void;
   onQualityChange?: (quality: ConnectionQuality) => void;
-  onPeerQualityChange?: (userId: string, quality: ConnectionQuality, rttMs: number | null) => void;
+  /** Quality of what this peer sends us, judged by packet loss only. Their ping comes from their own report. */
+  onPeerQualityChange?: (userId: string, lossQuality: ConnectionQuality) => void;
+  /** This client's own round-trip time to the SFU. */
+  onLocalRtt?: (rttMs: number | null) => void;
 }
 
 const STATS_POLL_INTERVAL_MS = 2500;
@@ -413,10 +416,9 @@ export class SfuMediaManager {
       });
       if (rttMs === null) rttMs = fallbackRttMs;
 
-      // RTT is genuinely shared — one real link to the SFU — but packet loss on a specific
-      // person's inbound audio can differ even over that same link (e.g. the SFU struggling
-      // to forward just their producer), so quality is computed per peer from their own mic
-      // consumer's loss ratio rather than being the same canned value for everyone.
+      // The RTT measured here is OUR link to the SFU — it says nothing about anyone else's, so it
+      // is only reported as our own (onLocalRtt). Each peer's ping arrives in their own report.
+      // Per peer, only packet loss on their inbound audio is judged from here.
       const baseQuality: ConnectionQuality =
         rttMs === null ? "unknown" : rttMs > 300 ? "poor" : rttMs > 150 ? "medium" : "good";
 
@@ -424,7 +426,7 @@ export class SfuMediaManager {
         const meta = this.producerMeta.get(producerId);
         if (!meta || meta.isScreen || meta.isCamera) continue;
 
-        let peerQuality = baseQuality;
+        let peerQuality: ConnectionQuality = "good";
         try {
           const consumerStats = await consumer.getStats();
           consumerStats.forEach((s: any) => {
@@ -432,16 +434,17 @@ export class SfuMediaManager {
             const total = s.packetsLost + s.packetsReceived;
             const lossRatio = total > 0 ? s.packetsLost / total : 0;
             if (lossRatio > 0.05) peerQuality = "poor";
-            else if (lossRatio > 0.02 && peerQuality === "good") peerQuality = "medium";
+            else if (lossRatio > 0.02) peerQuality = "medium";
           });
         } catch {
           // Fall back to baseQuality for this peer.
         }
 
-        this.callbacks.onPeerQualityChange?.(meta.userId, peerQuality, rttMs === null ? null : Math.round(rttMs));
+        this.callbacks.onPeerQualityChange?.(meta.userId, peerQuality);
       }
 
       this.callbacks.onQualityChange?.(baseQuality);
+      this.callbacks.onLocalRtt?.(rttMs === null ? null : Math.round(rttMs));
     } catch (err) {
       console.error("Failed to read SFU connection stats", err);
     }
