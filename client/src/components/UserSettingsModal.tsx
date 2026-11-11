@@ -212,6 +212,7 @@ export default function UserSettingsModal({ onClose }: Props) {
           ))}
         </div>
 
+        <div className="settings-body">
         {tab === "profile" && (
           <>
         <div className="avatar-picker">
@@ -545,18 +546,20 @@ export default function UserSettingsModal({ onClose }: Props) {
         )}
 
         {tab === "profile" && (
-          <>
-        {error && <div className="modal-error">{error}</div>}
-
-        <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
-          {saving ? "Saving…" : "Save Changes"}
-        </button>
-
-        <button className="modal-logout-button" onClick={handleLogout}>
-          Log Out
-        </button>
-          </>
+          <button className="modal-logout-button" onClick={handleLogout}>
+            Log Out
+          </button>
         )}
+        </div>
+
+        {/* Same footer on every tab. Audio/stream/theme options are applied (and remembered) the
+            moment they change; Save stores the profile and closes. */}
+        <div className="settings-footer">
+          {error && <div className="modal-error">{error}</div>}
+          <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
 
       </div>
     </div>

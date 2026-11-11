@@ -1,4 +1,5 @@
 import type { VoicePeerInfo } from "@discord-clone/shared";
+import type { ScreenShareStats } from "../webrtc/SfuMediaManager";
 import { create } from "zustand";
 import {
   getMicMode,
@@ -63,6 +64,8 @@ interface VoiceState {
   connectionQuality: ConnectionQuality;
   // This client's own ping to the SFU.
   localRttMs: number | null;
+  // Diagnostics other people's screen shares report about themselves (keyed by socket id).
+  remoteStreamStats: Map<string, RemoteStreamStats>;
   // Lightweight roster per voice channel (name/avatar/mute, no media) — covers channels
   // the local user hasn't joined, so the sidebar can show who's already in them.
   channelOccupants: Map<string, VoicePeerInfo[]>;
@@ -94,6 +97,7 @@ interface VoiceState {
   setPeerQuality: (socketId: string, lossQuality: ConnectionQuality) => void;
   setPeerRtt: (socketId: string, rttMs: number | null) => void;
   setLocalRtt: (rttMs: number | null) => void;
+  setRemoteStreamStats: (socketId: string, stats: RemoteStreamStats | null) => void;
   setChannelOccupants: (voiceChannelId: string, peers: VoicePeerInfo[]) => void;
   setMicMode: (mode: MicMode) => void;
   setPushToTalkKey: (code: string | null) => void;
@@ -103,6 +107,10 @@ interface VoiceState {
   setScreenShareSimulcast: (on: boolean) => void;
   setScreenShareStartedAt: (at: number | null) => void;
   reset: () => void;
+}
+
+export interface RemoteStreamStats extends ScreenShareStats {
+  targetFps: number;
 }
 
 function emptyPeer(socketId: string): RemotePeer {
@@ -151,6 +159,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   preferredSpeakerId: getPreferredSpeakerDeviceId() ?? "",
   connectionQuality: "unknown",
   localRttMs: null,
+  remoteStreamStats: new Map(),
   channelOccupants: new Map(),
   micMode: getMicMode(),
   pushToTalkKey: getPushToTalkKey(),
@@ -190,7 +199,17 @@ export const useVoiceStore = create<VoiceState>((set) => ({
     set((s) => {
       const peers = new Map(s.peers);
       peers.delete(socketId);
-      return { peers };
+      const remoteStreamStats = new Map(s.remoteStreamStats);
+      remoteStreamStats.delete(socketId);
+      return { peers, remoteStreamStats };
+    }),
+
+  setRemoteStreamStats: (socketId, stats) =>
+    set((s) => {
+      const remoteStreamStats = new Map(s.remoteStreamStats);
+      if (stats) remoteStreamStats.set(socketId, stats);
+      else remoteStreamStats.delete(socketId);
+      return { remoteStreamStats };
     }),
 
   setPeerLocalVolume: (socketId, volume) =>
@@ -287,6 +306,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
       isDeafened: false,
       isScreenSharing: false,
       screenShareStartedAt: null,
+      remoteStreamStats: new Map(),
       peers: new Map(),
       connectionQuality: "unknown",
       isPushToTalkActive: false,

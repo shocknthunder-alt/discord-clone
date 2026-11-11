@@ -2653,7 +2653,8 @@ input[type="range"] {
 .lightbox-open { color: #fff; opacity: 0.7; font-size: 13px; }
 
 /* Streamer diagnostics */
-.stream-stats { position: fixed; top: 56px; right: 12px; z-index: 70; background: var(--c-panel); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); font-size: 12px; max-width: 280px; }
+.stream-stats-stack { position: fixed; top: 56px; right: 12px; z-index: 70; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.stream-stats { width: 280px; background: var(--c-panel); border-radius: 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); font-size: 12px; max-width: 280px; }
 .stream-stats-pill { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: none; border: none; color: inherit; cursor: pointer; width: 100%; text-align: left; }
 .stream-stats-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: #23a559; flex: none; }
 .stream-stats-pill .dot.warn { background: #f0b232; }
@@ -2675,7 +2676,19 @@ input[type="range"] {
 .stream-volume-note { color: #fff; font-size: 11px; opacity: 0.7; }
 
 /* Settings tabs */
-.settings-card { width: 600px; }
+.settings-card {
+  width: 600px;
+  /* One size for every tab: the content scrolls inside .settings-body, the footer stays put. */
+  height: min(700px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: 20px;
+}
+.settings-body { flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px; margin-right: -8px; }
+.settings-footer { flex-shrink: 0; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.settings-footer .modal-create-button { margin-top: 0; }
+.settings-footer .modal-error { margin-bottom: 8px; }
 .settings-tabs { display: flex; gap: 4px; margin: 0 0 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); flex-wrap: wrap; }
 .settings-tab { background: none; border: none; color: inherit; opacity: 0.65; padding: 8px 14px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .settings-tab:hover { opacity: 1; }

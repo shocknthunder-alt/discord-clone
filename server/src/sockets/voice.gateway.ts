@@ -135,6 +135,30 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     },
   );
 
+  socket.on(
+    SocketEvents.VoiceStreamStats,
+    ({ voiceChannelId, stats }: { voiceChannelId: string; stats: Record<string, unknown> | null }) => {
+      if (!voiceRosters.get(voiceChannelId)?.has(socket.id)) return;
+      const num = (v: unknown, max: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(Math.max(v, 0), max) : 0);
+      const limitations = ["none", "cpu", "bandwidth", "other"];
+      const clean =
+        stats && typeof stats === "object"
+          ? {
+              fps: Math.round(num(stats.fps, 240)),
+              targetFps: Math.round(num(stats.targetFps, 240)),
+              width: Math.round(num(stats.width, 16384)),
+              height: Math.round(num(stats.height, 16384)),
+              kbps: Math.round(num(stats.kbps, 1_000_000)),
+              codec: typeof stats.codec === "string" ? stats.codec.slice(0, 16) : "",
+              encoder: typeof stats.encoder === "string" ? stats.encoder.slice(0, 40) : "",
+              hardware: stats.hardware === true,
+              limitation: limitations.includes(String(stats.limitation)) ? String(stats.limitation) : "none",
+            }
+          : null;
+      socket.to(roomName(voiceChannelId)).emit(SocketEvents.VoiceStreamStats, { socketId: socket.id, stats: clean });
+    },
+  );
+
   socket.on(SocketEvents.VoiceLeave, ({ voiceChannelId }: { voiceChannelId: string }) => {
     removeFromRoster(io, socket.id);
     socket.leave(roomName(voiceChannelId));

@@ -6,7 +6,7 @@ import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useMusicStore } from "../store/musicStore";
-import { useVoiceStore } from "../store/voiceStore";
+import { useVoiceStore, type RemoteStreamStats } from "../store/voiceStore";
 import {
   getAutoGainControlEnabled,
   getEchoCancellationEnabled,
@@ -285,7 +285,15 @@ export function useVoiceChannel() {
       },
     );
 
+    socket.on(
+      SocketEvents.VoiceStreamStats,
+      ({ socketId, stats }: { socketId: string; stats: RemoteStreamStats | null }) => {
+        useVoiceStore.getState().setRemoteStreamStats(socketId, stats);
+      },
+    );
+
     socket.on(SocketEvents.ScreenShareStopped, ({ socketId }: { socketId: string }) => {
+      useVoiceStore.getState().setRemoteStreamStats(socketId, null);
       useVoiceStore.getState().upsertPeer({
         socketId,
         screenStream: null,
@@ -359,6 +367,7 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.VoicePeerLeft);
       socket.off(SocketEvents.VoicePeerState);
       socket.off(SocketEvents.VoicePing);
+      socket.off(SocketEvents.VoiceStreamStats);
       socket.off(SocketEvents.ScreenShareStarted);
       socket.off(SocketEvents.ScreenShareStopped);
       socket.off(SocketEvents.MusicState);

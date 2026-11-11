@@ -29,6 +29,8 @@ export const SocketEvents = {
   VoicePeerState: "voice:peer-state",
   // Each client reports its OWN round-trip time to the SFU; the server relays it to the room.
   VoicePing: "voice:ping",
+  // The streamer reports their outgoing screen-share numbers (or null when they stop); relayed to the room.
+  VoiceStreamStats: "voice:stream-stats",
   VoiceChannelOccupants: "voice:channel-occupants",
 
   // screen share
