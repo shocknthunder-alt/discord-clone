@@ -525,7 +525,9 @@ export function useVoiceChannel() {
         // viewers would hear themselves with an echo. Chromium-only option, not in the DOM types.
         restrictOwnAudio: true,
       } as MediaTrackConstraints,
-    });
+      // Chrome: pre-tick "Share system audio" in its picker (ignored elsewhere).
+      systemAudio: "include",
+    } as DisplayMediaStreamOptions);
     // Desktop app with per-app capture: add the shared program's own sound as the stream's audio track.
     if (desktopAudioMode === "native") {
       const appAudioTrack = await startNativeAppAudio();
@@ -536,10 +538,13 @@ export function useVoiceChannel() {
     // Browsers only hand over audio if the picker option for it was ticked and the surface
     // supports it (a Chrome tab, or the entire screen on Windows) — never for a plain window,
     // and Firefox never. Viewers silently get a video with no sound, so tell the sharer.
+    const sharedSurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;
     store.setScreenShareNotice(
-      screenStream.getAudioTracks().length === 0
-        ? "No audio is being shared. Share a browser tab or entire screen and tick “Share audio”."
-        : null,
+      screenStream.getAudioTracks().length > 0
+        ? null
+        : sharedSurface === "window"
+          ? "Стриймът е БЕЗ звук: браузърът не дава звук от прозорец (напр. игра). Спри и сподели „Цял екран“ с отметка „Share system audio“ — или ползвай десктоп приложението, което хваща звука само на играта."
+          : "Стриймът е БЕЗ звук. Спри и сподели отново, като отметнеш „Share audio“ / „Share system audio“ в прозореца за избор.",
     );
     await activeMediaManager.startScreenShare(screenStream, quality, mode, useVoiceStore.getState().screenShareSimulcast);
     store.setScreenShareStartedAt(Date.now());
