@@ -62,6 +62,7 @@ export class SfuMediaManager {
 
   private statsInterval: ReturnType<typeof setInterval> | null = null;
   private knownUserIds = new Set<string>();
+  private screenAdaptTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
     private socket: Socket,
@@ -308,6 +309,8 @@ export class SfuMediaManager {
       });
     }
 
+    this.startScreenBitrateAdaptation();
+
     const audioTrack = screenStream.getAudioTracks()[0];
     if (audioTrack) {
       this.screenAudioProducer = await this.sendTransport.produce({
@@ -315,6 +318,61 @@ export class SfuMediaManager {
         appData: { type: "screen-audio" } satisfies ProducerAppData,
       });
     }
+  }
+
+  /**
+   * Keeps the stream from outrunning the sharer's real upload. A fixed 32 Mbps cap on a link that
+   * can only carry 20 just fills the router's queue — and the voice, which shares that link, starts
+   * to stutter. Every few seconds the cap follows ~85% of the browser's own bandwidth estimate
+   * (never below 30% of the chosen maximum), and creeps back up when there is room.
+   */
+  private startScreenBitrateAdaptation() {
+    this.stopScreenBitrateAdaptation();
+    const producer = this.screenVideoProducer;
+    const sender = producer?.rtpSender;
+    if (!producer || !sender) return;
+    const baseParams = sender.getParameters();
+    const baseRates = (baseParams.encodings ?? []).map((e) => e.maxBitrate ?? 0);
+    const topRate = Math.max(0, ...baseRates);
+    if (topRate <= 0) return;
+    const floor = topRate * 0.3;
+    let cap = topRate;
+    let lowStreak = 0;
+    const startedAt = Date.now();
+
+    this.screenAdaptTimer = setInterval(() => {
+      void (async () => {
+        if (producer.closed || !this.sendTransport || Date.now() - startedAt < 12_000) return; // let the estimate warm up
+        let available: number | null = null;
+        const report = await this.sendTransport.getStats();
+        report.forEach((stat: any) => {
+          if (stat.type !== "candidate-pair" || !(stat.state === "succeeded" || stat.nominated)) return;
+          if (typeof stat.availableOutgoingBitrate === "number") available = stat.availableOutgoingBitrate;
+        });
+        if (available === null) return;
+        const target = available * 0.85;
+        let next = cap;
+        if (target < cap * 0.9) {
+          lowStreak++;
+          if (lowStreak >= 2) next = Math.max(floor, target); // two readings in a row, not a blip
+        } else {
+          lowStreak = 0;
+          if (target > cap * 1.25 && cap < topRate) next = Math.min(topRate, cap * 1.25);
+        }
+        if (Math.abs(next - cap) < cap * 0.05) return;
+        cap = next;
+        const params = sender.getParameters();
+        params.encodings?.forEach((enc, i) => {
+          enc.maxBitrate = Math.round(((baseRates[i] ?? topRate) * cap) / topRate);
+        });
+        await sender.setParameters(params).catch((err) => console.warn("screen bitrate adapt failed", err));
+      })().catch(() => {});
+    }, 3000);
+  }
+
+  private stopScreenBitrateAdaptation() {
+    if (this.screenAdaptTimer) clearInterval(this.screenAdaptTimer);
+    this.screenAdaptTimer = null;
   }
 
   private lastScreenStats: { at: number; bytes: number } | null = null;
@@ -387,6 +445,7 @@ export class SfuMediaManager {
   }
 
   stopScreenShare() {
+    this.stopScreenBitrateAdaptation();
     for (const producer of [this.screenVideoProducer, this.screenAudioProducer]) {
       if (!producer) continue;
       this.socket.emit("sfu:close-producer", { roomId: this.roomId, producerId: producer.id });
@@ -466,6 +525,7 @@ export class SfuMediaManager {
       this.statsInterval = null;
     }
 
+    this.stopScreenBitrateAdaptation();
     this.sendTransport?.close();
     this.recvTransport?.close();
     this.sendTransport = null;
