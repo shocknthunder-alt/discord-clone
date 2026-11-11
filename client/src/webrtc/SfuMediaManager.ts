@@ -272,7 +272,7 @@ export class SfuMediaManager {
       // layers, it needs one good stream.
       const maxBitrate =
         quality === "high"
-          ? smooth ? 14_000_000 : 10_000_000
+          ? smooth ? 32_000_000 : 25_000_000
           : quality === "low"
             ? smooth ? 4_500_000 : 3_000_000
             : smooth ? 8_000_000 : 5_000_000;
