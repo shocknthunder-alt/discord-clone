@@ -2474,11 +2474,8 @@ input[type="range"] {
 
 /* ---- LIVE indicator for the person streaming ---- */
 .live-banner {
-  position: fixed;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 300;
+  cursor: inherit;
   display: flex;
   align-items: center;
   gap: 10px;

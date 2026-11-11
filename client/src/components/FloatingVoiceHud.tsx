@@ -88,12 +88,12 @@ export default function FloatingVoiceHud() {
         </div>
       </FloatingIcon>
 
-      {/* Movable even when locked, so it can be parked away from the LIVE banner. */}
-      <FloatingIcon id="hud-lock" alwaysMovable getDefaultPosition={() => ({ x: Math.max(16, window.innerWidth / 2 - 60), y: 60 })}>
+      {/* Movable like the other icons, but only while the layout is unlocked. */}
+      <FloatingIcon id="hud-lock" getDefaultPosition={() => ({ x: Math.max(16, window.innerWidth / 2 + 220), y: 14 })}>
         <button
           className={`hud-lock-button ${locked ? "locked" : "unlocked"}`}
           onClick={toggleLocked}
-          title={(locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)") + " — drag to move this button"}
+          title={(locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)") + " (drag to move when unlocked)"}
         >
           <LockIcon locked={locked} size={14} color={locked ? "var(--c-backdrop)" : "var(--t-3)"} />
           {locked ? "Unlock layout" : "Lock layout"}

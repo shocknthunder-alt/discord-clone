@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import FloatingIcon from "./FloatingIcon";
 
 function formatElapsed(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -46,6 +47,7 @@ export default function LiveBanner() {
   return (
     <>
       <div className="live-edge" aria-hidden />
+      <FloatingIcon id="live-banner" getDefaultPosition={() => ({ x: Math.max(8, window.innerWidth / 2 - 190), y: 10 })}>
       <div className="live-banner" role="status">
         <span className="live-dot" />
         <strong>LIVE</strong>
@@ -58,6 +60,7 @@ export default function LiveBanner() {
           {isScreenSharing ? "Спри стрийма" : "Изключи"}
         </button>
       </div>
+      </FloatingIcon>
     </>
   );
 }
