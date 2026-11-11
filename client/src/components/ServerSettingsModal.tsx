@@ -83,7 +83,7 @@ export default function ServerSettingsModal({ server, onClose }: Props) {
 
         {error && <div className="modal-error">{error}</div>}
 
-        <button className="modal-join-button" onClick={handleSave} disabled={saving || uploading || !name.trim()}>
+        <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !name.trim()}>
           {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>

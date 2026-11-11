@@ -1,7 +1,10 @@
-import { useEffect, useState } from "react";
-import { fetchFeaturedInvite, joinServer } from "../api/servers.api";
+import { useState } from "react";
+import { joinServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+
+// Pre-filled so friends only have to press the button.
+const DEFAULT_INVITE_CODE = "cmw6c0h3z0004123k7n8dqxww";
 
 interface Props {
   onClose: () => void;
@@ -16,16 +19,9 @@ function extractInviteCode(input: string): string {
 export default function JoinServerModal({ onClose }: Props) {
   useEscapeKey(onClose);
   const { addServer, setActiveServer } = useServerStore();
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(DEFAULT_INVITE_CODE);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [featured, setFeatured] = useState<{ name: string; inviteCode: string } | null>(null);
-
-  useEffect(() => {
-    fetchFeaturedInvite()
-      .then(setFeatured)
-      .catch(() => setFeatured(null));
-  }, []);
 
   async function handleJoin() {
     const code = extractInviteCode(input);
@@ -68,11 +64,7 @@ export default function JoinServerModal({ onClose }: Props) {
           autoFocus
         />
 
-        {featured && (
-          <p className="modal-examples-text">
-            Paste THIS <strong>{featured.inviteCode}</strong> To Join {featured.name} CHannel!
-          </p>
-        )}
+        <p className="modal-examples-text">Кликни <strong>Join Server</strong> Pepega !</p>
 
         {error && <div className="modal-error">{error}</div>}
 

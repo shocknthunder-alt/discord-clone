@@ -63,7 +63,7 @@ function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: bool
             }}
             autoFocus
           />
-          <button onClick={saveEdit}>Save</button>
+          <button className="save" onClick={saveEdit}>Save</button>
           <button onClick={cancelEdit}>Cancel</button>
         </div>
       ) : (

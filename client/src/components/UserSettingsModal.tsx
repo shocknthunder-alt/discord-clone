@@ -534,7 +534,7 @@ export default function UserSettingsModal({ onClose }: Props) {
           <>
         {error && <div className="modal-error">{error}</div>}
 
-        <button className="modal-join-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
+        <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
           {saving ? "Saving…" : "Save Changes"}
         </button>
 
