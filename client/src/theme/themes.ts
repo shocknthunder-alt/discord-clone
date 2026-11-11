@@ -43,6 +43,17 @@ export const THEMES: ThemeDef[] = [
     panelShadow: "0 0 22px rgba(255,90,20,0.22), 0 10px 30px rgba(0,0,0,0.5)",
   },
   {
+    // Charred black surfaces with ember-orange accents; the flames around the window edges are drawn
+    // by components/ThemeFlames.tsx (only active for this theme).
+    id: "inferno",
+    name: "🔥 Огнена обвивка",
+    h: 10, s: 30, l: 8, accent: "#ff6a1a", textH: 30, textS: 45,
+    bodyImage:
+      "radial-gradient(900px 380px at 50% 112%, rgba(255,95,20,0.32), transparent 65%), radial-gradient(420px 700px at -4% 50%, rgba(255,80,20,0.22), transparent 70%), radial-gradient(420px 700px at 104% 50%, rgba(255,80,20,0.22), transparent 70%), radial-gradient(900px 260px at 50% -8%, rgba(120,20,10,0.25), transparent 70%)",
+    panelBorder: "rgba(255,120,40,0.34)",
+    panelShadow: "0 0 18px rgba(255,90,20,0.18), 0 10px 30px rgba(0,0,0,0.6)",
+  },
+  {
     id: "jungle",
     name: "🌿 Джунгла",
     h: 142, s: 36, l: 15, accent: "#8fd12f", textH: 95, textS: 28,
@@ -177,6 +188,8 @@ export function applyTheme(id: string, persist = false) {
   for (const [k, val] of Object.entries(v)) root.style.setProperty(k, val);
   root.style.colorScheme = light ? "light" : "dark";
   root.dataset.mode = light ? "light" : "dark";
+  root.dataset.theme = t.id;
+  window.dispatchEvent(new Event("shmirka-theme"));
   if (persist) {
     try {
       localStorage.setItem(STORAGE_KEY, id);

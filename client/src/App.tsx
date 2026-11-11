@@ -5,6 +5,7 @@ import RegisterPage from "./pages/RegisterPage";
 import AppShell from "./pages/AppShell";
 import UpdateBanner from "./components/UpdateBanner";
 import ScreenSourcePicker from "./components/ScreenSourcePicker";
+import ThemeFlames from "./components/ThemeFlames";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -17,6 +18,7 @@ export default function App() {
     <BrowserRouter>
       <UpdateBanner />
       <ScreenSourcePicker />
+      <ThemeFlames />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
