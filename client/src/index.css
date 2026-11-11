@@ -1337,16 +1337,15 @@ button {
   margin-top: 24px;
   padding: 12px;
   border-radius: 4px;
-  border: 2px solid #da373c;
-  background: #ffffff;
-  color: #da373c;
+  border: none;
+  background: var(--accent);
+  color: #ffffff;
   font-weight: 700;
   font-size: 15px;
 }
 
 .modal-join-button:hover:not(:disabled) {
-  background: #da373c;
-  color: #ffffff;
+  background: var(--accent-hover);
 }
 
 .modal-join-button:disabled {
