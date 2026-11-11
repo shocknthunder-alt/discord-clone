@@ -12,6 +12,7 @@ import {
   getEchoCancellationEnabled,
   getHighpassFilterEnabled,
   getNoiseGateEnabled,
+  getAiNoiseSuppressionEnabled,
   getNoiseGateSensitivity,
   getNoiseSuppressionEnabled,
   getPreferredMicDeviceId,
@@ -20,6 +21,7 @@ import {
   setEchoCancellationEnabled as persistEchoCancellationEnabled,
   setHighpassFilterEnabled as persistHighpassFilterEnabled,
   setNoiseGateEnabled as persistNoiseGateEnabled,
+  setAiNoiseSuppressionEnabled as persistAiNoiseSuppressionEnabled,
   setNoiseGateSensitivity as persistNoiseGateSensitivity,
   setNoiseSuppressionEnabled as persistNoiseSuppressionEnabled,
 } from "./devicePrefs";
@@ -161,6 +163,7 @@ export function useVoiceChannel() {
     activeMicProcessing?.destroy();
     activeMicProcessing = startMicProcessing(localStream, {
       highpassEnabled: getHighpassFilterEnabled(),
+      aiSuppressionEnabled: getAiNoiseSuppressionEnabled(),
       noiseGateEnabled: getNoiseGateEnabled(),
       noiseGateSensitivity: getNoiseGateSensitivity(),
     });
@@ -574,6 +577,10 @@ export function useVoiceChannel() {
     persistHighpassFilterEnabled(enabled);
     activeMicProcessing?.setHighpassEnabled(enabled);
   }, []);
+  const setAiNoiseSuppressionEnabled = useCallback((enabled: boolean) => {
+    persistAiNoiseSuppressionEnabled(enabled);
+    activeMicProcessing?.setAiSuppressionEnabled(enabled);
+  }, []);
   const setNoiseGateEnabled = useCallback((enabled: boolean) => {
     persistNoiseGateEnabled(enabled);
     activeMicProcessing?.setNoiseGateEnabled(enabled);
@@ -643,6 +650,7 @@ export function useVoiceChannel() {
     setNoiseSuppressionEnabled,
     setAutoGainControlEnabled,
     setHighpassFilterEnabled,
+    setAiNoiseSuppressionEnabled,
     setNoiseGateEnabled,
     setNoiseGateSensitivity,
     addMusic,

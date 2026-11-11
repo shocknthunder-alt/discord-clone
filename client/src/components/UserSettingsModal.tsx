@@ -11,6 +11,7 @@ import {
   getEchoCancellationEnabled,
   getHighpassFilterEnabled,
   getNoiseGateEnabled,
+  getAiNoiseSuppressionEnabled,
   getNoiseGateSensitivity,
   getNoiseSuppressionEnabled,
   getPreferredMicDeviceId,
@@ -87,6 +88,7 @@ export default function UserSettingsModal({ onClose }: Props) {
     setNoiseSuppressionEnabled,
     setAutoGainControlEnabled,
     setHighpassFilterEnabled,
+    setAiNoiseSuppressionEnabled,
     setNoiseGateEnabled,
     setNoiseGateSensitivity,
   } = useVoiceChannel();
@@ -100,6 +102,7 @@ export default function UserSettingsModal({ onClose }: Props) {
   const [noiseSuppression, setNoiseSuppressionState] = useState(getNoiseSuppressionEnabled());
   const [autoGainControl, setAutoGainControlState] = useState(getAutoGainControlEnabled());
   const [highpassFilter, setHighpassFilterState] = useState(getHighpassFilterEnabled());
+  const [aiSuppression, setAiSuppressionState] = useState(getAiNoiseSuppressionEnabled());
   const [noiseGate, setNoiseGateState] = useState(getNoiseGateEnabled());
   const [noiseGateSensitivity, setNoiseGateSensitivityState] = useState(getNoiseGateSensitivity());
 
@@ -494,6 +497,17 @@ export default function UserSettingsModal({ onClose }: Props) {
             }}
           />
           Highpass Filter (cuts low rumble — fan/AC hum, desk thumps)
+        </label>
+        <label className="modal-checkbox-label">
+          <input
+            type="checkbox"
+            checked={aiSuppression}
+            onChange={(e) => {
+              setAiSuppressionState(e.target.checked);
+              setAiNoiseSuppressionEnabled(e.target.checked);
+            }}
+          />
+          AI noise suppression (removes keyboard, fan, breathing and room noise; keeps your voice)
         </label>
         <label className="modal-checkbox-label">
           <input

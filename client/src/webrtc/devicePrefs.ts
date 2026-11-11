@@ -98,6 +98,7 @@ const NOISE_SUPPRESSION_KEY = "audioNoiseSuppression";
 const AUTO_GAIN_CONTROL_KEY = "audioAutoGainControl";
 const HIGHPASS_FILTER_KEY = "audioHighpassFilter";
 const NOISE_GATE_ENABLED_KEY = "audioNoiseGateEnabled";
+const AI_NOISE_SUPPRESSION_KEY = "audioAiNoiseSuppression";
 const NOISE_GATE_SENSITIVITY_KEY = "audioNoiseGateSensitivity";
 
 // Every one of these defaults ON — browser-native echo/noise/gain correction plus our own
@@ -132,6 +133,10 @@ export const setHighpassFilterEnabled = (v: boolean) => setBoolPref(HIGHPASS_FIL
 // Mutes the mic between words/sentences once volume drops below a threshold — what
 // actually "isolates" steady background noise (keyboard, fan, side conversation) that
 // browser noiseSuppression alone tends to just quiet rather than fully remove.
+// Neural-network noise removal (RNNoise, see rnnoise.ts) — on by default.
+export const getAiNoiseSuppressionEnabled = () => getBoolPref(AI_NOISE_SUPPRESSION_KEY, true);
+export const setAiNoiseSuppressionEnabled = (v: boolean) => setBoolPref(AI_NOISE_SUPPRESSION_KEY, v);
+
 export const getNoiseGateEnabled = () => getBoolPref(NOISE_GATE_ENABLED_KEY, true);
 export const setNoiseGateEnabled = (v: boolean) => setBoolPref(NOISE_GATE_ENABLED_KEY, v);
 

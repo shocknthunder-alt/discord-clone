@@ -10,7 +10,10 @@
 // and keystroke went out. The worklet also delays the audio by a few ms ("lookahead") so the gate
 // is already open when a word starts, which lets the threshold be stricter without clipping words.
 
+import { loadRnnoiseWorkletSource, RNNOISE_PROCESSOR_NAME } from "./rnnoise";
+
 export interface MicProcessingOptions {
+  aiSuppressionEnabled: boolean;
   highpassEnabled: boolean;
   noiseGateEnabled: boolean;
   noiseGateSensitivity: number; // 0-100, see devicePrefs.ts
@@ -19,6 +22,7 @@ export interface MicProcessingOptions {
 export interface MicProcessingHandle {
   outputTrack: MediaStreamTrack;
   setHighpassEnabled: (enabled: boolean) => void;
+  setAiSuppressionEnabled: (enabled: boolean) => void;
   setNoiseGateEnabled: (enabled: boolean) => void;
   setNoiseGateSensitivity: (sensitivity: number) => void;
   destroy: () => void;
@@ -94,7 +98,8 @@ registerProcessor("shmirka-gate", GateProcessor);
 `;
 
 export function startMicProcessing(rawStream: MediaStream, options: MicProcessingOptions): MicProcessingHandle {
-  const audioContext = new AudioContext();
+  // RNNoise needs 48 kHz; the browser resamples the mic to it if the device runs at another rate.
+  const audioContext = new AudioContext({ sampleRate: 48000 });
   if (audioContext.state === "suspended") void audioContext.resume();
   const source = audioContext.createMediaStreamSource(rawStream);
 
@@ -107,6 +112,8 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
   let highpassEnabled = options.highpassEnabled;
   let noiseGateEnabled = options.noiseGateEnabled;
   let thresholdDb = sensitivityToThresholdDb(options.noiseGateSensitivity);
+  let aiEnabled = options.aiSuppressionEnabled;
+  let aiNode: AudioWorkletNode | null = null;
   let gateNode: AudioWorkletNode | null = null;
   let destroyed = false;
 
@@ -126,8 +133,14 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
     source.disconnect();
     highpass.disconnect();
     gateNode?.disconnect();
-    const head: AudioNode = highpassEnabled ? highpass : source;
+    aiNode?.disconnect();
+    let head: AudioNode = highpassEnabled ? highpass : source;
     if (highpassEnabled) source.connect(highpass);
+    // AI suppression sits first, then the gate cleans up whatever faint residue is left.
+    if (aiNode && aiEnabled) {
+      head.connect(aiNode);
+      head = aiNode;
+    }
     if (gateNode) {
       head.connect(gateNode);
       gateNode.connect(destination);
@@ -155,12 +168,45 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
     .catch((err) => console.warn("noise gate unavailable — mic is sent ungated", err))
     .finally(() => URL.revokeObjectURL(moduleUrl));
 
+  // Loaded separately and lazily; until (or unless) it is ready the audio simply skips it.
+  void loadRnnoiseWorkletSource()
+    .then(async (source) => {
+      const url = URL.createObjectURL(new Blob([source], { type: "application/javascript" }));
+      try {
+        await audioContext.audioWorklet.addModule(url);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      if (destroyed) return;
+      const node = new AudioWorkletNode(audioContext, RNNOISE_PROCESSOR_NAME, {
+        numberOfInputs: 1,
+        numberOfOutputs: 1,
+        outputChannelCount: [1],
+        channelCount: 1,
+        channelCountMode: "explicit",
+      });
+      node.port.onmessage = (e) => {
+        if (e.data?.error) {
+          console.warn("AI noise suppression failed to start — falling back", e.data.error);
+          aiNode = null;
+          connectGraph();
+        }
+      };
+      aiNode = node;
+      connectGraph();
+    })
+    .catch((err) => console.warn("AI noise suppression unavailable", err));
+
   const outputTrack = destination.stream.getAudioTracks()[0];
 
   return {
     outputTrack,
     setHighpassEnabled: (enabled) => {
       highpassEnabled = enabled;
+      connectGraph();
+    },
+    setAiSuppressionEnabled: (enabled) => {
+      aiEnabled = enabled;
       connectGraph();
     },
     setNoiseGateEnabled: (enabled) => {
@@ -176,6 +222,7 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
       source.disconnect();
       highpass.disconnect();
       gateNode?.disconnect();
+      aiNode?.disconnect();
       void audioContext.close();
     },
   };
