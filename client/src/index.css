@@ -2674,3 +2674,10 @@ input[type="range"] {
 .stream-volume-button { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 2px 4px; }
 .stream-volume input[type="range"] { width: 110px; cursor: pointer; }
 .stream-volume-note { color: #fff; font-size: 11px; opacity: 0.7; }
+
+/* Settings tabs */
+.settings-card { width: 600px; }
+.settings-tabs { display: flex; gap: 4px; margin: 0 0 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); flex-wrap: wrap; }
+.settings-tab { background: none; border: none; color: inherit; opacity: 0.65; padding: 8px 14px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.settings-tab:hover { opacity: 1; }
+.settings-tab.active { opacity: 1; border-bottom-color: var(--accent, #5865f2); font-weight: 600; }

@@ -41,12 +41,22 @@ function describeKeyCode(code: string): string {
   return known[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "");
 }
 
+type SettingsTab = "profile" | "audio" | "stream" | "appearance";
+
+const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
+  { id: "profile", label: "👤 Профил" },
+  { id: "audio", label: "🎙️ Звук" },
+  { id: "stream", label: "📺 Стрийм" },
+  { id: "appearance", label: "🎨 Външен вид" },
+];
+
 interface Props {
   onClose: () => void;
 }
 
 export default function UserSettingsModal({ onClose }: Props) {
   const { user, setUser, logout } = useAuthStore();
+  const [tab, setTab] = useState<SettingsTab>("profile");
   const streamFrameId = useStreamFrameStore((st) => st.frameId);
   const setStreamFrameId = useStreamFrameStore((st) => st.setFrameId);
   const [themeId, setThemeId] = useState(getStoredThemeId());
@@ -178,13 +188,29 @@ export default function UserSettingsModal({ onClose }: Props) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-card settings-card" onClick={(e) => e.stopPropagation()}>
         <button className="modal-back" onClick={onClose} aria-label="Back">
           ←
         </button>
 
         <h1 className="modal-title">User Settings</h1>
 
+        <div className="settings-tabs" role="tablist">
+          {SETTINGS_TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              className={`settings-tab ${tab === t.id ? "active" : ""}`}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {tab === "profile" && (
+          <>
         <div className="avatar-picker">
           {avatarUrl ? (
             <img className="avatar-picker-preview" src={avatarUrl} alt="" />
@@ -206,6 +232,11 @@ export default function UserSettingsModal({ onClose }: Props) {
         </label>
         <input id="username-input" className="modal-input" value={username} onChange={(e) => setUsername(e.target.value)} />
 
+          </>
+        )}
+
+        {tab === "audio" && (
+          <>
         <label className="modal-label" htmlFor="mic-select">
           Microphone
         </label>
@@ -245,6 +276,11 @@ export default function UserSettingsModal({ onClose }: Props) {
           </p>
         )}
 
+          </>
+        )}
+
+        {tab === "appearance" && (
+          <>
         <h2 className="modal-section-title">Theme</h2>
         <div className="theme-grid">
           {THEMES.map((t) => (
@@ -272,6 +308,11 @@ export default function UserSettingsModal({ onClose }: Props) {
           ))}
         </div>
 
+          </>
+        )}
+
+        {tab === "stream" && (
+          <>
         <h2 className="modal-section-title">Stream Frame</h2>
         <div className="stream-frame-picker">
           {STREAM_FRAMES.map((f) => (
@@ -293,6 +334,11 @@ export default function UserSettingsModal({ onClose }: Props) {
           ))}
         </div>
 
+          </>
+        )}
+
+        {tab === "audio" && (
+          <>
         <h2 className="modal-section-title">Input Mode</h2>
 
         <label className="modal-radio-label">
@@ -325,6 +371,11 @@ export default function UserSettingsModal({ onClose }: Props) {
           </div>
         )}
 
+          </>
+        )}
+
+        {tab === "stream" && (
+          <>
         <h2 className="modal-section-title">Screen Share Mode</h2>
 
         <label className="modal-radio-label">
@@ -390,6 +441,11 @@ export default function UserSettingsModal({ onClose }: Props) {
           Experimental: also send a lighter copy for viewers with a weak connection (uses more of your PC)
         </label>
 
+          </>
+        )}
+
+        {tab === "audio" && (
+          <>
         <h2 className="modal-section-title">Audio Processing</h2>
         <p className="modal-hint">All on by default — turn one off if it's fighting your specific mic.</p>
 
@@ -471,6 +527,11 @@ export default function UserSettingsModal({ onClose }: Props) {
           noise through. These two apply immediately to a call already in progress.
         </p>
 
+          </>
+        )}
+
+        {tab === "profile" && (
+          <>
         {error && <div className="modal-error">{error}</div>}
 
         <button className="modal-join-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
@@ -480,6 +541,9 @@ export default function UserSettingsModal({ onClose }: Props) {
         <button className="modal-logout-button" onClick={handleLogout}>
           Log Out
         </button>
+          </>
+        )}
+
       </div>
     </div>
   );

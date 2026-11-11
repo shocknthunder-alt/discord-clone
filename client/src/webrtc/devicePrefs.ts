@@ -137,10 +137,14 @@ export const setNoiseGateEnabled = (v: boolean) => setBoolPref(NOISE_GATE_ENABLE
 
 // 0-100 "sensitivity" as shown to the user; higher = gate opens more easily (lower volume
 // still counts as speech). Internally mapped to a dB threshold — see micProcessing.ts.
+// 40 = opens at about -42 dB: above breathing, mouse clicks and room hush, below normal speech.
+// (50 used to be the default and let breathing through.) Quiet talkers can raise it in Settings.
+const DEFAULT_NOISE_GATE_SENSITIVITY = 40;
+
 export function getNoiseGateSensitivity(): number {
   const raw = localStorage.getItem(NOISE_GATE_SENSITIVITY_KEY);
   const parsed = raw === null ? NaN : Number(raw);
-  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : 50;
+  return Number.isFinite(parsed) ? Math.min(Math.max(parsed, 0), 100) : DEFAULT_NOISE_GATE_SENSITIVITY;
 }
 
 export function setNoiseGateSensitivity(value: number) {
