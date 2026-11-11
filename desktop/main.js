@@ -1,60 +1,24 @@
 const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, session, shell } = require("electron");
-const fs = require("node:fs");
-const http = require("node:http");
 const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 
-// The built client is served from a tiny local web server rather than file://, because the app
-// needs a real http origin (secure context for mic/camera, YouTube embeds, SPA routing). The port
-// is fixed so the origin — and with it the saved login — is the same on every launch.
-const PORT = 47321;
-const ORIGIN = `http://localhost:${PORT}`;
-const ROOT = path.join(__dirname, "client-dist");
+// The app is a thin native shell around the live website, so every client update reaches the
+// desktop users immediately (no new installer). The shell only adds what a browser can't do:
+// global push-to-talk, the screen/window picker and system audio. The page feature-detects
+// window.shmirkaDesktop, so an older installed shell keeps working with a newer site.
+const ORIGIN = "https://shmirka.vercel.app";
 
-const MIME = {
-  ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css", ".json": "application/json",
-  ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".svg": "image/svg+xml", ".mp3": "audio/mpeg",
-  ".woff2": "font/woff2", ".ico": "image/x-icon",
-};
-
-function startStaticServer() {
-  const server = http.createServer((req, res) => {
-    const url = decodeURIComponent((req.url || "/").split("?")[0]);
-    let file = path.join(ROOT, path.normalize(url));
-    if (!file.startsWith(ROOT) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
-      file = path.join(ROOT, "index.html"); // SPA fallback
-    }
-    res.writeHead(200, { "Content-Type": MIME[path.extname(file)] || "application/octet-stream" });
-    fs.createReadStream(file).pipe(res);
-  });
-  return new Promise((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(PORT, "127.0.0.1", () => resolve(server));
-  });
-}
+const OFFLINE_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html><meta charset="utf-8">
+<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#0e0e10;color:#ddd;font-family:sans-serif">
+<h2>Няма връзка със ШмиркаТа</h2><p>Провери интернета.</p>
+<button onclick="location.href='${ORIGIN}'" style="padding:10px 22px;font-size:16px;cursor:pointer">Опитай пак</button></body>`)}`;
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
 app.whenReady().then(async () => {
-  await startStaticServer();
   Menu.setApplicationMenu(null);
 
   const ses = session.defaultSession;
-
-  // The servers only whitelist the website's origin for CORS. The desktop app has its own
-  // (localhost) origin, so answer for it here instead of changing the servers.
-  ses.webRequest.onHeadersReceived((details, callback) => {
-    if (details.url.startsWith(ORIGIN)) return callback({});
-    const headers = { ...details.responseHeaders };
-    for (const key of Object.keys(headers)) {
-      if (key.toLowerCase().startsWith("access-control-allow-origin") || key.toLowerCase() === "access-control-allow-credentials") {
-        delete headers[key];
-      }
-    }
-    headers["Access-Control-Allow-Origin"] = [ORIGIN];
-    headers["Access-Control-Allow-Credentials"] = ["true"];
-    callback({ responseHeaders: headers });
-  });
 
   ses.setPermissionRequestHandler((_wc, permission, callback) => {
     callback(["media", "display-capture", "notifications", "fullscreen", "clipboard-sanitized-write"].includes(permission));
@@ -115,6 +79,10 @@ app.whenReady().then(async () => {
 
   startGlobalKeys((code, down) => {
     if (!win.isDestroyed()) win.webContents.send("global-key", code, down);
+  });
+
+  win.webContents.on("did-fail-load", (_e, code, _desc, url, isMainFrame) => {
+    if (isMainFrame && code !== -3 && url.startsWith(ORIGIN)) win.loadURL(OFFLINE_PAGE);
   });
 
   win.loadURL(ORIGIN);

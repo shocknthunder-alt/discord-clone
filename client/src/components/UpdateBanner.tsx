@@ -15,8 +15,7 @@ export default function UpdateBanner() {
   const inVoice = useVoiceStore((s) => !!s.activeVoiceChannelId);
 
   useEffect(() => {
-    // The desktop app ships a fixed bundled version; it never self-updates from the website.
-    if (import.meta.env.DEV || window.shmirkaDesktop) return;
+    if (import.meta.env.DEV) return;
     let cancelled = false;
 
     async function check() {

@@ -12,15 +12,17 @@ Note: `npm start` goes through `start.mjs`, which unsets `ELECTRON_RUN_AS_NODE` 
 ```
 cd desktop
 npm install
-npm start          # builds the client (production URLs) and opens the app
+npm start          # opens the app (loads the live site)
 npm run dist       # Windows installer in desktop/dist/ (Shmirka Setup x.y.z.exe)
 ```
 
-## How it works
-- `build-client.mjs` builds `../client` with the production API/socket/media URLs into `client-dist/`.
-- `main.js` serves `client-dist/` on `http://localhost:47321` (fixed port → same origin → saved login),
-  answers CORS for that origin (so the servers don't need changing), grants mic/camera/screen
-  permissions and opens external links in the browser.
+## How it works (v1.1+)
+The app is a thin shell that loads the live site (`https://shmirka.vercel.app`), so every client update
+reaches desktop users immediately - a new installer is only needed when the shell itself changes
+(`main.js`, `preload.js`, `globalKeys.js`). The shell adds what a browser can't: global push-to-talk
+(`uiohook-napi`), the screen/window picker and system-audio loopback. The client feature-detects
+`window.shmirkaDesktop`, so an older installed shell keeps working with a newer site. Offline -> a retry page.
+(v1.0 bundled the client inside the installer; those installs stay on that old client until reinstalled.)
 
 ## TODO
 1. ~~`npm install` and the first real run~~ done; still test login/voice/screen share by hand.
