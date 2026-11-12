@@ -13,7 +13,7 @@ import { isChannelUnread, useUnreadStore } from "../store/unreadStore";
 import { useAppPrefs } from "../utils/appPrefs";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
-import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { useVoiceChannel, watchStream } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import ChannelContextMenu from "./ChannelContextMenu";
 import ChannelSettingsModal from "./ChannelSettingsModal";
@@ -51,7 +51,7 @@ function ParticipantRow({
   onWatch: (socketId: string) => void;
 }) {
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
-  const watching = useWatchStore((s) => !s.hidden.has(peer.socketId));
+  const watching = useWatchStore((s) => s.watching.has(peer.socketId));
 
   return (
     <div
@@ -72,7 +72,7 @@ function ParticipantRow({
       )}
       {" "}
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} size={10} />
-      {peer.screenStream && (
+      {peer.isScreenSharing && (
         <button
           className={`participant-watch ${watching ? "watching" : ""}`}
           onClick={(e) => {
@@ -112,12 +112,11 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, channelOccupants } =
     useVoiceStore();
   const currentAvatarUrl = useAuthStore((s) => s.user?.avatarUrl) ?? null;
-  const showStream = useWatchStore((s) => s.show);
   const unreadMarkers = useAppPrefs((s) => s.unreadMarkers);
   const unreadLatest = useUnreadStore((s) => s.latest);
   const unreadSeen = useUnreadStore((s) => s.seen);
   const unread = { latest: unreadLatest, seen: unreadSeen };
-  const selfWatching = useWatchStore((s) => !s.hidden.has(SELF_STREAM_KEY));
+  const selfWatching = useWatchStore((s) => s.watching.has(SELF_STREAM_KEY));
   const localScreenStream = useVoiceStore((s) => s.localScreenStream);
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
@@ -336,7 +335,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                               peer={peer}
                               onContextMenu={handlePeerContextMenu}
                               onWatch={(socketId) => {
-                                showStream(socketId);
+                                watchStream(socketId);
                                 onSelectVoice();
                               }}
                             />
@@ -355,7 +354,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                               className={`participant-watch ${selfWatching ? "watching" : ""}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                showStream(SELF_STREAM_KEY);
+                                watchStream(SELF_STREAM_KEY);
                                 onSelectVoice();
                               }}
                               title={selfWatching ? "Show your stream" : "Preview your stream"}

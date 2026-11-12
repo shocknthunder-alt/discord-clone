@@ -11,7 +11,7 @@ import { voiceStatusIcons } from "../utils/voiceStatus";
 import PeerConnectionBadge from "./PeerConnectionBadge";
 import ScreenSharePlayer from "./ScreenSharePlayer";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
-import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { stopWatchingStream, useVoiceChannel, watchStream } from "../webrtc/useVoiceChannel";
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
 import StreamFrame from "./StreamFrame";
@@ -99,6 +99,7 @@ function PeerTile({
 }) {
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
   const movable = useMovableTile(`peer-${peer.userId}`);
+  const watchingThis = useWatchStore((s) => s.watching.has(peer.socketId));
 
   return (
     <div
@@ -121,9 +122,24 @@ function PeerTile({
       <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
       {peer.isScreenSharing && (
-        <div className="screen-share-label">
-          <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
-        </div>
+        <>
+          <div className="screen-share-label">
+            <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
+          </div>
+          {!watchingThis && (
+            <button
+              className="screen-share-badge"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                watchStream(peer.socketId);
+              }}
+              title="Гледай стрийма"
+            >
+              Watch Stream
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -141,26 +157,31 @@ export default function VoiceChannelPanel() {
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
-  const hidden = useWatchStore((s) => s.hidden);
-  const hideStream = useWatchStore((s) => s.hide);
-  const pruneHidden = useWatchStore((s) => s.prune);
+  const watching = useWatchStore((s) => s.watching);
+  const pruneWatching = useWatchStore((s) => s.prune);
 
   const localScreenStream = useVoiceStore((s) => s.localScreenStream);
 
-  // Every live share is on screen unless the viewer closed it — your own too (muted preview),
-  // so two people sharing see both pictures side by side.
+  // Only the shares the viewer clicked Watch on are shown (and downloaded at all) — your own
+  // too, as a muted preview. Several watched shares sit side by side.
   const streams: { key: string; stream: MediaStream; caption: string; preview: boolean }[] = Array.from(peers.values())
     .filter((p) => p.userId && p.screenStream)
     .map((p) => ({ key: p.socketId, stream: p.screenStream!, caption: p.username || "Live", preview: false }));
   if (isScreenSharing && localScreenStream) {
     streams.push({ key: SELF_STREAM_KEY, stream: localScreenStream, caption: `${currentUsername} (ти)`, preview: true });
   }
-  const watched = streams.filter((s) => !hidden.has(s.key));
-  const liveKey = streams.map((s) => s.key).join(",");
+  const watched = streams.filter((s) => watching.has(s.key));
+  // Who is live at all (watched or not) — a watch on a share that ended is forgotten.
+  const liveKey = [
+    ...Array.from(peers.values())
+      .filter((p) => p.userId && p.isScreenSharing)
+      .map((p) => p.socketId),
+    ...(isScreenSharing ? [SELF_STREAM_KEY] : []),
+  ].join(",");
 
   useEffect(() => {
-    pruneHidden(new Set(liveKey ? liveKey.split(",") : []));
-  }, [liveKey, pruneHidden]);
+    pruneWatching(new Set(liveKey ? liveKey.split(",") : []));
+  }, [liveKey, pruneWatching]);
 
   // Cameras someone enlarged with ⤢ join the same grid as the streams.
   const bigCams = useWatchStore((s) => s.bigCams);
@@ -228,7 +249,7 @@ export default function VoiceChannelPanel() {
         {n > 0 && (
           <div className="stream-grid" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
             {watched.map((s) => (
-              <StreamFrame key={s.key} caption={s.caption} onStop={() => hideStream(s.key)} maxVh={maxVh}>
+              <StreamFrame key={s.key} caption={s.caption} onStop={() => stopWatchingStream(s.key)} maxVh={maxVh}>
                 <div className="screen-share-viewer">
                   <ScreenSharePlayer stream={s.stream} preview={s.preview} />
                 </div>

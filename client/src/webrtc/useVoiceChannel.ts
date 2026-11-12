@@ -29,6 +29,7 @@ import { startMicProcessing, type MicProcessingHandle } from "./micProcessing";
 import { SfuMediaManager } from "./SfuMediaManager";
 import { playVoiceJoinSound } from "../utils/voiceSounds";
 import { unlockMusicAudio } from "../music/musicPlayerEngine";
+import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 
 // Module-level singleton: join/leave/mute/screenshare can be triggered from different
 // components (ChannelList, FloatingVoiceHud), all of which must share the same manager
@@ -97,6 +98,24 @@ export function getScreenShareStats() {
   return activeMediaManager?.getScreenStats() ?? Promise.resolve(null);
 }
 
+/**
+ * Watch / stop watching a screen share. Streams are only downloaded while watched — nothing is
+ * shown or heard by default. Your own share (SELF_STREAM_KEY) is just a local preview.
+ */
+export function watchStream(key: string) {
+  useWatchStore.getState().watch(key);
+  if (key === SELF_STREAM_KEY) return;
+  const userId = useVoiceStore.getState().peers.get(key)?.userId;
+  if (userId) void activeMediaManager?.watchScreen(userId);
+}
+
+export function stopWatchingStream(key: string) {
+  useWatchStore.getState().unwatch(key);
+  if (key === SELF_STREAM_KEY) return;
+  const userId = useVoiceStore.getState().peers.get(key)?.userId;
+  if (userId) activeMediaManager?.unwatchScreen(userId);
+}
+
 /** Someone else's screen share as it arrives here (null when not receiving it). */
 export function getReceivedStreamStats(userId: string) {
   return activeMediaManager?.getReceivedScreenStats(userId) ?? Promise.resolve(null);
@@ -160,6 +179,7 @@ export function useVoiceChannel() {
     }
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);
+    useWatchStore.getState().clear(); // a fresh call watches nothing until you click Watch
 
     // Our own highpass + noise gate, layered on top of the browser's native
     // echo/noise/gain correction above — this is what actually gets sent to the SFU. The
@@ -179,7 +199,12 @@ export function useVoiceChannel() {
         upsertPeerMediaByUserId(userId, { audioStream: stream });
       },
       onScreenStream: (userId, stream) => {
-        upsertPeerMediaByUserId(userId, { screenStream: stream, isScreenSharing: !!stream });
+        // null also means "you stopped watching" — that must not hide the fact they're still live
+        // (isScreenSharing is driven by the share started/stopped events and onScreenAvailable).
+        upsertPeerMediaByUserId(userId, stream ? { screenStream: stream, isScreenSharing: true } : { screenStream: null });
+      },
+      onScreenAvailable: (userId) => {
+        upsertPeerMediaByUserId(userId, { isScreenSharing: true });
       },
       onCameraStream: (userId, stream) => {
         upsertPeerMediaByUserId(userId, { cameraStream: stream });

@@ -6,9 +6,11 @@ import { env } from "./env.js";
 import { socketAuthMiddleware } from "./socketAuth.js";
 import { registerMediaSocket } from "./socketHandlers.js";
 import { initWorkerPool } from "./workerPool.js";
+import { startStreamStatsLogger } from "./streamStats.js";
 
 async function main() {
   await initWorkerPool();
+  startStreamStatsLogger();
 
   const app = express();
   app.use(cors({ origin: env.CLIENT_ORIGIN }));

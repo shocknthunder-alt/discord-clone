@@ -25,6 +25,8 @@ interface SfuMediaManagerCallbacks {
   onAudioStream: (userId: string, stream: MediaStream | null) => void;
   onScreenStream: (userId: string, stream: MediaStream | null) => void;
   onCameraStream: (userId: string, stream: MediaStream | null) => void;
+  /** Someone has a screen share you could watch (it is only downloaded once you do). */
+  onScreenAvailable?: (userId: string) => void;
   onQualityChange?: (quality: ConnectionQuality) => void;
   /** Quality of what this peer sends us, judged by packet loss only. Their ping comes from their own report. */
   onPeerQualityChange?: (userId: string, lossQuality: ConnectionQuality) => void;
@@ -59,6 +61,11 @@ export class SfuMediaManager {
   private remoteAudioStreams = new Map<string, MediaStream>(); // userId -> stream
   private remoteScreenStreams = new Map<string, MediaStream>(); // userId -> stream
   private remoteCameraStreams = new Map<string, MediaStream>(); // userId -> stream
+  /** Screen-share producers nobody here has asked to watch yet: userId -> producerId -> payload. */
+  private pendingScreens = new Map<string, Map<string, NewProducerPayload>>();
+  /** Users whose screen share this viewer is watching (consumed). */
+  private watchedScreens = new Set<string>();
+  private screenPayloads = new Map<string, NewProducerPayload>(); // producerId -> payload
 
   private statsInterval: ReturnType<typeof setInterval> | null = null;
   private knownUserIds = new Set<string>();
@@ -98,6 +105,7 @@ export class SfuMediaManager {
       // consuming every producer listed after it, including other peers' live audio) must
       // not block the rest.
       try {
+        if (this.deferScreen(producer)) continue;
         await this.consume(producer.producerId, producer.userId, producer.appData);
       } catch (err) {
         console.error(`[sfu] failed to consume initial ${producer.kind} producer from ${producer.userId}`, err);
@@ -137,6 +145,7 @@ export class SfuMediaManager {
 
   private handleNewProducer = (payload: NewProducerPayload) => {
     this.knownUserIds.add(payload.userId);
+    if (this.deferScreen(payload)) return;
     // Was previously fire-and-forget (`void`) with no catch — any failure here (a rejected
     // ack, a canConsume() mismatch, a transport in a bad state) vanished as a silent
     // unhandled rejection, which is exactly indistinguishable from "it just didn't arrive"
@@ -145,6 +154,61 @@ export class SfuMediaManager {
       console.error(`[sfu] failed to consume ${payload.kind} producer from ${payload.userId}`, err);
     });
   };
+
+  private isScreenType(appData: ProducerAppData) {
+    return appData.type === "screen-video" || appData.type === "screen-audio";
+  }
+
+  /**
+   * Screen shares are NOT downloaded by default — only after the viewer clicks Watch. Returns
+   * true when the producer was parked for later instead of consumed now.
+   */
+  private deferScreen(p: NewProducerPayload): boolean {
+    if (!this.isScreenType(p.appData)) return false;
+    this.screenPayloads.set(p.producerId, p);
+    if (this.watchedScreens.has(p.userId)) return false;
+    const forUser = this.pendingScreens.get(p.userId) ?? new Map<string, NewProducerPayload>();
+    forUser.set(p.producerId, p);
+    this.pendingScreens.set(p.userId, forUser);
+    this.callbacks.onScreenAvailable?.(p.userId);
+    return true;
+  }
+
+  /** Start downloading someone's screen share (video + its sound). */
+  async watchScreen(userId: string) {
+    this.watchedScreens.add(userId);
+    const pending = this.pendingScreens.get(userId);
+    if (!pending) return;
+    this.pendingScreens.delete(userId);
+    for (const p of pending.values()) {
+      try {
+        await this.consume(p.producerId, p.userId, p.appData);
+      } catch (err) {
+        console.error(`[sfu] failed to consume screen from ${userId}`, err);
+      }
+    }
+  }
+
+  /** Stop downloading someone's screen share; it stays available to watch again. */
+  unwatchScreen(userId: string) {
+    this.watchedScreens.delete(userId);
+    for (const [producerId, consumer] of [...this.consumers]) {
+      const meta = this.producerMeta.get(producerId);
+      if (!meta || meta.userId !== userId || !meta.isScreen) continue;
+      consumer.close();
+      this.consumers.delete(producerId);
+      this.producerMeta.delete(producerId);
+      this.socket.emit("sfu:close-consumer", { roomId: this.roomId, consumerId: consumer.id });
+      const payload = this.screenPayloads.get(producerId);
+      if (payload) {
+        const forUser = this.pendingScreens.get(userId) ?? new Map<string, NewProducerPayload>();
+        forUser.set(producerId, payload);
+        this.pendingScreens.set(userId, forUser);
+      }
+    }
+    this.lastReceivedStats.delete(userId);
+    if (this.remoteScreenStreams.delete(userId)) this.callbacks.onScreenStream(userId, null);
+  }
 
   private async consume(producerId: string, userId: string, appData: ProducerAppData) {
     if (!this.device || !this.recvTransport) {
@@ -211,6 +275,16 @@ export class SfuMediaManager {
   }
 
   private handleProducerClosed = ({ producerId }: { producerId: string }) => {
+    const parked = this.screenPayloads.get(producerId);
+    this.screenPayloads.delete(producerId);
+    if (parked) {
+      const forUser = this.pendingScreens.get(parked.userId);
+      forUser?.delete(producerId);
+      if (forUser && forUser.size === 0) this.pendingScreens.delete(parked.userId);
+      // A share that ended needs a fresh click to watch its successor.
+      const stillSharing = [...this.screenPayloads.values()].some((p) => p.userId === parked.userId);
+      if (!stillSharing) this.watchedScreens.delete(parked.userId);
+    }
     const consumer = this.consumers.get(producerId);
     const meta = this.producerMeta.get(producerId);
     if (!consumer || !meta) return;
@@ -237,6 +311,9 @@ export class SfuMediaManager {
 
   private handlePeerLeft = ({ userId }: { userId: string }) => {
     this.knownUserIds.delete(userId);
+    this.pendingScreens.delete(userId);
+    this.watchedScreens.delete(userId);
+    for (const [id, p] of this.screenPayloads) if (p.userId === userId) this.screenPayloads.delete(id);
     this.remoteAudioStreams.delete(userId);
     this.remoteScreenStreams.delete(userId);
     this.remoteCameraStreams.delete(userId);
@@ -312,13 +389,19 @@ export class SfuMediaManager {
             ]
           : [{ maxBitrate, maxFramerate }],
         ...(h264 ? { codec: h264 } : {}),
-        // Start near the target instead of ramping from a trickle (the blurry first seconds).
-        codecOptions: { videoGoogleStartBitrate: Math.round(maxBitrate / 2000) },
+        // Start at ~70% of the ceiling instead of ramping up from a trickle (the blurry first
+        // seconds), and never let a momentary estimate dip starve the encoder below ~20% (the
+        // mushy picture right after a quick hiccup). Values are kbps.
+        codecOptions: {
+          videoGoogleStartBitrate: Math.round((maxBitrate * 0.7) / 1000),
+          videoGoogleMinBitrate: Math.round((maxBitrate * 0.2) / 1000),
+        },
         onRtpSender: (sender) => {
           const params = sender.getParameters();
-          // Smooth: when the machine or the link is short on something, shed resolution, not
-          // frames. Sharp: the opposite.
-          params.degradationPreference = smooth ? "maintain-framerate" : "maintain-resolution";
+          // Smooth: "balanced" — a short squeeze trims a little of both instead of instantly
+          // halving the resolution ("maintain-framerate" did, and that read as a smeared picture
+          // on every quick hiccup). Sharp: keep every pixel, drop frames.
+          params.degradationPreference = smooth ? "balanced" : "maintain-resolution";
           void sender.setParameters(params).catch((err) => console.error("Failed to set screen-share encoding params", err));
         },
         appData: { type: "screen-video" } satisfies ProducerAppData,
@@ -600,6 +683,9 @@ export class SfuMediaManager {
     this.screenAudioProducer = null;
     this.consumers.clear();
     this.producerMeta.clear();
+    this.pendingScreens.clear();
+    this.watchedScreens.clear();
+    this.screenPayloads.clear();
     this.remoteAudioStreams.clear();
     this.remoteScreenStreams.clear();
     this.knownUserIds.clear();

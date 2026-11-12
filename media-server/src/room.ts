@@ -147,6 +147,11 @@ export async function getOrCreateRoom(roomId: string): Promise<Room> {
   return room;
 }
 
+/** All live rooms (read-only use: the stream stats logger). */
+export function allRooms(): Room[] {
+  return Array.from(rooms.values());
+}
+
 export function getRoom(roomId: string): Room | undefined {
   return rooms.get(roomId);
 }

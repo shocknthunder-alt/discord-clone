@@ -119,7 +119,15 @@ export function registerMediaSocket(io: IOServer, socket: Socket) {
           socket.to(roomName(roomId)).emit("sfu:producer-closed", { producerId: staleId });
         }
 
-        const producer = await transport.produce({ kind, rtpParameters, appData: { ...appData, userId } });
+        const producer = await transport.produce({
+          kind,
+          rtpParameters,
+          appData: { ...appData, userId },
+          // Each key-frame request makes the sharer's encoder emit one huge frame and starves the
+          // next ones (the mushy picture after a hiccup). Several viewers asking within a second
+          // get one key frame, not one each.
+          ...(kind === "video" ? { keyFrameRequestDelay: 1000 } : {}),
+        });
         peer.producers.set(producer.id, producer);
 
         producer.on("transportclose", () => {
@@ -221,6 +229,16 @@ export function registerMediaSocket(io: IOServer, socket: Socket) {
       }
     },
   );
+
+  // A viewer stopped watching a screen share: stop sending it to them (saves their download and
+  // the server's upload — streams are only pulled while someone actually watches).
+  socket.on("sfu:close-consumer", ({ roomId, consumerId }: { roomId: string; consumerId: string }) => {
+    const peer = getRoom(roomId)?.peers.get(userId);
+    const consumer = peer?.consumers.get(consumerId);
+    if (!consumer) return;
+    consumer.close();
+    peer?.consumers.delete(consumerId);
+  });
 
   socket.on(
     "sfu:close-producer",

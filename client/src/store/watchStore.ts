@@ -4,25 +4,46 @@ import { create } from "zustand";
 export const SELF_STREAM_KEY = "self";
 
 /**
- * Which screen shares the viewer has closed. Every stream in the call is shown automatically;
- * "Stop Watching" hides one until the viewer clicks Watch again (or that share ends and a new one
- * starts — the voice panel forgets ids whose stream is gone).
+ * Which screen shares the viewer chose to watch. Nothing is shown or heard by default — a
+ * stream is only downloaded after a click on Watch (see watchStream in useVoiceChannel). Ids
+ * whose share ended are forgotten, so a new share needs a new click.
  */
 interface WatchState {
-  hidden: Set<string>; // peer socket ids
+  watching: Set<string>; // peer socket ids (+ SELF_STREAM_KEY for your own preview)
+  watch: (key: string) => void;
+  unwatch: (key: string) => void;
+  /** Drops ids that no longer have a live share. */
+  prune: (liveKeys: Set<string>) => void;
+  clear: () => void;
   /** Cameras the viewer enlarged into the middle (same keys: socket id or SELF_STREAM_KEY). */
   bigCams: Set<string>;
   toggleCam: (key: string) => void;
   /** Drops enlarged cameras whose camera was turned off. */
   pruneCams: (liveKeys: Set<string>) => void;
-  hide: (socketId: string) => void;
-  show: (socketId: string) => void;
-  /** Drops ids that no longer have a live stream, so a fresh share auto-shows again. */
-  prune: (liveSocketIds: Set<string>) => void;
 }
 
 export const useWatchStore = create<WatchState>((set) => ({
-  hidden: new Set(),
+  watching: new Set(),
+  watch: (key) =>
+    set((s) => {
+      if (s.watching.has(key)) return s;
+      const watching = new Set(s.watching);
+      watching.add(key);
+      return { watching };
+    }),
+  unwatch: (key) =>
+    set((s) => {
+      if (!s.watching.has(key)) return s;
+      const watching = new Set(s.watching);
+      watching.delete(key);
+      return { watching };
+    }),
+  prune: (live) =>
+    set((s) => {
+      const kept = [...s.watching].filter((k) => live.has(k));
+      return kept.length === s.watching.size ? s : { watching: new Set(kept) };
+    }),
+  clear: () => set({ watching: new Set(), bigCams: new Set() }),
   bigCams: new Set(),
   toggleCam: (key) =>
     set((s) => {
@@ -35,23 +56,5 @@ export const useWatchStore = create<WatchState>((set) => ({
     set((s) => {
       const kept = [...s.bigCams].filter((k) => live.has(k));
       return kept.length === s.bigCams.size ? s : { bigCams: new Set(kept) };
-    }),
-  hide: (socketId) =>
-    set((s) => {
-      const hidden = new Set(s.hidden);
-      hidden.add(socketId);
-      return { hidden };
-    }),
-  show: (socketId) =>
-    set((s) => {
-      if (!s.hidden.has(socketId)) return s;
-      const hidden = new Set(s.hidden);
-      hidden.delete(socketId);
-      return { hidden };
-    }),
-  prune: (live) =>
-    set((s) => {
-      const kept = [...s.hidden].filter((id) => live.has(id));
-      return kept.length === s.hidden.size ? s : { hidden: new Set(kept) };
     }),
 }));
