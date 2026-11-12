@@ -19,6 +19,10 @@ export interface AppPrefs {
   reduceMotion: boolean;
   /** Mark text channels that have messages you haven't seen. */
   unreadMarkers: boolean;
+  /** Hear soundboard clips others play. */
+  soundboardEnabled: boolean;
+  /** Your own volume for soundboard clips, 0-100 (on top of each clip's own volume). */
+  soundboardVolume: number;
 }
 
 const KEY = "appPrefs";
@@ -31,6 +35,8 @@ const DEFAULTS: AppPrefs = {
   joinSound: true,
   reduceMotion: false,
   unreadMarkers: true,
+  soundboardEnabled: true,
+  soundboardVolume: 60,
 };
 
 function load(): AppPrefs {

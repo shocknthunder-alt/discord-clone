@@ -1,3 +1,4 @@
+import { useImageDrop } from "../hooks/useImageDrop";
 import { SocketEvents } from "@discord-clone/shared";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import { useRef, useState } from "react";
@@ -13,6 +14,14 @@ const TYPING_IDLE_MS = 2000;
 export default function DmMessageInput({ conversationId }: Props) {
   const [value, setValue] = useState("");
   const [pendingImage, setPendingImage] = useState<{ file: File | Blob; previewUrl: string } | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  // Drag & drop an image/GIF anywhere on this chat → same preview as pasting it.
+  useImageDrop(barRef, (file) => {
+    setPendingImage((prev) => {
+      if (prev) URL.revokeObjectURL(prev.previewUrl);
+      return { file, previewUrl: URL.createObjectURL(file) };
+    });
+  });
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -86,7 +95,7 @@ export default function DmMessageInput({ conversationId }: Props) {
   }
 
   return (
-    <div className="message-input-bar">
+    <div className="message-input-bar" ref={barRef}>
       {pendingImage && (
         <div className="pending-image-preview">
           <img src={pendingImage.previewUrl} alt="Pasted" />
@@ -115,7 +124,7 @@ export default function DmMessageInput({ conversationId }: Props) {
           value={value}
           onChange={handleChange}
           onPaste={handlePaste}
-          placeholder={isCloudinaryConfigured() ? "Message… (paste an image/GIF to share it)" : "Message…"}
+          placeholder={isCloudinaryConfigured() ? "Message… (постави или провлачи снимка/GIF)" : "Message…"}
         />
         <button type="submit" disabled={uploading || (!value.trim() && !pendingImage)}>
           {uploading ? "Uploading…" : "Send"}

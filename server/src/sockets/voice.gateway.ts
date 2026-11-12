@@ -1,9 +1,10 @@
-import { SocketEvents, type VoicePeerInfo, type WebRTCSignal } from "@discord-clone/shared";
+import { BUILTIN_SOUNDS, SocketEvents, type SoundboardPlayedPayload, type VoicePeerInfo, type WebRTCSignal } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
 
 const voiceRosters = new Map<string, Map<string, VoicePeerInfo>>();
 const socketVoiceChannel = new Map<string, string>();
+const lastSoundboardAt = new Map<string, number>(); // userId -> ms, soundboard rate limit
 // Lets browsing-but-not-joined clients (anyone in the server) see who's already in each
 // voice channel. Cached per voiceChannelId since the server a channel belongs to never
 // changes, avoiding a DB round-trip on every join/leave.
@@ -75,6 +76,32 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
   const userId: string = socket.data.userId;
   const username: string = socket.data.username;
   const avatarUrl: string | null = socket.data.avatarUrl ?? null;
+
+  // Soundboard: play a clip for everyone in my voice channel. Each client plays it locally (full
+  // quality, own volume) and a new clip stops the previous one. One clip per person per 1.5 s.
+  socket.on(SocketEvents.SoundboardPlay, async ({ soundId }: { soundId: string }) => {
+    const voiceChannelId = socketVoiceChannel.get(socket.id);
+    if (!voiceChannelId || typeof soundId !== "string") return;
+    const now = Date.now();
+    if (now - (lastSoundboardAt.get(userId) ?? 0) < 1500) return;
+    lastSoundboardAt.set(userId, now);
+
+    let sound = BUILTIN_SOUNDS.find((s) => s.id === soundId) ?? null;
+    if (!sound) {
+      const serverId = await getServerIdForVoiceChannel(voiceChannelId);
+      const row = serverId ? await prisma.soundboardSound.findFirst({ where: { id: soundId, serverId } }) : null;
+      if (!row) return;
+      sound = { ...row, uploaderId: row.uploaderId };
+    }
+    io.to(roomName(voiceChannelId)).emit(SocketEvents.SoundboardPlayed, {
+      voiceChannelId,
+      soundId: sound.id,
+      url: sound.url,
+      volume: sound.volume,
+      userId,
+      username,
+    } satisfies SoundboardPlayedPayload);
+  });
 
   // Lets a client see who's already in each voice channel before joining any of them —
   // fired whenever they open a server, independent of chat.gateway's own ServerJoin

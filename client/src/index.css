@@ -57,6 +57,27 @@ button {
   color: var(--t-1);
 }
 
+/* Dragging an image/GIF over a chat: dashed overlay inviting the drop. */
+[data-drop-zone].drop-active {
+  position: relative;
+}
+
+[data-drop-zone].drop-active::after {
+  content: "📎 Пусни, за да прикачиш снимката";
+  position: absolute;
+  inset: 10px;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  border: 3px dashed var(--accent);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
 /* Password field with a show/hide eye button. */
 .password-field {
   position: relative;
@@ -863,6 +884,13 @@ button {
   border-radius: 8px;
   margin-top: 4px;
   display: block;
+}
+
+/* Images from pasted links (several sit side by side). */
+.linked-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .voice-panel {

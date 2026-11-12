@@ -62,6 +62,7 @@ model Server {
 
   memberships   Membership[]
   customEmojis  CustomEmoji[]
+  soundboardSounds SoundboardSound[]
   textChannels  TextChannel[]
   voiceChannels VoiceChannel[]
 }
@@ -144,6 +145,24 @@ model CustomEmoji {
   server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
 
   @@unique([serverId, name])
+}
+
+// Short sounds anyone in the server can play to everyone in a voice channel (max 10 s).
+model SoundboardSound {
+  id         String   @id @default(cuid())
+  serverId   String
+  name       String
+  emoji      String
+  url        String
+  durationMs Int
+  /// 0-100, set by the uploader so loud clips don't blow everyone's ears out.
+  volume     Int      @default(100)
+  uploaderId String
+  createdAt  DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId])
 }
 
 model TriviaScore {

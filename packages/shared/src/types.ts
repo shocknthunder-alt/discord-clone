@@ -33,6 +33,34 @@ export interface TextChannelDTO {
   lastMessageAt?: string | null;
 }
 
+/** A soundboard clip. Built-in ones have ids starting with "builtin:" and live in the client. */
+export interface SoundboardSoundDTO {
+  id: string;
+  name: string;
+  emoji: string;
+  url: string;
+  durationMs: number;
+  /** 0-100, chosen by the uploader. */
+  volume: number;
+  uploaderId: string | null;
+}
+
+/** Built-in clips every server has (synthesised for the app, served from the client's /public). */
+export const BUILTIN_SOUNDS: SoundboardSoundDTO[] = [
+  { id: "builtin:tada", name: "Тадаа!", emoji: "🎺", url: "/sounds/soundboard/tada.mp3", durationMs: 1800, volume: 70, uploaderId: null },
+  { id: "builtin:badumtss", name: "Ба-дум-тсс", emoji: "🥁", url: "/sounds/soundboard/badumtss.mp3", durationMs: 2000, volume: 80, uploaderId: null },
+];
+
+/** Someone pressed a soundboard button in your voice channel. */
+export interface SoundboardPlayedPayload {
+  voiceChannelId: string;
+  soundId: string;
+  url: string;
+  volume: number;
+  userId: string;
+  username: string;
+}
+
 /** Sent to everyone in a server when someone posts in one of its text channels (no content). */
 export interface ChannelActivityPayload {
   serverId: string;

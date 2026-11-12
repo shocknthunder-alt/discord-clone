@@ -1,4 +1,4 @@
-import { SocketEvents, type ChannelActivityPayload, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type ChannelActivityPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
@@ -23,6 +23,7 @@ import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { notifyDesktop } from "../utils/appPrefs";
+import { playSoundboardClip } from "../utils/soundboardPlayer";
 
 export default function AppShell() {
   const token = useAuthStore((s) => s.token);
@@ -48,6 +49,12 @@ export default function AppShell() {
 
     socket.on(SocketEvents.ChannelActivity, (p: ChannelActivityPayload) => {
       useUnreadStore.getState().activity(p.textChannelId, p.createdAt, p.authorId === useAuthStore.getState().user?.id);
+    });
+
+    // Soundboard: someone in my voice channel pressed a clip — play it (stops the previous one).
+    socket.on(SocketEvents.SoundboardPlayed, (p: SoundboardPlayedPayload) => {
+      if (p.voiceChannelId !== useVoiceStore.getState().activeVoiceChannelId) return;
+      playSoundboardClip(p.url, p.volume);
     });
 
     socket.on(SocketEvents.DmRing, (ring: IncomingRing) => {

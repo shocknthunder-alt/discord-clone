@@ -34,6 +34,12 @@ export const SocketEvents = {
   // The streamer reports their outgoing screen-share numbers (or null when they stop); relayed to the room.
   VoiceStreamStats: "voice:stream-stats",
   VoiceChannelOccupants: "voice:channel-occupants",
+  /** client → server: play a soundboard clip in my voice channel. */
+  SoundboardPlay: "soundboard:play",
+  /** server → voice channel: play this clip now (stops whatever clip was playing). */
+  SoundboardPlayed: "soundboard:played",
+  /** server → server room: the soundboard list changed, refetch. */
+  SoundboardChanged: "soundboard:changed",
 
   // screen share
   ScreenShareStart: "screenshare:start",

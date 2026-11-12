@@ -1,6 +1,6 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
-import ChatImage from "./ChatImage";
+import ChatImage, { LinkedImages } from "./ChatImage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { useSearchStore } from "../store/searchStore";
@@ -98,7 +98,12 @@ function MessageRow({
           <button onClick={cancelEdit}>Cancel</button>
         </div>
       ) : (
-        message.content && <div className="message-text">{linkifyText(message.content)}</div>
+        message.content && (
+          <>
+            <div className="message-text">{linkifyText(message.content)}</div>
+            <LinkedImages text={message.content} />
+          </>
+        )
       )}
 
       {message.imageUrl && (
@@ -308,7 +313,7 @@ export default function TextChatView({ channelId }: Props) {
   }
 
   return (
-    <div className="main-content">
+    <div className="main-content" data-drop-zone>
       <div className="chat-header">
         <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : "#"} {channel?.name ?? ""}</span>
         <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title="Search messages (Ctrl+K)">

@@ -4,6 +4,7 @@ import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import FloatingIcon from "./FloatingIcon";
 import { CameraIcon, HangupIcon, HeadphoneIcon, LockIcon, MicIcon, ScreenShareIcon } from "./HudIcons";
+import SoundboardPanel from "./SoundboardPanel";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
 
@@ -28,6 +29,7 @@ export default function FloatingVoiceHud() {
   const { leaveVoiceChannel, toggleMute, toggleDeafen, toggleScreenShare, toggleCamera } = useVoiceChannel();
   const { locked, toggleLocked } = useLayoutLockStore();
   const [showSettings, setShowSettings] = useState(false);
+  const [showSoundboard, setShowSoundboard] = useState(false);
 
   if (!activeVoiceChannelId) return null;
 
@@ -88,6 +90,17 @@ export default function FloatingVoiceHud() {
         </div>
       </FloatingIcon>
 
+      {/* Below the existing column (index 7 of the same 7-slot layout), so nobody's saved icon positions shift. */}
+      <FloatingIcon id="hud-soundboard" getDefaultPosition={() => defaultColumnPosition(7, 7)}>
+        <button
+          className={`hud-icon-button ${showSoundboard ? "active" : ""}`}
+          onClick={() => setShowSoundboard((v) => !v)}
+          title="Soundboard"
+        >
+          🔊
+        </button>
+      </FloatingIcon>
+
       {/* Movable like the other icons, but only while the layout is unlocked. */}
       <FloatingIcon id="hud-lock" getDefaultPosition={() => ({ x: Math.max(16, window.innerWidth / 2 + 220), y: 14 })}>
         <button
@@ -101,6 +114,7 @@ export default function FloatingVoiceHud() {
       </FloatingIcon>
 
       {showSettings && <UserSettingsModal onClose={() => setShowSettings(false)} />}
+      {showSoundboard && <SoundboardPanel onClose={() => setShowSoundboard(false)} />}
     </>
   );
 }

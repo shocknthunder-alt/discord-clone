@@ -1,3 +1,4 @@
+import { LinkedImages } from "./ChatImage";
 import { formatTime } from "../utils/appPrefs";
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import { useState } from "react";
@@ -68,7 +69,12 @@ function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: bool
           <button onClick={cancelEdit}>Cancel</button>
         </div>
       ) : (
-        message.content && <div>{linkifyText(message.content)}</div>
+        message.content && (
+          <>
+            <div>{linkifyText(message.content)}</div>
+            <LinkedImages text={message.content} />
+          </>
+        )
       )}
 
       {message.imageUrl && (
@@ -84,7 +90,7 @@ export default function ThreadPanel({ channelId, root, replies, onClose }: Props
   const currentUserId = useAuthStore((s) => s.user?.id);
 
   return (
-    <div className="thread-panel">
+    <div className="thread-panel" data-drop-zone>
       <div className="thread-panel-header">
         <span>Thread</span>
         <button className="thread-panel-close" onClick={onClose} aria-label="Close thread">

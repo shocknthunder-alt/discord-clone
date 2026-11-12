@@ -218,6 +218,8 @@ interface Draft {
   joinSound: boolean;
   themeId: string;
   reduceMotion: boolean;
+  soundboardEnabled: boolean;
+  soundboardVolume: number;
 }
 
 /** The values as they are applied right now. */
@@ -251,6 +253,8 @@ function readCurrent(): Draft {
     joinSound: p.joinSound,
     themeId: getStoredThemeId(),
     reduceMotion: p.reduceMotion,
+    soundboardEnabled: p.soundboardEnabled,
+    soundboardVolume: p.soundboardVolume,
   };
 }
 
@@ -411,6 +415,8 @@ export default function UserSettingsModal({ onClose }: Props) {
         unreadMarkers: d.unreadMarkers,
         joinSound: d.joinSound,
         reduceMotion: d.reduceMotion,
+        soundboardEnabled: d.soundboardEnabled,
+        soundboardVolume: d.soundboardVolume,
       });
       const now = { ...d, username: d.username.trim() };
       setBase(now);
@@ -619,6 +625,26 @@ export default function UserSettingsModal({ onClose }: Props) {
                     </div>
                   )}
                   <p className="set-hint">В браузъра работи само когато прозорецът е на фокус; в десктоп приложението — винаги.</p>
+                </Card>
+
+                <Card title="Soundboard" hint="Кратките звуци, които хората пускат в гласовия канал (бутон 🔊).">
+                  <Toggle
+                    label="Чувай soundboard звуците"
+                    checked={draft.soundboardEnabled}
+                    onChange={(on) => edit({ soundboardEnabled: on })}
+                  />
+                  <div className="set-slider">
+                    <span>Сила на звука</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={draft.soundboardVolume}
+                      disabled={!draft.soundboardEnabled}
+                      onChange={(e) => edit({ soundboardVolume: Number(e.target.value) })}
+                    />
+                    <span className="set-slider-value">{draft.soundboardVolume}%</span>
+                  </div>
                 </Card>
 
                 <Card title="Обработка на звука" hint="Всичко е включено по подразбиране — изключи нещо, ако пречи на твоя микрофон.">
