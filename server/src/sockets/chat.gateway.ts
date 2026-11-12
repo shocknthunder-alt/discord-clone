@@ -1,4 +1,4 @@
-import { SocketEvents } from "@discord-clone/shared";
+import { SocketEvents, type ChannelActivityPayload } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
 import { handleTriviaMessage } from "../trivia/bot.js";
@@ -102,6 +102,15 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
             }
           : null,
       });
+
+      // Unread markers: everyone in the server learns "channel X got a message" (no content —
+      // the message itself only goes to people who have the channel open).
+      io.to(`server:${textChannel.serverId}`).emit(SocketEvents.ChannelActivity, {
+        serverId: textChannel.serverId,
+        textChannelId,
+        authorId: userId,
+        createdAt: message.createdAt.toISOString(),
+      } satisfies ChannelActivityPayload);
 
       // Trivia channels: the bot reads every user message (commands and answers).
       if (textChannel.type === "trivia" && !replyTarget) {

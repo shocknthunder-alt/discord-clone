@@ -3,6 +3,8 @@ export const SocketEvents = {
   ServerJoin: "server:join",
   ServerJoined: "server:joined",
   ChannelsChanged: "channels:changed",
+  /** Someone posted in a text channel of a server you're in (for unread markers). */
+  ChannelActivity: "channel:activity",
   ChannelJoin: "channel:join",
   MessageSend: "message:send",
   MessageNew: "message:new",

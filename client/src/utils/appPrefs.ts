@@ -17,6 +17,8 @@ export interface AppPrefs {
   joinSound: boolean;
   /** Turn off animations and the live fire effect. */
   reduceMotion: boolean;
+  /** Mark text channels that have messages you haven't seen. */
+  unreadMarkers: boolean;
 }
 
 const KEY = "appPrefs";
@@ -28,6 +30,7 @@ const DEFAULTS: AppPrefs = {
   desktopNotifications: false,
   joinSound: true,
   reduceMotion: false,
+  unreadMarkers: true,
 };
 
 function load(): AppPrefs {

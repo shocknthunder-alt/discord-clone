@@ -1,4 +1,4 @@
-import { SocketEvents, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type ChannelActivityPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
@@ -21,6 +21,7 @@ import type { IncomingRing } from "../store/dmStore";
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { useUnreadStore } from "../store/unreadStore";
 import { notifyDesktop } from "../utils/appPrefs";
 
 export default function AppShell() {
@@ -43,6 +44,10 @@ export default function AppShell() {
       fetchChannels(serverId)
         .then(({ textChannels, voiceChannels }) => useServerStore.getState().setChannels(textChannels, voiceChannels))
         .catch(console.error);
+    });
+
+    socket.on(SocketEvents.ChannelActivity, (p: ChannelActivityPayload) => {
+      useUnreadStore.getState().activity(p.textChannelId, p.createdAt, p.authorId === useAuthStore.getState().user?.id);
     });
 
     socket.on(SocketEvents.DmRing, (ring: IncomingRing) => {
@@ -71,6 +76,19 @@ export default function AppShell() {
   useEffect(() => {
     fetchServers().then(setServers).catch(console.error);
   }, [setServers]);
+
+  // Unread markers: learn each channel's newest message from the channel list…
+  const textChannels = useServerStore((s) => s.textChannels);
+  useEffect(() => {
+    useUnreadStore.getState().setFromChannels(textChannels);
+  }, [textChannels]);
+
+  // …and whatever channel is on screen counts as read (also as new messages land in it).
+  const viewingChannelId = view !== "dms" && !(viewMode === "voice" && activeVoiceChannelId) ? activeTextChannelId : null;
+  const viewingLatest = useUnreadStore((s) => (viewingChannelId ? s.latest[viewingChannelId] : undefined));
+  useEffect(() => {
+    if (viewingChannelId) useUnreadStore.getState().markRead(viewingChannelId);
+  }, [viewingChannelId, viewingLatest]);
 
   useEffect(() => {
     if (!activeServerId) return;

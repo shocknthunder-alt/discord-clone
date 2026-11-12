@@ -29,6 +29,16 @@ export interface TextChannelDTO {
   position: number;
   /** "trivia" channels are handled by the Trivia Bot. */
   type: "text" | "trivia";
+  /** Newest message by a person (not the trivia bot), for unread markers. Missing on old servers. */
+  lastMessageAt?: string | null;
+}
+
+/** Sent to everyone in a server when someone posts in one of its text channels (no content). */
+export interface ChannelActivityPayload {
+  serverId: string;
+  textChannelId: string;
+  authorId: string;
+  createdAt: string;
 }
 
 export interface VoiceChannelDTO {

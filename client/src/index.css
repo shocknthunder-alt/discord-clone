@@ -379,6 +379,25 @@ button {
   cursor: pointer;
 }
 
+/* Text channel with messages you haven't seen: bright bold name + a pill on the left edge. */
+.channel-item.unread {
+  position: relative;
+  color: var(--t-1);
+  font-weight: 700;
+}
+
+.channel-item.unread::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  width: 4px;
+  height: 8px;
+  margin-top: -4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--t-1);
+}
+
 .channel-item.active {
   background: var(--c-h4);
   color: white;

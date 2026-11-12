@@ -10,7 +10,7 @@ import { CATEGORIES, POOL_SIZE, buildDeck, fetchEnglish, resolveCategory, type T
  * The game keeps running until someone says !стоп (or nobody has played for a while).
  */
 
-const BOT_EMAIL = "trivia-bot@shmirka.local";
+export const BOT_EMAIL = "trivia-bot@shmirka.local";
 const BOT_NAME = "Тривия Бот";
 
 // Seconds from the question being asked; the last entry is the time-out.

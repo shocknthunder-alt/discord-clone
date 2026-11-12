@@ -732,6 +732,12 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <p className="set-hint warn">Браузърът блокира известията — разреши ги от иконата до адреса на сайта.</p>
                 )}
                 <Toggle
+                  label="Маркирай непрочетените канали"
+                  hint="Текстов канал с нови съобщения, които не си видял, светва с удебелено име и черта отляво."
+                  checked={prefs.unreadMarkers}
+                  onChange={(on) => prefs.set({ unreadMarkers: on })}
+                />
+                <Toggle
                   label="Звук при влизане в гласов канал"
                   hint="Кратък звук, когато някой влезе при теб."
                   checked={prefs.joinSound}

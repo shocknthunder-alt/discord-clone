@@ -9,6 +9,8 @@ import { useServerStore } from "../store/serverStore";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
+import { isChannelUnread, useUnreadStore } from "../store/unreadStore";
+import { useAppPrefs } from "../utils/appPrefs";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -111,6 +113,10 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     useVoiceStore();
   const currentAvatarUrl = useAuthStore((s) => s.user?.avatarUrl) ?? null;
   const showStream = useWatchStore((s) => s.show);
+  const unreadMarkers = useAppPrefs((s) => s.unreadMarkers);
+  const unreadLatest = useUnreadStore((s) => s.latest);
+  const unreadSeen = useUnreadStore((s) => s.seen);
+  const unread = { latest: unreadLatest, seen: unreadSeen };
   const selfWatching = useWatchStore((s) => !s.hidden.has(SELF_STREAM_KEY));
   const localScreenStream = useVoiceStore((s) => s.localScreenStream);
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
@@ -268,7 +274,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 <div
                   key={channel.id}
                   {...dragProps("text", channel.id)}
-                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
+                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${unreadMarkers && isChannelUnread(unread, channel.id) ? "unread" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
+                  title={unreadMarkers && isChannelUnread(unread, channel.id) ? "Има непрочетени съобщения" : undefined}
                   onClick={() => {
                     setActiveTextChannel(channel.id);
                     onSelectText();

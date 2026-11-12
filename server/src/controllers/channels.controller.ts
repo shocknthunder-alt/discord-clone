@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { SocketEvents } from "@discord-clone/shared";
 import { prisma } from "../db.js";
+import { BOT_EMAIL as TRIVIA_BOT_EMAIL } from "../trivia/bot.js";
 
 // Tells everyone viewing the server to refetch its channel list, so renames and new
 // channels show up live instead of only after a refresh.
@@ -25,7 +26,18 @@ export async function listChannels(req: Request, res: Response) {
     prisma.voiceChannel.findMany({ where: { serverId }, orderBy: { position: "asc" } }),
   ]);
 
-  res.json({ textChannels, voiceChannels });
+  // Newest message per channel by a person (the trivia bot would keep its channel "unread" forever).
+  const latest = await prisma.message.groupBy({
+    by: ["textChannelId"],
+    where: { textChannelId: { in: textChannels.map((c) => c.id) }, author: { email: { not: TRIVIA_BOT_EMAIL } } },
+    _max: { createdAt: true },
+  });
+  const lastAt = new Map(latest.map((r) => [r.textChannelId, r._max.createdAt?.toISOString() ?? null]));
+
+  res.json({
+    textChannels: textChannels.map((c) => ({ ...c, lastMessageAt: lastAt.get(c.id) ?? null })),
+    voiceChannels,
+  });
 }
 
 export async function createTextChannel(req: Request, res: Response) {
