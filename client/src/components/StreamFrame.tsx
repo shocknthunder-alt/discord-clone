@@ -28,7 +28,7 @@ export default function StreamFrame({ children, caption, onStop, maxVh = 76 }: P
     >
       <div
         className={`tv-screen ${frame.crt ? "crt" : ""}`}
-        style={{ left: `${l}%`, top: `${t}%`, width: `${w}%`, height: `${h}%` }}
+        style={{ left: `${l}%`, top: `${t}%`, width: `${w}%`, height: `${h}%`, ...(frame.clip ? { clipPath: frame.clip } : {}) }}
       >
         {children}
       </div>

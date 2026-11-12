@@ -132,6 +132,7 @@ function GeneralSettings() {
 export default function UserSettingsModal({ onClose }: Props) {
   const { user, setUser, logout } = useAuthStore();
   const [tab, setTab] = useState<SettingsTab>("profile");
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
   const streamFrameId = useStreamFrameStore((st) => st.frameId);
   const setStreamFrameId = useStreamFrameStore((st) => st.setFrameId);
   const [themeId, setThemeId] = useState(getStoredThemeId());
@@ -263,14 +264,49 @@ export default function UserSettingsModal({ onClose }: Props) {
     onClose();
   }
 
+  // Drag the window by its title, so it can be moved off the stream while trying frames/quality.
+  function startDrag(e: React.PointerEvent<HTMLHeadingElement>) {
+    if (e.button !== 0) return;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const startX = e.clientX - offset.x;
+    const startY = e.clientY - offset.y;
+    const card = handle.parentElement!.getBoundingClientRect();
+    // Keep at least the title bar on screen.
+    const minX = offset.x - card.left - card.width + 120;
+    const maxX = offset.x + (window.innerWidth - card.left) - 120;
+    const minY = offset.y - card.top;
+    const maxY = offset.y + (window.innerHeight - card.top) - 60;
+    function move(ev: PointerEvent) {
+      setOffset({
+        x: Math.min(maxX, Math.max(minX, ev.clientX - startX)),
+        y: Math.min(maxY, Math.max(minY, ev.clientY - startY)),
+      });
+    }
+    function up() {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", up);
+    }
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", up);
+  }
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-card settings-card" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay settings-overlay" onClick={onClose}>
+      <div
+        className="modal-card settings-card"
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button className="modal-back" onClick={onClose} aria-label="Back">
           ←
         </button>
 
-        <h1 className="modal-title">User Settings</h1>
+        <h1 className="modal-title settings-drag-handle" onPointerDown={startDrag} title="Хвани и премести прозореца">
+          User Settings
+        </h1>
 
         <div className="settings-tabs" role="tablist">
           {SETTINGS_TABS.map((t) => (

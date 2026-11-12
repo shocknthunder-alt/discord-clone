@@ -15,6 +15,8 @@ export interface StreamFrameDef {
   crt?: boolean;
   /** Canvas height in units (width is always 1100); defaults to 625. */
   height?: number;
+  /** CSS clip-path for the picture itself, when the frame has no backdrop to hide its corners. */
+  clip?: string;
   Art: () => ReactNode;
 }
 
@@ -724,13 +726,13 @@ function OnAirArt() {
       </defs>
 
       <g mask="url(#oa-hole)">
-        <rect width={W} height={H} fill="url(#oa-brick)" />
-        {/* coloured light the tubes throw on the wall */}
-        <ellipse cx="130" cy="300" rx="190" ry="210" fill="url(#oa-spill-red)" />
-        <ellipse cx="200" cy="40" rx="170" ry="110" fill="url(#oa-spill-blue)" />
-        <ellipse cx="960" cy="600" rx="190" ry="120" fill="url(#oa-spill-blue)" />
-        <ellipse cx="760" cy="40" rx="260" ry="80" fill="url(#oa-spill-red)" />
-        <rect width={W} height={H} fill="url(#oa-shade)" />
+        {/* No wall: only the strip inside the red sign is filled (it shapes the cut corners), the
+            rest is see-through so the channel background shows around the tubes. */}
+        <path
+          d={`M${rL},${rT} H${rR - c} L${rR},${rT + c} V${rB} H${rL + c} L${rL},${rB - c} Z`}
+          fill="#0c0510"
+          fillOpacity="0.92"
+        />
         {/* thin dark lip right around the picture */}
         <path d={hole} fill="none" stroke="#000" strokeOpacity="0.7" strokeWidth="6" />
       </g>
@@ -843,12 +845,13 @@ function SilverArt() {
       </defs>
 
       <g mask="url(#sv-hole)">
-        <rect width={W} height={H} fill="url(#sv-bg)" />
-        {/* octagon ribbon behind everything */}
+        {/* octagon ribbon behind everything (no backdrop: outside the frame is see-through) */}
         <path d={oct} fill="none" stroke="url(#sv-metal)" strokeWidth="7" />
         <path d={oct} fill="none" stroke="#fff" strokeOpacity="0.35" strokeWidth="1.2" />
         {/* drop shadow of the frame */}
         <rect x={oL + 4} y={oT + 8} width={oR - oL} height={oB - oT} fill="none" stroke="#000" strokeOpacity="0.6" strokeWidth="18" filter="url(#sv-shadow)" />
+        {/* dark plate between the bar and the picture — fills the scooped corners */}
+        <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill="url(#sv-bg)" />
         {/* outer bevelled bar */}
         <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill="none" stroke="url(#sv-metal)" strokeWidth="14" />
         <rect x={oL - 7} y={oT - 7} width={oR - oL + 14} height={oB - oT + 14} fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="1" />
@@ -938,10 +941,9 @@ function SwirlArt() {
       </defs>
 
       <g mask="url(#sw-hole)">
-        <rect width={W} height={H} fill="url(#sw-bg)" />
-        <ellipse cx="860" cy="110" rx="300" ry="140" fill="url(#sw-spill)" />
-        <ellipse cx="180" cy="560" rx="280" ry="130" fill="url(#sw-spill-blue)" />
-        {/* soft shadow line where the picture meets the backdrop */}
+        {/* No backdrop: just a slim dark rim that rounds off the picture's corners. */}
+        <rect x={s.x - 6} y={s.y - 6} width={s.w + 12} height={s.h + 12} rx="28" fill="url(#sw-bg)" />
+        {/* soft shadow line where the picture meets the rim */}
         <rect x={s.x - 2} y={s.y - 2} width={s.w + 4} height={s.h + 4} rx="24" fill="none" stroke="#000" strokeOpacity="0.55" strokeWidth="5" />
       </g>
 
@@ -1005,7 +1007,18 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
   imgFrame("dragon", "Дракон", "frame-dragon", 943, 580, [151, 173, 788, 501]),
   imgFrame("berserk", "Берсерк", "frame-berserk", 1326, 567, [316, 162, 1018, 499]),
   { id: "jar", name: "Буркан с туршия", screen: rect(JAR_SCREEN.x, JAR_SCREEN.y, JAR_SCREEN.w, JAR_SCREEN.h), Art: JarArt },
-  { id: "onair", name: "ON AIR неон", screen: rect(ONAIR_SCREEN.x, ONAIR_SCREEN.y, ONAIR_SCREEN.w, ONAIR_SCREEN.h), Art: OnAirArt },
+  {
+    id: "onair",
+    name: "ON AIR неон",
+    screen: rect(ONAIR_SCREEN.x, ONAIR_SCREEN.y, ONAIR_SCREEN.w, ONAIR_SCREEN.h),
+    // Same 44-unit cut corners as the art (top-right, bottom-left).
+    clip: (() => {
+      const cx = (44 / ONAIR_SCREEN.w) * 100;
+      const cy = (44 / ONAIR_SCREEN.h) * 100;
+      return `polygon(0 0, ${100 - cx}% 0, 100% ${cy}%, 100% 100%, ${cx}% 100%, 0 ${100 - cy}%)`;
+    })(),
+    Art: OnAirArt,
+  },
   { id: "silver", name: "Сребърен блясък", screen: rect(SILVER_SCREEN.x, SILVER_SCREEN.y, SILVER_SCREEN.w, SILVER_SCREEN.h), Art: SilverArt },
   { id: "swirl", name: "Неонов свитък", screen: rect(SWIRL_SCREEN.x, SWIRL_SCREEN.y, SWIRL_SCREEN.w, SWIRL_SCREEN.h), Art: SwirlArt },
 ];

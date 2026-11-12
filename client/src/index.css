@@ -2725,6 +2725,8 @@ input[type="range"] {
 .screen-share-wrap:fullscreen .screen-share-video { max-width: 100vw; max-height: 100vh; width: 100%; height: 100%; border-radius: 0; }
 .stream-volume { position: absolute; left: 10px; bottom: 10px; z-index: 3; display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px; border-radius: 20px; background: rgba(0, 0, 0, 0.65); opacity: 0.35; transition: opacity 0.15s; }
 .screen-share-wrap:hover .stream-volume, .stream-volume:focus-within { opacity: 1; }
+/* ON AIR cuts the picture's bottom-left corner — keep the volume control clear of it. */
+.frame-onair .stream-volume { left: 9%; }
 .stream-volume-button { background: none; border: none; color: #fff; font-size: 18px; cursor: pointer; padding: 2px 4px; }
 .stream-volume input[type="range"] { width: 110px; cursor: pointer; }
 .stream-volume-note { color: #fff; font-size: 11px; opacity: 0.7; }
@@ -2739,6 +2741,9 @@ input[type="range"] {
   overflow: hidden;
   padding-bottom: 20px;
 }
+/* Lighter dim than other dialogs, so the stream behind stays visible while trying frames. */
+.settings-overlay { background: rgba(0, 0, 0, 0.3); }
+.settings-drag-handle { cursor: move; user-select: none; touch-action: none; }
 .settings-body { flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px; margin-right: -8px; }
 .settings-footer { flex-shrink: 0; padding-top: 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
 .settings-footer .modal-create-button { margin-top: 0; }
