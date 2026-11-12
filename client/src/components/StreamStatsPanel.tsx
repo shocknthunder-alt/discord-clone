@@ -28,7 +28,9 @@ function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): st
       : "Този стрийм е без звук.";
   }
   if (stats.fps > 0 && stats.fps < targetFps * 0.75) {
-    return `Излизат само ${stats.fps} кадъра/сек при цел ${targetFps}. Често това значи, че играта или екранът дават малко кадри (напр. заключен fps или прозорец на заден план).`;
+    return own
+      ? `Излизат само ${stats.fps} кадъра/сек при цел ${targetFps}. Най-често видеокартата е на 100% от играта: ограничи fps на играта (напр. 120 или V-Sync) и я пусни на borderless/windowed fullscreen.`
+      : `Излизат само ${stats.fps} кадъра/сек при цел ${targetFps}. Най-често видеокартата на стриймъра е на 100% от играта — да ограничи fps на играта и да е на borderless.`;
   }
   return null;
 }

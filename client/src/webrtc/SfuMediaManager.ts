@@ -363,9 +363,14 @@ export class SfuMediaManager {
       // ceiling is exactly the "smears when they move" picture. A weak upload still gets less: the
       // adaptation below follows the browser's own bandwidth estimate. Sharp gets a bit more for
       // full-resolution text edges.
+      // "High" asks for 4K, but a 1080p/1440p screen only captures that much — don't spend 4K bits
+      // on it (measured: 38-44 Mbps at 1080p made a viewer on a weaker link lose packets).
+      const capturedPixels = (videoTrack.getSettings().width ?? 0) * (videoTrack.getSettings().height ?? 0);
+      const highCeiling =
+        capturedPixels > 0 && capturedPixels <= 1920 * 1200 ? 20_000_000 : capturedPixels > 0 && capturedPixels <= 2560 * 1600 ? 28_000_000 : 40_000_000;
       const maxBitrate =
         quality === "high"
-          ? smooth ? 40_000_000 : 44_000_000
+          ? smooth ? highCeiling : Math.round(highCeiling * 1.1)
           : quality === "low"
             ? smooth ? 7_000_000 : 8_000_000
             : smooth ? 14_000_000 : 16_000_000;
