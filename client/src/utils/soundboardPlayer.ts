@@ -15,14 +15,15 @@ export function stopSoundboard() {
 }
 
 /** volume = the clip's own 0-100 volume; the listener's own soundboard volume is applied on top. */
-export function playSoundboardClip(url: string, volume: number, opts: { force?: boolean } = {}) {
+export function playSoundboardClip(url: string, volume: number, opts: { force?: boolean; raw?: boolean } = {}) {
   const prefs = getAppPrefs();
   const voice = useVoiceStore.getState();
   if (!opts.force && (!prefs.soundboardEnabled || voice.isDeafened)) return;
 
   stopSoundboard();
   const audio = new Audio(url);
-  audio.volume = Math.max(0, Math.min(1, (volume / 100) * (prefs.soundboardVolume / 100)));
+  // raw: hear the clip at its own volume only (when setting that volume while editing it).
+  audio.volume = Math.max(0, Math.min(1, (volume / 100) * (opts.raw ? 1 : prefs.soundboardVolume / 100)));
   // Same output device as the voices (headphones), where the browser allows choosing it.
   const sinkId = voice.preferredSpeakerId;
   const withSink = audio as HTMLAudioElement & { setSinkId?: (id: string) => Promise<void> };

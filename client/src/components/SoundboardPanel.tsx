@@ -11,27 +11,24 @@ import { useVoiceStore } from "../store/voiceStore";
 import { useAppPrefs } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 import "./soundboard.css";
+import WaveformTrimmer, { encodeSelectionWav } from "./WaveformTrimmer";
 
-const MAX_MS = 10_000;
-const MAX_BYTES = 2 * 1024 * 1024;
+const MAX_SEC = 10;
+/** The source file may be long — you cut a ≤10 s part out of it. */
+const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
+const MAX_SOURCE_SEC = 180;
 const QUICK_EMOJIS = ["🔊", "😂", "🎺", "🥁", "💥", "👏", "😱", "🐐", "💀", "🔥", "🤡", "🎉"];
 
-/** Reads a local audio file's length (ms) before uploading it. */
-function audioDuration(file: File): Promise<number> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const a = new Audio();
-    a.preload = "metadata";
-    a.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
-      resolve(Math.round(a.duration * 1000));
-    };
-    a.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Файлът не е аудио, което браузърът може да пусне."));
-    };
-    a.src = url;
-  });
+/** Decodes a local audio file so it can be drawn and cut. */
+async function decodeFile(file: File): Promise<AudioBuffer> {
+  const ctx = new AudioContext();
+  try {
+    return await ctx.decodeAudioData(await file.arrayBuffer());
+  } catch {
+    throw new Error("Файлът не е аудио, което може да се отвори (пробвай mp3, ogg или wav).");
+  } finally {
+    void ctx.close();
+  }
 }
 
 interface Editing {
@@ -40,11 +37,13 @@ interface Editing {
   emoji: string;
   volume: number;
   file: File | null;
-  previewUrl: string | null;
-  durationMs: number;
+  buffer: AudioBuffer | null;
+  /** The part to keep, seconds. */
+  start: number;
+  end: number;
 }
 
-const EMPTY: Editing = { id: null, name: "", emoji: "🔊", volume: 80, file: null, previewUrl: null, durationMs: 0 };
+const EMPTY: Editing = { id: null, name: "", emoji: "🔊", volume: 80, file: null, buffer: null, start: 0, end: 0 };
 
 /** The 🔊 panel: click a tile to play it for everyone in the voice channel. */
 export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
@@ -77,10 +76,6 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
     };
   }, [serverId]);
 
-  useEffect(() => () => {
-    if (editing?.previewUrl) URL.revokeObjectURL(editing.previewUrl);
-  }, [editing?.previewUrl]);
-
   function play(sound: SoundboardSoundDTO) {
     getSocket()?.emit(SocketEvents.SoundboardPlay, { soundId: sound.id });
     setLastPlayed(sound.id);
@@ -92,15 +87,16 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
   async function pickFile(file: File | undefined) {
     if (!file || !editing) return;
     setError(null);
-    if (file.size > MAX_BYTES) return setError("Файлът е над 2 MB.");
+    if (file.size > MAX_SOURCE_BYTES) return setError("Файлът е над 25 MB.");
     try {
-      const ms = await audioDuration(file);
-      if (ms > MAX_MS + 300) return setError(`Звукът е ${(ms / 1000).toFixed(1)} сек — максимумът е 10 сек.`);
+      const buffer = await decodeFile(file);
+      if (buffer.duration > MAX_SOURCE_SEC) return setError("Файлът е над 3 минути — избери по-кратък.");
       setEditing({
         ...editing,
         file,
-        durationMs: ms,
-        previewUrl: URL.createObjectURL(file),
+        buffer,
+        start: 0,
+        end: Math.min(buffer.duration, MAX_SEC),
         name: editing.name || file.name.replace(/\.[^.]+$/, "").slice(0, 32),
       });
     } catch (err) {
@@ -117,13 +113,15 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
       if (editing.id) {
         await updateSound(serverId, editing.id, { name: editing.name, emoji: editing.emoji, volume: editing.volume });
       } else {
-        if (!editing.file) throw new Error("Избери аудио файл.");
-        const { url, durationMs } = await uploadAudioToCloudinary(editing.file);
+        if (!editing.buffer) throw new Error("Избери аудио файл.");
+        // Only the chosen part is uploaded (mono WAV); Cloudinary serves it back as mp3.
+        const clip = encodeSelectionWav(editing.buffer, editing.start, editing.end);
+        const { url } = await uploadAudioToCloudinary(clip);
         await createSound(serverId, {
           name: editing.name,
           emoji: editing.emoji,
-          url,
-          durationMs: durationMs || editing.durationMs,
+          url: url.replace(/\.wav$/i, ".mp3"),
+          durationMs: Math.round((editing.end - editing.start) * 1000),
           volume: editing.volume,
         });
       }
@@ -146,7 +144,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
   const all = [...BUILTIN_SOUNDS, ...sounds];
 
   return createPortal(
-    <div className="sb-panel" role="dialog" aria-label="Soundboard">
+    <div className={`sb-panel ${editing && !editing.id ? "wide" : ""}`} role="dialog" aria-label="Soundboard">
       <header className="sb-head">
         <span>🔊 Soundboard</span>
         <button className="sb-x" onClick={onClose} title="Затвори (Esc)">
@@ -188,9 +186,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
                 <>
                   <button
                     title="Редактирай"
-                    onClick={() =>
-                      setEditing({ id: s.id, name: s.name, emoji: s.emoji, volume: s.volume, file: null, previewUrl: null, durationMs: s.durationMs })
-                    }
+                    onClick={() => setEditing({ ...EMPTY, id: s.id, name: s.name, emoji: s.emoji, volume: s.volume })}
                   >
                     ✎
                   </button>
@@ -218,17 +214,32 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
 
       {editing && (
         <div className="sb-form">
-          <div className="sb-form-title">{editing.id ? "Редактирай звук" : "Нов звук (до 10 сек, mp3/ogg/wav, до 2 MB)"}</div>
+          <div className="sb-form-title">
+            {editing.id ? "Редактирай звук" : "Нов звук — избери файл и изрежи до 10 сек"}
+          </div>
           {!editing.id && (
             <div className="sb-row">
               <button className="sb-btn" onClick={() => fileRef.current?.click()}>
                 {editing.file ? "Друг файл…" : "Избери файл…"}
               </button>
               <span className="sb-file">
-                {editing.file ? `${editing.file.name} · ${(editing.durationMs / 1000).toFixed(1)} сек` : "няма избран"}
+                {editing.file && editing.buffer
+                  ? `${editing.file.name} · ${editing.buffer.duration.toFixed(1)} сек`
+                  : "mp3 / ogg / wav, до 3 мин"}
               </span>
               <input ref={fileRef} type="file" accept="audio/*" hidden onChange={(e) => void pickFile(e.target.files?.[0])} />
             </div>
+          )}
+          {!editing.id && editing.buffer && (
+            <WaveformTrimmer
+              key={editing.file?.name + String(editing.buffer.length)}
+              buffer={editing.buffer}
+              start={editing.start}
+              end={editing.end}
+              maxLength={MAX_SEC}
+              volume={editing.volume}
+              onChange={(start, end) => setEditing((ed) => (ed ? { ...ed, start, end } : ed))}
+            />
           )}
           <div className="sb-row">
             <input
@@ -263,23 +274,24 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
               onChange={(e) => setEditing({ ...editing, volume: Number(e.target.value) })}
             />
             <span className="sb-volume-value">{editing.volume}%</span>
-            <button
-              className="sb-btn"
-              disabled={!editing.previewUrl && !editing.id}
-              onClick={() => {
-                const url = editing.previewUrl ?? all.find((s) => s.id === editing.id)?.url;
-                if (url) playSoundboardClip(url, editing.volume, { force: true });
-              }}
-            >
-              ▶ Чуй
-            </button>
+            {editing.id && (
+              <button
+                className="sb-btn"
+                onClick={() => {
+                  const url = all.find((s) => s.id === editing.id)?.url;
+                  if (url) playSoundboardClip(url, editing.volume, { force: true, raw: true });
+                }}
+              >
+                ▶ Чуй
+              </button>
+            )}
           </div>
           {error && <div className="sb-error">{error}</div>}
           <div className="sb-row sb-actions">
             <button className="sb-btn" onClick={() => setEditing(null)} disabled={busy}>
               Откажи
             </button>
-            <button className="sb-btn primary" onClick={() => void save()} disabled={busy || (!editing.id && !editing.file)}>
+            <button className="sb-btn primary" onClick={() => void save()} disabled={busy || (!editing.id && !editing.buffer)}>
               {busy ? "Качване…" : editing.id ? "Запази" : "Качи"}
             </button>
           </div>

@@ -1,4 +1,4 @@
-import { extractYoutubeId, SocketEvents, type MusicQueueItem, type MusicState } from "@discord-clone/shared";
+import { extractYoutubeId, extractYoutubePlaylistId, SocketEvents, type MusicQueueItem, type MusicState } from "@discord-clone/shared";
 import { randomUUID } from "node:crypto";
 import type { Server as IOServer, Socket } from "socket.io";
 import { env } from "../env.js";
@@ -39,6 +39,49 @@ async function searchYoutube(query: string): Promise<{ videoId: string; title: s
     return { videoId, title, thumbnailUrl: first?.snippet?.thumbnails?.medium?.url ?? "" };
   } catch {
     return null;
+  }
+}
+
+const PLAYLIST_MAX = 100;
+
+type Resolved = { videoId: string; title: string; thumbnailUrl: string };
+
+/**
+ * Every playable video of a playlist, in order (max 100). Needs the Data API key, like search.
+ * Private/deleted entries are skipped. Returns null when the list can't be read at all.
+ */
+async function fetchPlaylist(playlistId: string): Promise<Resolved[] | null> {
+  if (!env.YOUTUBE_API_KEY) return null;
+  const out: Resolved[] = [];
+  let pageToken = "";
+  try {
+    while (out.length < PLAYLIST_MAX) {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,status&maxResults=50&playlistId=${encodeURIComponent(playlistId)}&key=${env.YOUTUBE_API_KEY}${pageToken ? `&pageToken=${pageToken}` : ""}`,
+      );
+      if (!res.ok) return out.length ? out : null;
+      const data = (await res.json()) as {
+        nextPageToken?: string;
+        items?: {
+          snippet?: { title?: string; resourceId?: { videoId?: string }; thumbnails?: { medium?: { url?: string } } };
+          status?: { privacyStatus?: string };
+        }[];
+      };
+      for (const it of data.items ?? []) {
+        const videoId = it.snippet?.resourceId?.videoId;
+        const title = it.snippet?.title;
+        const privacy = it.status?.privacyStatus;
+        if (!videoId || !title || privacy === "private" || privacy === "privacyStatusUnspecified") continue;
+        if (title === "Deleted video" || title === "Private video") continue;
+        out.push({ videoId, title, thumbnailUrl: it.snippet?.thumbnails?.medium?.url ?? "" });
+        if (out.length >= PLAYLIST_MAX) break;
+      }
+      if (!data.nextPageToken) break;
+      pageToken = data.nextPageToken;
+    }
+    return out;
+  } catch {
+    return out.length ? out : null;
   }
 }
 
@@ -91,8 +134,24 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
   socket.on(SocketEvents.MusicAdd, async ({ voiceChannelId, url }: { voiceChannelId: string; url: string }) => {
     const trimmed = (url ?? "").trim();
     const videoId = extractYoutubeId(trimmed);
+    const playlistId = extractYoutubePlaylistId(trimmed);
 
-    let resolved: { videoId: string; title: string; thumbnailUrl: string } | null = null;
+    // A playlist link (or a video opened inside a playlist): queue the whole list, starting from
+    // that video when there is one. Falls back to the single video if the list can't be read.
+    if (playlistId) {
+      const items = await fetchPlaylist(playlistId);
+      if (items && items.length > 0) {
+        const from = videoId ? Math.max(0, items.findIndex((i) => i.videoId === videoId)) : 0;
+        addToQueue(voiceChannelId, items.slice(from));
+        return;
+      }
+      if (!videoId) {
+        socket.emit(SocketEvents.MusicAddError, { reason: env.YOUTUBE_API_KEY ? "playlist-unavailable" : "playlist-needs-key" });
+        return;
+      }
+    }
+
+    let resolved: Resolved | null = null;
 
     if (videoId) {
       // A real YouTube link — oEmbed is keyless and sufficient, no search needed.
@@ -121,28 +180,35 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
       }
     }
 
-    const item: MusicQueueItem = {
-      id: randomUUID(),
-      videoId: resolved.videoId,
-      title: resolved.title,
-      thumbnailUrl: resolved.thumbnailUrl || null,
-      addedByUsername: username,
-    };
+    addToQueue(voiceChannelId, [resolved]);
+  });
 
+  /** Appends songs to the channel's queue (one broadcast, however many were added). */
+  function addToQueue(voiceChannelId: string, songs: Resolved[]) {
     const state = getOrCreateState(voiceChannelId);
     const wasEmpty = state.currentIndex >= state.queue.length;
     settlePosition(state);
-    state.queue.push(item);
+    const firstNew = state.queue.length;
+    for (const s of songs) {
+      const item: MusicQueueItem = {
+        id: randomUUID(),
+        videoId: s.videoId,
+        title: s.title,
+        thumbnailUrl: s.thumbnailUrl || null,
+        addedByUsername: username,
+      };
+      state.queue.push(item);
+    }
     if (wasEmpty) {
-      // Nothing was playing — the thing that was just added starts immediately instead of
+      // Nothing was playing — the first thing just added starts immediately instead of
       // sitting in an empty queue waiting for someone to notice and press play.
-      state.currentIndex = state.queue.length - 1;
+      state.currentIndex = firstNew;
       state.isPlaying = true;
       state.positionSeconds = 0;
     }
     state.updatedAt = Date.now();
     broadcastState(io, voiceChannelId, state);
-  });
+  }
 
   socket.on(SocketEvents.MusicRemove, ({ voiceChannelId, itemId }: { voiceChannelId: string; itemId: string }) => {
     const state = musicStates.get(voiceChannelId);

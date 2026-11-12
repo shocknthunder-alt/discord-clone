@@ -27,7 +27,7 @@ Owner pronouns unknown: use they/them.
 - Voice (SFU): mic processing/noise gate, push-to-talk (browser only — global PTT needs the desktop app),
   **camera**, screen share with Smooth (60fps, H.264 if router offers it) / Sharp modes, single layer,
   movable user tiles (unlock layout), LIVE banner/edge/title for the streamer, music player (YouTube,
-  synced; collapsed/expanded persisted; default volume 15, peers default 50).
+  synced; collapsed/expanded persisted; default volume 10 (old saved 15 migrates to 10), peers default 50).
 - Stream **frames** (Settings → Stream Frame; button 🎬 while watching): retro TV, cinema, monitor, neon,
   furry monster, dark fantasy, PoE2, fire&ice, dragon, berserker, pickle jar. Image frames are cut-outs in
   `client/public/tv/*.webp` (made with GrabCut/Pillow; geometry in `client/src/components/streamFrames.tsx`).

@@ -36,12 +36,15 @@ const DEFAULTS: AppPrefs = {
   reduceMotion: false,
   unreadMarkers: true,
   soundboardEnabled: true,
-  soundboardVolume: 60,
+  soundboardVolume: 20,
 };
 
 function load(): AppPrefs {
   try {
-    return { ...DEFAULTS, ...(JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<AppPrefs>) };
+    const stored = JSON.parse(localStorage.getItem(KEY) ?? "{}") as Partial<AppPrefs> & { v?: number };
+    // v2: the soundboard default went 60 → 20 %. 60 saved by v1 was just the old default, not a choice.
+    if ((stored.v ?? 1) < 2 && stored.soundboardVolume === 60) stored.soundboardVolume = 20;
+    return { ...DEFAULTS, ...stored };
   } catch {
     return DEFAULTS;
   }
@@ -63,7 +66,7 @@ export const useAppPrefs = create<PrefsState>((setState, get) => ({
   set: (patch) => {
     setState(patch);
     const { set: _omit, ...prefs } = get();
-    localStorage.setItem(KEY, JSON.stringify(prefs));
+    localStorage.setItem(KEY, JSON.stringify({ ...prefs, v: 2 }));
     applyToDocument(prefs);
   },
 }));

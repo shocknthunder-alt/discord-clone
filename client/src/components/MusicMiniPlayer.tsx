@@ -4,11 +4,16 @@ import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 
+/** New listeners start quiet — music under a voice call should never drown the voices. */
+const MUSIC_DEFAULT_VOLUME = 10;
+
 const ADD_ERROR_MESSAGES: Record<string, string> = {
   "invalid-url": "Not a YouTube link — paste a link, or type a song name to search.",
   "lookup-failed": "Couldn't look that video up — it may be private, age-restricted, or removed.",
   "not-found": "No results found for that search.",
   "search-unavailable": "Searching by name needs a YouTube API key that isn't set up yet — paste a link instead.",
+  "playlist-unavailable": "Този плейлист не може да се прочете — може да е частен или празен.",
+  "playlist-needs-key": "За плейлисти трябва YouTube API ключ на сървъра — пусни отделни песни засега.",
 };
 
 export default function MusicMiniPlayer() {
@@ -31,10 +36,17 @@ export default function MusicMiniPlayer() {
   // Starts low (and is remembered once changed): a new joiner used to be blasted by the music.
   const [volume, setVolume] = useState(() => {
     try {
-      const saved = Number(localStorage.getItem("musicVolume"));
-      return localStorage.getItem("musicVolume") !== null && Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 100) : 15;
+      const raw = localStorage.getItem("musicVolume");
+      const saved = Number(raw);
+      // The old default (15) got saved for everyone on first load — it wasn't a choice, so it
+      // moves to the new default (10). Any other saved value is kept.
+      if (localStorage.getItem("musicVolumeV2") === null) {
+        localStorage.setItem("musicVolumeV2", "1");
+        if (raw === "15") return MUSIC_DEFAULT_VOLUME;
+      }
+      return raw !== null && Number.isFinite(saved) ? Math.min(Math.max(saved, 0), 100) : MUSIC_DEFAULT_VOLUME;
     } catch {
-      return 15;
+      return MUSIC_DEFAULT_VOLUME;
     }
   });
 
