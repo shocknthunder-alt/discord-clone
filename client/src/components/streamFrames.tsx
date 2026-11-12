@@ -611,15 +611,6 @@ function JarArt() {
 
 /* ───────────────────────── Shared neon helpers ───────────────────────── */
 
-/** Deterministic pseudo-random numbers, so glitter/sparkles don't jump between renders. */
-function seeded(seed: number) {
-  let s = seed >>> 0;
-  return () => {
-    s = (s * 1664525 + 1013904223) >>> 0;
-    return s / 4294967296;
-  };
-}
-
 /** Bloom filters for neon tubes: wide soft halo + tight glow. */
 function NeonFilters({ id }: { id: string }) {
   return (
@@ -762,12 +753,51 @@ function OnAirArt() {
   );
 }
 
-/* ───────────────────────── Silver: polished frame with glitter ───────────────────────── */
+/* ───────────────────────── Metal: polished frame (blue / black) ───────────────────────── */
 
 const SILVER_SCREEN = { x: 94, y: 54, w: 912, h: 513 };
 
-function SilverArt() {
+interface MetalPalette {
+  /** Unique id prefix — several frames render at once in the settings picker. */
+  id: string;
+  /** Diagonal bar gradient, light/dark bands = polished reflections. */
+  bar: string[];
+  /** Vertical gradient for the thin inner border. */
+  edge: [string, string, string];
+  rivet: [string, string, string];
+  rivetRim: string;
+  plate: [string, string, string];
+  /** Hairlines that make the bar look bevelled. */
+  highlight: string;
+  groove: string;
+}
+
+const METAL_BLUE: MetalPalette = {
+  id: "mb",
+  bar: ["#e3f1ff", "#3b78d0", "#b9dcff", "#1c4a96", "#8fc2ff", "#2858a8", "#dcedff"],
+  edge: ["#f2f8ff", "#3f7fd8", "#cfe5ff"],
+  rivet: ["#ffffff", "#8cc0ff", "#173d78"],
+  rivetRim: "#2a5aa6",
+  plate: ["#13243f", "#0b1629", "#060c18"],
+  highlight: "#e6f3ff",
+  groove: "#0b1f42",
+};
+
+const METAL_BLACK: MetalPalette = {
+  id: "mk",
+  bar: ["#7a7f89", "#141518", "#555963", "#08080a", "#454851", "#0f1013", "#6a6e78"],
+  edge: ["#9ba0aa", "#121316", "#5d6169"],
+  rivet: ["#b4b8c0", "#3b3e45", "#050506"],
+  rivetRim: "#2a2c31",
+  plate: ["#1a1b1e", "#0d0d0f", "#050506"],
+  highlight: "#a9aeb8",
+  groove: "#000000",
+};
+
+function MetalArt({ p }: { p: MetalPalette }) {
   const s = SILVER_SCREEN;
+  const id = (name: string) => `${p.id}-${name}`;
+  const url = (name: string) => `url(#${id(name)})`;
   const oL = s.x - 24;
   const oT = s.y - 24;
   const oR = s.x + s.w + 24;
@@ -780,88 +810,55 @@ function SilverArt() {
   const inner = `M${iL + k},${iT} H${iR - k} A${k},${k} 0 0 0 ${iR},${iT + k} V${iB - k} A${k},${k} 0 0 0 ${iR - k},${iB} H${iL + k} A${k},${k} 0 0 0 ${iL},${iB - k} V${iT + k} A${k},${k} 0 0 0 ${iL + k},${iT} Z`;
   const holeK = k - 8;
   const hole = `M${s.x + holeK},${s.y} H${s.x + s.w - holeK} A${holeK},${holeK} 0 0 0 ${s.x + s.w},${s.y + holeK} V${s.y + s.h - holeK} A${holeK},${holeK} 0 0 0 ${s.x + s.w - holeK},${s.y + s.h} H${s.x + holeK} A${holeK},${holeK} 0 0 0 ${s.x},${s.y + s.h - holeK} V${s.y + holeK} A${holeK},${holeK} 0 0 0 ${s.x + holeK},${s.y} Z`;
-  // Octagon ribbon that weaves behind the frame and the picture.
+  // Octagon ribbon that weaves behind the frame.
   const oct = `M250,14 H850 L1050,182 V444 L850,612 H250 L50,444 V182 Z`;
-
-  // Glitter dust drifting off the frame, densest near the glints.
-  const rnd = seeded(7);
-  const dust = Array.from({ length: 170 }, () => {
-    const side = rnd();
-    const along = rnd();
-    const out = (rnd() - 0.35) * 46;
-    let x: number;
-    let y: number;
-    if (side < 0.3) {
-      x = oL + along * (oR - oL);
-      y = oT - out;
-    } else if (side < 0.5) {
-      x = oL + along * (oR - oL);
-      y = oB + out;
-    } else if (side < 0.75) {
-      x = oL - out;
-      y = oT + along * (oB - oT);
-    } else {
-      x = oR + out;
-      y = oT + along * (oB - oT);
-    }
-    return { x, y, r: 0.5 + rnd() * 1.7, o: 0.35 + rnd() * 0.65 };
-  });
 
   return (
     <Svg>
       <defs>
-        <mask id="sv-hole">
+        <mask id={id("hole")}>
           <rect width={W} height={H} fill="white" />
           <path d={hole} fill="black" />
         </mask>
-        <radialGradient id="sv-bg" cx="0.5" cy="0.5" r="0.7">
-          <stop offset="0" stopColor="#3a3639" />
-          <stop offset="0.7" stopColor="#1b191b" />
-          <stop offset="1" stopColor="#0c0b0c" />
+        <radialGradient id={id("plate")} cx="0.5" cy="0.5" r="0.7">
+          <stop offset="0" stopColor={p.plate[0]} />
+          <stop offset="0.7" stopColor={p.plate[1]} />
+          <stop offset="1" stopColor={p.plate[2]} />
         </radialGradient>
-        <linearGradient id="sv-metal" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f4f4f6" />
-          <stop offset="0.18" stopColor="#9c9ea4" />
-          <stop offset="0.35" stopColor="#e9eaee" />
-          <stop offset="0.52" stopColor="#7d7f86" />
-          <stop offset="0.7" stopColor="#d7d8dd" />
-          <stop offset="0.86" stopColor="#8b8d93" />
-          <stop offset="1" stopColor="#f1f1f3" />
+        <linearGradient id={id("bar")} x1="0" y1="0" x2="1" y2="1">
+          {p.bar.map((c, i) => (
+            <stop key={i} offset={i / (p.bar.length - 1)} stopColor={c} />
+          ))}
         </linearGradient>
-        <linearGradient id="sv-metal-v" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.5" stopColor="#8e9096" />
-          <stop offset="1" stopColor="#e4e5e9" />
+        <linearGradient id={id("edge")} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={p.edge[0]} />
+          <stop offset="0.5" stopColor={p.edge[1]} />
+          <stop offset="1" stopColor={p.edge[2]} />
         </linearGradient>
-        <radialGradient id="sv-rivet" cx="0.35" cy="0.32" r="0.75">
-          <stop offset="0" stopColor="#ffffff" />
-          <stop offset="0.45" stopColor="#c9cacf" />
-          <stop offset="1" stopColor="#55575d" />
+        <radialGradient id={id("rivet")} cx="0.35" cy="0.32" r="0.75">
+          <stop offset="0" stopColor={p.rivet[0]} />
+          <stop offset="0.45" stopColor={p.rivet[1]} />
+          <stop offset="1" stopColor={p.rivet[2]} />
         </radialGradient>
-        <filter id="sv-shadow" x="-5%" y="-5%" width="110%" height="110%">
+        <filter id={id("shadow")} x="-5%" y="-5%" width="110%" height="110%">
           <feGaussianBlur stdDeviation="5" />
         </filter>
-        <NeonFilters id="sv" />
       </defs>
 
-      <g mask="url(#sv-hole)">
+      <g mask={url("hole")}>
         {/* octagon ribbon behind everything (no backdrop: outside the frame is see-through) */}
-        <path d={oct} fill="none" stroke="url(#sv-metal)" strokeWidth="7" />
-        <path d={oct} fill="none" stroke="#fff" strokeOpacity="0.35" strokeWidth="1.2" />
+        <path d={oct} fill="none" stroke={url("bar")} strokeWidth="7" />
+        <path d={oct} fill="none" stroke={p.highlight} strokeOpacity="0.35" strokeWidth="1.2" />
         {/* drop shadow of the frame */}
-        <rect x={oL + 4} y={oT + 8} width={oR - oL} height={oB - oT} fill="none" stroke="#000" strokeOpacity="0.6" strokeWidth="18" filter="url(#sv-shadow)" />
+        <rect x={oL + 4} y={oT + 8} width={oR - oL} height={oB - oT} fill="none" stroke="#000" strokeOpacity="0.6" strokeWidth="18" filter={url("shadow")} />
         {/* dark plate between the bar and the picture — fills the scooped corners */}
-        <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill="url(#sv-bg)" />
+        <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill={url("plate")} />
         {/* outer bevelled bar */}
-        <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill="none" stroke="url(#sv-metal)" strokeWidth="14" />
-        <rect x={oL - 7} y={oT - 7} width={oR - oL + 14} height={oB - oT + 14} fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="1" />
-        <rect x={oL + 7} y={oT + 7} width={oR - oL - 14} height={oB - oT - 14} fill="none" stroke="#2b2c30" strokeOpacity="0.8" strokeWidth="1.2" />
+        <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill="none" stroke={url("bar")} strokeWidth="14" />
+        <rect x={oL - 7} y={oT - 7} width={oR - oL + 14} height={oB - oT + 14} fill="none" stroke={p.highlight} strokeOpacity="0.55" strokeWidth="1" />
+        <rect x={oL + 7} y={oT + 7} width={oR - oL - 14} height={oB - oT - 14} fill="none" stroke={p.groove} strokeOpacity="0.8" strokeWidth="1.2" />
         {/* inner border with scooped corners */}
-        <path d={inner} fill="none" stroke="url(#sv-metal-v)" strokeWidth="3.5" />
-        {/* engraved hatch in the top-right corner */}
-        {[0, 1, 2, 3].map((i) => (
-          <path key={i} d={`M${oR - 150 + i * 12},${oT + 22} L${oR - 22},${oT + 150 - i * 12}`} stroke="url(#sv-metal)" strokeWidth="1.6" opacity="0.85" />
-        ))}
+        <path d={inner} fill="none" stroke={url("edge")} strokeWidth="3.5" />
         {/* corner rivets */}
         {[
           [oL + 2, oT + 2],
@@ -870,24 +867,11 @@ function SilverArt() {
           [oR - 2, oB - 2],
         ].map(([x, y]) => (
           <g key={`${x}-${y}`}>
-            <circle cx={x} cy={y} r="17" fill="#000" opacity="0.45" filter="url(#sv-shadow)" />
-            <circle cx={x} cy={y} r="14" fill="url(#sv-rivet)" stroke="#6c6e74" strokeWidth="1" />
+            <circle cx={x} cy={y} r="17" fill="#000" opacity="0.45" filter={url("shadow")} />
+            <circle cx={x} cy={y} r="14" fill={url("rivet")} stroke={p.rivetRim} strokeWidth="1" />
           </g>
         ))}
-        {/* glitter */}
-        {dust.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={p.r} fill="#fff" opacity={p.o} />
-        ))}
       </g>
-
-      {/* glints on the metal */}
-      <Glint x={550} y={oT - 4} size={34} fid="sv" />
-      <Glint x={505} y={oT + 2} size={14} fid="sv" />
-      <Glint x={oL} y={300} size={30} fid="sv" />
-      <Glint x={oL + 6} y={346} size={14} fid="sv" />
-      <Glint x={oR} y={330} size={32} fid="sv" />
-      <Glint x={oR - 10} y={378} size={15} fid="sv" />
-      <Glint x={850} y={oB + 2} size={12} fid="sv" />
     </Svg>
   );
 }
@@ -1019,7 +1003,8 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
     })(),
     Art: OnAirArt,
   },
-  { id: "silver", name: "Сребърен блясък", screen: rect(SILVER_SCREEN.x, SILVER_SCREEN.y, SILVER_SCREEN.w, SILVER_SCREEN.h), Art: SilverArt },
+  { id: "silver", name: "Син метал", screen: rect(SILVER_SCREEN.x, SILVER_SCREEN.y, SILVER_SCREEN.w, SILVER_SCREEN.h), Art: () => <MetalArt p={METAL_BLUE} /> },
+  { id: "metal-black", name: "Черен метал", screen: rect(SILVER_SCREEN.x, SILVER_SCREEN.y, SILVER_SCREEN.w, SILVER_SCREEN.h), Art: () => <MetalArt p={METAL_BLACK} /> },
   { id: "swirl", name: "Неонов свитък", screen: rect(SWIRL_SCREEN.x, SWIRL_SCREEN.y, SWIRL_SCREEN.w, SWIRL_SCREEN.h), Art: SwirlArt },
 ];
 
