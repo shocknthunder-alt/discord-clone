@@ -353,14 +353,17 @@ export class SfuMediaManager {
           if (typeof stat.availableOutgoingBitrate === "number") available = stat.availableOutgoingBitrate;
         });
         if (available === null) return;
-        const target = available * 0.85;
+        // Chrome's estimate never climbs far above the cap we set, so it can't be compared with a
+        // margin on both sides (85% of an estimate pinned at the cap is always "below" the cap — that
+        // spiralled every share down to the floor after one blip). Hysteresis instead: cut only on a
+        // clear shortfall, and when the estimate reaches the cap the link is carrying it — step up.
         let next = cap;
-        if (target < cap * 0.9) {
+        if (available < cap * 0.8) {
           lowStreak++;
-          if (lowStreak >= 2) next = Math.max(floor, target); // two readings in a row, not a blip
+          if (lowStreak >= 2) next = Math.max(floor, available * 0.85); // two readings in a row, not a blip
         } else {
           lowStreak = 0;
-          if (target > cap * 1.25 && cap < topRate) next = Math.min(topRate, cap * 1.25);
+          if (available >= cap * 0.95 && cap < topRate) next = Math.min(topRate, cap * 1.25);
         }
         if (Math.abs(next - cap) < cap * 0.05) return;
         cap = next;
