@@ -39,6 +39,57 @@ function TileVideo({ stream, mirrored = false }: { stream: MediaStream; mirrored
   return <video ref={ref} className={`voice-tile-video ${mirrored ? "mirrored" : ""}`} autoPlay playsInline muted />;
 }
 
+/** ⤢ on a camera tile: enlarges that camera into the middle (or shrinks it back). */
+function CamExpandButton({ camKey }: { camKey: string }) {
+  const big = useWatchStore((s) => s.bigCams.has(camKey));
+  const toggleCam = useWatchStore((s) => s.toggleCam);
+  return (
+    <button
+      className="cam-expand"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleCam(camKey);
+      }}
+      title={big ? "Смали камерата" : "Уголеми камерата"}
+    >
+      {big ? "⤡" : "⤢"}
+    </button>
+  );
+}
+
+/** An enlarged camera in the middle grid: click = fullscreen, ✕ = back to the small tile. */
+function BigCamera({ stream, caption, mirrored, onClose, maxVh }: { stream: MediaStream; caption: string; mirrored: boolean; onClose: () => void; maxVh: number }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.srcObject = stream;
+    void el.play().catch(() => {});
+  }, [stream]);
+  return (
+    <div className="cam-big" ref={wrapRef} style={{ width: `min(100%, 1100px, calc(${maxVh}vh * 16 / 9))` }}>
+      <video
+        ref={ref}
+        className={`cam-big-video ${mirrored ? "mirrored" : ""}`}
+        autoPlay
+        playsInline
+        muted
+        onClick={() => {
+          if (document.fullscreenElement) void document.exitFullscreen();
+          else void wrapRef.current?.requestFullscreen();
+        }}
+        title="Клик за цял екран"
+      />
+      <div className="cam-big-caption">📷 {caption}</div>
+      <button className="cam-big-close" onClick={onClose} title="Смали обратно">
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function PeerTile({
   peer,
   onContextMenu,
@@ -61,6 +112,7 @@ function PeerTile({
       {peer.cameraStream ? (
         <div className={`voice-tile-video-wrap ${speaking ? "speaking" : ""}`}>
           <TileVideo stream={peer.cameraStream} />
+          <CamExpandButton camKey={peer.socketId} />
         </div>
       ) : (
         <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
@@ -110,7 +162,22 @@ export default function VoiceChannelPanel() {
     pruneHidden(new Set(liveKey ? liveKey.split(",") : []));
   }, [liveKey, pruneHidden]);
 
-  const n = watched.length;
+  // Cameras someone enlarged with ⤢ join the same grid as the streams.
+  const bigCams = useWatchStore((s) => s.bigCams);
+  const toggleCam = useWatchStore((s) => s.toggleCam);
+  const pruneCams = useWatchStore((s) => s.pruneCams);
+  const cams: { key: string; stream: MediaStream; caption: string; mirrored: boolean }[] = Array.from(peers.values())
+    .filter((p) => p.userId && p.cameraStream)
+    .map((p) => ({ key: p.socketId, stream: p.cameraStream!, caption: p.username, mirrored: false }));
+  if (localCameraStream) cams.push({ key: SELF_STREAM_KEY, stream: localCameraStream, caption: `${currentUsername} (ти)`, mirrored: true });
+  const shownCams = cams.filter((c) => bigCams.has(c.key));
+  const camKey = cams.map((c) => c.key).join(",");
+
+  useEffect(() => {
+    pruneCams(new Set(camKey ? camKey.split(",") : []));
+  }, [camKey, pruneCams]);
+
+  const n = watched.length + shownCams.length;
   const gridCols = n <= 1 ? 1 : n <= 4 ? 2 : 3;
   // Height budget per frame, so 2×2 / 3×N grids still fit next to the tiles below.
   const maxVh = n <= 1 ? 76 : n === 2 ? 64 : n <= 4 ? 36 : 26;
@@ -167,6 +234,16 @@ export default function VoiceChannelPanel() {
                 </div>
               </StreamFrame>
             ))}
+            {shownCams.map((c) => (
+              <BigCamera
+                key={`cam-${c.key}`}
+                stream={c.stream}
+                caption={c.caption}
+                mirrored={c.mirrored}
+                maxVh={maxVh}
+                onClose={() => toggleCam(c.key)}
+              />
+            ))}
           </div>
         )}
 
@@ -180,6 +257,7 @@ export default function VoiceChannelPanel() {
             {localCameraStream ? (
               <div className={`voice-tile-video-wrap ${selfSpeaking ? "speaking" : ""}`}>
                 <TileVideo stream={localCameraStream} mirrored />
+                <CamExpandButton camKey={SELF_STREAM_KEY} />
               </div>
             ) : (
               <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />

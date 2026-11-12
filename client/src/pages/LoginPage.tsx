@@ -1,3 +1,4 @@
+import PasswordInput from "../components/PasswordInput";
 import axios from "axios";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -74,9 +75,9 @@ export default function LoginPage() {
           <input id="cp-email" type="email" value={cpEmail} onChange={(e) => setCpEmail(e.target.value)} required />
 
           <label htmlFor="cp-current">Current Password</label>
-          <input
+          <PasswordInput
             id="cp-current"
-            type="password"
+            
             autoComplete="current-password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
@@ -84,9 +85,9 @@ export default function LoginPage() {
           />
 
           <label htmlFor="cp-new">New Password</label>
-          <input
+          <PasswordInput
             id="cp-new"
-            type="password"
+            
             autoComplete="new-password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
@@ -94,9 +95,9 @@ export default function LoginPage() {
           />
 
           <label htmlFor="cp-confirm">Confirm New Password</label>
-          <input
+          <PasswordInput
             id="cp-confirm"
-            type="password"
+            
             autoComplete="new-password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -132,9 +133,9 @@ export default function LoginPage() {
           required
         />
         <label htmlFor="password">Password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
+          
           autoComplete="current-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}

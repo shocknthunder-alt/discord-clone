@@ -1,3 +1,4 @@
+import PasswordInput from "../components/PasswordInput";
 import axios from "axios";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -34,9 +35,9 @@ export default function RegisterPage() {
         <label htmlFor="email">Email</label>
         <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <label htmlFor="password">Password</label>
-        <input
+        <PasswordInput
           id="password"
-          type="password"
+          
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           minLength={6}

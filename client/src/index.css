@@ -57,6 +57,36 @@ button {
   color: var(--t-1);
 }
 
+/* Password field with a show/hide eye button. */
+.password-field {
+  position: relative;
+}
+
+.auth-card .password-field input {
+  padding-right: 42px;
+}
+
+.password-eye {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--t-3);
+  cursor: pointer;
+}
+
+.password-eye:hover {
+  color: var(--t-1);
+}
+
 .auth-card button[type="submit"] {
   width: 100%;
   margin-top: 20px;
@@ -2340,6 +2370,90 @@ input[type="range"] {
 
 .voice-tile-video.mirrored {
   transform: scaleX(-1);
+}
+
+/* ⤢ on a camera tile — enlarges the camera into the middle grid. */
+.voice-tile-video-wrap {
+  position: relative;
+}
+
+.cam-expand {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.voice-tile-video-wrap:hover .cam-expand,
+.cam-expand:focus-visible {
+  opacity: 1;
+}
+
+.cam-big {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.cam-big-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  cursor: zoom-in;
+}
+
+.cam-big-video.mirrored {
+  transform: scaleX(-1);
+}
+
+.cam-big:fullscreen {
+  border-radius: 0;
+}
+
+.cam-big-caption {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.cam-big-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.cam-big-close:hover {
+  opacity: 1;
 }
 
 /* ---- Message search ---- */
