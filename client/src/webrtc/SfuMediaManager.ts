@@ -258,11 +258,11 @@ export class SfuMediaManager {
     if (videoTrack) {
       const smooth = mode === "smooth";
       // The content hint decides which encoder mode Chrome uses. "detail" switches it to
-      // *screencast* mode, which caps the frame rate hard and sits on whatever it can sharpen —
-      // great for slides, awful for a game or a clip (that was the low-FPS, smeary picture).
-      // "motion" keeps the normal video pipeline: full frame rate, sharpness traded for speed.
+      // *screencast* mode, which caps the frame rate hard (the old 30-fps Sharp). Both modes now
+      // keep "motion" (full 60 fps, GPU H.264) and differ only in what gives way when bits run
+      // short: Smooth sheds resolution, Sharp keeps every pixel and drops frames instead.
       try {
-        videoTrack.contentHint = smooth ? "motion" : "detail";
+        videoTrack.contentHint = "motion";
       } catch {
         // contentHint isn't supported in every browser — fine to skip.
       }
@@ -271,20 +271,19 @@ export class SfuMediaManager {
       // 1080p three times per frame — with a game already eating the CPU/GPU that is exactly
       // what dropped the frame rate at the source. A friend-group call doesn't need per-viewer
       // layers, it needs one good stream.
+      // Sharp gets a bit more than Smooth: text edges at full resolution need the bits.
       const maxBitrate =
         quality === "high"
-          ? smooth ? 32_000_000 : 25_000_000
+          ? smooth ? 32_000_000 : 36_000_000
           : quality === "low"
-            ? smooth ? 4_500_000 : 3_000_000
-            : smooth ? 8_000_000 : 5_000_000;
-      const maxFramerate = smooth ? 60 : 30;
+            ? smooth ? 4_500_000 : 5_500_000
+            : smooth ? 8_000_000 : 10_000_000;
+      const maxFramerate = 60;
 
       // H.264 High is the profile Chromium hands to the GPU (NVENC / AMF / Quick Sync); Constrained
       // Baseline always stays on the CPU (OpenH264). Where there is no hardware encoder, High is just
       // encoded by OpenH264 like before. Device caps = router ∩ this browser; no H.264 → VP8.
-      const h264s = smooth
-        ? (this.device?.rtpCapabilities.codecs ?? []).filter((c) => c.mimeType.toLowerCase() === "video/h264")
-        : [];
+      const h264s = (this.device?.rtpCapabilities.codecs ?? []).filter((c) => c.mimeType.toLowerCase() === "video/h264");
       const h264 =
         h264s.find((c) => String(c.parameters?.["profile-level-id"] ?? "").toLowerCase().startsWith("64")) ?? h264s[0];
 

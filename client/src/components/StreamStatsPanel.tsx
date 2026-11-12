@@ -117,7 +117,7 @@ export default function StreamStatsPanel() {
       return;
     }
     let cancelled = false;
-    const targetFps = mode === "smooth" ? 60 : 30;
+    const targetFps = 60;
     async function poll() {
       try {
         const next = await getScreenShareStats();
@@ -141,7 +141,7 @@ export default function StreamStatsPanel() {
     };
   }, [isScreenSharing, activeVoiceChannelId, mode]);
 
-  const ownStats: RemoteStreamStats | null = own && isScreenSharing ? { ...own, targetFps: mode === "smooth" ? 60 : 30 } : null;
+  const ownStats: RemoteStreamStats | null = own && isScreenSharing ? { ...own, targetFps: 60 } : null;
   const others = Array.from(remote.entries()).filter(([socketId]) => peers.has(socketId));
   if (!ownStats && others.length === 0) return null;
 

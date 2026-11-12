@@ -509,9 +509,8 @@ export function useVoiceChannel() {
       video: {
         width: { ideal: quality === "high" ? 3840 : quality === "low" ? 1280 : 1920 },
         height: { ideal: quality === "high" ? 2160 : quality === "low" ? 720 : 1080 },
-        // Smooth mode asks for the full 60 fps (games, clips); sharp mode is for text, where
-        // 30 fps is plenty and the bits go into detail instead.
-        frameRate: mode === "smooth" ? { ideal: 60, max: 60 } : { ideal: 30, max: 30 },
+        // Both modes capture 60 fps; they differ in what the encoder sacrifices (see SfuMediaManager).
+        frameRate: { ideal: 60, max: 60 },
       },
       // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
       // viewer only ever gets video. Chrome asks separately for this when sharing a tab;

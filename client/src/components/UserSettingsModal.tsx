@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
@@ -23,116 +23,183 @@ import {
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { formatTime, useAppPrefs } from "../utils/appPrefs";
+import "./settings.css";
 
 // A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
 // PTT to (modifiers, function keys, mouse-adjacent keys like CapsLock); falls back to the
 // raw code for anything else rather than guessing at every possible layout.
 function describeKeyCode(code: string): string {
   const known: Record<string, string> = {
-    ControlLeft: "Left Ctrl",
-    ControlRight: "Right Ctrl",
-    AltLeft: "Left Alt",
-    AltRight: "Right Alt",
-    ShiftLeft: "Left Shift",
-    ShiftRight: "Right Shift",
+    ControlLeft: "Ляв Ctrl",
+    ControlRight: "Десен Ctrl",
+    AltLeft: "Ляв Alt",
+    AltRight: "Десен Alt",
+    ShiftLeft: "Ляв Shift",
+    ShiftRight: "Десен Shift",
     CapsLock: "Caps Lock",
-    Space: "Space",
+    Space: "Интервал",
     Tab: "Tab",
     Backquote: "`",
   };
   return known[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "");
 }
 
-type SettingsTab = "profile" | "general" | "audio" | "stream" | "appearance";
+type Section = "profile" | "voice" | "stream" | "chat" | "notifications" | "appearance" | "accessibility";
 
-const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
-  { id: "profile", label: "👤 Профил" },
-  { id: "general", label: "⚙️ Общи" },
-  { id: "audio", label: "🎙️ Звук" },
-  { id: "stream", label: "📺 Стрийм" },
-  { id: "appearance", label: "🎨 Външен вид" },
+const NAV: { group: string; items: { id: Section; icon: string; label: string }[] }[] = [
+  { group: "Потребител", items: [{ id: "profile", icon: "👤", label: "Моят профил" }] },
+  {
+    group: "Приложение",
+    items: [
+      { id: "voice", icon: "🎙️", label: "Глас и видео" },
+      { id: "stream", icon: "📺", label: "Стрийм" },
+      { id: "chat", icon: "💬", label: "Чат" },
+      { id: "notifications", icon: "🔔", label: "Известия" },
+      { id: "appearance", icon: "🎨", label: "Външен вид" },
+      { id: "accessibility", icon: "♿", label: "Достъпност" },
+    ],
+  },
 ];
+
+const TITLES: Record<Section, string> = {
+  profile: "Моят профил",
+  voice: "Глас и видео",
+  stream: "Стрийм",
+  chat: "Чат",
+  notifications: "Известия",
+  appearance: "Външен вид",
+  accessibility: "Достъпност",
+};
+
+/* ───────────── building blocks ───────────── */
+
+function Card({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="set-card">
+      <h3 className="set-card-title">{title}</h3>
+      {hint && <p className="set-card-hint">{hint}</p>}
+      <div className="set-card-body">{children}</div>
+    </section>
+  );
+}
+
+/** A row with a label (+ optional description) and an on/off switch. */
+function Toggle({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <label className={`set-toggle ${disabled ? "disabled" : ""}`}>
+      <span className="set-toggle-text">
+        <span className="set-toggle-label">{label}</span>
+        {hint && <span className="set-toggle-hint">{hint}</span>}
+      </span>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
+      <span className="set-switch" aria-hidden />
+    </label>
+  );
+}
+
+/** Big selectable option (radio) with a title and a line of description. */
+function Choice({
+  name,
+  checked,
+  title,
+  hint,
+  onSelect,
+}: {
+  name: string;
+  checked: boolean;
+  title: string;
+  hint: string;
+  onSelect: () => void;
+}) {
+  return (
+    <label className={`set-choice ${checked ? "selected" : ""}`}>
+      <input type="radio" name={name} checked={checked} onChange={onSelect} />
+      <span className="set-choice-title">{title}</span>
+      <span className="set-choice-hint">{hint}</span>
+    </label>
+  );
+}
+
+/** Live input level of the chosen microphone — start/stop so it doesn't hold the mic. */
+function MicTest({ deviceId }: { deviceId: string }) {
+  const [running, setRunning] = useState(false);
+  const [level, setLevel] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    let raf = 0;
+    let ctx: AudioContext | null = null;
+    let stream: MediaStream | null = null;
+    let cancelled = false;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: deviceId ? { deviceId: { exact: deviceId } } : true });
+        if (cancelled) return;
+        ctx = new AudioContext();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        ctx.createMediaStreamSource(stream).connect(analyser);
+        const data = new Float32Array(analyser.fftSize);
+        const tick = () => {
+          analyser.getFloatTimeDomainData(data);
+          let sum = 0;
+          for (const v of data) sum += v * v;
+          const rms = Math.sqrt(sum / data.length);
+          setLevel(Math.min(1, rms * 6));
+          raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch {
+        setError("Няма достъп до микрофона.");
+        setRunning(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      stream?.getTracks().forEach((t) => t.stop());
+      void ctx?.close();
+      setLevel(0);
+    };
+  }, [running, deviceId]);
+
+  return (
+    <div className="set-mictest">
+      <button type="button" className="set-button" onClick={() => { setError(null); setRunning((r) => !r); }}>
+        {running ? "Спри теста" : "Тествай микрофона"}
+      </button>
+      <div className="set-meter" aria-label="Ниво на микрофона">
+        <div className="set-meter-fill" style={{ width: `${Math.round(level * 100)}%` }} />
+      </div>
+      {error && <span className="set-error-inline">{error}</span>}
+    </div>
+  );
+}
+
+/* ───────────── the window ───────────── */
 
 interface Props {
   onClose: () => void;
 }
 
-/** Settings → Общи: chat text, clock, notifications, sounds, motion. Applied the moment they change. */
-function GeneralSettings() {
-  const prefs = useAppPrefs();
-  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
-    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
-  );
-
-  async function toggleNotifications(on: boolean) {
-    if (on && permission !== "granted" && permission !== "unsupported") {
-      const result = await Notification.requestPermission();
-      setPermission(result);
-      if (result !== "granted") return;
-    }
-    prefs.set({ desktopNotifications: on });
-  }
-
-  const sample = new Date();
-  sample.setHours(14, 5, 33);
-
-  return (
-    <>
-      <div className="modal-label">Чат</div>
-      <div className="ptt-keybind-row">
-        <span>Размер на текста: {prefs.chatFontSize}px</span>
-        <input
-          type="range"
-          min={12}
-          max={22}
-          value={prefs.chatFontSize}
-          onChange={(e) => prefs.set({ chatFontSize: Number(e.target.value) })}
-        />
-      </div>
-      <p className="modal-hint message-text">Примерно съобщение в чата.</p>
-
-      <label className="modal-checkbox-label">
-        <input type="checkbox" checked={prefs.clock24h} onChange={(e) => prefs.set({ clock24h: e.target.checked })} />
-        24-часов формат на часа
-      </label>
-      <label className="modal-checkbox-label">
-        <input type="checkbox" checked={prefs.showSeconds} onChange={(e) => prefs.set({ showSeconds: e.target.checked })} />
-        Показвай секундите
-      </label>
-      <p className="modal-hint">Пример: {formatTime(sample.toISOString())}</p>
-
-      <div className="modal-label">Известия</div>
-      <label className="modal-checkbox-label">
-        <input
-          type="checkbox"
-          checked={prefs.desktopNotifications && permission === "granted"}
-          disabled={permission === "unsupported"}
-          onChange={(e) => void toggleNotifications(e.target.checked)}
-        />
-        Известия на работния плот за нови съобщения (когато прозорецът не е на фокус)
-      </label>
-      {permission === "denied" && (
-        <p className="modal-hint">Браузърът блокира известията — разреши ги от иконата до адреса на сайта.</p>
-      )}
-      <label className="modal-checkbox-label">
-        <input type="checkbox" checked={prefs.joinSound} onChange={(e) => prefs.set({ joinSound: e.target.checked })} />
-        Звук, когато някой влезе в гласовия канал
-      </label>
-
-      <div className="modal-label">Достъпност</div>
-      <label className="modal-checkbox-label">
-        <input type="checkbox" checked={prefs.reduceMotion} onChange={(e) => prefs.set({ reduceMotion: e.target.checked })} />
-        Намали анимациите (спира и огъня на Inferno темата след презареждане)
-      </label>
-      <p className="modal-hint">Мащаб на целия прозорец: Ctrl + / Ctrl − / Ctrl 0.</p>
-    </>
-  );
-}
-
 export default function UserSettingsModal({ onClose }: Props) {
   const { user, setUser, logout } = useAuthStore();
-  const [tab, setTab] = useState<SettingsTab>("profile");
+  const [section, setSection] = useState<Section>("profile");
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const prefs = useAppPrefs();
   const streamFrameId = useStreamFrameStore((st) => st.frameId);
   const setStreamFrameId = useStreamFrameStore((st) => st.setFrameId);
   const [themeId, setThemeId] = useState(getStoredThemeId());
@@ -140,8 +207,12 @@ export default function UserSettingsModal({ onClose }: Props) {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+  );
 
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedMicId, setSelectedMicId] = useState(getPreferredMicDeviceId() ?? "");
@@ -168,7 +239,7 @@ export default function UserSettingsModal({ onClose }: Props) {
     setNoiseGateSensitivity,
   } = useVoiceChannel();
   const [listeningForKey, setListeningForKey] = useState(false);
-  // Escape is a valid key to bind for push-to-talk, so it must not also close the modal then.
+  // Escape is a valid key to bind for push-to-talk, so it must not also close the window then.
   useEscapeKey(() => {
     if (!listeningForKey) onClose();
   });
@@ -205,40 +276,27 @@ export default function UserSettingsModal({ onClose }: Props) {
       );
   }, []);
 
-  function handleMicChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const deviceId = e.target.value;
-    setSelectedMicId(deviceId);
-    setPreferredMicDeviceId(deviceId || null);
-  }
-
-  function handleSpeakerChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    setPreferredSpeakerId(e.target.value);
-  }
-
   function startBindingPushToTalkKey() {
     setListeningForKey(true);
-
     function onKeyDown(e: KeyboardEvent) {
       e.preventDefault();
       setPushToTalkKey(e.code);
       setListeningForKey(false);
       window.removeEventListener("keydown", onKeyDown);
     }
-
     window.addEventListener("keydown", onKeyDown);
   }
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setUploading(true);
     setError(null);
     try {
-      const url = await uploadImageToCloudinary(file);
-      setAvatarUrl(url);
+      setAvatarUrl(await uploadImageToCloudinary(file));
+      setSaved(false);
     } catch {
-      setError("Image upload failed. Try again.");
+      setError("Качването на снимката не успя. Опитай пак.");
     } finally {
       setUploading(false);
     }
@@ -249,34 +307,37 @@ export default function UserSettingsModal({ onClose }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateProfile({ username: username.trim(), avatarUrl });
-      setUser(updated);
-      onClose();
+      setUser(await updateProfile({ username: username.trim(), avatarUrl }));
+      setSaved(true);
     } catch {
-      setError("Could not save — username may already be taken.");
+      setError("Не се запази — може би името вече е заето.");
     } finally {
       setSaving(false);
     }
   }
 
-  function handleLogout() {
-    logout();
-    onClose();
+  async function toggleNotifications(on: boolean) {
+    if (on && notifPermission !== "granted" && notifPermission !== "unsupported") {
+      const result = await Notification.requestPermission();
+      setNotifPermission(result);
+      if (result !== "granted") return;
+    }
+    prefs.set({ desktopNotifications: on });
   }
 
-  // Drag the window by its title, so it can be moved off the stream while trying frames/quality.
-  function startDrag(e: React.PointerEvent<HTMLHeadingElement>) {
+  // Drag the window by its sidebar header, so it can be moved off the stream while trying frames.
+  function startDrag(e: React.PointerEvent<HTMLElement>) {
     if (e.button !== 0) return;
     const handle = e.currentTarget;
     handle.setPointerCapture(e.pointerId);
     const startX = e.clientX - offset.x;
     const startY = e.clientY - offset.y;
-    const card = handle.parentElement!.getBoundingClientRect();
-    // Keep at least the title bar on screen.
-    const minX = offset.x - card.left - card.width + 120;
-    const maxX = offset.x + (window.innerWidth - card.left) - 120;
+    const card = handle.closest(".set-window")!.getBoundingClientRect();
+    // Keep at least a corner of the window on screen.
+    const minX = offset.x - card.left - card.width + 160;
+    const maxX = offset.x + (window.innerWidth - card.left) - 160;
     const minY = offset.y - card.top;
-    const maxY = offset.y + (window.innerHeight - card.top) - 60;
+    const maxY = offset.y + (window.innerHeight - card.top) - 80;
     function move(ev: PointerEvent) {
       setOffset({
         x: Math.min(maxX, Math.max(minX, ev.clientX - startX)),
@@ -293,386 +354,435 @@ export default function UserSettingsModal({ onClose }: Props) {
     handle.addEventListener("pointercancel", up);
   }
 
+  const sampleTime = new Date();
+  sampleTime.setHours(14, 5, 33);
+  const profileDirty = username.trim() !== (user?.username ?? "") || avatarUrl !== (user?.avatarUrl ?? null);
+
   return (
     <div className="modal-overlay settings-overlay" onClick={onClose}>
       <div
-        className="modal-card settings-card"
+        className="set-window"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="Настройки"
       >
-        <button className="modal-back" onClick={onClose} aria-label="Back">
-          ←
-        </button>
-
-        <h1 className="modal-title settings-drag-handle" onPointerDown={startDrag} title="Хвани и премести прозореца">
-          User Settings
-        </h1>
-
-        <div className="settings-tabs" role="tablist">
-          {SETTINGS_TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              className={`settings-tab ${tab === t.id ? "active" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="settings-body">
-        {tab === "profile" && (
-          <>
-        <div className="avatar-picker">
-          {avatarUrl ? (
-            <img className="avatar-picker-preview" src={avatarUrl} alt="" />
-          ) : (
-            <div className="avatar-picker-preview placeholder">{username.slice(0, 2).toUpperCase()}</div>
-          )}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || !isCloudinaryConfigured()}
-          >
-            {uploading ? "Uploading…" : "Change Avatar"}
-          </button>
-          <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarPick} />
-        </div>
-
-        <label className="modal-label" htmlFor="username-input">
-          Username
-        </label>
-        <input id="username-input" className="modal-input" value={username} onChange={(e) => setUsername(e.target.value)} />
-
-          </>
-        )}
-
-        {tab === "general" && <GeneralSettings />}
-
-        {tab === "audio" && (
-          <>
-        <label className="modal-label" htmlFor="mic-select">
-          Microphone
-        </label>
-        <select id="mic-select" className="modal-input" value={selectedMicId} onChange={handleMicChange}>
-          <option value="">System Default</option>
-          {micDevices.map((d) => (
-            <option key={d.deviceId} value={d.deviceId}>
-              {d.label || `Microphone ${d.deviceId.slice(0, 6)}`}
-            </option>
-          ))}
-        </select>
-        <p className="modal-hint">Takes effect next time you join a voice channel.</p>
-
-        <label className="modal-label" htmlFor="speaker-select">
-          Output Device (Speaker)
-        </label>
-        {supportsOutputDeviceSelection() ? (
-          <>
-            <select
-              id="speaker-select"
-              className="modal-input"
-              value={preferredSpeakerId}
-              onChange={handleSpeakerChange}
-            >
-              <option value="">System Default</option>
-              {speakerDevices.map((d) => (
-                <option key={d.deviceId} value={d.deviceId}>
-                  {d.label || `Speaker ${d.deviceId.slice(0, 6)}`}
-                </option>
-              ))}
-            </select>
-            <p className="modal-hint">Applies immediately to anyone already talking.</p>
-          </>
-        ) : (
-          <p className="modal-hint">
-            Your browser doesn't support choosing an output device — audio plays through your system default.
-          </p>
-        )}
-
-          </>
-        )}
-
-        {tab === "appearance" && (
-          <>
-        <h2 className="modal-section-title">Theme</h2>
-        <div className="theme-grid">
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`theme-swatch ${themeId === t.id ? "selected" : ""}`}
-              title={t.name}
-              onClick={() => {
-                setThemeId(t.id);
-                applyTheme(t.id, true);
-              }}
-            >
-              <span
-                className="theme-swatch-preview"
-                style={{
-                  background: t.bodyImage ? `${t.bodyImage}, hsl(${t.h} ${t.s}% ${t.l}%)` : `hsl(${t.h} ${t.s}% ${t.l}%)`,
-                  borderColor: `hsl(${t.h} ${t.s}% ${t.light ? t.l - 14 : t.l + 14}%)`,
-                }}
-              >
-                <span className="theme-swatch-accent" style={{ background: t.accent }} />
-              </span>
-              <span className="theme-swatch-name">{t.name}</span>
-            </button>
-          ))}
-        </div>
-
-          </>
-        )}
-
-        {tab === "stream" && (
-          <>
-        <h2 className="modal-section-title">Stream Frame</h2>
-        <div className="stream-frame-picker">
-          {STREAM_FRAMES.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              className={`stream-frame-option ${streamFrameId === f.id ? "selected" : ""}`}
-              onClick={() => setStreamFrameId(f.id)}
-            >
-              <div className="tv" style={f.height ? { aspectRatio: `1100 / ${f.height}` } : undefined}>
-                <div
-                  className="tv-screen"
-                  style={{ left: `${f.screen.l}%`, top: `${f.screen.t}%`, width: `${f.screen.w}%`, height: `${f.screen.h}%` }}
-                />
-                <f.Art />
-              </div>
-              <span>{f.name}</span>
-            </button>
-          ))}
-        </div>
-
-          </>
-        )}
-
-        {tab === "audio" && (
-          <>
-        <h2 className="modal-section-title">Input Mode</h2>
-
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="mic-mode"
-            checked={micMode === "voice-activation"}
-            onChange={() => setMicMode("voice-activation")}
-          />
-          Voice Activation — mic is live whenever you're not muted
-        </label>
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="mic-mode"
-            checked={micMode === "push-to-talk"}
-            onChange={() => setMicMode("push-to-talk")}
-          />
-          Push to Talk — mic is only live while a key is held
-        </label>
-
-        {micMode === "push-to-talk" && (
-          <div className="ptt-keybind-row">
-            <span>
-              Key: <strong>{listeningForKey ? "Press any key…" : pushToTalkKey ? describeKeyCode(pushToTalkKey) : "Not set"}</strong>
+        {/* ── sidebar ── */}
+        <nav className="set-nav">
+          <div className="set-nav-head" onPointerDown={startDrag} title="Хвани и премести прозореца">
+            <span className="set-nav-avatar">
+              {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : (user?.username ?? "?").slice(0, 2).toUpperCase()}
             </span>
-            <button type="button" onClick={startBindingPushToTalkKey} disabled={listeningForKey}>
-              {pushToTalkKey ? "Change" : "Bind a key"}
+            <span className="set-nav-name">{user?.username}</span>
+          </div>
+          {NAV.map((g) => (
+            <div key={g.group} className="set-nav-group">
+              <div className="set-nav-group-title">{g.group}</div>
+              {g.items.map((it) => (
+                <button
+                  key={it.id}
+                  className={`set-nav-item ${section === it.id ? "active" : ""}`}
+                  onClick={() => setSection(it.id)}
+                >
+                  <span className="set-nav-icon">{it.icon}</span>
+                  {it.label}
+                </button>
+              ))}
+            </div>
+          ))}
+          <div className="set-nav-spacer" />
+          <button
+            className="set-nav-item danger"
+            onClick={() => {
+              logout();
+              onClose();
+            }}
+          >
+            <span className="set-nav-icon">🚪</span>
+            Изход от акаунта
+          </button>
+        </nav>
+
+        {/* ── content ── */}
+        <div className="set-main">
+          <header className="set-main-head" onPointerDown={startDrag}>
+            <h2>{TITLES[section]}</h2>
+            <button className="set-close" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} title="Затвори (Esc)">
+              ✕
             </button>
+          </header>
+
+          <div className="set-scroll">
+            {section === "profile" && (
+              <>
+                <Card title="Аватар и име" hint="Така те виждат другите в чата и в гласовите канали.">
+                  <div className="set-profile">
+                    <div className="set-profile-avatar">
+                      {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{username.slice(0, 2).toUpperCase()}</span>}
+                    </div>
+                    <div className="set-profile-fields">
+                      <label className="set-field-label" htmlFor="username-input">
+                        Потребителско име
+                      </label>
+                      <input
+                        id="username-input"
+                        className="set-input"
+                        value={username}
+                        onChange={(e) => {
+                          setUsername(e.target.value);
+                          setSaved(false);
+                        }}
+                      />
+                      <div className="set-row">
+                        <button
+                          type="button"
+                          className="set-button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploading || !isCloudinaryConfigured()}
+                        >
+                          {uploading ? "Качване…" : "Смени аватара"}
+                        </button>
+                        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarPick} />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+                <div className="set-save-bar">
+                  {error && <span className="set-error-inline">{error}</span>}
+                  {saved && !profileDirty && <span className="set-ok">Запазено ✓</span>}
+                  <button
+                    className="set-button primary"
+                    onClick={handleSave}
+                    disabled={saving || uploading || !username.trim() || !profileDirty}
+                  >
+                    {saving ? "Запазване…" : "Запази промените"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {section === "voice" && (
+              <>
+                <Card title="Устройства">
+                  <label className="set-field-label" htmlFor="mic-select">
+                    Микрофон
+                  </label>
+                  <select
+                    id="mic-select"
+                    className="set-input"
+                    value={selectedMicId}
+                    onChange={(e) => {
+                      setSelectedMicId(e.target.value);
+                      setPreferredMicDeviceId(e.target.value || null);
+                    }}
+                  >
+                    <option value="">По подразбиране (системен)</option>
+                    {micDevices.map((d) => (
+                      <option key={d.deviceId} value={d.deviceId}>
+                        {d.label || `Микрофон ${d.deviceId.slice(0, 6)}`}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="set-hint">Сменя се при следващото влизане в гласов канал.</p>
+                  <MicTest deviceId={selectedMicId} />
+
+                  <label className="set-field-label" htmlFor="speaker-select">
+                    Слушалки / високоговорители
+                  </label>
+                  {supportsOutputDeviceSelection() ? (
+                    <select
+                      id="speaker-select"
+                      className="set-input"
+                      value={preferredSpeakerId}
+                      onChange={(e) => setPreferredSpeakerId(e.target.value)}
+                    >
+                      <option value="">По подразбиране (системен)</option>
+                      {speakerDevices.map((d) => (
+                        <option key={d.deviceId} value={d.deviceId}>
+                          {d.label || `Изход ${d.deviceId.slice(0, 6)}`}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="set-hint">Този браузър не позволява избор на изход — звукът е през системния.</p>
+                  )}
+                </Card>
+
+                <Card title="Режим на микрофона">
+                  <div className="set-choices">
+                    <Choice
+                      name="mic-mode"
+                      checked={micMode === "voice-activation"}
+                      title="Гласова активност"
+                      hint="Микрофонът е включен, щом не си на mute."
+                      onSelect={() => setMicMode("voice-activation")}
+                    />
+                    <Choice
+                      name="mic-mode"
+                      checked={micMode === "push-to-talk"}
+                      title="Push-to-talk"
+                      hint="Говориш само докато държиш клавиш."
+                      onSelect={() => setMicMode("push-to-talk")}
+                    />
+                  </div>
+                  {micMode === "push-to-talk" && (
+                    <div className="set-row spaced">
+                      <span>
+                        Клавиш:{" "}
+                        <strong>
+                          {listeningForKey ? "Натисни клавиш…" : pushToTalkKey ? describeKeyCode(pushToTalkKey) : "не е избран"}
+                        </strong>
+                      </span>
+                      <button type="button" className="set-button" onClick={startBindingPushToTalkKey} disabled={listeningForKey}>
+                        {pushToTalkKey ? "Смени" : "Избери клавиш"}
+                      </button>
+                    </div>
+                  )}
+                  <p className="set-hint">В браузъра работи само когато прозорецът е на фокус; в десктоп приложението — винаги.</p>
+                </Card>
+
+                <Card title="Обработка на звука" hint="Всичко е включено по подразбиране — изключи нещо, ако пречи на твоя микрофон.">
+                  <Toggle
+                    label="AI шумопотискане"
+                    hint="Маха клавиатура, вентилатор, дишане и шум в стаята; оставя гласа."
+                    checked={aiSuppression}
+                    onChange={(on) => {
+                      setAiSuppressionState(on);
+                      setAiNoiseSuppressionEnabled(on);
+                    }}
+                  />
+                  <Toggle
+                    label="Шумова врата"
+                    hint="Заглушава микрофона между думите, когато е тихо."
+                    checked={noiseGate}
+                    onChange={(on) => {
+                      setNoiseGateState(on);
+                      setNoiseGateEnabled(on);
+                    }}
+                  />
+                  {noiseGate && (
+                    <div className="set-slider">
+                      <span>Чувствителност</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={noiseGateSensitivity}
+                        onChange={(e) => {
+                          const value = Number(e.target.value);
+                          setNoiseGateSensitivityState(value);
+                          setNoiseGateSensitivity(value);
+                        }}
+                      />
+                      <span className="set-slider-value">{noiseGateSensitivity}</span>
+                    </div>
+                  )}
+                  <Toggle
+                    label="Филтър за ниски честоти"
+                    hint="Реже бръмчене — вентилатор, климатик, удари по бюрото."
+                    checked={highpassFilter}
+                    onChange={(on) => {
+                      setHighpassFilterState(on);
+                      setHighpassFilterEnabled(on);
+                    }}
+                  />
+                  <Toggle
+                    label="Премахване на ехо"
+                    checked={echoCancellation}
+                    onChange={(on) => {
+                      setEchoCancellationState(on);
+                      setEchoCancellationEnabled(on);
+                    }}
+                  />
+                  <Toggle
+                    label="Потискане на шума (браузърно)"
+                    checked={noiseSuppression}
+                    onChange={(on) => {
+                      setNoiseSuppressionState(on);
+                      setNoiseSuppressionEnabled(on);
+                    }}
+                  />
+                  <Toggle
+                    label="Автоматично ниво на звука"
+                    hint="Изравнява тих и силен глас."
+                    checked={autoGainControl}
+                    onChange={(on) => {
+                      setAutoGainControlState(on);
+                      setAutoGainControlEnabled(on);
+                    }}
+                  />
+                  <p className="set-hint">
+                    AI, шумовата врата и филтърът действат веднага; ехото, браузърното потискане и нивото — при следващото
+                    влизане в канал.
+                  </p>
+                </Card>
+              </>
+            )}
+
+            {section === "stream" && (
+              <>
+                <Card title="Режим" hint="И двата са 60 кадъра на видеокартата. Разликата е какво се жертва, ако мрежата или компютърът не смогват.">
+                  <div className="set-choices">
+                    <Choice
+                      name="share-mode"
+                      checked={screenShareMode === "smooth"}
+                      title="Плавно · 60 fps"
+                      hint="Пази плавността, сваля резолюцията при нужда — за игри и видео."
+                      onSelect={() => setScreenShareMode("smooth")}
+                    />
+                    <Choice
+                      name="share-mode"
+                      checked={screenShareMode === "sharp"}
+                      title="Остро · 60 fps"
+                      hint="Пази пълната резолюция и повече битрейт, пуска кадри при нужда — за текст, код, детайл."
+                      onSelect={() => setScreenShareMode("sharp")}
+                    />
+                  </div>
+                </Card>
+
+                <Card title="Качество" hint="Важи от следващото пускане на стрийм.">
+                  <div className="set-choices three">
+                    <Choice
+                      name="share-quality"
+                      checked={screenShareQuality === "low"}
+                      title="Леко · 720p"
+                      hint="Слаб компютър или бавен upload."
+                      onSelect={() => setScreenShareQuality("low")}
+                    />
+                    <Choice
+                      name="share-quality"
+                      checked={screenShareQuality === "standard"}
+                      title="Стандарт · 1080p"
+                      hint="Безопасно за повечето."
+                      onSelect={() => setScreenShareQuality("standard")}
+                    />
+                    <Choice
+                      name="share-quality"
+                      checked={screenShareQuality === "high"}
+                      title="Високо · 4K"
+                      hint="Силна видеокарта и бърз upload."
+                      onSelect={() => setScreenShareQuality("high")}
+                    />
+                  </div>
+                  <Toggle
+                    label="Олекотено копие за слаби връзки (експериментално)"
+                    hint="Праща и втори, по-малък поток. Натоварва повече компютъра ти."
+                    checked={screenShareSimulcast}
+                    onChange={setScreenShareSimulcast}
+                  />
+                </Card>
+
+                <Card title="Рамка на стрийма" hint="Как изглежда стриймът, който гледаш. Сменя се и с 🎬 върху самия стрийм.">
+                  <div className="stream-frame-picker set-frames">
+                    {STREAM_FRAMES.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        className={`stream-frame-option ${streamFrameId === f.id ? "selected" : ""}`}
+                        onClick={() => setStreamFrameId(f.id)}
+                      >
+                        <div className="tv" style={f.height ? { aspectRatio: `1100 / ${f.height}` } : undefined}>
+                          <div
+                            className="tv-screen"
+                            style={{ left: `${f.screen.l}%`, top: `${f.screen.t}%`, width: `${f.screen.w}%`, height: `${f.screen.h}%` }}
+                          />
+                          <f.Art />
+                        </div>
+                        <span>{f.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </Card>
+              </>
+            )}
+
+            {section === "chat" && (
+              <>
+                <Card title="Текст">
+                  <div className="set-slider">
+                    <span>Размер на текста</span>
+                    <input
+                      type="range"
+                      min={12}
+                      max={22}
+                      value={prefs.chatFontSize}
+                      onChange={(e) => prefs.set({ chatFontSize: Number(e.target.value) })}
+                    />
+                    <span className="set-slider-value">{prefs.chatFontSize}px</span>
+                  </div>
+                  <div className="set-preview message-text">Здрасти! Така ще изглеждат съобщенията в чата. 👋</div>
+                </Card>
+                <Card title="Час на съобщенията" hint={`Пример: ${formatTime(sampleTime.toISOString())}`}>
+                  <Toggle label="24-часов формат" checked={prefs.clock24h} onChange={(on) => prefs.set({ clock24h: on })} />
+                  <Toggle label="Показвай секундите" checked={prefs.showSeconds} onChange={(on) => prefs.set({ showSeconds: on })} />
+                </Card>
+              </>
+            )}
+
+            {section === "notifications" && (
+              <Card title="Известия">
+                <Toggle
+                  label="Известия на работния плот"
+                  hint="За нови съобщения и лични съобщения, когато прозорецът не е на фокус."
+                  checked={prefs.desktopNotifications && notifPermission === "granted"}
+                  disabled={notifPermission === "unsupported"}
+                  onChange={(on) => void toggleNotifications(on)}
+                />
+                {notifPermission === "denied" && (
+                  <p className="set-hint warn">Браузърът блокира известията — разреши ги от иконата до адреса на сайта.</p>
+                )}
+                <Toggle
+                  label="Звук при влизане в гласов канал"
+                  hint="Кратък звук, когато някой влезе при теб."
+                  checked={prefs.joinSound}
+                  onChange={(on) => prefs.set({ joinSound: on })}
+                />
+              </Card>
+            )}
+
+            {section === "appearance" && (
+              <Card title="Тема" hint="Сменя цветовете на цялото приложение веднага.">
+                <div className="theme-grid set-themes">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className={`theme-swatch ${themeId === t.id ? "selected" : ""}`}
+                      title={t.name}
+                      onClick={() => {
+                        setThemeId(t.id);
+                        applyTheme(t.id, true);
+                      }}
+                    >
+                      <span
+                        className="theme-swatch-preview"
+                        style={{
+                          background: t.bodyImage ? `${t.bodyImage}, hsl(${t.h} ${t.s}% ${t.l}%)` : `hsl(${t.h} ${t.s}% ${t.l}%)`,
+                          borderColor: `hsl(${t.h} ${t.s}% ${t.light ? t.l - 14 : t.l + 14}%)`,
+                        }}
+                      >
+                        <span className="theme-swatch-accent" style={{ background: t.accent }} />
+                      </span>
+                      <span className="theme-swatch-name">{t.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </Card>
+            )}
+
+            {section === "accessibility" && (
+              <Card title="Движение и мащаб">
+                <Toggle
+                  label="Намали анимациите"
+                  hint="Спира анимациите; огънят на Inferno темата спира след презареждане."
+                  checked={prefs.reduceMotion}
+                  onChange={(on) => prefs.set({ reduceMotion: on })}
+                />
+                <p className="set-hint">Мащаб на целия прозорец: Ctrl + / Ctrl − / Ctrl 0.</p>
+              </Card>
+            )}
           </div>
-        )}
-
-          </>
-        )}
-
-        {tab === "stream" && (
-          <>
-        <h2 className="modal-section-title">Screen Share Mode</h2>
-
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="screen-share-mode"
-            checked={screenShareMode === "smooth"}
-            onChange={() => setScreenShareMode("smooth")}
-          />
-          Smooth — up to 60 FPS, for games and videos
-        </label>
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="screen-share-mode"
-            checked={screenShareMode === "sharp"}
-            onChange={() => setScreenShareMode("sharp")}
-          />
-          Sharp — 30 FPS, maximum detail, for text, slides and code
-        </label>
-
-        <h2 className="modal-section-title">Screen Share Quality</h2>
-
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="screen-share-quality"
-            checked={screenShareQuality === "low"}
-            onChange={() => setScreenShareQuality("low")}
-          />
-          Light — 720p, for weaker computers or a slow upload (often smoother than 1080p)
-        </label>
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="screen-share-quality"
-            checked={screenShareQuality === "standard"}
-            onChange={() => setScreenShareQuality("standard")}
-          />
-          Standard — 1080p, safe for most computers
-        </label>
-        <label className="modal-radio-label">
-          <input
-            type="radio"
-            name="screen-share-quality"
-            checked={screenShareQuality === "high"}
-            onChange={() => setScreenShareQuality("high")}
-          />
-          High — 4K, needs a strong computer and a fast upload
-        </label>
-        <p className="modal-hint">
-          Both apply the next time you start a screen share. Tip: a game on the screen you share
-          costs the same power as a game — use Smooth + Standard, and share a whole screen (not
-          a window) if you also want the sound.
-        </p>
-
-        <label className="modal-radio-label">
-          <input
-            type="checkbox"
-            checked={screenShareSimulcast}
-            onChange={(e) => setScreenShareSimulcast(e.target.checked)}
-          />
-          Experimental: also send a lighter copy for viewers with a weak connection (uses more of your PC)
-        </label>
-
-          </>
-        )}
-
-        {tab === "audio" && (
-          <>
-        <h2 className="modal-section-title">Audio Processing</h2>
-        <p className="modal-hint">All on by default — turn one off if it's fighting your specific mic.</p>
-
-        <label className="modal-checkbox-label">
-          <input
-            type="checkbox"
-            checked={echoCancellation}
-            onChange={(e) => {
-              setEchoCancellationState(e.target.checked);
-              setEchoCancellationEnabled(e.target.checked);
-            }}
-          />
-          Echo Cancellation
-        </label>
-        <label className="modal-checkbox-label">
-          <input
-            type="checkbox"
-            checked={noiseSuppression}
-            onChange={(e) => {
-              setNoiseSuppressionState(e.target.checked);
-              setNoiseSuppressionEnabled(e.target.checked);
-            }}
-          />
-          Noise Suppression
-        </label>
-        <label className="modal-checkbox-label">
-          <input
-            type="checkbox"
-            checked={autoGainControl}
-            onChange={(e) => {
-              setAutoGainControlState(e.target.checked);
-              setAutoGainControlEnabled(e.target.checked);
-            }}
-          />
-          Auto Gain Control (levels out quiet/loud mic volume)
-        </label>
-        <p className="modal-hint">These three take effect next time you join a voice channel.</p>
-
-        <label className="modal-checkbox-label">
-          <input
-            type="checkbox"
-            checked={highpassFilter}
-            onChange={(e) => {
-              setHighpassFilterState(e.target.checked);
-              setHighpassFilterEnabled(e.target.checked);
-            }}
-          />
-          Highpass Filter (cuts low rumble — fan/AC hum, desk thumps)
-        </label>
-        <label className="modal-checkbox-label">
-          <input
-            type="checkbox"
-            checked={aiSuppression}
-            onChange={(e) => {
-              setAiSuppressionState(e.target.checked);
-              setAiNoiseSuppressionEnabled(e.target.checked);
-            }}
-          />
-          AI noise suppression (removes keyboard, fan, breathing and room noise; keeps your voice)
-        </label>
-        <label className="modal-checkbox-label">
-          <input
-            type="checkbox"
-            checked={noiseGate}
-            onChange={(e) => {
-              setNoiseGateState(e.target.checked);
-              setNoiseGateEnabled(e.target.checked);
-            }}
-          />
-          Noise Gate (mutes your mic between words when it's quiet)
-        </label>
-        {noiseGate && (
-          <div className="ptt-keybind-row">
-            <span>Sensitivity</span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={noiseGateSensitivity}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                setNoiseGateSensitivityState(value);
-                setNoiseGateSensitivity(value);
-              }}
-            />
-          </div>
-        )}
-        <p className="modal-hint">
-          Higher sensitivity picks up quieter speech too, but may also let more background
-          noise through. These two apply immediately to a call already in progress.
-        </p>
-
-          </>
-        )}
-
-        {tab === "profile" && (
-          <button className="modal-logout-button" onClick={handleLogout}>
-            Log Out
-          </button>
-        )}
         </div>
-
-        {/* Same footer on every tab. Audio/stream/theme options are applied (and remembered) the
-            moment they change; Save stores the profile and closes. */}
-        <div className="settings-footer">
-          {error && <div className="modal-error">{error}</div>}
-          <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !username.trim()}>
-            {saving ? "Saving…" : "Save Changes"}
-          </button>
-        </div>
-
       </div>
     </div>
   );
