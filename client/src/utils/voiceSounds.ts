@@ -1,3 +1,5 @@
+import { getAppPrefs } from "./appPrefs";
+
 // Served from client/public/sounds — Vite serves anything under public/ as-is at the root path.
 function play(url: string) {
   const audio = new Audio(url);
@@ -9,5 +11,6 @@ function play(url: string) {
 }
 
 export function playVoiceJoinSound() {
+  if (!getAppPrefs().joinSound) return;
   play("/sounds/voice-join.mp3");
 }

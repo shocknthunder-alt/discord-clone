@@ -21,6 +21,7 @@ import type { IncomingRing } from "../store/dmStore";
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { notifyDesktop } from "../utils/appPrefs";
 
 export default function AppShell() {
   const token = useAuthStore((s) => s.token);
@@ -52,6 +53,7 @@ export default function AppShell() {
       const dmState = useDmStore.getState();
       const isActivelyViewing = dmState.view === "dms" && dmState.activeConversationId === conversationId;
       if (!isActivelyViewing) dmState.incrementUnread(conversationId);
+      if (!isActivelyViewing || !document.hasFocus()) notifyDesktop("ШмиркаТа", "Ново лично съобщение");
     });
 
     socket.on(

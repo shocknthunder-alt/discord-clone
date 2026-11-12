@@ -139,7 +139,9 @@ export default function FlameCanvas({ onUnsupported }: { onUnsupported: () => vo
     const uTime = gl.getUniformLocation(program, "uTime");
 
     const SCALE = 0.6; // canvas pixels per CSS pixel — fire is soft anyway
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduced =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      document.documentElement.classList.contains("reduce-motion");
     let raf = 0;
     let last = 0;
     const start = performance.now();

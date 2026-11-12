@@ -22,6 +22,7 @@ import {
 } from "../webrtc/devicePrefs";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { formatTime, useAppPrefs } from "../utils/appPrefs";
 
 // A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
 // PTT to (modifiers, function keys, mouse-adjacent keys like CapsLock); falls back to the
@@ -42,10 +43,11 @@ function describeKeyCode(code: string): string {
   return known[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "");
 }
 
-type SettingsTab = "profile" | "audio" | "stream" | "appearance";
+type SettingsTab = "profile" | "general" | "audio" | "stream" | "appearance";
 
 const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: "profile", label: "👤 Профил" },
+  { id: "general", label: "⚙️ Общи" },
   { id: "audio", label: "🎙️ Звук" },
   { id: "stream", label: "📺 Стрийм" },
   { id: "appearance", label: "🎨 Външен вид" },
@@ -53,6 +55,78 @@ const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
 
 interface Props {
   onClose: () => void;
+}
+
+/** Settings → Общи: chat text, clock, notifications, sounds, motion. Applied the moment they change. */
+function GeneralSettings() {
+  const prefs = useAppPrefs();
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
+    typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+  );
+
+  async function toggleNotifications(on: boolean) {
+    if (on && permission !== "granted" && permission !== "unsupported") {
+      const result = await Notification.requestPermission();
+      setPermission(result);
+      if (result !== "granted") return;
+    }
+    prefs.set({ desktopNotifications: on });
+  }
+
+  const sample = new Date();
+  sample.setHours(14, 5, 33);
+
+  return (
+    <>
+      <div className="modal-label">Чат</div>
+      <div className="ptt-keybind-row">
+        <span>Размер на текста: {prefs.chatFontSize}px</span>
+        <input
+          type="range"
+          min={12}
+          max={22}
+          value={prefs.chatFontSize}
+          onChange={(e) => prefs.set({ chatFontSize: Number(e.target.value) })}
+        />
+      </div>
+      <p className="modal-hint message-text">Примерно съобщение в чата.</p>
+
+      <label className="modal-checkbox-label">
+        <input type="checkbox" checked={prefs.clock24h} onChange={(e) => prefs.set({ clock24h: e.target.checked })} />
+        24-часов формат на часа
+      </label>
+      <label className="modal-checkbox-label">
+        <input type="checkbox" checked={prefs.showSeconds} onChange={(e) => prefs.set({ showSeconds: e.target.checked })} />
+        Показвай секундите
+      </label>
+      <p className="modal-hint">Пример: {formatTime(sample.toISOString())}</p>
+
+      <div className="modal-label">Известия</div>
+      <label className="modal-checkbox-label">
+        <input
+          type="checkbox"
+          checked={prefs.desktopNotifications && permission === "granted"}
+          disabled={permission === "unsupported"}
+          onChange={(e) => void toggleNotifications(e.target.checked)}
+        />
+        Известия на работния плот за нови съобщения (когато прозорецът не е на фокус)
+      </label>
+      {permission === "denied" && (
+        <p className="modal-hint">Браузърът блокира известията — разреши ги от иконата до адреса на сайта.</p>
+      )}
+      <label className="modal-checkbox-label">
+        <input type="checkbox" checked={prefs.joinSound} onChange={(e) => prefs.set({ joinSound: e.target.checked })} />
+        Звук, когато някой влезе в гласовия канал
+      </label>
+
+      <div className="modal-label">Достъпност</div>
+      <label className="modal-checkbox-label">
+        <input type="checkbox" checked={prefs.reduceMotion} onChange={(e) => prefs.set({ reduceMotion: e.target.checked })} />
+        Намали анимациите (спира и огъня на Inferno темата след презареждане)
+      </label>
+      <p className="modal-hint">Мащаб на целия прозорец: Ctrl + / Ctrl − / Ctrl 0.</p>
+    </>
+  );
 }
 
 export default function UserSettingsModal({ onClose }: Props) {
@@ -238,6 +312,8 @@ export default function UserSettingsModal({ onClose }: Props) {
 
           </>
         )}
+
+        {tab === "general" && <GeneralSettings />}
 
         {tab === "audio" && (
           <>

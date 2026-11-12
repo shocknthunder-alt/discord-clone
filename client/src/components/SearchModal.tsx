@@ -1,3 +1,4 @@
+import { formatDateTime } from "../utils/appPrefs";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { searchMessages, type SearchResult } from "../api/channels.api";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -110,7 +111,7 @@ export default function SearchModal() {
               <button className="search-result" onClick={() => jump(r)}>
                 <div className="search-result-meta">
                   <strong>{r.authorUsername}</strong>
-                  <span>{new Date(r.createdAt).toLocaleString()}</span>
+                  <span>{formatDateTime(r.createdAt)}</span>
                   {r.replyToId && <span>· in thread</span>}
                 </div>
                 <div className="search-result-text">{highlight(r.content, q)}</div>

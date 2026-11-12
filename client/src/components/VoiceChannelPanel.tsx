@@ -16,6 +16,7 @@ import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
 import StreamFrame from "./StreamFrame";
 import { useMovableTile } from "../hooks/useMovableTile";
+import { useWatchStore } from "../store/watchStore";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -41,11 +42,9 @@ function TileVideo({ stream, mirrored = false }: { stream: MediaStream; mirrored
 function PeerTile({
   peer,
   onContextMenu,
-  onWatch,
 }: {
   peer: RemotePeer;
   onContextMenu: (e: React.MouseEvent, peer: RemotePeer) => void;
-  onWatch: (socketId: string) => void;
 }) {
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
   const movable = useMovableTile(`peer-${peer.userId}`);
@@ -70,23 +69,9 @@ function PeerTile({
       <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
       {peer.isScreenSharing && (
-        <>
-          <div className="screen-share-label">
-            <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
-          </div>
-          {peer.screenStream && (
-            <button
-              className="screen-share-badge"
-              onClick={(e) => {
-                e.stopPropagation();
-                onWatch(peer.socketId);
-              }}
-              title="Watch this screen share"
-            >
-              Watch Stream
-            </button>
-          )}
-        </>
+        <div className="screen-share-label">
+          <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
+        </div>
       )}
     </div>
   );
@@ -104,14 +89,23 @@ export default function VoiceChannelPanel() {
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
-  const [watchingSocketId, setWatchingSocketId] = useState<string | null>(null);
+  const hidden = useWatchStore((s) => s.hidden);
+  const hideStream = useWatchStore((s) => s.hide);
+  const pruneHidden = useWatchStore((s) => s.prune);
 
-  const watchedPeer = watchingSocketId ? peers.get(watchingSocketId) : undefined;
-  const watchedStream = watchedPeer?.screenStream ?? null;
+  // Every live share is on screen unless the viewer closed it; several are tiled side by side.
+  const streamers = Array.from(peers.values()).filter((p) => p.userId && p.screenStream);
+  const watched = streamers.filter((p) => !hidden.has(p.socketId));
+  const liveKey = streamers.map((p) => p.socketId).join(",");
 
   useEffect(() => {
-    if (watchingSocketId && !watchedStream) setWatchingSocketId(null);
-  }, [watchingSocketId, watchedStream]);
+    pruneHidden(new Set(liveKey ? liveKey.split(",") : []));
+  }, [liveKey, pruneHidden]);
+
+  const n = watched.length;
+  const gridCols = n <= 1 ? 1 : n <= 4 ? 2 : 3;
+  // Height budget per frame, so 2×2 / 3×N grids still fit next to the tiles below.
+  const maxVh = n <= 1 ? 76 : n === 2 ? 64 : n <= 4 ? 36 : 26;
 
   function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
     e.preventDefault();
@@ -156,24 +150,28 @@ export default function VoiceChannelPanel() {
             : undefined
         }
       >
-        {watchedStream && (
-          <StreamFrame caption={watchedPeer?.username ?? "Live"} onStop={() => setWatchingSocketId(null)}>
-            <div className="screen-share-viewer">
-              <ScreenSharePlayer stream={watchedStream} />
-            </div>
-          </StreamFrame>
+        {n > 0 && (
+          <div className="stream-grid" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
+            {watched.map((peer) => (
+              <StreamFrame
+                key={peer.socketId}
+                caption={peer.username || "Live"}
+                onStop={() => hideStream(peer.socketId)}
+                maxVh={maxVh}
+              >
+                <div className="screen-share-viewer">
+                  <ScreenSharePlayer stream={peer.screenStream!} />
+                </div>
+              </StreamFrame>
+            ))}
+          </div>
         )}
 
         <div className="voice-tiles">
           {Array.from(peers.values())
             .filter((peer) => peer.userId)
             .map((peer) => (
-              <PeerTile
-                key={peer.socketId}
-                peer={peer}
-                onContextMenu={handlePeerContextMenu}
-                onWatch={setWatchingSocketId}
-              />
+              <PeerTile key={peer.socketId} peer={peer} onContextMenu={handlePeerContextMenu} />
             ))}
           <div ref={selfMovable.ref} className={`voice-tile self ${selfMovable.className}`} style={selfMovable.style} {...selfMovable.handlers}>
             {localCameraStream ? (

@@ -1,3 +1,4 @@
+import { formatTime, notifyDesktop } from "../utils/appPrefs";
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -79,7 +80,7 @@ function MessageRow({
       <span className="author" onClick={(e) => onAuthorClick(e, message)}>
         {message.authorUsername}
       </span>
-      <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
+      <span className="timestamp">{formatTime(message.createdAt)}</span>
       {message.editedAt && <span className="edited-tag">(edited)</span>}
 
       {editing ? (
@@ -186,6 +187,9 @@ export default function TextChatView({ channelId }: Props) {
     function onMessage(message: MessageDTO) {
       if (message.textChannelId === channelId) {
         addMessage(message);
+        if (message.authorId !== useAuthStore.getState().user?.id) {
+          notifyDesktop(message.authorUsername, message.content || "📷 изображение", message.authorAvatarUrl);
+        }
       }
     }
     function onTyping({ userId, textChannelId, isTyping }: { userId: string; textChannelId: string; isTyping: boolean }) {

@@ -1,3 +1,4 @@
+import { formatTime } from "../utils/appPrefs";
 import { SocketEvents, type DirectMessageDTO } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
 import { useEffect, useRef, useState } from "react";
@@ -38,7 +39,7 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
   return (
     <div className="message-row">
       <span className="author">{message.authorUsername}</span>
-      <span className="timestamp">{new Date(message.createdAt).toLocaleTimeString()}</span>
+      <span className="timestamp">{formatTime(message.createdAt)}</span>
       {message.editedAt && <span className="edited-tag">(edited)</span>}
 
       {isOwn && !editing && (

@@ -8,6 +8,7 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
+import { useWatchStore } from "../store/watchStore";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -41,11 +42,14 @@ function ParticipantAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | 
 function ParticipantRow({
   peer,
   onContextMenu,
+  onWatch,
 }: {
   peer: RemotePeer;
   onContextMenu: (e: React.MouseEvent, peer: RemotePeer) => void;
+  onWatch: (socketId: string) => void;
 }) {
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
+  const watching = useWatchStore((s) => !s.hidden.has(peer.socketId));
 
   return (
     <div
@@ -66,6 +70,18 @@ function ParticipantRow({
       )}
       {" "}
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} size={10} />
+      {peer.screenStream && (
+        <button
+          className={`participant-watch ${watching ? "watching" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onWatch(peer.socketId);
+          }}
+          title={watching ? "Show the stream" : "Watch this stream"}
+        >
+          {watching ? "LIVE" : "Watch"}
+        </button>
+      )}
     </div>
   );
 }
@@ -94,6 +110,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, channelOccupants } =
     useVoiceStore();
   const currentAvatarUrl = useAuthStore((s) => s.user?.avatarUrl) ?? null;
+  const showStream = useWatchStore((s) => s.show);
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
@@ -305,7 +322,15 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         {Array.from(peers.values())
                           .filter((peer) => peer.userId)
                           .map((peer) => (
-                            <ParticipantRow key={peer.socketId} peer={peer} onContextMenu={handlePeerContextMenu} />
+                            <ParticipantRow
+                              key={peer.socketId}
+                              peer={peer}
+                              onContextMenu={handlePeerContextMenu}
+                              onWatch={(socketId) => {
+                                showStream(socketId);
+                                onSelectVoice();
+                              }}
+                            />
                           ))}
                         <div className="participant-row self">
                           <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
