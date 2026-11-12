@@ -1,5 +1,8 @@
 import { create } from "zustand";
 
+/** Key for your own screen share (peers are keyed by socket id). */
+export const SELF_STREAM_KEY = "self";
+
 /**
  * Which screen shares the viewer has closed. Every stream in the call is shown automatically;
  * "Stop Watching" hides one until the viewer clicks Watch again (or that share ends and a new one

@@ -33,6 +33,8 @@ function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): st
   return null;
 }
 
+const COLLAPSED_KEY = "streamStatsCollapsed";
+
 const LIMIT_TEXT: Record<ScreenShareStats["limitation"], string> = {
   none: "няма",
   cpu: "процесор",
@@ -102,6 +104,12 @@ export default function StreamStatsPanel() {
   const remote = useVoiceStore((s) => s.remoteStreamStats);
   const peers = useVoiceStore((s) => s.peers);
   const [own, setOwn] = useState<ScreenShareStats | null>(null);
+  // Collapsed into a small tab at the right edge by default; remembered.
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) !== "0");
+  const setCollapsedPersist = (value: boolean) => {
+    setCollapsed(value);
+    localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0");
+  };
 
   useEffect(() => {
     if (!isScreenSharing || !activeVoiceChannelId) {
@@ -137,8 +145,34 @@ export default function StreamStatsPanel() {
   const others = Array.from(remote.entries()).filter(([socketId]) => peers.has(socketId));
   if (!ownStats && others.length === 0) return null;
 
+  // Worst state of all streams, for the dot on the collapsed tab.
+  const all = [...(ownStats ? [{ s: ownStats, own: true }] : []), ...others.map(([, s]) => ({ s, own: false }))];
+  const levelOf = (s: RemoteStreamStats, isOwn: boolean) =>
+    s.limitation === "cpu" || (s.limitation === "bandwidth" && s.kbps > 0 && s.kbps < 6000)
+      ? 2
+      : adviceFor(s, s.targetFps, isOwn)
+        ? 1
+        : 0;
+  const worst = Math.max(...all.map(({ s, own: o }) => levelOf(s, o)));
+
+  if (collapsed) {
+    return (
+      <button
+        className="stream-stats-tab"
+        onClick={() => setCollapsedPersist(false)}
+        title="Диагностика на стрийма — покажи"
+      >
+        <span className={`dot ${worst === 2 ? "bad" : worst === 1 ? "warn" : ""}`} />
+        📊 {all.length > 1 ? all.length : ""}
+      </button>
+    );
+  }
+
   return (
     <div className="stream-stats-stack">
+      <button className="stream-stats-collapse" onClick={() => setCollapsedPersist(true)} title="Скрий диагностиката">
+        Скрий ⟩
+      </button>
       {ownStats && <StatsPill title={others.length > 0 ? "Ти" : ""} stats={ownStats} own />}
       {others.map(([socketId, stats]) => (
         <StatsPill key={socketId} title={peers.get(socketId)?.username ?? ""} stats={stats} own={false} />

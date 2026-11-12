@@ -16,7 +16,7 @@ import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
 import StreamFrame from "./StreamFrame";
 import { useMovableTile } from "../hooks/useMovableTile";
-import { useWatchStore } from "../store/watchStore";
+import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -93,10 +93,18 @@ export default function VoiceChannelPanel() {
   const hideStream = useWatchStore((s) => s.hide);
   const pruneHidden = useWatchStore((s) => s.prune);
 
-  // Every live share is on screen unless the viewer closed it; several are tiled side by side.
-  const streamers = Array.from(peers.values()).filter((p) => p.userId && p.screenStream);
-  const watched = streamers.filter((p) => !hidden.has(p.socketId));
-  const liveKey = streamers.map((p) => p.socketId).join(",");
+  const localScreenStream = useVoiceStore((s) => s.localScreenStream);
+
+  // Every live share is on screen unless the viewer closed it — your own too (muted preview),
+  // so two people sharing see both pictures side by side.
+  const streams: { key: string; stream: MediaStream; caption: string; preview: boolean }[] = Array.from(peers.values())
+    .filter((p) => p.userId && p.screenStream)
+    .map((p) => ({ key: p.socketId, stream: p.screenStream!, caption: p.username || "Live", preview: false }));
+  if (isScreenSharing && localScreenStream) {
+    streams.push({ key: SELF_STREAM_KEY, stream: localScreenStream, caption: `${currentUsername} (ти)`, preview: true });
+  }
+  const watched = streams.filter((s) => !hidden.has(s.key));
+  const liveKey = streams.map((s) => s.key).join(",");
 
   useEffect(() => {
     pruneHidden(new Set(liveKey ? liveKey.split(",") : []));
@@ -152,15 +160,10 @@ export default function VoiceChannelPanel() {
       >
         {n > 0 && (
           <div className="stream-grid" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
-            {watched.map((peer) => (
-              <StreamFrame
-                key={peer.socketId}
-                caption={peer.username || "Live"}
-                onStop={() => hideStream(peer.socketId)}
-                maxVh={maxVh}
-              >
+            {watched.map((s) => (
+              <StreamFrame key={s.key} caption={s.caption} onStop={() => hideStream(s.key)} maxVh={maxVh}>
                 <div className="screen-share-viewer">
-                  <ScreenSharePlayer stream={peer.screenStream!} />
+                  <ScreenSharePlayer stream={s.stream} preview={s.preview} />
                 </div>
               </StreamFrame>
             ))}

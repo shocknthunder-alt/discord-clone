@@ -2,6 +2,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 
 interface Props {
   stream: MediaStream;
+  /** Own-stream preview: never play its sound back (echo), no volume control. */
+  preview?: boolean;
 }
 
 const VOLUME_KEY = "streamVolume";
@@ -12,7 +14,7 @@ function loadVolume(): number {
   return Number.isFinite(raw) && localStorage.getItem(VOLUME_KEY) !== null ? Math.min(Math.max(raw, 0), 100) : 50;
 }
 
-const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSharePlayer({ stream }, forwardedRef) {
+const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSharePlayer({ stream, preview = false }, forwardedRef) {
   const ref = useRef<HTMLVideoElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(forwardedRef, () => ref.current as HTMLVideoElement, []);
@@ -27,11 +29,15 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
   // The stream's sound plays through this <video>, so its volume IS the stream volume.
   useEffect(() => {
     if (!ref.current) return;
+    if (preview) {
+      ref.current.muted = true;
+      return;
+    }
     ref.current.volume = volume / 100;
     ref.current.muted = muted;
     localStorage.setItem(VOLUME_KEY, String(volume));
     localStorage.setItem(MUTED_KEY, muted ? "1" : "0");
-  }, [volume, muted]);
+  }, [volume, muted, preview]);
 
   // Fullscreen the wrapper (not the bare <video>) so the volume control stays usable.
   function toggleFullscreen() {
@@ -52,9 +58,11 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
         ref={ref}
         autoPlay
         playsInline
+        muted={preview}
         onClick={toggleFullscreen}
         title="Click to toggle fullscreen"
       />
+      {!preview && (
       <div className="stream-volume" onClick={(e) => e.stopPropagation()}>
         <button
           className="stream-volume-button"
@@ -79,6 +87,7 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
         />
         {!hasAudio && <span className="stream-volume-note">няма звук</span>}
       </div>
+      )}
     </div>
   );
 });

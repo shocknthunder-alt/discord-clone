@@ -8,7 +8,7 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
-import { useWatchStore } from "../store/watchStore";
+import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -111,6 +111,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     useVoiceStore();
   const currentAvatarUrl = useAuthStore((s) => s.user?.avatarUrl) ?? null;
   const showStream = useWatchStore((s) => s.show);
+  const selfWatching = useWatchStore((s) => !s.hidden.has(SELF_STREAM_KEY));
+  const localScreenStream = useVoiceStore((s) => s.localScreenStream);
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
@@ -340,6 +342,19 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                           </span>
                           {voiceStatusIcons(isMuted, isDeafened) && (
                             <span className="voice-status-icons"> {voiceStatusIcons(isMuted, isDeafened)}</span>
+                          )}
+                          {isScreenSharing && localScreenStream && (
+                            <button
+                              className={`participant-watch ${selfWatching ? "watching" : ""}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                showStream(SELF_STREAM_KEY);
+                                onSelectVoice();
+                              }}
+                              title={selfWatching ? "Show your stream" : "Preview your stream"}
+                            >
+                              {selfWatching ? "LIVE" : "Watch"}
+                            </button>
                           )}
                         </div>
                       </div>
