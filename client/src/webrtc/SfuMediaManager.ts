@@ -279,11 +279,14 @@ export class SfuMediaManager {
             : smooth ? 8_000_000 : 5_000_000;
       const maxFramerate = smooth ? 60 : 30;
 
-      // H.264 gets hardware-encoded by the GPU (NVENC / Quick Sync / AMF), so 1080p60 costs almost
-      // no CPU — but only if the SFU's router offers it (media-server mediaCodecs). Otherwise VP8.
-      const h264 = smooth
-        ? this.device?.rtpCapabilities.codecs?.find((c) => c.mimeType.toLowerCase() === "video/h264")
-        : undefined;
+      // H.264 High is the profile Chromium hands to the GPU (NVENC / AMF / Quick Sync); Constrained
+      // Baseline always stays on the CPU (OpenH264). Where there is no hardware encoder, High is just
+      // encoded by OpenH264 like before. Device caps = router ∩ this browser; no H.264 → VP8.
+      const h264s = smooth
+        ? (this.device?.rtpCapabilities.codecs ?? []).filter((c) => c.mimeType.toLowerCase() === "video/h264")
+        : [];
+      const h264 =
+        h264s.find((c) => String(c.parameters?.["profile-level-id"] ?? "").toLowerCase().startsWith("64")) ?? h264s[0];
 
       this.screenVideoProducer = await this.sendTransport.produce({
         track: videoTrack,

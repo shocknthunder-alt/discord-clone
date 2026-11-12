@@ -26,8 +26,24 @@ export const mediaCodecs: mediasoup.types.RouterRtpCodecCapability[] = [
       "x-google-start-bitrate": 1000,
     },
   },
-  // H.264 lets browsers use the GPU's hardware encoder — screen shares of games run at full
-  // frame rate without eating the CPU. Clients fall back to VP8 when this isn't offered.
+  // H.264 High: the profile Chromium actually hands to the GPU (NVENC / AMF / Quick Sync via Media
+  // Foundation) — measured: High → "NVIDIA H.264 Encoder MFT", Constrained Baseline → OpenH264 on
+  // the CPU, always (without a GPU encoder High is simply encoded by OpenH264 too). Every Chromium,
+  // Firefox and Safari decodes High. Level 5.2 = up to 4K60 (level asymmetry lets the browser's own
+  // level differ).
+  {
+    kind: "video",
+    mimeType: "video/H264",
+    clockRate: 90000,
+    parameters: {
+      "packetization-mode": 1,
+      "profile-level-id": "640034",
+      "level-asymmetry-allowed": 1,
+      "x-google-start-bitrate": 1000,
+    },
+  },
+  // H.264 Constrained Baseline: kept for older clients (they pick the first H.264 the router offers
+  // that they can send) — encoded in software (OpenH264) by Chromium.
   {
     kind: "video",
     mimeType: "video/H264",

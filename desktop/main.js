@@ -14,12 +14,9 @@ const OFFLINE_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!docty
 <h2>Няма връзка със ШмиркаТа</h2><p>Провери интернета.</p>
 <button onclick="location.href='${ORIGIN}'" style="padding:10px 22px;font-size:16px;cursor:pointer">Опитай пак</button></body>`)}`;
 
-// Hardware (GPU) video encoding for screen shares: NVENC / AMF / Quick Sync through Media Foundation.
-// Stock Chromium keeps it off for exactly our case — it forces the software encoder for screen
-// content, only hardware-encodes H.264 Constrained Baseline (the profile our SFU offers) behind a
-// flag, and caps Media Foundation encoding at ~1080p. Must be set before the app is ready.
-app.commandLine.appendSwitch("enable-features", "MediaFoundationH264CbpEncoding,ExpandMediaFoundationEncodingResolutions");
-app.commandLine.appendSwitch("disable-features", "WebRtcScreenshareSwEncoding");
+// GPU encoding of screen shares (NVENC / AMF / Quick Sync via Media Foundation) needs no flags: it
+// comes from a recent Chromium (Electron 45 does it, 33 never did) + the H.264 High profile, which
+// the client picks. Measured: High → "NVIDIA H.264 Encoder MFT"; Constrained Baseline → OpenH264.
 
 if (!app.requestSingleInstanceLock()) app.quit();
 

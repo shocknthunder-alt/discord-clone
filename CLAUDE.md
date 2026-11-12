@@ -38,10 +38,11 @@ Owner pronouns unknown: use they/them.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
 ## Pending / ideas
-1. Hardware encoding (NVENC/AMF): desktop 1.3.0 sets Chromium features in `desktop/main.js`
-   (`MediaFoundationH264CbpEncoding`, `ExpandMediaFoundationEncodingResolutions`, disables
-   `WebRtcScreenshareSwEncoding`) — UNVERIFIED, check diagnostics "Енкодер" row. Browser stays software (OpenH264).
-   If flags don't work: ffmpeg (h264_nvenc/h264_amf) → mediasoup PlainTransport.
+1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
+   **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),
+   Constrained Baseline 42e01f is ALWAYS OpenH264, and Electron 33 never used the GPU at all (45 does,
+   no flags needed; Chromium feature flags didn't help). So: router offers H.264 High 640034 first,
+   client prefers it in Smooth mode, desktop 1.4.0 = Electron 45. Diagnostics "Енкодер" row shows which.
 2. Streamer diagnostics panel (real fps, bitrate, `qualityLimitationReason`) — colleague saw stutter only in
    Torchlight Infinite (particle-heavy) while CS2/Apex were smooth.
 3. Electron desktop app (bundled client, global PTT via uiohook-napi, screen/window picker + loopback audio,
