@@ -8,8 +8,13 @@ Owner pronouns unknown: use they/them.
 - `client` Vite+React+Zustand → Vercel (auto on push to `main`), https://shmirka.vercel.app
 - `server` Express+Socket.IO+Prisma+Postgres(Neon) → Render (auto; runs `prisma migrate deploy` on start;
   build command scoped to shared+server, set in the Render dashboard). Prod URL: https://discord-clone-xhmz.onrender.com
-- `media-server` mediasoup SFU on an Oracle VM → **manual deploy**: SSH, git pull, build,
-  `systemctl restart shmirka-media.service` (restart drops calls). URL https://130.61.251.202.nip.io
+- `media-server` mediasoup SFU on **Hetzner Cloud CPX02** (Helsinki, 1 vCPU/1 GB + 2 GB swap, 20 TB traffic,
+  ~€6.6/mo, since 2026-11-12) → **manual deploy**: `ssh -i ~/.ssh/hetzner_ed25519 root@65.21.151.146`, then as
+  user `shmirka` in `~/discord-clone`: git pull, `npm ci -w media-server`, `npm run build -w media-server`;
+  `systemctl restart shmirka-media.service` (restart drops calls). nginx + certbot, ufw (22/80/443, 44444 tcp+udp).
+  URL https://65.21.151.146.nip.io = Vercel env `VITE_MEDIA_SERVER_URL` (change there + Redeploy).
+  Measured: 1 viewer of a ~35 Mbps stream ≈ 24% CPU — upgrade to CPX22 via Rescale if 4+ viewers stutter.
+  Old Oracle SFU (https://130.61.251.202.nip.io, `~/.ssh/oracle_sfu_ed25519 ubuntu@`) still running as fallback.
 - `packages/shared` types + socket events (rebuild with `npm run build -w packages/shared` before tsc).
 - `desktop` Electron skeleton (not built/run yet — see `desktop/README.md` TODO).
 - Windows machine: Git Bash + PowerShell; prefer the Write tool for files with quotes/heredocs.
@@ -33,7 +38,10 @@ Owner pronouns unknown: use they/them.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
 ## Pending / ideas
-1. ~~Deploy media-server~~ done 2026-11-10 (H.264 live). SSH: `ssh -i ~/.ssh/oracle_sfu_ed25519 ubuntu@130.61.251.202`; the VM repo can have a local `package-lock.json` change - `git checkout` it before `git pull`.
+1. Hardware encoding (NVENC/AMF): desktop 1.3.0 sets Chromium features in `desktop/main.js`
+   (`MediaFoundationH264CbpEncoding`, `ExpandMediaFoundationEncodingResolutions`, disables
+   `WebRtcScreenshareSwEncoding`) — UNVERIFIED, check diagnostics "Енкодер" row. Browser stays software (OpenH264).
+   If flags don't work: ffmpeg (h264_nvenc/h264_amf) → mediasoup PlainTransport.
 2. Streamer diagnostics panel (real fps, bitrate, `qualityLimitationReason`) — colleague saw stutter only in
    Torchlight Infinite (particle-heavy) while CS2/Apex were smooth.
 3. Electron desktop app (bundled client, global PTT via uiohook-napi, screen/window picker + loopback audio,

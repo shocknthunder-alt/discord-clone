@@ -13,10 +13,14 @@ function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): st
       ? "Компютърът не смогва да кодира стрима. Избери Light (720p) в Настройки → Screen Share Quality или затвори тежки програми."
       : `${who} не смогва да кодира стрима (процесор/видеокарта).`;
   }
-  if (stats.limitation === "bandwidth") {
+  // At 6+ Mbps "bandwidth" just means the browser is still probing for more — not a weak link.
+  if (stats.limitation === "bandwidth" && stats.kbps > 0 && stats.kbps < 6000) {
     return own
       ? "Твоят upload е тесен. Избери Light (720p), за да има повече бит за всеки кадър."
       : "Upload-ът на стриймъра е тесен.";
+  }
+  if (own && stats.limitation === "none" && !stats.hardware && stats.fps > 0 && stats.fps < targetFps * 0.75) {
+    return "Видеото се кодира на процесора и не смогва. Десктоп приложението ползва видеокартата (NVENC/AMF).";
   }
   if (!stats.audio) {
     return own
@@ -65,9 +69,15 @@ function StatsPill({ title, stats, own }: { title: string; stats: RemoteStreamSt
             <dt>Битрейт</dt>
             <dd>{(stats.kbps / 1000).toFixed(2)} Mbps</dd>
             <dt>Кодек</dt>
-            <dd>
+            <dd title={stats.encoder || undefined}>
               {stats.codec || "?"} {stats.hardware ? "· видеокарта" : "· процесор"}
             </dd>
+            {stats.encoder && (
+              <>
+                <dt>Енкодер</dt>
+                <dd>{stats.encoder}</dd>
+              </>
+            )}
             <dt>Звук</dt>
             <dd>{stats.audio ? "има" : "няма"}</dd>
             <dt>Ограничение</dt>
