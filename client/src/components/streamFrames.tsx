@@ -1008,7 +1008,7 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
   { id: "swirl", name: "Неонов свитък", screen: rect(SWIRL_SCREEN.x, SWIRL_SCREEN.y, SWIRL_SCREEN.w, SWIRL_SCREEN.h), Art: SwirlArt },
 ];
 
-export const DEFAULT_FRAME_ID = "retro";
+export const DEFAULT_FRAME_ID = "metal-black";
 const STORAGE_KEY = "shmirka-stream-frame";
 
 export function getStoredFrameId(): string {
