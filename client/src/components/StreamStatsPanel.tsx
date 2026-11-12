@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { SocketEvents } from "@discord-clone/shared";
 import { getSocket } from "../socket/socket";
 import { useVoiceStore, type RemoteStreamStats } from "../store/voiceStore";
-import { getScreenShareStats } from "../webrtc/useVoiceChannel";
-import type { ScreenShareStats } from "../webrtc/SfuMediaManager";
+import { getReceivedStreamStats, getScreenShareStats } from "../webrtc/useVoiceChannel";
+import type { ReceivedStreamStats, ScreenShareStats } from "../webrtc/SfuMediaManager";
 
 /** Plain-language advice from the numbers, or null when everything is fine. */
 function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): string | null {
@@ -42,7 +42,72 @@ const LIMIT_TEXT: Record<ScreenShareStats["limitation"], string> = {
   other: "друго",
 };
 
-function StatsPill({ title, stats, own }: { title: string; stats: RemoteStreamStats; own: boolean }) {
+/**
+ * The same stream as it arrives HERE — where stutter comes from: few frames sent (the streamer),
+ * packets lost on the way (network), or frames dropped by this PC (decoding/showing).
+ */
+function ViewerSide({ userId, senderFps }: { userId: string; senderFps: number }) {
+  const [rx, setRx] = useState<ReceivedStreamStats | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const next = await getReceivedStreamStats(userId);
+        if (!cancelled) setRx(next);
+      } catch {
+        // best-effort
+      }
+    }
+    void poll();
+    const id = setInterval(poll, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [userId]);
+
+  if (!rx) return null;
+  let verdict: string;
+  let bad = true;
+  if (rx.lossPercent >= 2 || rx.freezes > 0) {
+    verdict = "Губят се пакети по пътя до теб — мрежата (твоят download/Wi-Fi или пътят до сървъра) насича картината.";
+  } else if (rx.droppedFrames >= 4) {
+    verdict = "Кадрите стигат, но този компютър ги изпуска при показване — затвори тежки програми / провери драйвера на видеокартата.";
+  } else if (senderFps > 0 && senderFps < 45) {
+    verdict = `Стигат всички кадри, но стриймърът праща само ${senderFps}/сек — насичането е от неговата страна.`;
+  } else {
+    verdict = "При теб пристига чисто — без загуби и изпуснати кадри.";
+    bad = false;
+  }
+  return (
+    <div className="stream-stats-viewer">
+      <div className="stream-stats-subtitle">При теб (зрител)</div>
+      <dl>
+        <dt>Кадри/сек</dt>
+        <dd>
+          {rx.fps} {rx.width ? `· ${rx.width}×${rx.height}` : ""}
+        </dd>
+        <dt>Загубени пакети</dt>
+        <dd>{rx.lossPercent}%</dd>
+        <dt>Изпуснати кадри</dt>
+        <dd>{rx.droppedFrames} (за 2 сек)</dd>
+        <dt>Замръзвания</dt>
+        <dd>{rx.freezes}</dd>
+        <dt>Jitter</dt>
+        <dd>{rx.jitterMs} ms</dd>
+        {rx.decoder && (
+          <>
+            <dt>Декодер</dt>
+            <dd>{rx.decoder}</dd>
+          </>
+        )}
+      </dl>
+      <div className={`stream-stats-tip ${bad ? "" : "ok"}`}>{verdict}</div>
+    </div>
+  );
+}
+
+function StatsPill({ title, stats, own, userId }: { title: string; stats: RemoteStreamStats; own: boolean; userId?: string }) {
   const [open, setOpen] = useState(false);
   const targetFps = stats.targetFps;
   const advice = adviceFor(stats, targetFps, own);
@@ -86,6 +151,7 @@ function StatsPill({ title, stats, own }: { title: string; stats: RemoteStreamSt
             <dd>{LIMIT_TEXT[stats.limitation]}</dd>
           </dl>
           {advice && <div className="stream-stats-tip">{advice}</div>}
+          {!own && userId && <ViewerSide userId={userId} senderFps={stats.fps} />}
         </div>
       )}
       {!open && advice && <div className="stream-stats-tip" style={{ margin: "0 8px 8px" }}>{advice}</div>}
@@ -175,7 +241,13 @@ export default function StreamStatsPanel() {
       </button>
       {ownStats && <StatsPill title={others.length > 0 ? "Ти" : ""} stats={ownStats} own />}
       {others.map(([socketId, stats]) => (
-        <StatsPill key={socketId} title={peers.get(socketId)?.username ?? ""} stats={stats} own={false} />
+        <StatsPill
+          key={socketId}
+          title={peers.get(socketId)?.username ?? ""}
+          stats={stats}
+          own={false}
+          userId={peers.get(socketId)?.userId ?? undefined}
+        />
       ))}
     </div>
   );

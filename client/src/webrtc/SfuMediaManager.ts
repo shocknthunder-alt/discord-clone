@@ -169,6 +169,17 @@ export class SfuMediaManager {
     this.consumers.set(producerId, consumer);
 
     const isScreen = appData.type === "screen-video" || appData.type === "screen-audio";
+    if (isScreen) {
+      // A small playout buffer for screen shares: frames that arrive unevenly (Wi-Fi, a busy
+      // route) are evened out instead of shown as micro-stutter. ~120 ms of delay nobody notices
+      // while watching a stream; voice stays on the default low-latency buffer.
+      try {
+        const receiver = consumer.rtpReceiver as (RTCRtpReceiver & { jitterBufferTarget?: number | null }) | undefined;
+        if (receiver && "jitterBufferTarget" in receiver) receiver.jitterBufferTarget = 120;
+      } catch {
+        // older browsers — fine without it
+      }
+    }
     const isCamera = appData.type === "camera";
     this.producerMeta.set(producerId, { userId, isScreen, isCamera });
 
@@ -271,13 +282,16 @@ export class SfuMediaManager {
       // 1080p three times per frame — with a game already eating the CPU/GPU that is exactly
       // what dropped the frame rate at the source. A friend-group call doesn't need per-viewer
       // layers, it needs one good stream.
-      // Sharp gets a bit more than Smooth: text edges at full resolution need the bits.
+      // Ceilings for 60 fps game footage on a GPU encoder — motion is what eats bits, and too low a
+      // ceiling is exactly the "smears when they move" picture. A weak upload still gets less: the
+      // adaptation below follows the browser's own bandwidth estimate. Sharp gets a bit more for
+      // full-resolution text edges.
       const maxBitrate =
         quality === "high"
-          ? smooth ? 32_000_000 : 36_000_000
+          ? smooth ? 40_000_000 : 44_000_000
           : quality === "low"
-            ? smooth ? 4_500_000 : 5_500_000
-            : smooth ? 8_000_000 : 10_000_000;
+            ? smooth ? 7_000_000 : 8_000_000
+            : smooth ? 14_000_000 : 16_000_000;
       const maxFramerate = 60;
 
       // H.264 High is the profile Chromium hands to the GPU (NVENC / AMF / Quick Sync); Constrained
@@ -424,6 +438,50 @@ export class SfuMediaManager {
     };
   }
 
+  /**
+   * What actually arrives here from someone's screen share: frames shown per second, frames
+   * dropped, packets lost, freezes, jitter — over the time since the previous call. Tells
+   * "the sender only makes 30 fps" apart from "the network/this PC loses frames on the way".
+   */
+  async getReceivedScreenStats(userId: string): Promise<ReceivedStreamStats | null> {
+    let consumer: MsTypes.Consumer | undefined;
+    for (const [producerId, c] of this.consumers) {
+      const meta = this.producerMeta.get(producerId);
+      if (meta?.userId === userId && meta.isScreen && c.kind === "video" && !c.closed) consumer = c;
+    }
+    if (!consumer) return null;
+    const report = await consumer.getStats();
+    let inbound: Record<string, unknown> | null = null;
+    report.forEach((s: Record<string, unknown>) => {
+      if (s.type === "inbound-rtp" && s.kind === "video") inbound = s;
+    });
+    if (!inbound) return null;
+    const i = inbound as Record<string, unknown>;
+    const now = {
+      at: performance.now(),
+      received: Number(i.packetsReceived ?? 0),
+      lost: Math.max(0, Number(i.packetsLost ?? 0)),
+      dropped: Number(i.framesDropped ?? 0),
+      freezes: Number(i.freezeCount ?? 0),
+    };
+    const prev = this.lastReceivedStats.get(userId);
+    this.lastReceivedStats.set(userId, now);
+    const dRecv = prev ? now.received - prev.received : 0;
+    const dLost = prev ? now.lost - prev.lost : 0;
+    return {
+      fps: Math.round(Number(i.framesPerSecond ?? 0)),
+      width: Number(i.frameWidth ?? 0),
+      height: Number(i.frameHeight ?? 0),
+      lossPercent: dRecv + dLost > 0 ? Math.round((dLost / (dRecv + dLost)) * 1000) / 10 : 0,
+      droppedFrames: prev ? Math.max(0, now.dropped - prev.dropped) : 0,
+      freezes: prev ? Math.max(0, now.freezes - prev.freezes) : 0,
+      jitterMs: Math.round(Number(i.jitter ?? 0) * 1000),
+      decoder: String(i.decoderImplementation ?? ""),
+    };
+  }
+
+  private lastReceivedStats = new Map<string, { at: number; received: number; lost: number; dropped: number; freezes: number }>();
+
   async startCamera(track: MediaStreamTrack) {
     if (!this.sendTransport || this.cameraProducer) return;
     try {
@@ -547,6 +605,21 @@ export class SfuMediaManager {
     this.knownUserIds.clear();
     this.roomId = null;
   }
+}
+
+/** A screen share as it arrives at this viewer (deltas over the last poll). */
+export interface ReceivedStreamStats {
+  fps: number;
+  width: number;
+  height: number;
+  /** Packets lost on the way here, % of the last poll interval. */
+  lossPercent: number;
+  /** Frames this PC received but couldn't decode/show in time. */
+  droppedFrames: number;
+  /** Visible freezes (frame shown >~ 3x late). */
+  freezes: number;
+  jitterMs: number;
+  decoder: string;
 }
 
 export interface ScreenShareStats {

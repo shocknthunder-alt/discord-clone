@@ -2842,6 +2842,9 @@ input[type="range"] {
 .stream-stats-body { padding: 4px 12px 10px; line-height: 1.5; }
 .stream-stats-body dt { opacity: 0.6; float: left; clear: left; width: 82px; }
 .stream-stats-body dd { margin: 0 0 0 82px; }
+.stream-stats-viewer { margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.stream-stats-subtitle { font-weight: 700; margin-bottom: 4px; opacity: 0.85; }
+.stream-stats-tip.ok { background: rgba(35, 165, 89, 0.15); }
 .stream-stats-tab { position: fixed; top: 56px; right: 0; z-index: 70; display: flex; align-items: center; gap: 6px; padding: 6px 10px 6px 8px; border: none; border-radius: 8px 0 0 8px; background: var(--c-panel); color: inherit; font-size: 13px; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); opacity: 0.85; }
 .stream-stats-tab:hover { opacity: 1; }
 .stream-stats-tab .dot { width: 8px; height: 8px; border-radius: 50%; background: #23a559; flex: none; }

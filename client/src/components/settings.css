@@ -160,7 +160,20 @@
 .set-button:disabled { opacity: 0.5; cursor: default; }
 .set-button.primary { background: var(--accent); border-color: transparent; color: #fff; font-weight: 600; }
 .set-button.primary:hover:not(:disabled) { background: var(--accent-hover, var(--accent)); }
-.set-save-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+/* Save bar at the bottom of every section; lights up when something changed. */
+.set-savebar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 26px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(0, 0, 0, 0.12);
+  transition: background 0.15s;
+}
+.set-savebar.dirty { background: rgba(var(--accent-rgb), 0.12); }
+.set-savebar-text { flex: 1; font-size: 13.5px; color: var(--t-3); }
+.set-savebar.dirty .set-savebar-text { color: var(--t-1); font-weight: 600; }
 .set-ok { color: #3ba55d; font-size: 13px; }
 .set-error-inline { color: #f0656a; font-size: 13px; }
 

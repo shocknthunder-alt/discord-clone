@@ -22,7 +22,7 @@ import {
 } from "../webrtc/devicePrefs";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useEscapeKey } from "../hooks/useEscapeKey";
-import { formatTime, useAppPrefs } from "../utils/appPrefs";
+import { useAppPrefs } from "../utils/appPrefs";
 import "./settings.css";
 
 // A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
@@ -191,66 +191,127 @@ function MicTest({ deviceId }: { deviceId: string }) {
 
 /* ───────────── the window ───────────── */
 
+/** Everything the window edits. Changes stay here until "Запази" applies them. */
+interface Draft {
+  username: string;
+  avatarUrl: string | null;
+  micId: string;
+  speakerId: string;
+  micMode: "voice-activation" | "push-to-talk";
+  pttKey: string | null;
+  aiSuppression: boolean;
+  noiseGate: boolean;
+  noiseGateSensitivity: number;
+  highpassFilter: boolean;
+  echoCancellation: boolean;
+  noiseSuppression: boolean;
+  autoGainControl: boolean;
+  shareMode: "smooth" | "sharp";
+  shareQuality: "low" | "standard" | "high";
+  simulcast: boolean;
+  frameId: string;
+  chatFontSize: number;
+  clock24h: boolean;
+  showSeconds: boolean;
+  desktopNotifications: boolean;
+  unreadMarkers: boolean;
+  joinSound: boolean;
+  themeId: string;
+  reduceMotion: boolean;
+}
+
+/** The values as they are applied right now. */
+function readCurrent(): Draft {
+  const v = useVoiceStore.getState();
+  const p = useAppPrefs.getState();
+  const u = useAuthStore.getState().user;
+  return {
+    username: u?.username ?? "",
+    avatarUrl: u?.avatarUrl ?? null,
+    micId: getPreferredMicDeviceId() ?? "",
+    speakerId: v.preferredSpeakerId,
+    micMode: v.micMode,
+    pttKey: v.pushToTalkKey,
+    aiSuppression: getAiNoiseSuppressionEnabled(),
+    noiseGate: getNoiseGateEnabled(),
+    noiseGateSensitivity: getNoiseGateSensitivity(),
+    highpassFilter: getHighpassFilterEnabled(),
+    echoCancellation: getEchoCancellationEnabled(),
+    noiseSuppression: getNoiseSuppressionEnabled(),
+    autoGainControl: getAutoGainControlEnabled(),
+    shareMode: v.screenShareMode,
+    shareQuality: v.screenShareQuality,
+    simulcast: v.screenShareSimulcast,
+    frameId: useStreamFrameStore.getState().frameId,
+    chatFontSize: p.chatFontSize,
+    clock24h: p.clock24h,
+    showSeconds: p.showSeconds,
+    desktopNotifications: p.desktopNotifications,
+    unreadMarkers: p.unreadMarkers,
+    joinSound: p.joinSound,
+    themeId: getStoredThemeId(),
+    reduceMotion: p.reduceMotion,
+  };
+}
+
 interface Props {
   onClose: () => void;
 }
 
 export default function UserSettingsModal({ onClose }: Props) {
-  const { user, setUser, logout } = useAuthStore();
+  const { logout, setUser } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const [section, setSection] = useState<Section>("profile");
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const prefs = useAppPrefs();
-  const streamFrameId = useStreamFrameStore((st) => st.frameId);
-  const setStreamFrameId = useStreamFrameStore((st) => st.setFrameId);
-  const [themeId, setThemeId] = useState(getStoredThemeId());
-  const [username, setUsername] = useState(user?.username ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? null);
+  const [base, setBase] = useState<Draft>(readCurrent);
+  const [draft, setDraft] = useState<Draft>(base);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">(
     typeof Notification === "undefined" ? "unsupported" : Notification.permission,
   );
-
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedMicId, setSelectedMicId] = useState(getPreferredMicDeviceId() ?? "");
   const [speakerDevices, setSpeakerDevices] = useState<MediaDeviceInfo[]>([]);
-  const preferredSpeakerId = useVoiceStore((s) => s.preferredSpeakerId);
   const setPreferredSpeakerId = useVoiceStore((s) => s.setPreferredSpeakerId);
-  const micMode = useVoiceStore((s) => s.micMode);
-  const pushToTalkKey = useVoiceStore((s) => s.pushToTalkKey);
-  const screenShareQuality = useVoiceStore((s) => s.screenShareQuality);
-  const screenShareMode = useVoiceStore((s) => s.screenShareMode);
-  const screenShareSimulcast = useVoiceStore((s) => s.screenShareSimulcast);
   const setScreenShareSimulcast = useVoiceStore((s) => s.setScreenShareSimulcast);
-  const {
-    setMicMode,
-    setPushToTalkKey,
-    setScreenShareQuality,
-    setScreenShareMode,
-    setEchoCancellationEnabled,
-    setNoiseSuppressionEnabled,
-    setAutoGainControlEnabled,
-    setHighpassFilterEnabled,
-    setAiNoiseSuppressionEnabled,
-    setNoiseGateEnabled,
-    setNoiseGateSensitivity,
-  } = useVoiceChannel();
+  const setStreamFrameId = useStreamFrameStore((st) => st.setFrameId);
+  const setPrefs = useAppPrefs((s) => s.set);
+  const voice = useVoiceChannel();
   const [listeningForKey, setListeningForKey] = useState(false);
+
+  const changed = (Object.keys(draft) as (keyof Draft)[]).filter((k) => draft[k] !== base[k]);
+  const dirty = changed.length > 0;
+
+  function edit(patch: Partial<Draft>) {
+    setDraft((d) => ({ ...d, ...patch }));
+    setJustSaved(false);
+    setError(null);
+  }
+
+  // Theme is previewed live (you want to see it), but only kept if saved.
+  useEffect(() => {
+    applyTheme(draft.themeId);
+  }, [draft.themeId]);
+
+  function discard() {
+    setDraft(base);
+    applyTheme(base.themeId);
+    setError(null);
+  }
+
+  function close() {
+    if (dirty && !window.confirm("Имаш незапазени промени. Затвори без да ги запазиш?")) return;
+    applyTheme(base.themeId);
+    onClose();
+  }
+
   // Escape is a valid key to bind for push-to-talk, so it must not also close the window then.
   useEscapeKey(() => {
-    if (!listeningForKey) onClose();
+    if (!listeningForKey) close();
   });
-
-  const [echoCancellation, setEchoCancellationState] = useState(getEchoCancellationEnabled());
-  const [noiseSuppression, setNoiseSuppressionState] = useState(getNoiseSuppressionEnabled());
-  const [autoGainControl, setAutoGainControlState] = useState(getAutoGainControlEnabled());
-  const [highpassFilter, setHighpassFilterState] = useState(getHighpassFilterEnabled());
-  const [aiSuppression, setAiSuppressionState] = useState(getAiNoiseSuppressionEnabled());
-  const [noiseGate, setNoiseGateState] = useState(getNoiseGateEnabled());
-  const [noiseGateSensitivity, setNoiseGateSensitivityState] = useState(getNoiseGateSensitivity());
 
   useEffect(() => {
     // Device labels are empty until mic permission has been granted at least once;
@@ -280,7 +341,7 @@ export default function UserSettingsModal({ onClose }: Props) {
     setListeningForKey(true);
     function onKeyDown(e: KeyboardEvent) {
       e.preventDefault();
-      setPushToTalkKey(e.code);
+      edit({ pttKey: e.code });
       setListeningForKey(false);
       window.removeEventListener("keydown", onKeyDown);
     }
@@ -293,26 +354,11 @@ export default function UserSettingsModal({ onClose }: Props) {
     setUploading(true);
     setError(null);
     try {
-      setAvatarUrl(await uploadImageToCloudinary(file));
-      setSaved(false);
+      edit({ avatarUrl: await uploadImageToCloudinary(file) });
     } catch {
       setError("Качването на снимката не успя. Опитай пак.");
     } finally {
       setUploading(false);
-    }
-  }
-
-  async function handleSave() {
-    if (!username.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      setUser(await updateProfile({ username: username.trim(), avatarUrl }));
-      setSaved(true);
-    } catch {
-      setError("Не се запази — може би името вече е заето.");
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -322,7 +368,59 @@ export default function UserSettingsModal({ onClose }: Props) {
       setNotifPermission(result);
       if (result !== "granted") return;
     }
-    prefs.set({ desktopNotifications: on });
+    edit({ desktopNotifications: on });
+  }
+
+  /** Applies every changed value through the same setters the app always used. */
+  async function save() {
+    if (!dirty) return;
+    const d = draft;
+    const has = (k: keyof Draft) => changed.includes(k);
+    setSaving(true);
+    setError(null);
+    try {
+      if (has("username") || has("avatarUrl")) {
+        if (!d.username.trim()) throw new Error("Името не може да е празно.");
+        try {
+          setUser(await updateProfile({ username: d.username.trim(), avatarUrl: d.avatarUrl }));
+        } catch {
+          throw new Error("Профилът не се запази — може би името вече е заето.");
+        }
+      }
+      if (has("micId")) setPreferredMicDeviceId(d.micId || null);
+      if (has("speakerId")) setPreferredSpeakerId(d.speakerId);
+      if (has("micMode")) voice.setMicMode(d.micMode);
+      if (has("pttKey") && d.pttKey) voice.setPushToTalkKey(d.pttKey);
+      if (has("aiSuppression")) voice.setAiNoiseSuppressionEnabled(d.aiSuppression);
+      if (has("noiseGate")) voice.setNoiseGateEnabled(d.noiseGate);
+      if (has("noiseGateSensitivity")) voice.setNoiseGateSensitivity(d.noiseGateSensitivity);
+      if (has("highpassFilter")) voice.setHighpassFilterEnabled(d.highpassFilter);
+      if (has("echoCancellation")) voice.setEchoCancellationEnabled(d.echoCancellation);
+      if (has("noiseSuppression")) voice.setNoiseSuppressionEnabled(d.noiseSuppression);
+      if (has("autoGainControl")) voice.setAutoGainControlEnabled(d.autoGainControl);
+      if (has("shareMode")) voice.setScreenShareMode(d.shareMode);
+      if (has("shareQuality")) voice.setScreenShareQuality(d.shareQuality);
+      if (has("simulcast")) setScreenShareSimulcast(d.simulcast);
+      if (has("frameId")) setStreamFrameId(d.frameId);
+      if (has("themeId")) applyTheme(d.themeId, true);
+      setPrefs({
+        chatFontSize: d.chatFontSize,
+        clock24h: d.clock24h,
+        showSeconds: d.showSeconds,
+        desktopNotifications: d.desktopNotifications,
+        unreadMarkers: d.unreadMarkers,
+        joinSound: d.joinSound,
+        reduceMotion: d.reduceMotion,
+      });
+      const now = { ...d, username: d.username.trim() };
+      setBase(now);
+      setDraft(now);
+      setJustSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Нещо се обърка при запазването.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // Drag the window by its sidebar header, so it can be moved off the stream while trying frames.
@@ -356,10 +454,15 @@ export default function UserSettingsModal({ onClose }: Props) {
 
   const sampleTime = new Date();
   sampleTime.setHours(14, 5, 33);
-  const profileDirty = username.trim() !== (user?.username ?? "") || avatarUrl !== (user?.avatarUrl ?? null);
+  const sampleClock = sampleTime.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    ...(draft.showSeconds ? { second: "2-digit" } : {}),
+    hour12: !draft.clock24h,
+  });
 
   return (
-    <div className="modal-overlay settings-overlay" onClick={onClose}>
+    <div className="modal-overlay settings-overlay" onClick={close}>
       <div
         className="set-window"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
@@ -394,6 +497,7 @@ export default function UserSettingsModal({ onClose }: Props) {
           <button
             className="set-nav-item danger"
             onClick={() => {
+              applyTheme(base.themeId);
               logout();
               onClose();
             }}
@@ -407,58 +511,42 @@ export default function UserSettingsModal({ onClose }: Props) {
         <div className="set-main">
           <header className="set-main-head" onPointerDown={startDrag}>
             <h2>{TITLES[section]}</h2>
-            <button className="set-close" onPointerDown={(e) => e.stopPropagation()} onClick={onClose} title="Затвори (Esc)">
+            <button className="set-close" onPointerDown={(e) => e.stopPropagation()} onClick={close} title="Затвори (Esc)">
               ✕
             </button>
           </header>
 
           <div className="set-scroll">
             {section === "profile" && (
-              <>
-                <Card title="Аватар и име" hint="Така те виждат другите в чата и в гласовите канали.">
-                  <div className="set-profile">
-                    <div className="set-profile-avatar">
-                      {avatarUrl ? <img src={avatarUrl} alt="" /> : <span>{username.slice(0, 2).toUpperCase()}</span>}
-                    </div>
-                    <div className="set-profile-fields">
-                      <label className="set-field-label" htmlFor="username-input">
-                        Потребителско име
-                      </label>
-                      <input
-                        id="username-input"
-                        className="set-input"
-                        value={username}
-                        onChange={(e) => {
-                          setUsername(e.target.value);
-                          setSaved(false);
-                        }}
-                      />
-                      <div className="set-row">
-                        <button
-                          type="button"
-                          className="set-button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploading || !isCloudinaryConfigured()}
-                        >
-                          {uploading ? "Качване…" : "Смени аватара"}
-                        </button>
-                        <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarPick} />
-                      </div>
+              <Card title="Аватар и име" hint="Така те виждат другите в чата и в гласовите канали.">
+                <div className="set-profile">
+                  <div className="set-profile-avatar">
+                    {draft.avatarUrl ? <img src={draft.avatarUrl} alt="" /> : <span>{draft.username.slice(0, 2).toUpperCase()}</span>}
+                  </div>
+                  <div className="set-profile-fields">
+                    <label className="set-field-label" htmlFor="username-input">
+                      Потребителско име
+                    </label>
+                    <input
+                      id="username-input"
+                      className="set-input"
+                      value={draft.username}
+                      onChange={(e) => edit({ username: e.target.value })}
+                    />
+                    <div className="set-row">
+                      <button
+                        type="button"
+                        className="set-button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading || !isCloudinaryConfigured()}
+                      >
+                        {uploading ? "Качване…" : "Смени аватара"}
+                      </button>
+                      <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarPick} />
                     </div>
                   </div>
-                </Card>
-                <div className="set-save-bar">
-                  {error && <span className="set-error-inline">{error}</span>}
-                  {saved && !profileDirty && <span className="set-ok">Запазено ✓</span>}
-                  <button
-                    className="set-button primary"
-                    onClick={handleSave}
-                    disabled={saving || uploading || !username.trim() || !profileDirty}
-                  >
-                    {saving ? "Запазване…" : "Запази промените"}
-                  </button>
                 </div>
-              </>
+              </Card>
             )}
 
             {section === "voice" && (
@@ -467,15 +555,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <label className="set-field-label" htmlFor="mic-select">
                     Микрофон
                   </label>
-                  <select
-                    id="mic-select"
-                    className="set-input"
-                    value={selectedMicId}
-                    onChange={(e) => {
-                      setSelectedMicId(e.target.value);
-                      setPreferredMicDeviceId(e.target.value || null);
-                    }}
-                  >
+                  <select id="mic-select" className="set-input" value={draft.micId} onChange={(e) => edit({ micId: e.target.value })}>
                     <option value="">По подразбиране (системен)</option>
                     {micDevices.map((d) => (
                       <option key={d.deviceId} value={d.deviceId}>
@@ -484,7 +564,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                     ))}
                   </select>
                   <p className="set-hint">Сменя се при следващото влизане в гласов канал.</p>
-                  <MicTest deviceId={selectedMicId} />
+                  <MicTest deviceId={draft.micId} />
 
                   <label className="set-field-label" htmlFor="speaker-select">
                     Слушалки / високоговорители
@@ -493,8 +573,8 @@ export default function UserSettingsModal({ onClose }: Props) {
                     <select
                       id="speaker-select"
                       className="set-input"
-                      value={preferredSpeakerId}
-                      onChange={(e) => setPreferredSpeakerId(e.target.value)}
+                      value={draft.speakerId}
+                      onChange={(e) => edit({ speakerId: e.target.value })}
                     >
                       <option value="">По подразбиране (системен)</option>
                       {speakerDevices.map((d) => (
@@ -512,29 +592,29 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <div className="set-choices">
                     <Choice
                       name="mic-mode"
-                      checked={micMode === "voice-activation"}
+                      checked={draft.micMode === "voice-activation"}
                       title="Гласова активност"
                       hint="Микрофонът е включен, щом не си на mute."
-                      onSelect={() => setMicMode("voice-activation")}
+                      onSelect={() => edit({ micMode: "voice-activation" })}
                     />
                     <Choice
                       name="mic-mode"
-                      checked={micMode === "push-to-talk"}
+                      checked={draft.micMode === "push-to-talk"}
                       title="Push-to-talk"
                       hint="Говориш само докато държиш клавиш."
-                      onSelect={() => setMicMode("push-to-talk")}
+                      onSelect={() => edit({ micMode: "push-to-talk" })}
                     />
                   </div>
-                  {micMode === "push-to-talk" && (
+                  {draft.micMode === "push-to-talk" && (
                     <div className="set-row spaced">
                       <span>
                         Клавиш:{" "}
                         <strong>
-                          {listeningForKey ? "Натисни клавиш…" : pushToTalkKey ? describeKeyCode(pushToTalkKey) : "не е избран"}
+                          {listeningForKey ? "Натисни клавиш…" : draft.pttKey ? describeKeyCode(draft.pttKey) : "не е избран"}
                         </strong>
                       </span>
                       <button type="button" className="set-button" onClick={startBindingPushToTalkKey} disabled={listeningForKey}>
-                        {pushToTalkKey ? "Смени" : "Избери клавиш"}
+                        {draft.pttKey ? "Смени" : "Избери клавиш"}
                       </button>
                     </div>
                   )}
@@ -545,75 +625,49 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <Toggle
                     label="AI шумопотискане"
                     hint="Маха клавиатура, вентилатор, дишане и шум в стаята; оставя гласа."
-                    checked={aiSuppression}
-                    onChange={(on) => {
-                      setAiSuppressionState(on);
-                      setAiNoiseSuppressionEnabled(on);
-                    }}
+                    checked={draft.aiSuppression}
+                    onChange={(on) => edit({ aiSuppression: on })}
                   />
                   <Toggle
                     label="Шумова врата"
                     hint="Заглушава микрофона между думите, когато е тихо."
-                    checked={noiseGate}
-                    onChange={(on) => {
-                      setNoiseGateState(on);
-                      setNoiseGateEnabled(on);
-                    }}
+                    checked={draft.noiseGate}
+                    onChange={(on) => edit({ noiseGate: on })}
                   />
-                  {noiseGate && (
+                  {draft.noiseGate && (
                     <div className="set-slider">
                       <span>Чувствителност</span>
                       <input
                         type="range"
                         min={0}
                         max={100}
-                        value={noiseGateSensitivity}
-                        onChange={(e) => {
-                          const value = Number(e.target.value);
-                          setNoiseGateSensitivityState(value);
-                          setNoiseGateSensitivity(value);
-                        }}
+                        value={draft.noiseGateSensitivity}
+                        onChange={(e) => edit({ noiseGateSensitivity: Number(e.target.value) })}
                       />
-                      <span className="set-slider-value">{noiseGateSensitivity}</span>
+                      <span className="set-slider-value">{draft.noiseGateSensitivity}</span>
                     </div>
                   )}
                   <Toggle
                     label="Филтър за ниски честоти"
                     hint="Реже бръмчене — вентилатор, климатик, удари по бюрото."
-                    checked={highpassFilter}
-                    onChange={(on) => {
-                      setHighpassFilterState(on);
-                      setHighpassFilterEnabled(on);
-                    }}
+                    checked={draft.highpassFilter}
+                    onChange={(on) => edit({ highpassFilter: on })}
                   />
-                  <Toggle
-                    label="Премахване на ехо"
-                    checked={echoCancellation}
-                    onChange={(on) => {
-                      setEchoCancellationState(on);
-                      setEchoCancellationEnabled(on);
-                    }}
-                  />
+                  <Toggle label="Премахване на ехо" checked={draft.echoCancellation} onChange={(on) => edit({ echoCancellation: on })} />
                   <Toggle
                     label="Потискане на шума (браузърно)"
-                    checked={noiseSuppression}
-                    onChange={(on) => {
-                      setNoiseSuppressionState(on);
-                      setNoiseSuppressionEnabled(on);
-                    }}
+                    checked={draft.noiseSuppression}
+                    onChange={(on) => edit({ noiseSuppression: on })}
                   />
                   <Toggle
                     label="Автоматично ниво на звука"
                     hint="Изравнява тих и силен глас."
-                    checked={autoGainControl}
-                    onChange={(on) => {
-                      setAutoGainControlState(on);
-                      setAutoGainControlEnabled(on);
-                    }}
+                    checked={draft.autoGainControl}
+                    onChange={(on) => edit({ autoGainControl: on })}
                   />
                   <p className="set-hint">
-                    AI, шумовата врата и филтърът действат веднага; ехото, браузърното потискане и нивото — при следващото
-                    влизане в канал.
+                    След „Запази“: AI, шумовата врата и филтърът действат веднага; ехото, браузърното потискане и нивото — при
+                    следващото влизане в канал.
                   </p>
                 </Card>
               </>
@@ -625,17 +679,17 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <div className="set-choices">
                     <Choice
                       name="share-mode"
-                      checked={screenShareMode === "smooth"}
+                      checked={draft.shareMode === "smooth"}
                       title="Плавно · 60 fps"
                       hint="Пази плавността, сваля резолюцията при нужда — за игри и видео."
-                      onSelect={() => setScreenShareMode("smooth")}
+                      onSelect={() => edit({ shareMode: "smooth" })}
                     />
                     <Choice
                       name="share-mode"
-                      checked={screenShareMode === "sharp"}
+                      checked={draft.shareMode === "sharp"}
                       title="Остро · 60 fps"
                       hint="Пази пълната резолюция и повече битрейт, пуска кадри при нужда — за текст, код, детайл."
-                      onSelect={() => setScreenShareMode("sharp")}
+                      onSelect={() => edit({ shareMode: "sharp" })}
                     />
                   </div>
                 </Card>
@@ -644,31 +698,31 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <div className="set-choices three">
                     <Choice
                       name="share-quality"
-                      checked={screenShareQuality === "low"}
+                      checked={draft.shareQuality === "low"}
                       title="Леко · 720p"
                       hint="Слаб компютър или бавен upload."
-                      onSelect={() => setScreenShareQuality("low")}
+                      onSelect={() => edit({ shareQuality: "low" })}
                     />
                     <Choice
                       name="share-quality"
-                      checked={screenShareQuality === "standard"}
+                      checked={draft.shareQuality === "standard"}
                       title="Стандарт · 1080p"
                       hint="Безопасно за повечето."
-                      onSelect={() => setScreenShareQuality("standard")}
+                      onSelect={() => edit({ shareQuality: "standard" })}
                     />
                     <Choice
                       name="share-quality"
-                      checked={screenShareQuality === "high"}
+                      checked={draft.shareQuality === "high"}
                       title="Високо · 4K"
                       hint="Силна видеокарта и бърз upload."
-                      onSelect={() => setScreenShareQuality("high")}
+                      onSelect={() => edit({ shareQuality: "high" })}
                     />
                   </div>
                   <Toggle
                     label="Олекотено копие за слаби връзки (експериментално)"
                     hint="Праща и втори, по-малък поток. Натоварва повече компютъра ти."
-                    checked={screenShareSimulcast}
-                    onChange={setScreenShareSimulcast}
+                    checked={draft.simulcast}
+                    onChange={(on) => edit({ simulcast: on })}
                   />
                 </Card>
 
@@ -678,8 +732,8 @@ export default function UserSettingsModal({ onClose }: Props) {
                       <button
                         key={f.id}
                         type="button"
-                        className={`stream-frame-option ${streamFrameId === f.id ? "selected" : ""}`}
-                        onClick={() => setStreamFrameId(f.id)}
+                        className={`stream-frame-option ${draft.frameId === f.id ? "selected" : ""}`}
+                        onClick={() => edit({ frameId: f.id })}
                       >
                         <div className="tv" style={f.height ? { aspectRatio: `1100 / ${f.height}` } : undefined}>
                           <div
@@ -705,16 +759,18 @@ export default function UserSettingsModal({ onClose }: Props) {
                       type="range"
                       min={12}
                       max={22}
-                      value={prefs.chatFontSize}
-                      onChange={(e) => prefs.set({ chatFontSize: Number(e.target.value) })}
+                      value={draft.chatFontSize}
+                      onChange={(e) => edit({ chatFontSize: Number(e.target.value) })}
                     />
-                    <span className="set-slider-value">{prefs.chatFontSize}px</span>
+                    <span className="set-slider-value">{draft.chatFontSize}px</span>
                   </div>
-                  <div className="set-preview message-text">Здрасти! Така ще изглеждат съобщенията в чата. 👋</div>
+                  <div className="set-preview" style={{ fontSize: draft.chatFontSize }}>
+                    Здрасти! Така ще изглеждат съобщенията в чата. 👋
+                  </div>
                 </Card>
-                <Card title="Час на съобщенията" hint={`Пример: ${formatTime(sampleTime.toISOString())}`}>
-                  <Toggle label="24-часов формат" checked={prefs.clock24h} onChange={(on) => prefs.set({ clock24h: on })} />
-                  <Toggle label="Показвай секундите" checked={prefs.showSeconds} onChange={(on) => prefs.set({ showSeconds: on })} />
+                <Card title="Час на съобщенията" hint={`Пример: ${sampleClock}`}>
+                  <Toggle label="24-часов формат" checked={draft.clock24h} onChange={(on) => edit({ clock24h: on })} />
+                  <Toggle label="Показвай секундите" checked={draft.showSeconds} onChange={(on) => edit({ showSeconds: on })} />
                 </Card>
               </>
             )}
@@ -724,7 +780,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                 <Toggle
                   label="Известия на работния плот"
                   hint="За нови съобщения и лични съобщения, когато прозорецът не е на фокус."
-                  checked={prefs.desktopNotifications && notifPermission === "granted"}
+                  checked={draft.desktopNotifications && notifPermission === "granted"}
                   disabled={notifPermission === "unsupported"}
                   onChange={(on) => void toggleNotifications(on)}
                 />
@@ -734,31 +790,28 @@ export default function UserSettingsModal({ onClose }: Props) {
                 <Toggle
                   label="Маркирай непрочетените канали"
                   hint="Текстов канал с нови съобщения, които не си видял, светва с удебелено име и черта отляво."
-                  checked={prefs.unreadMarkers}
-                  onChange={(on) => prefs.set({ unreadMarkers: on })}
+                  checked={draft.unreadMarkers}
+                  onChange={(on) => edit({ unreadMarkers: on })}
                 />
                 <Toggle
                   label="Звук при влизане в гласов канал"
                   hint="Кратък звук, когато някой влезе при теб."
-                  checked={prefs.joinSound}
-                  onChange={(on) => prefs.set({ joinSound: on })}
+                  checked={draft.joinSound}
+                  onChange={(on) => edit({ joinSound: on })}
                 />
               </Card>
             )}
 
             {section === "appearance" && (
-              <Card title="Тема" hint="Сменя цветовете на цялото приложение веднага.">
+              <Card title="Тема" hint="Виждаш я веднага като преглед — остава, ако натиснеш „Запази“.">
                 <div className="theme-grid set-themes">
                   {THEMES.map((t) => (
                     <button
                       key={t.id}
                       type="button"
-                      className={`theme-swatch ${themeId === t.id ? "selected" : ""}`}
+                      className={`theme-swatch ${draft.themeId === t.id ? "selected" : ""}`}
                       title={t.name}
-                      onClick={() => {
-                        setThemeId(t.id);
-                        applyTheme(t.id, true);
-                      }}
+                      onClick={() => edit({ themeId: t.id })}
                     >
                       <span
                         className="theme-swatch-preview"
@@ -781,13 +834,34 @@ export default function UserSettingsModal({ onClose }: Props) {
                 <Toggle
                   label="Намали анимациите"
                   hint="Спира анимациите; огънят на Inferno темата спира след презареждане."
-                  checked={prefs.reduceMotion}
-                  onChange={(on) => prefs.set({ reduceMotion: on })}
+                  checked={draft.reduceMotion}
+                  onChange={(on) => edit({ reduceMotion: on })}
                 />
                 <p className="set-hint">Мащаб на целия прозорец: Ctrl + / Ctrl − / Ctrl 0.</p>
               </Card>
             )}
           </div>
+
+          {/* Save bar — on every section. */}
+          <footer className={`set-savebar ${dirty ? "dirty" : ""}`}>
+            <span className="set-savebar-text">
+              {error ? (
+                <span className="set-error-inline">{error}</span>
+              ) : dirty ? (
+                "Имаш незапазени промени"
+              ) : justSaved ? (
+                <span className="set-ok">Запазено ✓</span>
+              ) : (
+                "Всичко е запазено"
+              )}
+            </span>
+            <button className="set-button" onClick={discard} disabled={!dirty || saving}>
+              Откажи
+            </button>
+            <button className="set-button primary" onClick={() => void save()} disabled={!dirty || saving || uploading}>
+              {saving ? "Запазване…" : "Запази промените"}
+            </button>
+          </footer>
         </div>
       </div>
     </div>

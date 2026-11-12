@@ -97,6 +97,11 @@ export function getScreenShareStats() {
   return activeMediaManager?.getScreenStats() ?? Promise.resolve(null);
 }
 
+/** Someone else's screen share as it arrives here (null when not receiving it). */
+export function getReceivedStreamStats(userId: string) {
+  return activeMediaManager?.getReceivedScreenStats(userId) ?? Promise.resolve(null);
+}
+
 export function useVoiceChannel() {
   // Only the (stable) actions are used from here. Subscribing to the whole store would re-render
   // every component that calls this hook on each ping / speaking / stats update.

@@ -55,3 +55,6 @@ Owner pronouns unknown: use they/them.
 - Don't touch `updatedAt` of music state without folding elapsed time into `positionSeconds` (restart bug).
 - `videoTrack.contentHint = "detail"` forces screencast mode (low fps) — keep "motion" for games/video.
 - Older deployed clients keep talking to the shared server: change it additively.
+- Screen-share bitrate ceilings (SfuMediaManager): Light 7 / Standard 14 / High 40 Mbps (Sharp a bit more);
+  too-low ceilings = "smears when moving". Viewers get `jitterBufferTarget = 120` ms on screen consumers.
+  Browser sharers on Firefox show "H264 · процесор", no "Енкодер" row, ~30 fps — tell them to use the desktop app.
