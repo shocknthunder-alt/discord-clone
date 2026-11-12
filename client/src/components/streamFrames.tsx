@@ -607,6 +607,354 @@ function JarArt() {
   );
 }
 
+/* ───────────────────────── Shared neon helpers ───────────────────────── */
+
+/** Deterministic pseudo-random numbers, so glitter/sparkles don't jump between renders. */
+function seeded(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+}
+
+/** Bloom filters for neon tubes: wide soft halo + tight glow. */
+function NeonFilters({ id }: { id: string }) {
+  return (
+    <>
+      <filter id={`${id}-halo`} x="-20%" y="-20%" width="140%" height="140%">
+        <feGaussianBlur stdDeviation="14" />
+      </filter>
+      <filter id={`${id}-glow`} x="-10%" y="-10%" width="120%" height="120%">
+        <feGaussianBlur stdDeviation="3.2" result="b" />
+        <feMerge>
+          <feMergeNode in="b" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </>
+  );
+}
+
+/** A glass neon tube: coloured halo, coloured glowing tube and a pale hot core. */
+function Tube({ d, color, core, width = 5, fid }: { d: string; color: string; core: string; width?: number; fid: string }) {
+  const common = { d, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  return (
+    <g>
+      <path {...common} stroke={color} strokeWidth={width * 3.2} strokeOpacity="0.45" filter={`url(#${fid}-halo)`} />
+      <path {...common} stroke={color} strokeWidth={width} filter={`url(#${fid}-glow)`} />
+      <path {...common} stroke={core} strokeWidth={width * 0.38} />
+    </g>
+  );
+}
+
+/** Four-point star glint with a round bloom. */
+function Glint({ x, y, size, color = "#fff", fid }: { x: number; y: number; size: number; color?: string; fid: string }) {
+  const s = size;
+  const t = size * 0.07;
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <circle r={s * 0.55} fill={color} opacity="0.35" filter={`url(#${fid}-halo)`} />
+      <path d={`M0,${-s} Q${t},${-t} ${s},0 Q${t},${t} 0,${s} Q${-t},${t} ${-s},0 Q${-t},${-t} 0,${-s} Z`} fill={color} />
+      <circle r={s * 0.09} fill="#fff" />
+    </g>
+  );
+}
+
+/* ───────────────────────── ON AIR: neon sign on a brick wall ───────────────────────── */
+
+const ONAIR_SCREEN = { x: 236, y: 80, w: 808, h: 454 };
+
+function OnAirArt() {
+  const s = ONAIR_SCREEN;
+  const red = "#ff2b4a";
+  const redCore = "#ffe3e7";
+  const blue = "#19c6ff";
+  const blueCore = "#e2f8ff";
+  // Red sign: hugs the picture, top-right and bottom-left corners cut; open on the left where the text sits.
+  const rL = s.x - 14;
+  const rR = s.x + s.w + 14;
+  const rT = s.y - 14;
+  const rB = s.y + s.h + 14;
+  const c = 58;
+  const redPath = `M${rL},${rT + 128} V${rT} H${rR - c} L${rR},${rT + c} V${rB} H${rL + c} L${rL},${rB - c} V${rB - 132}`;
+  // Blue sign: a size bigger and shifted out, broken into strokes like a real bent tube.
+  const bL = rL - 22;
+  const bR = rR + 18;
+  const bT = rT - 20;
+  const bB = rB + 20;
+  const bc = 92;
+  const blueTop = `M${bL},${bT + 96} V${bT} H${bR - bc} L${bR},${bT + bc} V${bT + 196}`;
+  const blueBottom = `M${bL},${bB - 140} V${bB - bc} L${bL + bc},${bB} H${bR} V${bB - 120}`;
+  const bracketTL = `M${s.x + 10},${s.y + 66} V${s.y + 12} H${s.x + 74}`;
+  const bracketBR = `M${s.x + s.w - 74},${s.y + s.h - 12} H${s.x + s.w - 10} V${s.y + s.h - 66}`;
+  const hole = `M${s.x},${s.y} H${s.x + s.w - 44} L${s.x + s.w},${s.y + 44} V${s.y + s.h} H${s.x + 44} L${s.x},${s.y + s.h - 44} Z`;
+  const font = "'Arial Rounded MT Bold','Nunito','Varela Round','Trebuchet MS',sans-serif";
+
+  return (
+    <Svg>
+      <defs>
+        <mask id="oa-hole">
+          <rect width={W} height={H} fill="white" />
+          <path d={hole} fill="black" />
+        </mask>
+        <pattern id="oa-brick" width="96" height="44" patternUnits="userSpaceOnUse">
+          <rect width="96" height="44" fill="#0c0510" />
+          <rect x="1.5" y="1.5" width="45" height="19" rx="2.5" fill="#22102b" />
+          <rect x="49.5" y="1.5" width="45" height="19" rx="2.5" fill="#1d0d25" />
+          <rect x="-22.5" y="23.5" width="45" height="19" rx="2.5" fill="#1f0e27" />
+          <rect x="25.5" y="23.5" width="45" height="19" rx="2.5" fill="#25112e" />
+          <rect x="73.5" y="23.5" width="45" height="19" rx="2.5" fill="#1f0e27" />
+          <rect x="1.5" y="1.5" width="45" height="2" fill="#3a1f45" opacity="0.6" />
+          <rect x="25.5" y="23.5" width="45" height="2" fill="#3a1f45" opacity="0.6" />
+        </pattern>
+        <radialGradient id="oa-shade" cx="0.5" cy="0.5" r="0.75">
+          <stop offset="0.45" stopColor="#000" stopOpacity="0" />
+          <stop offset="1" stopColor="#000" stopOpacity="0.75" />
+        </radialGradient>
+        <radialGradient id="oa-spill-red" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor={red} stopOpacity="0.35" />
+          <stop offset="1" stopColor={red} stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="oa-spill-blue" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#5b3cff" stopOpacity="0.4" />
+          <stop offset="1" stopColor="#5b3cff" stopOpacity="0" />
+        </radialGradient>
+        <NeonFilters id="oa" />
+      </defs>
+
+      <g mask="url(#oa-hole)">
+        <rect width={W} height={H} fill="url(#oa-brick)" />
+        {/* coloured light the tubes throw on the wall */}
+        <ellipse cx="130" cy="300" rx="190" ry="210" fill="url(#oa-spill-red)" />
+        <ellipse cx="200" cy="40" rx="170" ry="110" fill="url(#oa-spill-blue)" />
+        <ellipse cx="960" cy="600" rx="190" ry="120" fill="url(#oa-spill-blue)" />
+        <ellipse cx="760" cy="40" rx="260" ry="80" fill="url(#oa-spill-red)" />
+        <rect width={W} height={H} fill="url(#oa-shade)" />
+        {/* thin dark lip right around the picture */}
+        <path d={hole} fill="none" stroke="#000" strokeOpacity="0.7" strokeWidth="6" />
+      </g>
+
+      <Tube d={blueTop} color={blue} core={blueCore} fid="oa" width={5} />
+      <Tube d={blueBottom} color={blue} core={blueCore} fid="oa" width={5} />
+      <Tube d={redPath} color={red} core={redCore} fid="oa" width={6} />
+      <Tube d={bracketTL} color={blue} core={blueCore} fid="oa" width={4} />
+      <Tube d={bracketBR} color={blue} core={blueCore} fid="oa" width={4} />
+
+      {/* ON / AIR lettering: hollow neon outlines */}
+      <g fontFamily={font} fontWeight={900} fontSize="96" textAnchor="middle" strokeLinejoin="round">
+        <text x="128" y="300" fill="none" stroke={red} strokeWidth="11" strokeOpacity="0.4" filter="url(#oa-halo)">ON</text>
+        <text x="128" y="300" fill="#2a0710" fillOpacity="0.55" stroke={red} strokeWidth="4" filter="url(#oa-glow)">ON</text>
+        <text x="128" y="300" fill="none" stroke={redCore} strokeWidth="1.4">ON</text>
+        <text x="128" y="398" fill="none" stroke={blue} strokeWidth="11" strokeOpacity="0.4" filter="url(#oa-halo)">AIR</text>
+        <text x="128" y="398" fill="#04202b" fillOpacity="0.55" stroke={blue} strokeWidth="4" filter="url(#oa-glow)">AIR</text>
+        <text x="128" y="398" fill="none" stroke={blueCore} strokeWidth="1.4">AIR</text>
+      </g>
+
+      {/* hot spots where the tubes catch the light */}
+      <Glint x={rR - 210} y={rT} size={16} color="#ffd6dc" fid="oa" />
+      <Glint x={bL + 70} y={bT} size={13} color="#d9f4ff" fid="oa" />
+      <Glint x={(rL + rR) / 2} y={rB} size={14} color="#ffd6dc" fid="oa" />
+      <Glint x={bR - 120} y={bB} size={12} color="#d9f4ff" fid="oa" />
+    </Svg>
+  );
+}
+
+/* ───────────────────────── Silver: polished frame with glitter ───────────────────────── */
+
+const SILVER_SCREEN = { x: 94, y: 54, w: 912, h: 513 };
+
+function SilverArt() {
+  const s = SILVER_SCREEN;
+  const oL = s.x - 24;
+  const oT = s.y - 24;
+  const oR = s.x + s.w + 24;
+  const oB = s.y + s.h + 24;
+  const k = 44; // concave corner radius of the inner border
+  const iL = s.x - 8;
+  const iT = s.y - 8;
+  const iR = s.x + s.w + 8;
+  const iB = s.y + s.h + 8;
+  const inner = `M${iL + k},${iT} H${iR - k} A${k},${k} 0 0 0 ${iR},${iT + k} V${iB - k} A${k},${k} 0 0 0 ${iR - k},${iB} H${iL + k} A${k},${k} 0 0 0 ${iL},${iB - k} V${iT + k} A${k},${k} 0 0 0 ${iL + k},${iT} Z`;
+  const holeK = k - 8;
+  const hole = `M${s.x + holeK},${s.y} H${s.x + s.w - holeK} A${holeK},${holeK} 0 0 0 ${s.x + s.w},${s.y + holeK} V${s.y + s.h - holeK} A${holeK},${holeK} 0 0 0 ${s.x + s.w - holeK},${s.y + s.h} H${s.x + holeK} A${holeK},${holeK} 0 0 0 ${s.x},${s.y + s.h - holeK} V${s.y + holeK} A${holeK},${holeK} 0 0 0 ${s.x + holeK},${s.y} Z`;
+  // Octagon ribbon that weaves behind the frame and the picture.
+  const oct = `M250,14 H850 L1050,182 V444 L850,612 H250 L50,444 V182 Z`;
+
+  // Glitter dust drifting off the frame, densest near the glints.
+  const rnd = seeded(7);
+  const dust = Array.from({ length: 170 }, () => {
+    const side = rnd();
+    const along = rnd();
+    const out = (rnd() - 0.35) * 46;
+    let x: number;
+    let y: number;
+    if (side < 0.3) {
+      x = oL + along * (oR - oL);
+      y = oT - out;
+    } else if (side < 0.5) {
+      x = oL + along * (oR - oL);
+      y = oB + out;
+    } else if (side < 0.75) {
+      x = oL - out;
+      y = oT + along * (oB - oT);
+    } else {
+      x = oR + out;
+      y = oT + along * (oB - oT);
+    }
+    return { x, y, r: 0.5 + rnd() * 1.7, o: 0.35 + rnd() * 0.65 };
+  });
+
+  return (
+    <Svg>
+      <defs>
+        <mask id="sv-hole">
+          <rect width={W} height={H} fill="white" />
+          <path d={hole} fill="black" />
+        </mask>
+        <radialGradient id="sv-bg" cx="0.5" cy="0.5" r="0.7">
+          <stop offset="0" stopColor="#3a3639" />
+          <stop offset="0.7" stopColor="#1b191b" />
+          <stop offset="1" stopColor="#0c0b0c" />
+        </radialGradient>
+        <linearGradient id="sv-metal" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#f4f4f6" />
+          <stop offset="0.18" stopColor="#9c9ea4" />
+          <stop offset="0.35" stopColor="#e9eaee" />
+          <stop offset="0.52" stopColor="#7d7f86" />
+          <stop offset="0.7" stopColor="#d7d8dd" />
+          <stop offset="0.86" stopColor="#8b8d93" />
+          <stop offset="1" stopColor="#f1f1f3" />
+        </linearGradient>
+        <linearGradient id="sv-metal-v" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.5" stopColor="#8e9096" />
+          <stop offset="1" stopColor="#e4e5e9" />
+        </linearGradient>
+        <radialGradient id="sv-rivet" cx="0.35" cy="0.32" r="0.75">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.45" stopColor="#c9cacf" />
+          <stop offset="1" stopColor="#55575d" />
+        </radialGradient>
+        <filter id="sv-shadow" x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+        <NeonFilters id="sv" />
+      </defs>
+
+      <g mask="url(#sv-hole)">
+        <rect width={W} height={H} fill="url(#sv-bg)" />
+        {/* octagon ribbon behind everything */}
+        <path d={oct} fill="none" stroke="url(#sv-metal)" strokeWidth="7" />
+        <path d={oct} fill="none" stroke="#fff" strokeOpacity="0.35" strokeWidth="1.2" />
+        {/* drop shadow of the frame */}
+        <rect x={oL + 4} y={oT + 8} width={oR - oL} height={oB - oT} fill="none" stroke="#000" strokeOpacity="0.6" strokeWidth="18" filter="url(#sv-shadow)" />
+        {/* outer bevelled bar */}
+        <rect x={oL} y={oT} width={oR - oL} height={oB - oT} fill="none" stroke="url(#sv-metal)" strokeWidth="14" />
+        <rect x={oL - 7} y={oT - 7} width={oR - oL + 14} height={oB - oT + 14} fill="none" stroke="#fff" strokeOpacity="0.55" strokeWidth="1" />
+        <rect x={oL + 7} y={oT + 7} width={oR - oL - 14} height={oB - oT - 14} fill="none" stroke="#2b2c30" strokeOpacity="0.8" strokeWidth="1.2" />
+        {/* inner border with scooped corners */}
+        <path d={inner} fill="none" stroke="url(#sv-metal-v)" strokeWidth="3.5" />
+        {/* engraved hatch in the top-right corner */}
+        {[0, 1, 2, 3].map((i) => (
+          <path key={i} d={`M${oR - 150 + i * 12},${oT + 22} L${oR - 22},${oT + 150 - i * 12}`} stroke="url(#sv-metal)" strokeWidth="1.6" opacity="0.85" />
+        ))}
+        {/* corner rivets */}
+        {[
+          [oL + 2, oT + 2],
+          [oR - 2, oT + 2],
+          [oL + 2, oB - 2],
+          [oR - 2, oB - 2],
+        ].map(([x, y]) => (
+          <g key={`${x}-${y}`}>
+            <circle cx={x} cy={y} r="17" fill="#000" opacity="0.45" filter="url(#sv-shadow)" />
+            <circle cx={x} cy={y} r="14" fill="url(#sv-rivet)" stroke="#6c6e74" strokeWidth="1" />
+          </g>
+        ))}
+        {/* glitter */}
+        {dust.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={p.r} fill="#fff" opacity={p.o} />
+        ))}
+      </g>
+
+      {/* glints on the metal */}
+      <Glint x={550} y={oT - 4} size={34} fid="sv" />
+      <Glint x={505} y={oT + 2} size={14} fid="sv" />
+      <Glint x={oL} y={300} size={30} fid="sv" />
+      <Glint x={oL + 6} y={346} size={14} fid="sv" />
+      <Glint x={oR} y={330} size={32} fid="sv" />
+      <Glint x={oR - 10} y={378} size={15} fid="sv" />
+      <Glint x={850} y={oB + 2} size={12} fid="sv" />
+    </Svg>
+  );
+}
+
+/* ───────────────────────── Neon swirl: hand-bent pink/blue tube ───────────────────────── */
+
+const SWIRL_SCREEN = { x: 168, y: 128, w: 764, h: 430 };
+
+function SwirlArt() {
+  const s = SWIRL_SCREEN;
+  // Outer loop with a curl at the top-left and bottom-right, drawn freehand-ish.
+  const outer =
+    "M150,138 C112,140 102,104 122,88 C142,72 176,84 172,112 C170,128 154,130 150,118 " +
+    "M168,86 C330,66 560,92 760,76 C860,68 950,70 990,84 C1022,96 1024,132 1018,180 " +
+    "C1010,300 1028,430 1012,540 C1008,566 1032,580 1052,566 C1072,550 1060,522 1036,528 C1020,534 1024,552 1038,550 " +
+    "M1012,560 C990,598 920,590 800,592 C620,596 400,580 220,592 C150,598 112,580 106,540 " +
+    "C96,440 118,330 104,240 C98,190 104,160 124,140";
+  // Inner loop, a little wobblier, curls at the top-right and bottom-left.
+  const inner =
+    "M178,128 C340,112 580,132 840,118 C900,114 938,124 944,150 " +
+    "C952,180 926,196 910,182 C898,170 910,152 924,160 " +
+    "M944,172 C950,300 936,420 950,540 C954,568 930,578 900,576 " +
+    "C700,568 470,584 230,572 " +
+    "C206,570 190,552 204,538 C218,526 236,540 226,552 " +
+    "M190,560 C160,560 152,540 154,500 C160,400 146,300 156,200 C160,156 164,132 178,128";
+
+  return (
+    <Svg>
+      <defs>
+        <Hole id="sw-hole" x={s.x} y={s.y} w={s.w} h={s.h} r={22} />
+        <linearGradient id="sw-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#2a0636" />
+          <stop offset="0.55" stopColor="#170a3a" />
+          <stop offset="1" stopColor="#080a2e" />
+        </linearGradient>
+        <linearGradient id="sw-tube" gradientUnits="userSpaceOnUse" x1="120" y1="600" x2="1000" y2="80">
+          <stop offset="0" stopColor="#2e7bff" />
+          <stop offset="0.35" stopColor="#6a4dff" />
+          <stop offset="0.6" stopColor="#e63bff" />
+          <stop offset="1" stopColor="#ff4fd8" />
+        </linearGradient>
+        <radialGradient id="sw-spill" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#ff3bd4" stopOpacity="0.28" />
+          <stop offset="1" stopColor="#ff3bd4" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="sw-spill-blue" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#2e7bff" stopOpacity="0.3" />
+          <stop offset="1" stopColor="#2e7bff" stopOpacity="0" />
+        </radialGradient>
+        <NeonFilters id="sw" />
+      </defs>
+
+      <g mask="url(#sw-hole)">
+        <rect width={W} height={H} fill="url(#sw-bg)" />
+        <ellipse cx="860" cy="110" rx="300" ry="140" fill="url(#sw-spill)" />
+        <ellipse cx="180" cy="560" rx="280" ry="130" fill="url(#sw-spill-blue)" />
+        {/* soft shadow line where the picture meets the backdrop */}
+        <rect x={s.x - 2} y={s.y - 2} width={s.w + 4} height={s.h + 4} rx="24" fill="none" stroke="#000" strokeOpacity="0.55" strokeWidth="5" />
+      </g>
+
+      <Tube d={outer} color="url(#sw-tube)" core="#fbe9ff" fid="sw" width={6} />
+      <Tube d={inner} color="url(#sw-tube)" core="#f3ecff" fid="sw" width={3.5} />
+
+      <Glint x={560} y={84} size={18} color="#ffd9f6" fid="sw" />
+      <Glint x={192} y={590} size={14} color="#d4e4ff" fid="sw" />
+      <Glint x={1016} y={300} size={12} color="#ffd9f6" fid="sw" />
+    </Svg>
+  );
+}
+
 /* ───────────────────────── Path of Exile 2 key-art frame ───────────────────────── */
 
 function Poe2Art() {
@@ -657,6 +1005,9 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
   imgFrame("dragon", "Дракон", "frame-dragon", 943, 580, [151, 173, 788, 501]),
   imgFrame("berserk", "Берсерк", "frame-berserk", 1326, 567, [316, 162, 1018, 499]),
   { id: "jar", name: "Буркан с туршия", screen: rect(JAR_SCREEN.x, JAR_SCREEN.y, JAR_SCREEN.w, JAR_SCREEN.h), Art: JarArt },
+  { id: "onair", name: "ON AIR неон", screen: rect(ONAIR_SCREEN.x, ONAIR_SCREEN.y, ONAIR_SCREEN.w, ONAIR_SCREEN.h), Art: OnAirArt },
+  { id: "silver", name: "Сребърен блясък", screen: rect(SILVER_SCREEN.x, SILVER_SCREEN.y, SILVER_SCREEN.w, SILVER_SCREEN.h), Art: SilverArt },
+  { id: "swirl", name: "Неонов свитък", screen: rect(SWIRL_SCREEN.x, SWIRL_SCREEN.y, SWIRL_SCREEN.w, SWIRL_SCREEN.h), Art: SwirlArt },
 ];
 
 export const DEFAULT_FRAME_ID = "retro";
