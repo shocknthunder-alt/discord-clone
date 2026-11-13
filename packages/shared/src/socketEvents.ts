@@ -41,6 +41,12 @@ export const SocketEvents = {
   /** server → server room: the soundboard list changed, refetch. */
   SoundboardChanged: "soundboard:changed",
 
+  // server events (📅 board)
+  /** server → each member's user room: the events of server X changed, refetch. */
+  EventsChanged: "events:changed",
+  /** server → each member's user room: a new event was created (toast). */
+  EventCreated: "events:created",
+
   // screen share
   ScreenShareStart: "screenshare:start",
   ScreenShareStop: "screenshare:stop",

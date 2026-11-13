@@ -23,6 +23,10 @@ export interface AppPrefs {
   soundboardEnabled: boolean;
   /** Your own volume for soundboard clips, 0-100 (on top of each clip's own volume). */
   soundboardVolume: number;
+  /** Remind me before events I signed up for (✅ / 🤔). */
+  eventReminders: boolean;
+  /** How many minutes before the start: 5, 15 or 60. */
+  eventReminderMinutes: number;
 }
 
 const KEY = "appPrefs";
@@ -37,6 +41,8 @@ const DEFAULTS: AppPrefs = {
   unreadMarkers: true,
   soundboardEnabled: true,
   soundboardVolume: 20,
+  eventReminders: true,
+  eventReminderMinutes: 15,
 };
 
 function load(): AppPrefs {

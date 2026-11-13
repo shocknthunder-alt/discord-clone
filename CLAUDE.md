@@ -35,6 +35,11 @@ Owner pronouns unknown: use they/them.
 - **Trivia channel** (`🎲 trivia`, type="trivia"): IRC-style bot (`server/src/trivia/*`), free-text answers,
   hints, streaks, `!trivia [n] [category|en]`, `!top`, `!score`, `!cats`; ~990 Bulgarian questions + endless
   math/anagrams + English from OpenTDB/The Trivia API.
+- **Events board** (📅 above Text Channels; `ServerEvent`/`EventRsvp`, `server/src/events/scheduler.ts`):
+  name/description/date/time/end/cover image/voice channel or place/limit+reserves/daily-weekly repeat,
+  RSVP ✅/🤔/❌, today banner + 📅 dot on the server icon, toasts for new events, personal reminders
+  (Settings → Известия, 5/15/60 min) done client-side; the "Събития" bot posts in #general 15 min before
+  (server, every 30 s — missed if Render is asleep). .ics + Google Calendar export.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
 ## Pending / ideas

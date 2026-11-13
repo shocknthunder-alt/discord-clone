@@ -21,6 +21,7 @@ model User {
   ownedServers         Server[]         @relation("ServerOwner")
   directMessages       DirectMessage[]
   triviaScores         TriviaScore[]
+  eventRsvps           EventRsvp[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
 }
@@ -63,6 +64,7 @@ model Server {
   memberships   Membership[]
   customEmojis  CustomEmoji[]
   soundboardSounds SoundboardSound[]
+  events        ServerEvent[]
   textChannels  TextChannel[]
   voiceChannels VoiceChannel[]
 }
@@ -175,4 +177,43 @@ model TriviaScore {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([serverId, userId])
+}
+
+// "📅 Събития" board. The bot posts a reminder in #general 15 min before startsAt.
+model ServerEvent {
+  id             String    @id @default(cuid())
+  serverId       String
+  title          String
+  description    String    @default("")
+  startsAt       DateTime
+  endsAt         DateTime?
+  imageUrl       String?
+  voiceChannelId String?
+  location       String?
+  maxAttendees   Int?
+  /// "none" | "daily" | "weekly" — a repeating event moves to its next date once it ends.
+  recurrence     String    @default("none")
+  creatorId      String
+  createdAt      DateTime  @default(now())
+  /// Set once the 15-minute reminder was posted for the current startsAt.
+  reminderSentAt DateTime?
+
+  server Server      @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  rsvps  EventRsvp[]
+
+  @@index([serverId, startsAt])
+}
+
+model EventRsvp {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  /// "going" | "maybe" | "no"
+  status    String
+  updatedAt DateTime @default(now())
+
+  event ServerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
 }

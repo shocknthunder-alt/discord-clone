@@ -220,6 +220,8 @@ interface Draft {
   reduceMotion: boolean;
   soundboardEnabled: boolean;
   soundboardVolume: number;
+  eventReminders: boolean;
+  eventReminderMinutes: number;
 }
 
 /** The values as they are applied right now. */
@@ -255,6 +257,8 @@ function readCurrent(): Draft {
     reduceMotion: p.reduceMotion,
     soundboardEnabled: p.soundboardEnabled,
     soundboardVolume: p.soundboardVolume,
+    eventReminders: p.eventReminders,
+    eventReminderMinutes: p.eventReminderMinutes,
   };
 }
 
@@ -417,6 +421,8 @@ export default function UserSettingsModal({ onClose }: Props) {
         reduceMotion: d.reduceMotion,
         soundboardEnabled: d.soundboardEnabled,
         soundboardVolume: d.soundboardVolume,
+        eventReminders: d.eventReminders,
+        eventReminderMinutes: d.eventReminderMinutes,
       });
       const now = { ...d, username: d.username.trim() };
       setBase(now);
@@ -819,6 +825,25 @@ export default function UserSettingsModal({ onClose }: Props) {
                   checked={draft.unreadMarkers}
                   onChange={(on) => edit({ unreadMarkers: on })}
                 />
+                <Toggle
+                  label="Напомняния за събития"
+                  hint="Известие и звук преди събитие, за което си записан (✅ или 🤔), и когато започне."
+                  checked={draft.eventReminders}
+                  onChange={(on) => edit({ eventReminders: on })}
+                />
+                <div className="set-slider">
+                  <span>Напомни ми</span>
+                  <select
+                    className="set-input"
+                    value={draft.eventReminderMinutes}
+                    disabled={!draft.eventReminders}
+                    onChange={(e) => edit({ eventReminderMinutes: Number(e.target.value) })}
+                  >
+                    <option value={5}>5 минути преди</option>
+                    <option value={15}>15 минути преди</option>
+                    <option value={60}>1 час преди</option>
+                  </select>
+                </div>
                 <Toggle
                   label="Звук при влизане в гласов канал"
                   hint="Кратък звук, когато някой влезе при теб."

@@ -18,6 +18,7 @@ import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import ChannelContextMenu from "./ChannelContextMenu";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import CreateChannelModal from "./CreateChannelModal";
+import EventsSection from "./EventsSection";
 import { LiveIcon } from "./HudIcons";
 import MusicMiniPlayer from "./MusicMiniPlayer";
 import PeerConnectionBadge from "./PeerConnectionBadge";
@@ -266,6 +267,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
             <div style={{ padding: "0 16px", fontSize: 12, color: "var(--t-3)" }}>
               Invite code: {activeServer.inviteCode}
             </div>
+
+            <EventsSection />
 
             <div onContextMenu={(e) => handleSectionContextMenu(e, "text")}>
               <div className="channel-section">Text Channels</div>

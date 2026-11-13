@@ -1,10 +1,13 @@
-import { SocketEvents, type ChannelActivityPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type ChannelActivityPayload, type EventCreatedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
 import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
+import EventBoardModal from "../components/EventBoardModal";
+import EventToasts from "../components/EventToasts";
+import { fmtDay, fmtTime } from "../components/eventUtils";
 import FloatingVoiceHud from "../components/FloatingVoiceHud";
 import IncomingCallToast from "../components/IncomingCallToast";
 import LiveBanner from "../components/LiveBanner";
@@ -22,6 +25,9 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useUnreadStore } from "../store/unreadStore";
+import { scheduleEventsReload, useEventsStore } from "../store/eventsStore";
+import { useEventReminders } from "../hooks/useEventReminders";
+import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 
@@ -31,6 +37,20 @@ export default function AppShell() {
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const { view, activeConversationId, setIncomingRing } = useDmStore();
   const [viewMode, setViewMode] = useState<"text" | "voice">("text");
+  const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
+
+  useEventReminders();
+
+  /** "Влез" on an event: open its server and join its voice channel. */
+  async function joinEventVoice(serverId: string, voiceChannelId: string) {
+    useDmStore.getState().setView("servers");
+    if (useServerStore.getState().activeServerId !== serverId) useServerStore.getState().setActiveServer(serverId);
+    if (useVoiceStore.getState().activeVoiceChannelId !== voiceChannelId) {
+      if (useVoiceStore.getState().activeVoiceChannelId) leaveVoiceChannel();
+      await joinVoiceChannel(voiceChannelId);
+    }
+    setViewMode("voice");
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -57,6 +77,25 @@ export default function AppShell() {
       playSoundboardClip(p.url, p.volume);
     });
 
+    // 📅 Events: refetch on any change; a toast (+ desktop notification) for new ones.
+    socket.on(SocketEvents.EventsChanged, () => scheduleEventsReload());
+    socket.on(SocketEvents.EventCreated, (p: EventCreatedPayload) => {
+      if (p.creatorId === useAuthStore.getState().user?.id) return;
+      const text = `${p.creatorUsername} · ${fmtDay(p.startsAt)} в ${fmtTime(p.startsAt)}`;
+      useEventsStore.getState().pushToast({
+        kind: "new",
+        eventId: p.eventId,
+        title: p.title,
+        text,
+        imageUrl: null,
+        voiceChannelId: null,
+        serverId: p.serverId,
+      });
+      notifyDesktop(`📅 Ново събитие: ${p.title}`, text);
+    });
+    // After a reconnect (e.g. the server restarted) the list may have changed while we were away.
+    socket.on("connect", () => scheduleEventsReload());
+
     socket.on(SocketEvents.DmRing, (ring: IncomingRing) => {
       setIncomingRing(ring);
     });
@@ -82,6 +121,10 @@ export default function AppShell() {
 
   useEffect(() => {
     fetchServers().then(setServers).catch(console.error);
+    void useEventsStore.getState().reload().catch(console.error);
+    // Safety net for missed pushes (and for repeating events moving to their next date).
+    const id = setInterval(() => scheduleEventsReload(), 5 * 60_000);
+    return () => clearInterval(id);
   }, [setServers]);
 
   // Unread markers: learn each channel's newest message from the channel list…
@@ -114,6 +157,8 @@ export default function AppShell() {
       <VoiceAudioBridge />
       <FloatingVoiceHud />
       <IncomingCallToast />
+      <EventToasts onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
+      <EventBoardModal onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <SearchModal />
       <LiveBanner />
       <StreamStatsPanel />
