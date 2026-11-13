@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
     return () => ipcRenderer.removeListener("app-audio", handler);
   },
   stopAppAudio: () => ipcRenderer.send("app-audio-stop"),
+  /** Close and reopen the whole app (used to pick up a new site version cleanly). */
+  relaunch: () => ipcRenderer.send("app-relaunch"),
   onGlobalKey(cb) {
     const handler = (_event, code, down) => cb(code, down);
     ipcRenderer.on("global-key", handler);

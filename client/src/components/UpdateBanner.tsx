@@ -42,9 +42,10 @@ export default function UpdateBanner() {
     };
   }, []);
 
-  // Quietly pick the new version up when it can't disturb anyone.
+  // Quietly pick the new version up when it can't disturb anyone (browser only: the desktop app
+  // restarts itself on "Обнови", which would pop its window up).
   useEffect(() => {
-    if (!updateReady || inVoice) return;
+    if (!updateReady || inVoice || window.shmirkaDesktop) return;
     if (document.hidden) {
       window.location.reload();
       return;
@@ -61,7 +62,14 @@ export default function UpdateBanner() {
   return (
     <div className="update-banner" role="status">
       <span>✨ Има нова версия на ШмиркаТа{inVoice ? " (презареждането ще те изключи от войс канала)" : ""}.</span>
-      <button className="update-now" onClick={() => window.location.reload()}>
+      <button
+        className="update-now"
+        onClick={() => {
+          // Desktop app: restart the whole app (a page reload left it broken); older shells reload.
+          if (window.shmirkaDesktop?.relaunch) window.shmirkaDesktop.relaunch();
+          else window.location.reload();
+        }}
+      >
         Обнови
       </button>
       <button className="update-later" onClick={() => setDismissed(true)} aria-label="По-късно">

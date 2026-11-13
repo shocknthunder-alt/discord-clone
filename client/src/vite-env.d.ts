@@ -13,6 +13,8 @@ interface Window {
     onAppAudio(cb: (pcm: Uint8Array) => void): () => void;
     stopAppAudio(): void;
     onGlobalKey(cb: (code: string, down: boolean) => void): () => void;
+    /** Desktop 1.5.0+: close and reopen the app. */
+    relaunch?(): void;
   };
 }
 

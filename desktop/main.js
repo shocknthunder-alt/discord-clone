@@ -64,6 +64,13 @@ app.whenReady().then(async () => {
     return mode;
   });
   ipcMain.on("app-audio-stop", () => appAudio.stop());
+  // "Обнови" in the update banner: a plain page reload left the shell in a broken state, so
+  // restart the whole app instead (the new instance starts once this one has quit).
+  ipcMain.on("app-relaunch", () => {
+    quitting = true;
+    app.relaunch();
+    app.quit();
+  });
 
   ses.setDisplayMediaRequestHandler(async (_request, callback) => {
     const choice = chosenSource;
