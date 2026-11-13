@@ -1,5 +1,5 @@
-import { SocketEvents, type ChannelActivityPayload, type EventCreatedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
-import { useEffect, useState } from "react";
+import { SocketEvents, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
+import { useEffect, useRef, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
@@ -7,6 +7,8 @@ import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
 import EventBoardModal from "../components/EventBoardModal";
 import EventToasts from "../components/EventToasts";
+import MemberListPanel from "../components/MemberListPanel";
+import { useMembersStore } from "../store/membersStore";
 import { fmtDay, fmtTime } from "../components/eventUtils";
 import FloatingVoiceHud from "../components/FloatingVoiceHud";
 import IncomingCallToast from "../components/IncomingCallToast";
@@ -41,6 +43,21 @@ export default function AppShell() {
 
   useEventReminders();
 
+  // Socket handlers are registered once; these refs always point at the current functions.
+  const leaveRef = useRef(leaveVoiceChannel);
+  leaveRef.current = leaveVoiceChannel;
+  const moveMeRef = useRef(async (p: VoiceMovedPayload) => {
+    void p;
+  });
+  moveMeRef.current = async (p: VoiceMovedPayload) => {
+    if (!useVoiceStore.getState().activeVoiceChannelId) return;
+    leaveVoiceChannel();
+    if (p.voiceChannelId) {
+      await joinVoiceChannel(p.voiceChannelId);
+      setViewMode("voice");
+    }
+  };
+
   /** "Влез" on an event: open its server and join its voice channel. */
   async function joinEventVoice(serverId: string, voiceChannelId: string) {
     useDmStore.getState().setView("servers");
@@ -58,6 +75,7 @@ export default function AppShell() {
 
     socket.on(SocketEvents.PresenceUpdate, ({ userId, status }: { userId: string; status: string }) => {
       setUserOnline(userId, status === "online");
+      useMembersStore.getState().setOnline(userId, status === "online");
     });
 
     socket.on(SocketEvents.ChannelsChanged, ({ serverId }: { serverId: string }) => {
@@ -75,6 +93,27 @@ export default function AppShell() {
     socket.on(SocketEvents.SoundboardPlayed, (p: SoundboardPlayedPayload) => {
       if (p.voiceChannelId !== useVoiceStore.getState().activeVoiceChannelId) return;
       playSoundboardClip(p.url, p.volume);
+    });
+
+    // Members / ranks of the open server changed.
+    socket.on(SocketEvents.MembersChanged, ({ serverId }: { serverId: string }) => {
+      if (useServerStore.getState().activeServerId === serverId) void useMembersStore.getState().load(serverId).catch(console.error);
+    });
+
+    // Someone with "move members" dragged me to another voice channel (or disconnected me).
+    socket.on(SocketEvents.VoiceMoved, (p: VoiceMovedPayload) => {
+      void moveMeRef.current(p);
+    });
+
+    // I was removed from a server.
+    socket.on(SocketEvents.ServerKicked, ({ serverId }: { serverId: string }) => {
+      const st = useServerStore.getState();
+      if (st.activeServerId === serverId) {
+        if (st.voiceChannels.some((v) => v.id === useVoiceStore.getState().activeVoiceChannelId)) leaveRef.current();
+        st.setActiveServer(null);
+      }
+      st.setServers(st.servers.filter((s) => s.id !== serverId));
+      window.alert("Беше премахнат от един сървър.");
     });
 
     // 📅 Events: refetch on any change; a toast (+ desktop notification) for new ones.
@@ -148,9 +187,13 @@ export default function AppShell() {
 
     fetchCustomEmojis(activeServerId).then(useServerStore.getState().setCustomEmojis).catch(console.error);
 
+    void useMembersStore.getState().load(activeServerId).catch(console.error);
+
     const socket = getSocket();
     socket?.emit(SocketEvents.ServerJoin, { serverId: activeServerId });
   }, [activeServerId, setChannels]);
+
+  const membersPanelOpen = useMembersStore((s) => s.panelOpen);
 
   return (
     <div className="app-shell">
@@ -178,6 +221,7 @@ export default function AppShell() {
           ) : (
             <WelcomeScreen />
           )}
+          {membersPanelOpen && activeServerId && <MemberListPanel />}
         </>
       )}
     </div>

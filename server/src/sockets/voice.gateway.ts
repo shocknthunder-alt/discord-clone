@@ -1,6 +1,7 @@
-import { BUILTIN_SOUNDS, SocketEvents, type SoundboardPlayedPayload, type VoicePeerInfo, type WebRTCSignal } from "@discord-clone/shared";
+import { BUILTIN_SOUNDS, Perm, SocketEvents, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo, type WebRTCSignal } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
+import { can, memberContext, outranks } from "../permissions.js";
 
 const voiceRosters = new Map<string, Map<string, VoicePeerInfo>>();
 const socketVoiceChannel = new Map<string, string>();
@@ -102,6 +103,39 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
       username,
     } satisfies SoundboardPlayedPayload);
   });
+
+  // Drag & drop in the channel list: move someone to another voice channel of the same server
+  // (voiceChannelId null = disconnect them). Needs "move members" and a higher rank than theirs.
+  // The moved client does the actual leave/join itself when it gets VoiceMoved.
+  socket.on(
+    SocketEvents.VoiceMoveMember,
+    async ({ userId: targetUserId, voiceChannelId: toChannelId }: { userId: string; voiceChannelId: string | null }) => {
+      if (typeof targetUserId !== "string") return;
+      // Where is that person now (in a voice channel of a server)?
+      let fromChannelId: string | null = null;
+      let targetSocketIds: string[] = [];
+      for (const [channelId, roster] of voiceRosters) {
+        const ids = Array.from(roster.values()).filter((p) => p.userId === targetUserId).map((p) => p.socketId);
+        if (ids.length) {
+          fromChannelId = channelId;
+          targetSocketIds = ids;
+          break;
+        }
+      }
+      if (!fromChannelId || fromChannelId === toChannelId) return;
+      const serverId = await getServerIdForVoiceChannel(fromChannelId);
+      if (!serverId) return; // a DM call, not a server channel
+      if (toChannelId && (await getServerIdForVoiceChannel(toChannelId)) !== serverId) return;
+
+      const actor = await can(userId, serverId, Perm.MOVE_MEMBERS);
+      const target = await memberContext(targetUserId, serverId);
+      if (!actor || !target || (targetUserId !== userId && !outranks(actor, target))) return;
+
+      for (const id of targetSocketIds) {
+        io.to(id).emit(SocketEvents.VoiceMoved, { voiceChannelId: toChannelId, byUsername: username } satisfies VoiceMovedPayload);
+      }
+    },
+  );
 
   // Lets a client see who's already in each voice channel before joining any of them —
   // fired whenever they open a server, independent of chat.gateway's own ServerJoin

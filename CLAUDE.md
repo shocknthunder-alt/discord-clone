@@ -40,6 +40,16 @@ Owner pronouns unknown: use they/them.
   RSVP ✅/🤔/❌, today banner + 📅 dot on the server icon, toasts for new events, personal reminders
   (Settings → Известия, 5/15/60 min) done client-side; the "Събития" bot posts in #general 15 min before
   (server, every 30 s — missed if Render is asleep). .ics + Google Calendar export.
+- **Ranks & permissions** (`Role`, `Membership.roleId`; bit flags in `packages/shared/src/permissions.ts`,
+  server checks in `server/src/permissions.ts` — `can()` / `outranks()`): one rank per member, default rank
+  "Член" auto-created; owner = everything; you only manage people/ranks BELOW yours. Server Settings has
+  Общи / Рангове / Членове tabs. Usernames are coloured by rank.
+- **Member list** on the right (👥 in the chat header toggles it): online grouped by rank, then offline,
+  🔊 shows who is in voice; click → message / rank / move / disconnect / kick. Voice channels show a count.
+  Drag a person onto another voice channel to move them (`voice:move-member` → `voice:moved`, the moved
+  client re-joins itself).
+- Voice HUD buttons are docked by default at the bottom of the channel list (2 rows of 4 + lock button);
+  `hudLayoutV2` reset everyone's saved HUD positions once.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
 ## Pending / ideas

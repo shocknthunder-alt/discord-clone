@@ -1,4 +1,5 @@
-import { BUILTIN_SOUNDS, SocketEvents, type SoundboardSoundDTO } from "@discord-clone/shared";
+import { BUILTIN_SOUNDS, Perm, SocketEvents, hasPerm, type SoundboardSoundDTO } from "@discord-clone/shared";
+import { useMembersStore } from "../store/membersStore";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { isCloudinaryConfigured, uploadAudioToCloudinary } from "../api/cloudinary";
@@ -82,7 +83,8 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
     setTimeout(() => setLastPlayed((id) => (id === sound.id ? null : id)), 400);
   }
 
-  const canEdit = (s: SoundboardSoundDTO) => !!s.uploaderId && (s.uploaderId === me || server?.ownerId === me);
+  const canManageAll = useMembersStore((st) => st.serverId === serverId && hasPerm(st.myPermissions, Perm.MANAGE_SOUNDBOARD));
+  const canEdit = (s: SoundboardSoundDTO) => !!s.uploaderId && (s.uploaderId === me || canManageAll || server?.ownerId === me);
 
   async function pickFile(file: File | undefined) {
     if (!file || !editing) return;

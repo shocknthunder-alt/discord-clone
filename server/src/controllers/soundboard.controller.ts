@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
-import { SocketEvents, type SoundboardSoundDTO } from "@discord-clone/shared";
+import { Perm, SocketEvents, hasPerm, type SoundboardSoundDTO } from "@discord-clone/shared";
 import { prisma } from "../db.js";
+import { can, memberContext } from "../permissions.js";
 
 export const SOUNDBOARD_MAX_MS = 10_000;
 const MAX_SOUNDS_PER_SERVER = 100;
@@ -35,7 +36,7 @@ export async function listSounds(req: Request, res: Response) {
 /** Anyone in the server can add a sound (the clip itself is uploaded to Cloudinary by the client). */
 export async function createSound(req: Request, res: Response) {
   const { serverId } = req.params;
-  if (!(await membership(req.userId!, serverId))) return res.status(403).json({ error: "Not a member of this server" });
+  if (!(await can(req.userId!, serverId, Perm.ADD_SOUNDS))) return res.status(403).json({ error: "Нямаш право да качваш звуци." });
 
   const { name, emoji, url, durationMs, volume } = req.body ?? {};
   const cleanName = typeof name === "string" ? name.trim() : "";
@@ -63,10 +64,10 @@ export async function createSound(req: Request, res: Response) {
 /** The uploader or the server owner can change a sound's volume / name / emoji. */
 export async function updateSound(req: Request, res: Response) {
   const { serverId, soundId } = req.params;
-  const member = await membership(req.userId!, serverId);
+  const member = await memberContext(req.userId!, serverId);
   const sound = await prisma.soundboardSound.findFirst({ where: { id: soundId, serverId } });
   if (!member || !sound) return res.status(404).json({ error: "Not found" });
-  if (sound.uploaderId !== req.userId && member.role !== "OWNER") return res.status(403).json({ error: "Само който го е качил." });
+  if (sound.uploaderId !== req.userId && !hasPerm(member.permissions, Perm.MANAGE_SOUNDBOARD)) return res.status(403).json({ error: "Само който го е качил." });
 
   const { name, emoji, volume } = req.body ?? {};
   const data: { name?: string; emoji?: string; volume?: number } = {};
@@ -81,10 +82,10 @@ export async function updateSound(req: Request, res: Response) {
 /** The uploader or the server owner can delete a sound. */
 export async function deleteSound(req: Request, res: Response) {
   const { serverId, soundId } = req.params;
-  const member = await membership(req.userId!, serverId);
+  const member = await memberContext(req.userId!, serverId);
   const sound = await prisma.soundboardSound.findFirst({ where: { id: soundId, serverId } });
   if (!member || !sound) return res.status(404).json({ error: "Not found" });
-  if (sound.uploaderId !== req.userId && member.role !== "OWNER") return res.status(403).json({ error: "Само който го е качил." });
+  if (sound.uploaderId !== req.userId && !hasPerm(member.permissions, Perm.MANAGE_SOUNDBOARD)) return res.status(403).json({ error: "Само който го е качил." });
   await prisma.soundboardSound.delete({ where: { id: sound.id } });
   notifyChanged(req, serverId);
   res.status(204).end();

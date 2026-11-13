@@ -41,6 +41,16 @@ export const SocketEvents = {
   /** server → server room: the soundboard list changed, refetch. */
   SoundboardChanged: "soundboard:changed",
 
+  // members & ranks
+  /** server → server room: members / ranks of server X changed, refetch. */
+  MembersChanged: "members:changed",
+  /** server → the kicked user's room. */
+  ServerKicked: "server:kicked",
+  /** client → server: move someone to another voice channel (null = disconnect them). */
+  VoiceMoveMember: "voice:move-member",
+  /** server → the moved person's socket. */
+  VoiceMoved: "voice:moved",
+
   // server events (📅 board)
   /** server → each member's user room: the events of server X changed, refetch. */
   EventsChanged: "events:changed",

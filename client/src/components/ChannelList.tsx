@@ -1,4 +1,4 @@
-import { SocketEvents, type TextChannelDTO, type VoiceChannelDTO, type VoicePeerInfo } from "@discord-clone/shared";
+import { Perm, SocketEvents, hasPerm, type TextChannelDTO, type VoiceChannelDTO, type VoicePeerInfo } from "@discord-clone/shared";
 import { useState } from "react";
 import { fetchChannels, reorderChannels } from "../api/channels.api";
 import { startConversationWith } from "../api/dm.api";
@@ -11,6 +11,8 @@ import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { isChannelUnread, useUnreadStore } from "../store/unreadStore";
 import { useAppPrefs } from "../utils/appPrefs";
+import { useMembersStore } from "../store/membersStore";
+import { hasSavedPosition } from "../utils/floatingPositions";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel, watchStream } from "../webrtc/useVoiceChannel";
@@ -42,14 +44,33 @@ function ParticipantAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | 
   );
 }
 
+const USER_DRAG_TYPE = "application/x-shmirka-user";
+
+/** Drag a person onto another voice channel to move them (needs "move members"). */
+function userDragProps(userId: string | null | undefined, canMove: boolean) {
+  if (!canMove || !userId) return {};
+  return {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.stopPropagation();
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData(USER_DRAG_TYPE, userId);
+      (e.currentTarget as HTMLElement).classList.add("dragging");
+    },
+    onDragEnd: (e: React.DragEvent) => (e.currentTarget as HTMLElement).classList.remove("dragging"),
+  };
+}
+
 function ParticipantRow({
   peer,
   onContextMenu,
   onWatch,
+  canMove,
 }: {
   peer: RemotePeer;
   onContextMenu: (e: React.MouseEvent, peer: RemotePeer) => void;
   onWatch: (socketId: string) => void;
+  canMove: boolean;
 }) {
   const speaking = useSpeakingDetection(peer.audioStream, !peer.isMuted);
   const watching = useWatchStore((s) => s.watching.has(peer.socketId));
@@ -57,6 +78,7 @@ function ParticipantRow({
   return (
     <div
       className="participant-row clickable"
+      {...userDragProps(peer.userId, canMove)}
       onClick={(e) => onContextMenu(e, peer)}
       onContextMenu={(e) => onContextMenu(e, peer)}
     >
@@ -89,9 +111,9 @@ function ParticipantRow({
   );
 }
 
-function OccupantRow({ occupant }: { occupant: VoicePeerInfo }) {
+function OccupantRow({ occupant, canMove }: { occupant: VoicePeerInfo; canMove: boolean }) {
   return (
-    <div className="participant-row">
+    <div className="participant-row" {...userDragProps(occupant.userId, canMove)}>
       <ParticipantAvatar avatarUrl={occupant.avatarUrl} name={occupant.username} speaking={false} />
       <span
         className={occupant.isScreenSharing ? "participant-name streaming" : "participant-name"}
@@ -138,7 +160,40 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const activeServer = servers.find((s) => s.id === activeServerId);
-  const isOwner = activeServer?.ownerId === currentUserId;
+  const myPerms = useMembersStore((s) => (s.serverId === activeServerId ? s.myPermissions : 0));
+  const reallyOwner = activeServer?.ownerId === currentUserId;
+  // "isOwner" here means "may manage channels" (a rank permission since ranks exist).
+  const isOwner = reallyOwner || hasPerm(myPerms, Perm.MANAGE_CHANNELS);
+  const canOpenServerSettings =
+    reallyOwner || hasPerm(myPerms, Perm.MANAGE_SERVER) || hasPerm(myPerms, Perm.MANAGE_ROLES) || hasPerm(myPerms, Perm.KICK_MEMBERS);
+  const canMove = reallyOwner || hasPerm(myPerms, Perm.MOVE_MEMBERS);
+  const [userDropId, setUserDropId] = useState<string | null>(null);
+  // The voice controls sit at the bottom of this list by default: leave room for them.
+  const hudDocked = !!activeVoiceChannelId && !hasSavedPosition("hud-mute");
+
+  function userDropProps(voiceChannelId: string) {
+    if (!canMove) return {};
+    const isUserDrag = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes(USER_DRAG_TYPE);
+    return {
+      onDragOverCapture: (e: React.DragEvent) => {
+        if (!isUserDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if (userDropId !== voiceChannelId) setUserDropId(voiceChannelId);
+      },
+      onDragLeave: (e: React.DragEvent) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setUserDropId((c) => (c === voiceChannelId ? null : c));
+      },
+      onDropCapture: (e: React.DragEvent) => {
+        if (!isUserDrag(e)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setUserDropId(null);
+        const userId = e.dataTransfer.getData(USER_DRAG_TYPE);
+        if (userId) getSocket()?.emit(SocketEvents.VoiceMoveMember, { userId, voiceChannelId });
+      },
+    };
+  }
 
 
   // Moves the dragged channel to the position of the one it was dropped on. Applied locally
@@ -238,7 +293,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
   return (
     <div className="channel-sidebar">
-      <div className="channel-sidebar-scroll">
+      <div className={`channel-sidebar-scroll ${hudDocked ? "hud-docked" : ""}`} onDragEnd={() => setUserDropId(null)}>
         {activeServer && (
           <>
             <div className="channel-sidebar-header">
@@ -258,8 +313,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                   ↺
                 </button>
               )}
-              {isOwner && (
-                <button className="server-settings-button" onClick={() => setShowServerSettings(true)} title="Server settings">
+              {canOpenServerSettings && (
+                <button className="server-settings-button" onClick={() => setShowServerSettings(true)} title="Настройки на сървъра">
                   ⚙️
                 </button>
               )}
@@ -305,16 +360,24 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
               {voiceChannels.map((channel) => {
                 const isActive = channel.id === activeVoiceChannelId;
                 const occupants = isActive ? null : channelOccupants.get(channel.id);
+                const count = isActive
+                  ? Array.from(peers.values()).filter((p) => p.userId).length + 1
+                  : (occupants?.length ?? 0);
                 return (
-                  <div key={channel.id}>
+                  <div key={channel.id} {...userDropProps(channel.id)}>
                     <div
                       {...dragProps("voice", channel.id)}
-                      className={`channel-item ${isActive ? "active" : ""} ${dragOverId === channel.id && drag?.kind === "voice" ? "drag-over" : ""}`}
+                      className={`channel-item ${isActive ? "active" : ""} ${dragOverId === channel.id && drag?.kind === "voice" ? "drag-over" : ""} ${userDropId === channel.id ? "user-drop-target" : ""}`}
                       onClick={() => handleVoiceClick(channel.id)}
                     >
                       <span className="channel-item-name">
                         <VoiceChannelIcon /> {channel.name}
                       </span>
+                      {count > 0 && (
+                        <span className="voice-count" title={`${count} в канала`}>
+                          {count}
+                        </span>
+                      )}
                       {isOwner && (
                         <button
                           className="channel-item-settings"
@@ -341,6 +404,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                                 watchStream(socketId);
                                 onSelectVoice();
                               }}
+                              canMove={canMove}
                             />
                           ))}
                         <div className="participant-row self">
@@ -371,7 +435,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                     {!isActive && occupants && occupants.length > 0 && (
                       <div className="voice-participant-list">
                         {occupants.map((occupant) => (
-                          <OccupantRow key={occupant.socketId} occupant={occupant} />
+                          <OccupantRow key={occupant.socketId} occupant={occupant} canMove={canMove} />
                         ))}
                       </div>
                     )}

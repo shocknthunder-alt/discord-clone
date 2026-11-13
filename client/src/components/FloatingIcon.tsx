@@ -53,6 +53,18 @@ export default function FloatingIcon({ id, getDefaultPosition, children }: Props
 
   // Never-dragged icons keep tracking the viewport-relative default position on resize —
   // explicitly dragged ones stay exactly where the user put them regardless of resize.
+  // An undragged icon's default can depend on page layout (e.g. docked under the channel list),
+  // which changes without a window resize — re-check it every second.
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (hasSavedPosition(id) || dragRef.current) return;
+      const d = getDefaultPosition();
+      setPos((p) => (Math.abs(p.x - d.x) > 1 || Math.abs(p.y - d.y) > 1 ? d : p));
+    }, 1000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   useEffect(() => {
     function handleResize() {
       if (!hasSavedPosition(id)) setPos(getDefaultPosition());

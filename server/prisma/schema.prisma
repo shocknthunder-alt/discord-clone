@@ -65,6 +65,7 @@ model Server {
   customEmojis  CustomEmoji[]
   soundboardSounds SoundboardSound[]
   events        ServerEvent[]
+  roles         Role[]
   textChannels  TextChannel[]
   voiceChannels VoiceChannel[]
 }
@@ -75,10 +76,13 @@ model Membership {
   userId   String
   serverId String
   role     String   @default("MEMBER")
+  /// Rank (null = the server's default rank).
+  roleId   String?
   joinedAt DateTime @default(now())
 
   user   User   @relation(fields: [userId], references: [id])
   server Server @relation(fields: [serverId], references: [id])
+  rank   Role?  @relation(fields: [roleId], references: [id], onDelete: SetNull)
 
   @@unique([userId, serverId])
 }
@@ -216,4 +220,22 @@ model EventRsvp {
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
+}
+
+// Server ranks. permissions = bit flags (see packages/shared/src/permissions.ts).
+model Role {
+  id          String   @id @default(cuid())
+  serverId    String
+  name        String
+  color       String?
+  /// Higher = higher rank; the default rank is 0.
+  position    Int      @default(1)
+  permissions Int      @default(0)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  server  Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  members Membership[]
+
+  @@index([serverId])
 }

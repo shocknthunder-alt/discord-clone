@@ -1,6 +1,7 @@
-import { SocketEvents, type ChannelActivityPayload } from "@discord-clone/shared";
+import { Perm, SocketEvents, type ChannelActivityPayload } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
+import { can } from "../permissions.js";
 import { handleTriviaMessage } from "../trivia/bot.js";
 
 export function groupReactions(rows: { emoji: string; userId: string }[]) {
@@ -170,8 +171,10 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
   );
 
   socket.on(SocketEvents.MessageDelete, async ({ messageId }: { messageId: string }) => {
-    const existing = await prisma.message.findUnique({ where: { id: messageId } });
-    if (!existing || existing.authorId !== userId) return;
+    const existing = await prisma.message.findUnique({ where: { id: messageId }, include: { textChannel: { select: { serverId: true } } } });
+    if (!existing) return;
+    // Your own message, or anyone's with "manage messages".
+    if (existing.authorId !== userId && !(await can(userId, existing.textChannel.serverId, Perm.MANAGE_MESSAGES))) return;
 
     await prisma.message.delete({ where: { id: messageId } });
 

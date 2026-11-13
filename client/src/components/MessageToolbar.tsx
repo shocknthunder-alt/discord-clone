@@ -1,4 +1,5 @@
-import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
+import { Perm, SocketEvents, type MessageDTO } from "@discord-clone/shared";
+import { usePerm } from "../store/membersStore";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -26,6 +27,7 @@ function sendReaction(messageId: string, emoji: string) {
 }
 
 export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Props) {
+  const canDeleteAny = usePerm(Perm.MANAGE_MESSAGES);
   const [popover, setPopover] = useState<"picker" | "menu" | null>(null);
   const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
   const [showAddEmoji, setShowAddEmoji] = useState(false);
@@ -145,7 +147,7 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
                     Copy message
                   </button>
                 )}
-                {isOwn && (
+                {(isOwn || canDeleteAny) && (
                   <button className="danger" onClick={handleDelete}>
                     Delete message…
                   </button>

@@ -1,6 +1,8 @@
+import { Perm } from "@discord-clone/shared";
 import type { Request, Response } from "express";
 import { SocketEvents } from "@discord-clone/shared";
 import { prisma } from "../db.js";
+import { can } from "../permissions.js";
 import { BOT_EMAIL as TRIVIA_BOT_EMAIL } from "../trivia/bot.js";
 
 // Tells everyone viewing the server to refetch its channel list, so renames and new
@@ -47,8 +49,8 @@ export async function createTextChannel(req: Request, res: Response) {
     return res.status(400).json({ error: "name is required" });
   }
 
-  const membership = await requireMembership(req.userId!, serverId);
-  if (!membership || membership.role !== "OWNER") {
+  const membership = await can(req.userId!, serverId, Perm.MANAGE_CHANNELS);
+  if (!membership) {
     return res.status(403).json({ error: "Only the server owner can create channels" });
   }
 
@@ -76,8 +78,8 @@ export async function updateTextChannel(req: Request, res: Response) {
     return res.status(404).json({ error: "Channel not found" });
   }
 
-  const membership = await requireMembership(req.userId!, textChannel.serverId);
-  if (!membership || membership.role !== "OWNER") {
+  const membership = await can(req.userId!, textChannel.serverId, Perm.MANAGE_CHANNELS);
+  if (!membership) {
     return res.status(403).json({ error: "Only the server owner can update this channel" });
   }
 
@@ -100,8 +102,8 @@ export async function createVoiceChannel(req: Request, res: Response) {
     return res.status(400).json({ error: "name is required" });
   }
 
-  const membership = await requireMembership(req.userId!, serverId);
-  if (!membership || membership.role !== "OWNER") {
+  const membership = await can(req.userId!, serverId, Perm.MANAGE_CHANNELS);
+  if (!membership) {
     return res.status(403).json({ error: "Only the server owner can create channels" });
   }
 
@@ -129,8 +131,8 @@ export async function updateVoiceChannel(req: Request, res: Response) {
     return res.status(404).json({ error: "Channel not found" });
   }
 
-  const membership = await requireMembership(req.userId!, voiceChannel.serverId);
-  if (!membership || membership.role !== "OWNER") {
+  const membership = await can(req.userId!, voiceChannel.serverId, Perm.MANAGE_CHANNELS);
+  if (!membership) {
     return res.status(403).json({ error: "Only the server owner can update this channel" });
   }
 
@@ -154,8 +156,8 @@ export async function reorderChannels(req: Request, res: Response) {
     return res.status(400).json({ error: "kind ('text'|'voice') and orderedIds are required" });
   }
 
-  const membership = await requireMembership(req.userId!, serverId);
-  if (!membership || membership.role !== "OWNER") {
+  const membership = await can(req.userId!, serverId, Perm.MANAGE_CHANNELS);
+  if (!membership) {
     return res.status(403).json({ error: "Only the server owner can reorder channels" });
   }
 

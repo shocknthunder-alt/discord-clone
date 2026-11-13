@@ -8,20 +8,46 @@ import SoundboardPanel from "./SoundboardPanel";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
 
-// Starting layout: a vertical column along the right edge — only the very first time (or
-// after "Reset Positions"); after that each icon's dragged-to spot takes over via
-// FloatingIcon's own localStorage persistence. Deliberately NOT bottom-center: that's
-// exactly where the message input bar sits in every view (text channel, DM, voice), so a
-// bottom-center default meant the HUD sat on top of it once locked in place.
-// Computed fresh on every call (not cached) — see FloatingIcon's getDefaultPosition prop
-// for why that matters: a value computed once at render time goes stale the moment the
-// viewport changes (DevTools opening/closing included), stranding icons mid-screen.
-function defaultColumnPosition(index: number, count: number) {
-  const spacing = 58;
-  const totalHeight = spacing * (count - 1);
-  const x = Math.max(16, window.innerWidth - 68);
-  const startY = Math.max(16, window.innerHeight / 2 - totalHeight / 2);
-  return { x, y: startY + index * spacing };
+// Starting layout: docked at the bottom of the channel list, just above "Voice Connected" —
+//   row 1: ping · screen share · camera · settings
+//   row 2: soundboard · deafen · mute · hang up
+//   then the lock button.
+// Only used until an icon is dragged (each dragged icon keeps its own spot). Computed fresh on
+// every call from where the sidebar actually is, so it follows window resizes and the music
+// player opening/closing (FloatingIcon re-checks undragged icons).
+const SPACING = 58;
+const ICON = 44;
+
+function dock() {
+  const sidebar = document.querySelector(".channel-sidebar")?.getBoundingClientRect();
+  if (!sidebar || sidebar.width === 0) return null;
+  const bar = document.querySelector(".voice-status-bar")?.getBoundingClientRect();
+  const bottom = bar && bar.height > 0 ? bar.top : sidebar.bottom - 130;
+  const rowWidth = SPACING * 3 + ICON;
+  return { left: sidebar.left + Math.max(4, (sidebar.width - rowWidth) / 2), centre: sidebar.left + sidebar.width / 2, bottom };
+}
+
+function dockPosition(col: number, row: number) {
+  const d = dock();
+  if (!d) return { x: Math.max(16, window.innerWidth - 68), y: 120 + (row * 4 + col) * SPACING };
+  return { x: d.left + col * SPACING, y: d.bottom - (row === 0 ? 220 : 162) };
+}
+
+function lockPosition() {
+  const d = dock();
+  if (!d) return { x: Math.max(16, window.innerWidth / 2 + 220), y: 14 };
+  return { x: d.centre - 62, y: d.bottom - 78 };
+}
+
+// The HUD used to start as a column on the right edge. Move everyone once to the new docked
+// layout (positions people dragged themselves included — they were mostly the old defaults).
+try {
+  if (!localStorage.getItem("hudLayoutV2")) {
+    for (const key of Object.keys(localStorage)) if (key.startsWith("floatingPos:hud-")) localStorage.removeItem(key);
+    localStorage.setItem("hudLayoutV2", "1");
+  }
+} catch {
+  // storage blocked — defaults apply anyway
 }
 
 export default function FloatingVoiceHud() {
@@ -35,13 +61,13 @@ export default function FloatingVoiceHud() {
 
   return (
     <>
-      <FloatingIcon id="hud-mute" getDefaultPosition={() => defaultColumnPosition(0, 7)}>
+      <FloatingIcon id="hud-mute" getDefaultPosition={() => dockPosition(2, 1)}>
         <button className={`hud-icon-button ${isMuted ? "active" : ""}`} onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
           <MicIcon muted={isMuted} size={24} />
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-deafen" getDefaultPosition={() => defaultColumnPosition(1, 7)}>
+      <FloatingIcon id="hud-deafen" getDefaultPosition={() => dockPosition(1, 1)}>
         <button
           className={`hud-icon-button ${isDeafened ? "active" : ""}`}
           onClick={toggleDeafen}
@@ -51,7 +77,7 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-screenshare" getDefaultPosition={() => defaultColumnPosition(2, 7)}>
+      <FloatingIcon id="hud-screenshare" getDefaultPosition={() => dockPosition(1, 0)}>
         <button
           className={`hud-icon-button ${isScreenSharing ? "active live" : ""}`}
           onClick={() => toggleScreenShare()}
@@ -61,7 +87,7 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-camera" getDefaultPosition={() => defaultColumnPosition(3, 7)}>
+      <FloatingIcon id="hud-camera" getDefaultPosition={() => dockPosition(2, 0)}>
         <button
           className={`hud-icon-button ${isCameraOn ? "active" : ""}`}
           onClick={() => void toggleCamera()}
@@ -71,27 +97,26 @@ export default function FloatingVoiceHud() {
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-disconnect" getDefaultPosition={() => defaultColumnPosition(4, 7)}>
+      <FloatingIcon id="hud-disconnect" getDefaultPosition={() => dockPosition(3, 1)}>
         <button className="hud-icon-button hangup" onClick={leaveVoiceChannel} title="Disconnect">
           <HangupIcon size={24} />
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-settings" getDefaultPosition={() => defaultColumnPosition(5, 7)}>
+      <FloatingIcon id="hud-settings" getDefaultPosition={() => dockPosition(3, 0)}>
         <button className="hud-icon-button" onClick={() => setShowSettings(true)} title="Settings">
           ⚙️
         </button>
       </FloatingIcon>
 
-      <FloatingIcon id="hud-network" getDefaultPosition={() => defaultColumnPosition(6, 7)}>
+      <FloatingIcon id="hud-network" getDefaultPosition={() => dockPosition(0, 0)}>
         <div className="hud-icon-button static" title={`Connection: ${connectionQuality}${localRttMs !== null ? ` — ${localRttMs}ms (твоят пинг)` : ""}`}>
           <SignalIcon quality={connectionQuality} size={localRttMs !== null ? 16 : 20} />
           {localRttMs !== null && <span className="hud-ping">{localRttMs}ms</span>}
         </div>
       </FloatingIcon>
 
-      {/* Below the existing column (index 7 of the same 7-slot layout), so nobody's saved icon positions shift. */}
-      <FloatingIcon id="hud-soundboard" getDefaultPosition={() => defaultColumnPosition(7, 7)}>
+      <FloatingIcon id="hud-soundboard" getDefaultPosition={() => dockPosition(0, 1)}>
         <button
           className={`hud-icon-button ${showSoundboard ? "active" : ""}`}
           onClick={() => setShowSoundboard((v) => !v)}
@@ -102,7 +127,7 @@ export default function FloatingVoiceHud() {
       </FloatingIcon>
 
       {/* Movable like the other icons, but only while the layout is unlocked. */}
-      <FloatingIcon id="hud-lock" getDefaultPosition={() => ({ x: Math.max(16, window.innerWidth / 2 + 220), y: 14 })}>
+      <FloatingIcon id="hud-lock" getDefaultPosition={lockPosition}>
         <button
           className={`hud-lock-button ${locked ? "locked" : "unlocked"}`}
           onClick={toggleLocked}

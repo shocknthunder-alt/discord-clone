@@ -2,7 +2,9 @@ import type { Request, Response } from "express";
 import {
   EVENT_ARCHIVE_AFTER_MS,
   EVENT_DEFAULT_LENGTH_MS,
+  Perm,
   SocketEvents,
+  hasPerm,
   type EventCreatedPayload,
   type EventRecurrence,
   type EventRsvpStatus,
@@ -10,6 +12,7 @@ import {
 } from "@discord-clone/shared";
 import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
+import { can, memberContext } from "../permissions.js";
 
 const MAX_UPCOMING_PER_SERVER = 50;
 const RECURRENCES: EventRecurrence[] = ["none", "daily", "weekly"];
@@ -169,7 +172,7 @@ export async function listArchive(req: Request, res: Response) {
 /** Anyone in the server can create an event; the creator is signed up as "going". */
 export async function createEvent(req: Request, res: Response) {
   const serverId = String(req.body?.serverId ?? "");
-  if (!(await membership(req.userId!, serverId))) return res.status(403).json({ error: "Not a member of this server" });
+  if (!(await can(req.userId!, serverId, Perm.CREATE_EVENTS))) return res.status(403).json({ error: "Нямаш право да създаваш събития." });
   const parsed = await parseInput(req.body ?? {}, serverId);
   if (typeof parsed === "string") return res.status(400).json({ error: parsed });
   if (parsed.startsAt.getTime() < Date.now() - 10 * 60_000) return res.status(400).json({ error: "Началото е в миналото." });
@@ -198,9 +201,9 @@ export async function createEvent(req: Request, res: Response) {
 async function editable(req: Request) {
   const event = await prisma.serverEvent.findUnique({ where: { id: req.params.eventId } });
   if (!event) return null;
-  const member = await membership(req.userId!, event.serverId);
+  const member = await memberContext(req.userId!, event.serverId);
   if (!member) return null;
-  return { event, canEdit: event.creatorId === req.userId || member.role === "OWNER" };
+  return { event, canEdit: event.creatorId === req.userId || hasPerm(member.permissions, Perm.MANAGE_EVENTS) };
 }
 
 /** The creator or the server owner. */

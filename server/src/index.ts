@@ -58,7 +58,8 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     handleVoiceDisconnect(io, socket);
-    void broadcastPresence(io, userId, "offline");
+    // Still connected from another device/tab → still online.
+    if ((io.sockets.adapter.rooms.get(`user:${userId}`)?.size ?? 0) === 0) void broadcastPresence(io, userId, "offline");
   });
 });
 

@@ -1,10 +1,11 @@
-import { splitAttendees, type EventInput, type EventRecurrence, type EventRsvpDTO, type EventRsvpStatus, type ServerEventDTO } from "@discord-clone/shared";
+import { Perm, hasPerm, splitAttendees, type EventInput, type EventRecurrence, type EventRsvpDTO, type EventRsvpStatus, type ServerEventDTO } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { createEvent, deleteEvent, fetchEventArchive, setRsvp, updateEvent } from "../api/events.api";
 import { useAuthStore } from "../store/authStore";
 import { countdown, isEnded, isRunning, upcomingOf, useEventsStore } from "../store/eventsStore";
 import { useServerStore } from "../store/serverStore";
+import { useMembersStore } from "../store/membersStore";
 import { linkifyText } from "../utils/linkify";
 import {
   RECURRENCE_LABEL,
@@ -210,6 +211,8 @@ function EventDetail({
   const closeBoard = useEventsStore((s) => s.closeBoard);
   const me = useAuthStore((s) => s.user?.id);
   const servers = useServerStore((s) => s.servers);
+  const membersServer = useMembersStore((s) => s.serverId);
+  const myPerms = useMembersStore((s) => s.myPermissions);
   const placeOf = usePlace();
   const now = useNow(15_000);
   const [busy, setBusy] = useState(false);
@@ -235,7 +238,7 @@ function EventDetail({
   }
 
   const owner = servers.find((s) => s.id === e.serverId)?.ownerId;
-  const canEdit = e.creatorId === me || owner === me;
+  const canEdit = e.creatorId === me || owner === me || (membersServer === e.serverId && hasPerm(myPerms, Perm.MANAGE_EVENTS));
   const { going, reserves, maybe } = splitAttendees(e);
   const no = e.rsvps.filter((r) => r.status === "no");
   const mine = e.rsvps.find((r) => r.userId === me)?.status ?? null;

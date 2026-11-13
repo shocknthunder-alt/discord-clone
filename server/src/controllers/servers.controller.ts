@@ -1,5 +1,8 @@
 import type { Request, Response } from "express";
+import { Perm, SocketEvents } from "@discord-clone/shared";
+import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
+import { can } from "../permissions.js";
 
 export async function listServers(req: Request, res: Response) {
   const memberships = await prisma.membership.findMany({
@@ -70,11 +73,8 @@ export async function updateServer(req: Request, res: Response) {
   const { serverId } = req.params;
   const { name, iconUrl } = req.body ?? {};
 
-  const membership = await prisma.membership.findUnique({
-    where: { userId_serverId: { userId: req.userId!, serverId } },
-  });
-  if (!membership || membership.role !== "OWNER") {
-    return res.status(403).json({ error: "Only the server owner can update the server" });
+  if (!(await can(req.userId!, serverId, Perm.MANAGE_SERVER))) {
+    return res.status(403).json({ error: "Нямаш право да променяш сървъра." });
   }
 
   if (name !== undefined && (typeof name !== "string" || !name.trim())) {
@@ -112,6 +112,7 @@ export async function joinServer(req: Request, res: Response) {
     create: { userId: req.userId!, serverId: server.id, role: "MEMBER" },
   });
 
+  (req.app.get("io") as IOServer | undefined)?.to(`server:${server.id}`).emit(SocketEvents.MembersChanged, { serverId: server.id });
   res.status(201).json({ server, membership });
 }
 
@@ -135,8 +136,8 @@ export async function listCustomEmojis(req: Request, res: Response) {
 export async function createCustomEmoji(req: Request, res: Response) {
   const { serverId } = req.params;
   const { name, imageUrl } = req.body ?? {};
-  if (!(await requireMember(req.userId!, serverId))) {
-    return res.status(403).json({ error: "Not a member of this server" });
+  if (!(await can(req.userId!, serverId, Perm.ADD_EMOJIS))) {
+    return res.status(403).json({ error: "Нямаш право да добавяш емоджита." });
   }
   if (typeof name !== "string" || !/^[a-z0-9_]{2,32}$/.test(name)) {
     return res.status(400).json({ error: "Name must be 2-32 characters: lowercase letters, numbers, underscores" });

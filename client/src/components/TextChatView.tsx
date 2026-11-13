@@ -1,9 +1,10 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
-import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
+import { Perm, SocketEvents, hasPerm, type MessageDTO } from "@discord-clone/shared";
 import ChatImage, { LinkedImages } from "./ChatImage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { useSearchStore } from "../store/searchStore";
+import { useMemberColor, useMembersStore } from "../store/membersStore";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -61,6 +62,8 @@ function MessageRow({
     setEditing(false);
   }
 
+  const authorColor = useMemberColor(message.authorId);
+
   function cancelEdit() {
     setDraft(message.content);
     setEditing(false);
@@ -77,7 +80,7 @@ function MessageRow({
           onEdit={() => setEditing(true)}
         />
       )}
-      <span className="author" onClick={(e) => onAuthorClick(e, message)}>
+      <span className="author" style={authorColor ? { color: authorColor } : undefined} onClick={(e) => onAuthorClick(e, message)}>
         {message.authorUsername}
       </span>
       <span className="timestamp">{formatTime(message.createdAt)}</span>
@@ -159,7 +162,8 @@ export default function TextChatView({ channelId }: Props) {
 
   const channel = textChannels.find((c) => c.id === channelId);
   const activeServer = servers.find((s) => s.id === activeServerId);
-  const isOwner = activeServer?.ownerId === currentUserId;
+  const isOwner = useMembersStore((s) => hasPerm(s.myPermissions, Perm.MANAGE_CHANNELS)) || activeServer?.ownerId === currentUserId;
+  const membersPanelOpen = useMembersStore((s) => s.panelOpen);
   const allMessages = (messagesByChannel[channelId] ?? []).filter((m) => !ignoredUserIds.has(m.authorId));
   // Threads are flat (never nested), so any message's replyTo.id already IS the thread
   // root — replies never show inline in the channel, only as the "N replies" summary
@@ -318,6 +322,13 @@ export default function TextChatView({ channelId }: Props) {
         <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : "#"} {channel?.name ?? ""}</span>
         <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title="Search messages (Ctrl+K)">
           🔍
+        </button>
+        <button
+          className={`server-settings-button members-toggle ${membersPanelOpen ? "on" : ""}`}
+          onClick={() => useMembersStore.getState().togglePanel()}
+          title={membersPanelOpen ? "Скрий членовете" : "Покажи членовете"}
+        >
+          👥
         </button>
         {isOwner && (
           <button className="server-settings-button" onClick={() => setShowChannelSettings(true)} title="Channel settings">
