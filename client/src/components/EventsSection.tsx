@@ -1,14 +1,14 @@
 import { splitAttendees } from "@discord-clone/shared";
 import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
-import { countdown, isRunning, todaysEvent, upcomingOf, useEventsStore } from "../store/eventsStore";
+import { countdown, isRunning, isToday, todaysEvent, upcomingOf, useEventsStore } from "../store/eventsStore";
 import { useServerStore } from "../store/serverStore";
-import { fmtDay, fmtTime, useNow } from "./eventUtils";
+import { fmtTime, useNow } from "./eventUtils";
 import "./events.css";
 
 const COLLAPSE_KEY = "eventsSectionCollapsed";
 
-/** "📅 Събития" above the text channels: today's banner + the next 3 events. */
+/** "📅 Събития" above the text channels: only today's events (banner + the rest); everything else is under "Всички". */
 export default function EventsSection() {
   const activeServerId = useServerStore((s) => s.activeServerId);
   const events = useEventsStore((s) => s.events);
@@ -20,6 +20,8 @@ export default function EventsSection() {
 
   const upcoming = upcomingOf(events, activeServerId, now);
   const today = todaysEvent(upcoming, now);
+  // Only today's events live here (the banner one isn't repeated); later ones are under "Всички".
+  const todayRest = upcoming.filter((e) => e.id !== today?.id && (isToday(e, now) || isRunning(e, now)));
   const seen = activeServerId ? (seenAt[activeServerId] ?? 0) : 0;
   const isNew = (createdAt: string, creatorId: string) => creatorId !== me && Date.parse(createdAt) > seen;
   const newCount = upcoming.filter((e) => isNew(e.createdAt, e.creatorId)).length;
@@ -64,7 +66,12 @@ export default function EventsSection() {
               Няма събития — ＋ създай
             </button>
           )}
-          {upcoming.slice(0, 3).map((e) => {
+          {upcoming.length > 0 && !today && todayRest.length === 0 && (
+            <button className="ev-mini-empty" onClick={() => openBoard()}>
+              Днес няма събития · виж всички →
+            </button>
+          )}
+          {todayRest.map((e) => {
             const mine = e.rsvps.find((r) => r.userId === me)?.status;
             return (
               <button key={e.id} className="ev-mini" onClick={() => openBoard({ eventId: e.id })}>
@@ -77,7 +84,7 @@ export default function EventsSection() {
                     {e.title}
                   </span>
                   <span className="ev-mini-meta">
-                    {fmtDay(e.startsAt)} · {fmtTime(e.startsAt)} · {countdown(e, now)}
+                    {fmtTime(e.startsAt)} · {countdown(e, now)}
                   </span>
                 </span>
                 <span className={`ev-mini-count ${mine ?? ""}`} title={mine === "going" ? "Записан си" : undefined}>
@@ -86,11 +93,6 @@ export default function EventsSection() {
               </button>
             );
           })}
-          {upcoming.length > 3 && (
-            <button className="ev-mini-more" onClick={() => openBoard()}>
-              още {upcoming.length - 3}…
-            </button>
-          )}
         </div>
       )}
     </div>
