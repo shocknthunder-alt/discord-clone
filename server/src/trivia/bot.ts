@@ -121,16 +121,29 @@ function distance(a: string, b: string): number {
   return prev[b.length]!;
 }
 
+/**
+ * Typos are forgiven word by word, and only in longer words: a whole-answer budget used to let
+ * "Томи штарк" pass for "Тони Старк" (two small slips in two short words = a different name).
+ * Short words (≤5 letters) and numbers must be exact; the first letter of a word must be right;
+ * 6–10 letters allow one slip, 11+ letters two.
+ */
+function wordMatches(guess: string, target: string): boolean {
+  if (guess === target) return true;
+  if (/\p{N}/u.test(target) || guess[0] !== target[0]) return false;
+  const allowed = target.length >= 11 ? 2 : target.length >= 6 ? 1 : 0;
+  return allowed > 0 && Math.abs(guess.length - target.length) <= allowed && distance(guess, target) <= allowed;
+}
+
 function isCorrect(text: string, q: TriviaQuestion): boolean {
   const guess = normalize(text);
   if (!guess || guess.length > 60) return false;
   for (const candidate of [q.answer, ...q.aliases]) {
     const target = normalize(candidate);
     if (!target) continue;
-    if (guess === target) return true;
-    // forgive a typo or two in longer answers
-    const allowed = target.length >= 9 ? 2 : target.length >= 5 ? 1 : 0;
-    if (allowed && Math.abs(guess.length - target.length) <= allowed && distance(guess, target) <= allowed) return true;
+    if (guess === target || guess.replace(/ /g, "") === target.replace(/ /g, "")) return true;
+    const gw = guess.split(" ");
+    const tw = target.split(" ");
+    if (gw.length === tw.length && tw.every((w, i) => wordMatches(gw[i]!, w))) return true;
   }
   return false;
 }
