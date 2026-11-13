@@ -4,6 +4,7 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import AppShell from "./pages/AppShell";
 import UpdateBanner from "./components/UpdateBanner";
+import DesktopAppBanner from "./components/DesktopAppBanner";
 import ScreenSourcePicker from "./components/ScreenSourcePicker";
 import ThemeFlames from "./components/ThemeFlames";
 
@@ -17,6 +18,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <UpdateBanner />
+      <DesktopAppBanner />
       <ScreenSourcePicker />
       <ThemeFlames />
       <Routes>
