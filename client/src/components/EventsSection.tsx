@@ -20,8 +20,8 @@ export default function EventsSection() {
 
   const upcoming = upcomingOf(events, activeServerId, now);
   const today = todaysEvent(upcoming, now);
-  // Only today's events live here (the banner one isn't repeated); later ones are under "Всички".
-  const todayRest = upcoming.filter((e) => e.id !== today?.id && (isToday(e, now) || isRunning(e, now)));
+  // Only today's events are listed here (the banner one too); later ones are under "Всички".
+  const todayRest = upcoming.filter((e) => isToday(e, now) || isRunning(e, now));
   const seen = activeServerId ? (seenAt[activeServerId] ?? 0) : 0;
   const isNew = (createdAt: string, creatorId: string) => creatorId !== me && Date.parse(createdAt) > seen;
   const newCount = upcoming.filter((e) => isNew(e.createdAt, e.creatorId)).length;
@@ -66,7 +66,7 @@ export default function EventsSection() {
               Няма събития — ＋ създай
             </button>
           )}
-          {upcoming.length > 0 && !today && todayRest.length === 0 && (
+          {upcoming.length > 0 && todayRest.length === 0 && (
             <button className="ev-mini-empty" onClick={() => openBoard()}>
               Днес няма събития · виж всички →
             </button>
