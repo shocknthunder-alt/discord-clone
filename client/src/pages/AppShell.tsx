@@ -193,7 +193,6 @@ export default function AppShell() {
     socket?.emit(SocketEvents.ServerJoin, { serverId: activeServerId });
   }, [activeServerId, setChannels]);
 
-  const membersPanelOpen = useMembersStore((s) => s.panelOpen);
 
   return (
     <div className="app-shell">
@@ -221,7 +220,7 @@ export default function AppShell() {
           ) : (
             <WelcomeScreen />
           )}
-          {membersPanelOpen && activeServerId && <MemberListPanel />}
+          {activeServerId && <MemberListPanel />}
         </>
       )}
     </div>

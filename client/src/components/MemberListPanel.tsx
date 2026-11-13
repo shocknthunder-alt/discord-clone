@@ -26,6 +26,8 @@ function useVoiceWhereabouts() {
 export default function MemberListPanel() {
   const members = useMembersStore((s) => s.members);
   const roles = useMembersStore((s) => s.roles);
+  const open = useMembersStore((s) => s.panelOpen);
+  const togglePanel = useMembersStore((s) => s.togglePanel);
   const where = useVoiceWhereabouts();
   const [menu, setMenu] = useState<{ member: MemberDTO; x: number; y: number } | null>(null);
 
@@ -44,10 +46,30 @@ export default function MemberListPanel() {
   const rest = online.filter((m) => !m.isOwner && !roles.some((r) => !r.isDefault && r.id === m.roleId)).sort(byName);
   if (rest.length) groups.push({ key: "online", label: "Онлайн", color: null, people: rest });
 
+  if (!open) {
+    return (
+      <aside className="members-panel collapsed">
+        <button className="members-rail" onClick={togglePanel} title="Покажи членовете">
+          <span className="members-rail-arrow">‹</span>
+          <span className="members-rail-icon">👥</span>
+          <span className="members-rail-count">
+            <span className="members-dot on" />
+            {online.length}
+          </span>
+        </button>
+      </aside>
+    );
+  }
+
   return (
     <aside className="members-panel">
       <div className="members-head">
-        <span>Членове — {members.length}</span>
+        <span className="members-title">
+          Членове — {members.length}
+          <button className="members-collapse" onClick={togglePanel} title="Скрий членовете" aria-label="Скрий членовете">
+            ›
+          </button>
+        </span>
         <span className="members-counts">
           <span className="members-dot on" /> {online.length} онлайн · <span className="members-dot" /> {offline.length} офлайн
         </span>
