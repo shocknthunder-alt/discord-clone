@@ -15,9 +15,13 @@ import {
   getNoiseGateSensitivity,
   getNoiseSuppressionEnabled,
   getPreferredMicDeviceId,
+  getScreenShareAutoRefreshMin,
+  getScreenShareEncoder,
   listMicDevices,
   listSpeakerDevices,
   setPreferredMicDeviceId,
+  setScreenShareAutoRefreshMin,
+  setScreenShareEncoder,
   supportsOutputDeviceSelection,
 } from "../webrtc/devicePrefs";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -209,6 +213,8 @@ interface Draft {
   shareMode: "smooth" | "sharp";
   shareQuality: "low" | "standard" | "high";
   simulcast: boolean;
+  shareEncoder: "gpu" | "cpu";
+  shareAutoRefresh: number;
   frameId: string;
   chatFontSize: number;
   clock24h: boolean;
@@ -246,6 +252,8 @@ function readCurrent(): Draft {
     shareMode: v.screenShareMode,
     shareQuality: v.screenShareQuality,
     simulcast: v.screenShareSimulcast,
+    shareEncoder: getScreenShareEncoder(),
+    shareAutoRefresh: getScreenShareAutoRefreshMin(),
     frameId: useStreamFrameStore.getState().frameId,
     chatFontSize: p.chatFontSize,
     clock24h: p.clock24h,
@@ -409,6 +417,8 @@ export default function UserSettingsModal({ onClose }: Props) {
       if (has("shareMode")) voice.setScreenShareMode(d.shareMode);
       if (has("shareQuality")) voice.setScreenShareQuality(d.shareQuality);
       if (has("simulcast")) setScreenShareSimulcast(d.simulcast);
+      if (has("shareEncoder")) setScreenShareEncoder(d.shareEncoder);
+      if (has("shareAutoRefresh")) setScreenShareAutoRefreshMin(d.shareAutoRefresh);
       if (has("frameId")) setStreamFrameId(d.frameId);
       if (has("themeId")) applyTheme(d.themeId, true);
       setPrefs({
@@ -724,6 +734,41 @@ export default function UserSettingsModal({ onClose }: Props) {
                       onSelect={() => edit({ shareMode: "sharp" })}
                     />
                   </div>
+                </Card>
+
+                <Card
+                  title="Кодиране"
+                  hint="Важи от следващото пускане на стрийм. „Процесор“ е за видеокарти, чийто енкодер засича играта (напр. някои AMD) — натоварва процесора повече."
+                >
+                  <div className="set-choices">
+                    <Choice
+                      name="share-encoder"
+                      checked={draft.shareEncoder === "gpu"}
+                      title="Видеокарта"
+                      hint="По подразбиране. Най-леко за компютъра."
+                      onSelect={() => edit({ shareEncoder: "gpu" })}
+                    />
+                    <Choice
+                      name="share-encoder"
+                      checked={draft.shareEncoder === "cpu"}
+                      title="Процесор"
+                      hint="Софтуерно кодиране — пробвай, ако играта губи fps, докато стриймваш."
+                      onSelect={() => edit({ shareEncoder: "cpu" })}
+                    />
+                  </div>
+                  <div className="set-slider">
+                    <span>Освежавай енкодера</span>
+                    <select className="set-input" value={draft.shareAutoRefresh} onChange={(e) => edit({ shareAutoRefresh: Number(e.target.value) })}>
+                      <option value={0}>Никога</option>
+                      <option value={3}>на всеки 3 мин</option>
+                      <option value={5}>на всеки 5 мин</option>
+                      <option value={8}>на всеки 8 мин</option>
+                    </select>
+                  </div>
+                  <p className="set-hint">
+                    Ако играта ти започва да засича след няколко минути стрийм и спирането/пускането го оправя — това го прави
+                    само (зрителите виждат само миг пауза). Ръчно: бутонът 🔄 в панела 📊 на стрийма.
+                  </p>
                 </Card>
 
                 <Card title="Качество" hint="Важи от следващото пускане на стрийм.">

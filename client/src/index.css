@@ -2902,6 +2902,12 @@ input[type="range"] {
 .stream-stats-collapse { border: none; border-radius: 6px; padding: 3px 10px; background: var(--c-panel); color: var(--t-2); font-size: 11px; cursor: pointer; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5); }
 .stream-stats-collapse:hover { color: var(--t-1); }
 .stream-stats-tip { margin-top: 8px; padding: 6px 8px; border-radius: 6px; background: rgba(240, 178, 50, 0.15); }
+.stream-stats-refresh {
+  margin-top: 8px; width: 100%; padding: 6px 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06); color: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.stream-stats-refresh:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.25); border-color: rgba(var(--accent-rgb), 0.5); }
+.stream-stats-refresh:disabled { opacity: 0.6; cursor: default; }
 
 /* Stream volume control (viewer) */
 .screen-share-wrap { position: relative; display: inline-flex; max-width: 100%; }

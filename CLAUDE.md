@@ -72,4 +72,8 @@ Owner pronouns unknown: use they/them.
 - Older deployed clients keep talking to the shared server: change it additively.
 - Screen-share bitrate ceilings (SfuMediaManager): Light 7 / Standard 14 / High 40 Mbps (Sharp a bit more);
   too-low ceilings = "smears when moving". Viewers get `jitterBufferTarget = 120` ms on screen consumers.
+  Settings → Stream → Кодиране: GPU (H.264 High) / CPU (Baseline OpenH264 or VP8) + auto "refresh encoder"
+  every 3/5/8 min; 🔄 in the 📊 panel = `refreshScreenVideo()` (new producer, same track, `stopTracks:false`;
+  media server closes the old one; viewers keep watching via a 4 s grace in handleProducerClosed). Added for
+  a friend on RX 7900 XTX whose game lost fps ~every 10 min of streaming until the share was restarted.
   Browser sharers on Firefox show "H264 · процесор", no "Енкодер" row, ~30 fps — tell them to use the desktop app.

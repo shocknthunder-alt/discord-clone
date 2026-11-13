@@ -27,6 +27,31 @@ export function setScreenShareSimulcast(on: boolean) {
   localStorage.setItem(SCREEN_SHARE_SIMULCAST_KEY, on ? "1" : "0");
 }
 
+const SCREEN_SHARE_ENCODER_KEY = "screenShareEncoder";
+
+/** "gpu": H.264 High (hardware where the browser has it). "cpu": software encoding. */
+export type ScreenShareEncoder = "gpu" | "cpu";
+
+export function getScreenShareEncoder(): ScreenShareEncoder {
+  return localStorage.getItem(SCREEN_SHARE_ENCODER_KEY) === "cpu" ? "cpu" : "gpu";
+}
+
+export function setScreenShareEncoder(encoder: ScreenShareEncoder) {
+  localStorage.setItem(SCREEN_SHARE_ENCODER_KEY, encoder);
+}
+
+const SCREEN_SHARE_AUTO_REFRESH_KEY = "screenShareAutoRefreshMin";
+
+/** Minutes between automatic encoder refreshes while sharing (0 = never). */
+export function getScreenShareAutoRefreshMin(): number {
+  const n = Number(localStorage.getItem(SCREEN_SHARE_AUTO_REFRESH_KEY) || 0);
+  return [0, 3, 5, 8].includes(n) ? n : 0;
+}
+
+export function setScreenShareAutoRefreshMin(min: number) {
+  localStorage.setItem(SCREEN_SHARE_AUTO_REFRESH_KEY, String(min));
+}
+
 const SCREEN_SHARE_MODE_KEY = "screenShareMode";
 
 /** "smooth": keep the frame rate up (games, clips). "sharp": keep every pixel (text, slides). */

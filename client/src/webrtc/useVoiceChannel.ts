@@ -98,6 +98,11 @@ export function getScreenShareStats() {
   return activeMediaManager?.getScreenStats() ?? Promise.resolve(null);
 }
 
+/** New encoder for your running screen share, same capture; viewers keep watching. */
+export function refreshScreenShare(): Promise<boolean> {
+  return activeMediaManager?.refreshScreenVideo() ?? Promise.resolve(false);
+}
+
 /**
  * Watch / stop watching a screen share. Streams are only downloaded while watched — nothing is
  * shown or heard by default. Your own share (SELF_STREAM_KEY) is just a local preview.

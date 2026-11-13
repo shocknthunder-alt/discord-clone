@@ -1,5 +1,6 @@
 import { Device, type types as MsTypes } from "mediasoup-client";
 import type { Socket } from "socket.io-client";
+import { getScreenShareAutoRefreshMin, getScreenShareEncoder } from "./devicePrefs";
 
 export type ConnectionQuality = "good" | "medium" | "poor" | "unknown";
 
@@ -281,9 +282,14 @@ export class SfuMediaManager {
       const forUser = this.pendingScreens.get(parked.userId);
       forUser?.delete(producerId);
       if (forUser && forUser.size === 0) this.pendingScreens.delete(parked.userId);
-      // A share that ended needs a fresh click to watch its successor.
-      const stillSharing = [...this.screenPayloads.values()].some((p) => p.userId === parked.userId);
-      if (!stillSharing) this.watchedScreens.delete(parked.userId);
+      // A share that ended needs a fresh click to watch its successor. Checked a moment later: the
+      // streamer's "refresh encoder" replaces the producer (old one closes first), and a viewer
+      // must keep watching through that.
+      const userId = parked.userId;
+      setTimeout(() => {
+        const stillSharing = [...this.screenPayloads.values()].some((p) => p.userId === userId);
+        if (!stillSharing) this.watchedScreens.delete(userId);
+      }, 4000);
     }
     const consumer = this.consumers.get(producerId);
     const meta = this.producerMeta.get(producerId);
@@ -344,6 +350,74 @@ export class SfuMediaManager {
 
     const videoTrack = screenStream.getVideoTracks()[0];
     if (videoTrack) {
+      this.screenVideoTrack = videoTrack;
+      this.screenShareArgs = { quality, mode, simulcast };
+      this.screenVideoProducer = await this.produceScreenVideo(videoTrack, quality, mode, simulcast);
+      const everyMin = getScreenShareAutoRefreshMin();
+      if (this.screenAutoRefreshTimer) clearInterval(this.screenAutoRefreshTimer);
+      this.screenAutoRefreshTimer =
+        everyMin > 0
+          ? setInterval(() => void this.refreshScreenVideo().catch((err) => console.warn("auto refresh failed", err)), everyMin * 60_000)
+          : null;
+    }
+
+    this.startScreenBitrateAdaptation();
+
+    const audioTrack = screenStream.getAudioTracks()[0];
+    if (audioTrack) {
+      this.screenAudioProducer = await this.sendTransport.produce({
+        track: audioTrack,
+        appData: { type: "screen-audio" } satisfies ProducerAppData,
+      });
+    }
+  }
+
+  private screenVideoTrack: MediaStreamTrack | null = null;
+  private screenAutoRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private screenShareArgs: { quality: "low" | "standard" | "high"; mode: "smooth" | "sharp"; simulcast: boolean } | null = null;
+
+  /**
+   * Starts a brand-new encoder for the same captured picture and swaps it in; viewers keep
+   * watching (they just get the new stream). Fixes a sharer's machine that bogs down after a while
+   * (seen with AMD's encoder: the game loses fps until the share is restarted).
+   */
+  async refreshScreenVideo(): Promise<boolean> {
+    const track = this.screenVideoTrack;
+    const args = this.screenShareArgs;
+    const old = this.screenVideoProducer;
+    if (this.refreshingScreen || !this.sendTransport || !track || track.readyState !== "live" || !args || !old) return false;
+    this.refreshingScreen = true;
+    try {
+      this.stopScreenBitrateAdaptation();
+      // The media server closes the old producer (one per type) as soon as the new one arrives.
+      const next = await this.produceScreenVideo(track, args.quality, args.mode, args.simulcast);
+      if (this.screenVideoTrack !== track) {
+        // The share was stopped meanwhile.
+        this.socket.emit("sfu:close-producer", { roomId: this.roomId, producerId: next.id });
+        next.close();
+        return false;
+      }
+      this.screenVideoProducer = next;
+      this.socket.emit("sfu:close-producer", { roomId: this.roomId, producerId: old.id }); // no-op if already gone
+      old.close(); // stopTracks is off, so the capture keeps running
+      this.lastScreenStats = null;
+      this.startScreenBitrateAdaptation();
+      return true;
+    } finally {
+      this.refreshingScreen = false;
+    }
+  }
+
+  private refreshingScreen = false;
+
+  private async produceScreenVideo(
+    videoTrack: MediaStreamTrack,
+    quality: "low" | "standard" | "high",
+    mode: "smooth" | "sharp",
+    simulcast: boolean,
+  ): Promise<MsTypes.Producer> {
+    if (!this.sendTransport) throw new Error("no send transport");
+    {
       const smooth = mode === "smooth";
       // The content hint decides which encoder mode Chrome uses. "detail" switches it to
       // *screencast* mode, which caps the frame rate hard (the old 30-fps Sharp). Both modes now
@@ -379,12 +453,20 @@ export class SfuMediaManager {
       // H.264 High is the profile Chromium hands to the GPU (NVENC / AMF / Quick Sync); Constrained
       // Baseline always stays on the CPU (OpenH264). Where there is no hardware encoder, High is just
       // encoded by OpenH264 like before. Device caps = router ∩ this browser; no H.264 → VP8.
-      const h264s = (this.device?.rtpCapabilities.codecs ?? []).filter((c) => c.mimeType.toLowerCase() === "video/h264");
+      // Settings → Stream → "Процесор": Constrained Baseline (always OpenH264 on the CPU), or VP8
+      // (also software) where the router has no Baseline — skips a misbehaving GPU encoder.
+      const codecs = this.device?.rtpCapabilities.codecs ?? [];
+      const h264s = codecs.filter((c) => c.mimeType.toLowerCase() === "video/h264");
+      const profileOf = (c: (typeof codecs)[number]) => String(c.parameters?.["profile-level-id"] ?? "").toLowerCase();
       const h264 =
-        h264s.find((c) => String(c.parameters?.["profile-level-id"] ?? "").toLowerCase().startsWith("64")) ?? h264s[0];
+        getScreenShareEncoder() === "cpu"
+          ? (h264s.find((c) => profileOf(c).startsWith("42")) ?? codecs.find((c) => c.mimeType.toLowerCase() === "video/vp8"))
+          : (h264s.find((c) => profileOf(c).startsWith("64")) ?? h264s[0]);
 
-      this.screenVideoProducer = await this.sendTransport.produce({
+      return await this.sendTransport.produce({
         track: videoTrack,
+        // Closing this producer (refresh) must not end the capture; stopScreenShare stops it.
+        stopTracks: false,
         // Opt-in simulcast: a half-size, much lighter copy first (lowest layer first), so a viewer
         // on a weak link degrades to it instead of stuttering. Costs the sharer extra encoding.
         encodings: simulcast
@@ -410,16 +492,6 @@ export class SfuMediaManager {
           void sender.setParameters(params).catch((err) => console.error("Failed to set screen-share encoding params", err));
         },
         appData: { type: "screen-video" } satisfies ProducerAppData,
-      });
-    }
-
-    this.startScreenBitrateAdaptation();
-
-    const audioTrack = screenStream.getAudioTracks()[0];
-    if (audioTrack) {
-      this.screenAudioProducer = await this.sendTransport.produce({
-        track: audioTrack,
-        appData: { type: "screen-audio" } satisfies ProducerAppData,
       });
     }
   }
@@ -605,6 +677,11 @@ export class SfuMediaManager {
     }
     this.screenVideoProducer = null;
     this.screenAudioProducer = null;
+    if (this.screenAutoRefreshTimer) clearInterval(this.screenAutoRefreshTimer);
+    this.screenAutoRefreshTimer = null;
+    this.screenVideoTrack?.stop(); // the video producer doesn't stop it (stopTracks: false)
+    this.screenVideoTrack = null;
+    this.screenShareArgs = null;
   }
 
   private async pollStats() {
@@ -678,6 +755,8 @@ export class SfuMediaManager {
     }
 
     this.stopScreenBitrateAdaptation();
+    if (this.screenAutoRefreshTimer) clearInterval(this.screenAutoRefreshTimer);
+    this.screenAutoRefreshTimer = null;
     this.sendTransport?.close();
     this.recvTransport?.close();
     this.sendTransport = null;

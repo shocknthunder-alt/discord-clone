@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { SocketEvents } from "@discord-clone/shared";
 import { getSocket } from "../socket/socket";
 import { useVoiceStore, type RemoteStreamStats } from "../store/voiceStore";
-import { getReceivedStreamStats, getScreenShareStats } from "../webrtc/useVoiceChannel";
+import { getReceivedStreamStats, getScreenShareStats, refreshScreenShare } from "../webrtc/useVoiceChannel";
 import type { ReceivedStreamStats, ScreenShareStats } from "../webrtc/SfuMediaManager";
 
 /** Plain-language advice from the numbers, or null when everything is fine. */
@@ -109,6 +109,27 @@ function ViewerSide({ userId, senderFps }: { userId: string; senderFps: number }
   );
 }
 
+/** New encoder for the running share (same capture) — viewers keep watching. */
+function RefreshEncoderButton() {
+  const [state, setState] = useState<"idle" | "busy" | "done" | "fail">("idle");
+  async function run() {
+    setState("busy");
+    const ok = await refreshScreenShare().catch(() => false);
+    setState(ok ? "done" : "fail");
+    setTimeout(() => setState("idle"), 2500);
+  }
+  return (
+    <button
+      className="stream-stats-refresh"
+      disabled={state === "busy"}
+      onClick={() => void run()}
+      title="Пуска нов енкодер за същата картина — ако играта ти засича, докато стриймваш. Зрителите не спират да гледат."
+    >
+      {state === "busy" ? "Освежавам…" : state === "done" ? "✓ Освежено" : state === "fail" ? "Не стана" : "🔄 Освежи енкодера"}
+    </button>
+  );
+}
+
 function StatsPill({ title, stats, own, userId }: { title: string; stats: RemoteStreamStats; own: boolean; userId?: string }) {
   const [open, setOpen] = useState(false);
   const targetFps = stats.targetFps;
@@ -153,6 +174,7 @@ function StatsPill({ title, stats, own, userId }: { title: string; stats: Remote
             <dd>{LIMIT_TEXT[stats.limitation]}</dd>
           </dl>
           {advice && <div className="stream-stats-tip">{advice}</div>}
+          {own && <RefreshEncoderButton />}
           {!own && userId && <ViewerSide userId={userId} senderFps={stats.fps} />}
         </div>
       )}
