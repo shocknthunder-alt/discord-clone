@@ -1,6 +1,6 @@
 {
   "name": "shmirka-desktop",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "ШмиркаТа — desktop app (Electron shell with the built client inside)",
   "main": "main.js",
@@ -23,7 +23,8 @@
       "main.js",
       "preload.js",
       "globalKeys.js",
-      "appAudio.js"
+      "appAudio.js",
+      "build/icon.ico"
     ],
     "win": {
       "target": "nsis",

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, desktopCapturer, ipcMain, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, Tray, desktopCapturer, ipcMain, nativeImage, session, shell } = require("electron");
 const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 const appAudio = require("./appAudio");
@@ -105,12 +105,68 @@ app.whenReady().then(async () => {
   });
 
   win.loadURL(ORIGIN);
+
+  // Like Discord: the X hides the window to the tray (voice keeps going); "Изход" in the tray menu
+  // really quits.
+  const showWindow = () => {
+    if (win.isDestroyed()) return;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  };
+  tray = new Tray(nativeImage.createFromPath(path.join(__dirname, "build", "icon.ico")));
+  tray.setToolTip("ШмиркаТа");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Отвори ШмиркаТа", click: showWindow },
+      { type: "separator" },
+      {
+        label: "Изход",
+        click: () => {
+          quitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
+  tray.on("click", showWindow);
+  tray.on("double-click", showWindow);
+
+  // Windows shutdown / restart / log off must not be blocked by the hide-to-tray below.
+  win.on("query-session-end", () => {
+    quitting = true;
+  });
+  win.on("session-end", () => {
+    quitting = true;
+  });
+
+  let hintShown = false;
+  win.on("close", (event) => {
+    if (quitting) return;
+    event.preventDefault();
+    win.hide();
+    if (!hintShown) {
+      hintShown = true;
+      tray.displayBalloon({
+        iconType: "info",
+        title: "ШмиркаТа работи във фонов режим",
+        content: "Намираш я до часовника. За изход: десен клик на иконата → Изход.",
+      });
+    }
+  });
+});
+
+let tray = null;
+let quitting = false;
+app.on("before-quit", () => {
+  quitting = true;
 });
 
 app.on("second-instance", () => {
   const win = BrowserWindow.getAllWindows()[0];
   if (win) {
     if (win.isMinimized()) win.restore();
+    win.show();
     win.focus();
   }
 });
