@@ -1,6 +1,6 @@
 /**
  * Server ranks ("роли"). Each member has at most one rank; members without one get the server's
- * default rank ("Член"). The owner always has every permission. A rank can only manage people and
+ * default rank ("Пепега"). The owner always has every permission. A rank can only manage people and
  * ranks BELOW it (higher `position` = higher rank).
  */
 export const Perm = {

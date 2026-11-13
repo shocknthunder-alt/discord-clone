@@ -223,8 +223,10 @@ function RoleEditor({ serverId, role, canEdit, grantable }: { serverId: string; 
     }
   }
 
+  const defaultName = useMembersStore((s) => s.roles.find((r) => r.isDefault)?.name ?? "основния ранг");
+
   async function remove() {
-    if (!window.confirm(`Да изтрия ли ранга „${role.name}“? Хората с него стават „Член“.`)) return;
+    if (!window.confirm(`Да изтрия ли ранга „${role.name}“? Хората с него стават „${defaultName}“.`)) return;
     try {
       await deleteRole(serverId, role.id);
       await useMembersStore.getState().load(serverId);

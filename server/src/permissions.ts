@@ -8,7 +8,7 @@ export async function ensureDefaultRole(serverId: string) {
   const existing = await prisma.role.findFirst({ where: { serverId, isDefault: true } });
   if (existing) return existing;
   return prisma.role.create({
-    data: { serverId, name: "Член", position: 0, permissions: DEFAULT_MEMBER_PERMS, isDefault: true },
+    data: { serverId, name: "Пепега", position: 0, permissions: DEFAULT_MEMBER_PERMS, isDefault: true },
   });
 }
 
