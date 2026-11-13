@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const DOWNLOAD_URL = "https://drive.google.com/file/d/1J4Vo5LS3kC1j0wPeLS_kq4TXzpA8ftTc/view?usp=sharing";
+const DOWNLOAD_URL = "https://drive.google.com/file/d/1x5JKUBPy2oEh7feSezxrs2HS9IXK8fAR/view?usp=sharing";
 const HIDE_KEY = "desktopAppBannerHiddenUntil";
 const HIDE_FOR_MS = 7 * 24 * 60 * 60 * 1000;
 
