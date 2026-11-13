@@ -293,7 +293,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
   return (
     <div className="channel-sidebar">
-      <div className={`channel-sidebar-scroll ${hudDocked ? "hud-docked" : ""}`} onDragEnd={() => setUserDropId(null)}>
+      <div className="channel-sidebar-scroll" onDragEnd={() => setUserDropId(null)}>
         {activeServer && (
           <>
             <div className="channel-sidebar-header">
@@ -447,6 +447,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
         )}
       </div>
 
+      {/* Real space for the docked voice buttons, so the channel list ends above them instead of
+          scrolling underneath (a short window made them cover the channels). */}
+      {hudDocked && <div className="hud-dock-space" />}
       <VoiceStatusBar />
       <MusicMiniPlayer />
       {!activeVoiceChannelId && <UserBar />}

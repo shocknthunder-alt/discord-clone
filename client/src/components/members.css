@@ -134,7 +134,7 @@
 .participant-row.dragging { opacity: 0.4; }
 
 /* Room for the voice controls docked at the bottom of the channel list. */
-.channel-sidebar-scroll.hud-docked { padding-bottom: 236px; }
+.hud-dock-space { flex: 0 0 232px; border-top: 1px solid rgba(255, 255, 255, 0.05); }
 
 /* ───────── server settings: ranks & members ───────── */
 .ss-card { width: min(780px, calc(100vw - 32px)) !important; max-width: none !important; }
