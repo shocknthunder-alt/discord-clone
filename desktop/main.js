@@ -18,6 +18,11 @@ const OFFLINE_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!docty
 // comes from a recent Chromium (Electron 45 does it, 33 never did) + the H.264 High profile, which
 // the client picks. Measured: High → "NVIDIA H.264 Encoder MFT"; Constrained Baseline → OpenH264.
 
+// Two graphics cards (iGPU + discrete, or two discrete): render AND encode on the high-performance
+// one, as Windows' "High performance" graphics preference would. The video encoder lives on the
+// same card the app renders with, so this decides which card's NVENC/AMF/Quick Sync is used.
+app.commandLine.appendSwitch("force_high_performance_gpu");
+
 if (!app.requestSingleInstanceLock()) app.quit();
 
 app.whenReady().then(async () => {

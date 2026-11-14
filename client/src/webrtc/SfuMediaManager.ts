@@ -566,8 +566,10 @@ export class SfuMediaManager {
     const report = await producer.getStats();
     let outbound: Record<string, unknown> | null = null;
     const codecs = new Map<string, string>();
+    const sources = new Map<string, Record<string, unknown>>();
     report.forEach((stat: Record<string, unknown>) => {
       if (stat.type === "codec" && typeof stat.id === "string") codecs.set(stat.id, String(stat.mimeType ?? ""));
+      if (stat.type === "media-source" && typeof stat.id === "string") sources.set(stat.id, stat);
       if (stat.type === "outbound-rtp" && stat.kind === "video") {
         // With simulcast there are several; report the biggest.
         if (!outbound || Number(stat.frameWidth ?? 0) >= Number(outbound.frameWidth ?? 0)) outbound = stat;
@@ -585,6 +587,10 @@ export class SfuMediaManager {
     this.lastScreenStats = { at: now, bytes: totalBytes };
     const kbps = prev && now > prev.at ? ((totalBytes - prev.bytes) * 8) / (now - prev.at) : 0;
     const encoder = String(o.encoderImplementation ?? "");
+    // What the capture itself delivers (before the encoder): tells "the game/screen only gives
+    // 30 frames" (or the picture stands still — capture sends frames only on change) apart from
+    // "the encoder drops frames / scales the picture down".
+    const src = sources.get(String(o.mediaSourceId ?? ""));
     return {
       fps: Math.round(Number(o.framesPerSecond ?? 0)),
       width: Number(o.frameWidth ?? 0),
@@ -592,9 +598,17 @@ export class SfuMediaManager {
       kbps: Math.round(kbps),
       codec: (codecs.get(String(o.codecId ?? "")) ?? "").replace("video/", ""),
       encoder,
-      hardware: o.powerEfficientEncoder === true || /nvenc|mediafoundation|mft|videotoolbox|vaapi|hardware|externalencoder/i.test(encoder),
+      hardware:
+        o.powerEfficientEncoder === true ||
+        /nvenc|mediafoundation|mft|videotoolbox|vaapi|hardware|externalencoder|d3d1[12]|accelerator/i.test(encoder),
       limitation: String(o.qualityLimitationReason ?? "none") as ScreenShareStats["limitation"],
       audio: !!this.screenAudioProducer && !this.screenAudioProducer.closed && this.screenAudioProducer.track?.readyState === "live",
+      captureFps: src ? Math.round(Number(src.framesPerSecond ?? 0)) : 0,
+      captureWidth: src ? Number(src.width ?? 0) : 0,
+      captureHeight: src ? Number(src.height ?? 0) : 0,
+      encoderPref: getScreenShareEncoder(),
+      gpu: gpuName(),
+      desktop: !!window.shmirkaDesktop,
     };
   }
 
@@ -627,7 +641,8 @@ export class SfuMediaManager {
     const prev = this.lastReceivedStats.get(userId);
     this.lastReceivedStats.set(userId, now);
     const dRecv = prev ? now.received - prev.received : 0;
-    const dLost = prev ? now.lost - prev.lost : 0;
+    // packetsLost can go DOWN when late/retransmitted packets arrive — never show negative loss.
+    const dLost = prev ? Math.max(0, now.lost - prev.lost) : 0;
     return {
       fps: Math.round(Number(i.framesPerSecond ?? 0)),
       width: Number(i.frameWidth ?? 0),
@@ -804,4 +819,35 @@ export interface ScreenShareStats {
   limitation: "none" | "cpu" | "bandwidth" | "other";
   /** Whether the stream is carrying a live audio track. */
   audio: boolean;
+  /** Frames/size coming out of the capture, before encoding (0 = unknown / older client). */
+  captureFps?: number;
+  captureWidth?: number;
+  captureHeight?: number;
+  /** The streamer's Settings → Кодиране choice. */
+  encoderPref?: "gpu" | "cpu";
+  /** The graphics card the browser/app renders (and encodes) with. */
+  gpu?: string;
+  /** Streaming from the desktop app (vs a browser). */
+  desktop?: boolean;
+}
+
+let cachedGpu: string | null = null;
+/** Name of the GPU this browser/app uses, from WebGL ("" if hidden). */
+export function gpuName(): string {
+  if (cachedGpu !== null) return cachedGpu;
+  cachedGpu = "";
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    if (gl) {
+      const ext = gl.getExtension("WEBGL_debug_renderer_info");
+      const raw = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER) ?? "");
+      // "ANGLE (NVIDIA, NVIDIA GeForce RTX 5060 Ti (0x00002D04) Direct3D11 vs_5_0 ps_5_0, D3D11)"
+      const m = /^ANGLE \([^,]*,\s*(.+?)\s*(?:\(0x[0-9a-f]+\))?\s*(?:Direct3D|OpenGL|Vulkan|Metal)/i.exec(raw);
+      cachedGpu = (m ? m[1] : raw).trim().slice(0, 80);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    }
+  } catch {
+    // not available
+  }
+  return cachedGpu;
 }

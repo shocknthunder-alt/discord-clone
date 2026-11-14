@@ -211,10 +211,16 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
               height: Math.round(num(stats.height, 16384)),
               kbps: Math.round(num(stats.kbps, 1_000_000)),
               codec: typeof stats.codec === "string" ? stats.codec.slice(0, 16) : "",
-              encoder: typeof stats.encoder === "string" ? stats.encoder.slice(0, 40) : "",
+              encoder: typeof stats.encoder === "string" ? stats.encoder.slice(0, 80) : "",
               hardware: stats.hardware === true,
               audio: stats.audio === true,
               limitation: limitations.includes(String(stats.limitation)) ? String(stats.limitation) : "none",
+              captureFps: Math.round(num(stats.captureFps, 240)),
+              captureWidth: Math.round(num(stats.captureWidth, 16384)),
+              captureHeight: Math.round(num(stats.captureHeight, 16384)),
+              encoderPref: stats.encoderPref === "cpu" ? "cpu" : stats.encoderPref === "gpu" ? "gpu" : undefined,
+              gpu: typeof stats.gpu === "string" ? stats.gpu.slice(0, 80) : "",
+              desktop: stats.desktop === true,
             }
           : null;
       socket.to(roomName(voiceChannelId)).emit(SocketEvents.VoiceStreamStats, { socketId: socket.id, stats: clean });

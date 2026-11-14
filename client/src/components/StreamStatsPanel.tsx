@@ -8,6 +8,21 @@ import type { ReceivedStreamStats, ScreenShareStats } from "../webrtc/SfuMediaMa
 /** Plain-language advice from the numbers, or null when everything is fine. */
 function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): string | null {
   const who = own ? "Компютърът ти" : "Компютърът на стриймъра";
+  const capFps = stats.captureFps ?? 0;
+  const where = stats.desktop === false ? "браузъра" : "ШмиркаТа";
+  // Encoding on the processor although the GPU could do it — the usual reason for "cpu".
+  const softwareEncoder = !stats.hardware && stats.codec !== "" && stats.fps > 0;
+  if (softwareEncoder && stats.encoderPref === "cpu" && stats.limitation === "cpu") {
+    return own
+      ? "Избрал си кодиране с процесора и той не смогва. Смени на „Видеокарта“ в Настройки → Стрийм → Кодиране."
+      : "Стриймърът е избрал кодиране с процесора и той не смогва — да смени на „Видеокарта“ (Настройки → Стрийм → Кодиране).";
+  }
+  if (softwareEncoder && stats.encoderPref !== "cpu" && (stats.limitation === "cpu" || stats.fps < targetFps * 0.75)) {
+    const twoGpus = `Ако компютърът има 2 видеокарти: Windows Настройки → Дисплей → Графика → ${where} → „Висока производителност“ и рестарт на ${where}.`;
+    return own
+      ? `Видеото се кодира на процесора — видеокартата не се ползва. Натисни 🔄 Освежи енкодера. ${twoGpus}`
+      : `Стриймът се кодира на процесора му, не на видеокартата (${stats.desktop ? "в приложението" : "в браузър"}). Да натисне 🔄 Освежи енкодера в 📊. ${twoGpus}`;
+  }
   if (stats.limitation === "cpu") {
     return own
       ? "Компютърът не смогва да кодира стрима. Избери Light (720p) в Настройки → Screen Share Quality или затвори тежки програми."
@@ -19,13 +34,22 @@ function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): st
       ? "Твоят upload е тесен. Избери Light (720p), за да има повече бит за всеки кадър."
       : "Upload-ът на стриймъра е тесен.";
   }
-  if (own && stats.limitation === "none" && !stats.hardware && stats.fps > 0 && stats.fps < targetFps * 0.75) {
-    return "Видеото се кодира на процесора и не смогва. Десктоп приложението ползва видеокартата (NVENC/AMF).";
-  }
   if (!stats.audio) {
     return own
       ? "Стриймът е БЕЗ звук. В десктоп приложението избери отново екрана/прозореца; в браузър трябва да отметнеш „Share audio“."
       : "Този стрийм е без звук.";
+  }
+  // The capture itself gives few frames: the game draws that many, or the picture stands still
+  // (screen capture only sends a frame when something changes) — not an encoder/network problem.
+  if (capFps > 0 && capFps < targetFps * 0.75 && stats.fps >= capFps - 3) {
+    return own
+      ? `Заснемането дава само ${capFps} кадъра/сек — играта рисува толкова (fps лимит/V-Sync 30?) или картината стои на едно място (тогава се пращат по-малко кадри, това е нормално).`
+      : `Още при заснемането идват само ${capFps} кадъра/сек — играта му рисува толкова или картината стои (при неподвижен екран се пращат по-малко кадри — нормално).`;
+  }
+  if (capFps > 0 && capFps - stats.fps > 6 && stats.fps < targetFps * 0.75) {
+    return own
+      ? `Заснемат се ${capFps} кадъра/сек, но енкодерът пуска само ${stats.fps}. Натисни 🔄 Освежи енкодера или избери Light (720p).`
+      : `Заснемат се ${capFps} кадъра/сек, но енкодерът му пуска само ${stats.fps} — не смогва да кодира.`;
   }
   if (stats.fps > 0 && stats.fps < targetFps * 0.75) {
     return own
@@ -48,7 +72,7 @@ const LIMIT_TEXT: Record<ScreenShareStats["limitation"], string> = {
  * The same stream as it arrives HERE — where stutter comes from: few frames sent (the streamer),
  * packets lost on the way (network), or frames dropped by this PC (decoding/showing).
  */
-function ViewerSide({ userId, senderFps }: { userId: string; senderFps: number }) {
+function ViewerSide({ userId, senderFps, senderCaptureFps }: { userId: string; senderFps: number; senderCaptureFps: number }) {
   const [rx, setRx] = useState<ReceivedStreamStats | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +99,8 @@ function ViewerSide({ userId, senderFps }: { userId: string; senderFps: number }
     verdict = "Губят се пакети по пътя до теб — мрежата (твоят download/Wi-Fi или пътят до сървъра) насича картината.";
   } else if (rx.droppedFrames >= 4) {
     verdict = "Кадрите стигат, но този компютър ги изпуска при показване — затвори тежки програми / провери драйвера на видеокартата.";
+  } else if (senderFps > 0 && senderFps < 45 && senderCaptureFps > 0 && senderFps >= senderCaptureFps - 3) {
+    verdict = `Стигат всички кадри. Стриймърът праща ${senderFps}/сек, защото толкова дава заснемането — играта рисува толкова или картината стои.`;
   } else if (senderFps > 0 && senderFps < 45) {
     verdict = `Стигат всички кадри, но стриймърът праща само ${senderFps}/сек — насичането е от неговата страна.`;
   } else {
@@ -151,11 +177,20 @@ function StatsPill({ title, stats, own, userId }: { title: string; stats: Remote
             <dt>Резолюция</dt>
             <dd>
               {stats.width}×{stats.height}
+              {stats.captureHeight && stats.captureHeight > stats.height + 8
+                ? ` (заснето ${stats.captureWidth}×${stats.captureHeight} — смалено от енкодера)`
+                : ""}
             </dd>
             <dt>Кадри/сек</dt>
             <dd>
               {stats.fps} (цел {targetFps})
             </dd>
+            {!!stats.captureFps && (
+              <>
+                <dt>Заснемане</dt>
+                <dd>{stats.captureFps} кадъра/сек</dd>
+              </>
+            )}
             <dt>Битрейт</dt>
             <dd>{(stats.kbps / 1000).toFixed(2)} Mbps</dd>
             <dt>Кодек</dt>
@@ -168,6 +203,21 @@ function StatsPill({ title, stats, own, userId }: { title: string; stats: Remote
                 <dd>{stats.encoder}</dd>
               </>
             )}
+            {stats.encoderPref && (
+              <>
+                <dt>Избрано</dt>
+                <dd>
+                  {stats.encoderPref === "cpu" ? "процесор" : "видеокарта"} ·{" "}
+                  {stats.desktop ? "приложение" : "браузър"}
+                </dd>
+              </>
+            )}
+            {stats.gpu && (
+              <>
+                <dt>Видеокарта</dt>
+                <dd>{stats.gpu}</dd>
+              </>
+            )}
             <dt>Звук</dt>
             <dd>{stats.audio ? "има" : "няма"}</dd>
             <dt>Ограничение</dt>
@@ -175,7 +225,7 @@ function StatsPill({ title, stats, own, userId }: { title: string; stats: Remote
           </dl>
           {advice && <div className="stream-stats-tip">{advice}</div>}
           {own && <RefreshEncoderButton />}
-          {!own && userId && <ViewerSide userId={userId} senderFps={stats.fps} />}
+          {!own && userId && <ViewerSide userId={userId} senderFps={stats.fps} senderCaptureFps={stats.captureFps ?? 0} />}
         </div>
       )}
       {!open && advice && <div className="stream-stats-tip" style={{ margin: "0 8px 8px" }}>{advice}</div>}
