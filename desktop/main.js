@@ -106,8 +106,12 @@ app.whenReady().then(async () => {
         overrideBrowserWindowOptions: {
           autoHideMenuBar: true,
           backgroundColor: "#000000",
-          minWidth: 240,
-          minHeight: 140,
+          // No min/max size: on a second monitor with different Windows scaling, Electron applied
+          // the limits in the wrong units and the window fought the resize (dragging the top edge
+          // changed the width too). Freely resizable, maximizable, fullscreen-able.
+          resizable: true,
+          maximizable: true,
+          fullscreenable: true,
           icon: path.join(__dirname, "build", "icon.ico"),
           webPreferences: { contextIsolation: true, nodeIntegration: false },
         },
@@ -115,6 +119,11 @@ app.whenReady().then(async () => {
     }
     if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: "deny" };
+  });
+  win.webContents.on("did-create-window", (child, { frameName }) => {
+    if (!frameName || !frameName.startsWith("shmirka-stream-")) return;
+    child.setAspectRatio(0); // never lock width to height
+    child.setMenuBarVisibility(false);
   });
   win.webContents.on("will-navigate", (event, url) => {
     if (!url.startsWith(ORIGIN)) {

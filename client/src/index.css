@@ -2956,6 +2956,17 @@ input[type="range"] {
   background: rgba(0, 0, 0, 0.75); color: rgba(255, 255, 255, 0.8); font-size: 14px; pointer-events: none;
 }
 .frame-onair .stream-popout { left: 9%; }
+/* Streams living in their own window: a slim bar instead of an empty frame. */
+.popped-streams { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; width: 100%; }
+.popped-stream-chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(255, 255, 255, 0.1); color: var(--t-2); font-size: 13px;
+}
+.popped-stream-chip button {
+  padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06); color: var(--t-1); font-size: 12px; cursor: pointer;
+}
+.popped-stream-chip button:hover { background: rgba(var(--accent-rgb), 0.3); }
 
 /* Drag handle in the stream frame's bottom-right corner (resize the stream in the app). */
 .stream-resize-handle {

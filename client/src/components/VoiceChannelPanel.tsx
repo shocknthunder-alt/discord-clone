@@ -17,6 +17,7 @@ import { LiveIcon } from "./HudIcons";
 import StreamFrame from "./StreamFrame";
 import { useMovableTile } from "../hooks/useMovableTile";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
+import { closePopout, usePopoutStore } from "../webrtc/streamPopouts";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -170,7 +171,11 @@ export default function VoiceChannelPanel() {
   if (isScreenSharing && localScreenStream) {
     streams.push({ key: SELF_STREAM_KEY, stream: localScreenStream, caption: `${currentUsername} (ти)`, preview: true });
   }
-  const watched = streams.filter((s) => watching.has(s.key));
+  // Streams popped out into their own window don't keep an (empty) frame here — just a slim bar.
+  const poppedKeys = usePopoutStore((s) => s.open);
+  const watchedAll = streams.filter((s) => watching.has(s.key));
+  const watched = watchedAll.filter((s) => !poppedKeys.has(s.key));
+  const popped = watchedAll.filter((s) => poppedKeys.has(s.key));
   // Who is live at all (watched or not) — a watch on a share that ended is forgotten.
   const liveKey = [
     ...Array.from(peers.values())
@@ -247,6 +252,21 @@ export default function VoiceChannelPanel() {
             : undefined
         }
       >
+        {popped.length > 0 && (
+          <div className="popped-streams">
+            {popped.map((s) => (
+              <div key={s.key} className="popped-stream-chip">
+                <span>⧉ {s.caption} — в отделен прозорец</span>
+                <button onClick={() => closePopout(s.key)} title="Върни стрийма тук">
+                  Върни
+                </button>
+                <button onClick={() => stopWatchingStream(s.key)} title="Спри да гледаш">
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {n > 0 && (
           <div className="stream-grid" style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))` }}>
             {watched.map((s) => (

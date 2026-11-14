@@ -30,7 +30,7 @@ import { useUnreadStore } from "../store/unreadStore";
 import { scheduleEventsReload, useEventsStore } from "../store/eventsStore";
 import { useEventReminders } from "../hooks/useEventReminders";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
-import { takeVoiceResume } from "../webrtc/voiceResume";
+import { rememberVoiceForRestart, takeVoiceResume } from "../webrtc/voiceResume";
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 
@@ -175,6 +175,13 @@ export default function AppShell() {
     );
 
     return () => {
+      // The app is going away while still logged in (e.g. Back onto another page) but this socket
+      // carries our place in the voice channel: leave properly — instead of the others losing us
+      // while our audio keeps playing — and note the channel so the next mount walks back in.
+      if (useAuthStore.getState().token && useVoiceStore.getState().activeVoiceChannelId) {
+        rememberVoiceForRestart();
+        leaveRef.current();
+      }
       socket.disconnect();
     };
   }, [token, setUserOnline, setIncomingRing]);

@@ -1,4 +1,5 @@
-import { Navigate, Route, BrowserRouter, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Route, BrowserRouter, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "./store/authStore";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -10,10 +11,25 @@ import DesktopUpdateBanner from "./components/DesktopUpdateBanner";
 import ScreenSourcePicker from "./components/ScreenSourcePicker";
 import ThemeFlames from "./components/ThemeFlames";
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+/**
+ * Login, register and the app share ONE route element, so a logged-in person pressing Back (mouse
+ * button) onto /login or /register keeps the app mounted — it just puts the address back to "/".
+ * Before, AppShell unmounted there: its socket closed (the others lost us from the voice channel)
+ * while the call's audio kept playing, and coming "forward" again left us invisible in the channel.
+ */
+function Root() {
   const token = useAuthStore((s) => s.token);
-  if (!token) return <Navigate to="/login" replace />;
-  return <>{children}</>;
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const onAuthPage = pathname === "/login" || pathname === "/register";
+  useEffect(() => {
+    if (token && onAuthPage) navigate("/", { replace: true });
+  }, [token, onAuthPage, navigate]);
+
+  if (token) return <AppShell />;
+  if (pathname === "/register") return <RegisterPage />;
+  if (pathname === "/login") return <LoginPage />;
+  return <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -25,17 +41,8 @@ export default function App() {
       <ScreenSourcePicker />
       <ThemeFlames />
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route
-          path="/*"
-          element={
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/*" element={<Root />} />
       </Routes>
     </BrowserRouter>
   );
