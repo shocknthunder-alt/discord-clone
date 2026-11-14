@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { initMusicPlayerEngine, setMusicLocallyMuted, setMusicVolume, unlockMusicAudio } from "../music/musicPlayerEngine";
 import { useMusicStore } from "../store/musicStore";
+import { subsonicAvailable } from "../api/music.api";
+import SubsonicSearchModal from "./SubsonicSearchModal";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 
@@ -14,6 +16,8 @@ const ADD_ERROR_MESSAGES: Record<string, string> = {
   "search-unavailable": "Searching by name needs a YouTube API key that isn't set up yet — paste a link instead.",
   "playlist-unavailable": "Този плейлист не може да се прочете — може да е частен или празен.",
   "playlist-needs-key": "За плейлисти трябва YouTube API ключ на сървъра — пусни отделни песни засега.",
+  "subsonic-unavailable": "Музиката от yogurthub не е настроена на сървъра.",
+  "subsonic-failed": "yogurthub не отговори — опитай пак след малко.",
 };
 
 export default function MusicMiniPlayer() {
@@ -52,6 +56,13 @@ export default function MusicMiniPlayer() {
 
   useEffect(() => {
     initMusicPlayerEngine();
+  }, []);
+
+  // 🎧 yogurthub search — only when the server has it set up.
+  const [subsonic, setSubsonic] = useState(false);
+  const [showSubsonic, setShowSubsonic] = useState(false);
+  useEffect(() => {
+    void subsonicAvailable().then(setSubsonic);
   }, []);
 
   function toggleExpanded() {
@@ -181,6 +192,12 @@ export default function MusicMiniPlayer() {
               Add
             </button>
           </form>
+          {subsonic && (
+            <button className="music-subsonic-open" onClick={() => setShowSubsonic(true)} title="Търси в yogurthub (библиотеката + Tidal)">
+              🎧 Търси в yogurthub
+            </button>
+          )}
+          {showSubsonic && <SubsonicSearchModal onClose={() => setShowSubsonic(false)} />}
 
           <div className="music-mini-volume-row">
             <span>🔊</span>

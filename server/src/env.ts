@@ -21,6 +21,11 @@ const envSchema = z.object({
   // server owner can still hand out reset links.
   BREVO_API_KEY: z.string().optional(),
   MAIL_FROM: z.string().optional(),
+  // Optional: a Subsonic/Navidrome music server (yogurthub) for the music player's 🎧 search.
+  // All three set = enabled. The account only needs to be able to listen.
+  SUBSONIC_URL: z.string().url().optional(),
+  SUBSONIC_USER: z.string().optional(),
+  SUBSONIC_PASSWORD: z.string().optional(),
 });
 
 export const env = envSchema.parse(trimmedEnv);

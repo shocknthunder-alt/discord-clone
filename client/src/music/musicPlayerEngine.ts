@@ -32,10 +32,128 @@ let volume = 70;
 let locallyMuted = false;
 let initPromise: Promise<void> | null = null;
 
+// ── Songs from the music server (yogurthub, Subsonic): a plain <audio> element. ──
+// The stream is a live transcode that can't be seeked, so "start at 1:20" = ask the server for a
+// stream beginning at 80 s (`&timeOffset=80`); the song position is then offset + currentTime.
+let audio: HTMLAudioElement | null = null;
+let audioItemId: string | null = null;
+let audioOffset = 0;
+let audioLoadedAt = 0;
+let audioCorrections = 0;
+let audioErrors = 0;
+const AUDIO_DRIFT_SECONDS = 5;
+
+function ensureAudio(): HTMLAudioElement {
+  if (audio) return audio;
+  audio = new Audio();
+  audio.preload = "auto";
+  audio.addEventListener("ended", () => reportEnded(audioItemId));
+  audio.addEventListener("playing", () => {
+    audioErrors = 0;
+    useMusicStore.getState().setAudioLocked(false);
+  });
+  audio.addEventListener("error", () => {
+    const failedId = audioItemId;
+    if (!failedId) return;
+    // A Tidal song may still be downloading on their side — retry once, then move on.
+    audioErrors += 1;
+    if (audioErrors <= 1) {
+      setTimeout(() => {
+        const state = useMusicStore.getState().state;
+        const item = state?.queue[state.currentIndex];
+        if (item && item.id === failedId) loadAudioAt(item, extrapolatedPosition(state));
+      }, 2500);
+    } else {
+      reportEnded(failedId);
+    }
+  });
+  return audio;
+}
+
+function reportEnded(itemId: string | null) {
+  const state = useMusicStore.getState().state;
+  const voiceChannelId = useVoiceStore.getState().activeVoiceChannelId;
+  const current = state?.queue[state.currentIndex];
+  if (!voiceChannelId || !current || current.id !== itemId) return;
+  getSocket()?.emit(SocketEvents.MusicEnded, { voiceChannelId, itemId: current.id });
+}
+
+function audioPosition(): number {
+  return audio ? audioOffset + audio.currentTime : 0;
+}
+
+function playAudio() {
+  if (!audio) return;
+  audio.volume = Math.min(Math.max(volume / 100, 0), 1);
+  audio.muted = locallyMuted;
+  void audio.play().catch((err: unknown) => {
+    // Autoplay policy: needs a click first (the "enable sound" button / any click unlocks).
+    if (err instanceof DOMException && err.name === "NotAllowedError") useMusicStore.getState().setAudioLocked(true);
+  });
+}
+
+function loadAudioAt(item: { id: string; streamUrl?: string }, positionSeconds: number) {
+  if (!item.streamUrl) return;
+  const a = ensureAudio();
+  audioItemId = item.id;
+  audioOffset = positionSeconds > 1 ? Math.floor(positionSeconds) : 0;
+  audioLoadedAt = Date.now();
+  a.src = item.streamUrl + (audioOffset ? `&timeOffset=${audioOffset}` : "");
+  const state = useMusicStore.getState().state;
+  if (state?.isPlaying) playAudio();
+}
+
+function stopAudio() {
+  if (!audio || !audioItemId) return;
+  audioItemId = null;
+  audio.pause();
+  audio.removeAttribute("src");
+  audio.load();
+}
+
+function applySubsonic(item: { id: string; streamUrl?: string }, state: { positionSeconds: number; isPlaying: boolean; updatedAt: number }) {
+  const expected = extrapolatedPosition(state);
+  if (audioItemId !== item.id) {
+    audioCorrections = 0;
+    audioErrors = 0;
+    loadAudioAt(item, expected);
+    if (!state.isPlaying) audio?.pause();
+    return;
+  }
+  if (!state.isPlaying) {
+    audio?.pause();
+    return;
+  }
+  // Resumed after a pause (the live stream may have been dropped meanwhile), or someone seeked:
+  // start a fresh stream at the shared position.
+  const settling = Date.now() - audioLoadedAt < 8000; // the stream takes a few seconds to start
+  if (!audio || audio.paused || (!settling && Math.abs(audioPosition() - expected) > AUDIO_DRIFT_SECONDS)) loadAudioAt(item, expected);
+  else playAudio();
+}
+
 function applyState() {
   const state = useMusicStore.getState().state;
-  if (!player || !ready || !state) return;
+  if (!state) {
+    // Left the channel: silence everything.
+    stopAudio();
+    if (player && ready && loadedItemId) {
+      loadedItemId = null;
+      player.pauseVideo();
+    }
+    return;
+  }
   const currentItem = state.currentIndex < state.queue.length ? state.queue[state.currentIndex] : null;
+
+  if (currentItem?.source === "subsonic") {
+    if (player && ready && loadedItemId) {
+      loadedItemId = null;
+      player.pauseVideo();
+    }
+    applySubsonic(currentItem, state);
+    return;
+  }
+  stopAudio();
+  if (!player || !ready) return;
 
   if (!currentItem) {
     loadedItemId = null;
@@ -124,7 +242,21 @@ export function initMusicPlayerEngine(): Promise<void> {
   // one-time seek on state change wouldn't catch.
   setInterval(() => {
     const state = useMusicStore.getState().state;
-    if (!player || !ready || !state?.isPlaying) return;
+    if (!state?.isPlaying) return;
+    const item = state.queue[state.currentIndex];
+    if (item?.source === "subsonic") {
+      // Way off (a seek, a stall): restart the stream at the shared spot — a few times per song
+      // at most, so a server that ignores timeOffset can't make it reload forever.
+      if (!audio || audio.paused || audioItemId !== item.id || Date.now() - audioLoadedAt < 8000) return;
+      if (audioCorrections >= 3) return;
+      const expected = extrapolatedPosition(state);
+      if (Math.abs(audioPosition() - expected) > AUDIO_DRIFT_SECONDS) {
+        audioCorrections += 1;
+        loadAudioAt(item, expected);
+      }
+      return;
+    }
+    if (!player || !ready) return;
     // Only correct drift while actually playing — seeking an ended/paused/cued player
     // (e.g. waiting on the server to advance the queue) would restart it.
     const playerState = player.getPlayerState();
@@ -144,6 +276,8 @@ export function initMusicPlayerEngine(): Promise<void> {
 // reaches the player. Call this from inside a real click/submit handler to unlock audio for
 // the rest of the session.
 export function unlockMusicAudio() {
+  // A music-server song blocked by autoplay: this click is the gesture that lets it play.
+  if (audio && audioItemId && audio.paused && useMusicStore.getState().state?.isPlaying) playAudio();
   if (unmuted) return;
   unmuted = true;
   if (ready) {
@@ -157,9 +291,11 @@ export function unlockMusicAudio() {
 export function setMusicVolume(next: number) {
   volume = next;
   if (ready) player?.setVolume(next);
+  if (audio) audio.volume = Math.min(Math.max(next / 100, 0), 1);
 }
 
 export function getMusicCurrentTime(): number {
+  if (audioItemId) return audioPosition();
   return player?.getCurrentTime() ?? 0;
 }
 
@@ -167,6 +303,7 @@ export function getMusicCurrentTime(): number {
 // shared by everyone in the channel.
 export function setMusicLocallyMuted(muted: boolean) {
   locallyMuted = muted;
+  if (audio) audio.muted = muted;
   if (!ready) return;
   if (muted) player?.mute();
   else if (unmuted) player?.unMute();

@@ -10,6 +10,7 @@ import { dmRouter } from "./routes/dm.routes.js";
 import { eventsRouter } from "./routes/events.routes.js";
 import { startEventScheduler } from "./events/scheduler.js";
 import { messagesRouter } from "./routes/messages.routes.js";
+import { musicRouter } from "./routes/music.routes.js";
 import { serversRouter } from "./routes/servers.routes.js";
 import { broadcastPresence, registerChatGateway } from "./sockets/chat.gateway.js";
 import { registerDmGateway } from "./sockets/dm.gateway.js";
@@ -27,6 +28,7 @@ app.use("/api/auth", authRouter);
 app.use("/api/servers", serversRouter);
 app.use("/api/dms", dmRouter);
 app.use("/api/events", eventsRouter);
+app.use("/api/music", musicRouter);
 app.use("/api", channelsRouter);
 app.use("/api", messagesRouter);
 

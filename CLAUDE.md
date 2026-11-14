@@ -58,6 +58,11 @@ Owner pronouns unknown: use they/them.
   `hudLayoutV2` reset everyone's saved HUD positions once.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
+- **yogurthub music** (friend's Navidrome/Subsonic; octo.* = library + Tidal on demand): Render env
+  `SUBSONIC_URL` (https://octo.yogurthub.xyz), `SUBSONIC_USER`, `SUBSONIC_PASSWORD` (never in the repo).
+  `server/src/music/subsonic.ts` + `/api/music/subsonic/*`; socket `music:add-tracks`; queue items with
+  `source:"subsonic"` + signed `streamUrl` (192k MP3 transcode, not seekable → `&timeOffset=N` for the
+  shared position); client plays them in an `<audio>` in `musicPlayerEngine.ts`; 🎧 button → SubsonicSearchModal.
 - **Accounts**: login with e-mail OR username; Settings → Акаунт и парола (change password/e-mail);
   login page: Забравена парола / Забравен имейл (masked) / Смяна на паролата; `/reset-password?token=`
   page. Reset tokens use a key derived from JWT_SECRET (never valid as sessions) + a fingerprint of the

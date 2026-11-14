@@ -87,6 +87,8 @@ export const SocketEvents = {
   MusicPause: "music:pause",
   MusicSkip: "music:skip",
   MusicSeek: "music:seek",
+  /** { voiceChannelId, trackIds?: string[], albumId?: string } — songs from the music server (yogurthub). */
+  MusicAddTracks: "music:add-tracks",
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

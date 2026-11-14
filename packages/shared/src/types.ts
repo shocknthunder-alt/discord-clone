@@ -127,10 +127,16 @@ export interface DmConversationDTO {
 
 export interface MusicQueueItem {
   id: string;
+  /** YouTube video id ("" for songs from the music server). */
   videoId: string;
   title: string;
   thumbnailUrl: string | null;
   addedByUsername: string;
+  /** Missing = "youtube" (older items/servers). "subsonic" = yogurthub song played from streamUrl. */
+  source?: "youtube" | "subsonic";
+  /** subsonic: signed MP3 stream (append &timeOffset=N to start mid-song). */
+  streamUrl?: string;
+  durationSeconds?: number;
 }
 
 export interface MusicState {

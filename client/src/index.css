@@ -1085,6 +1085,57 @@ button {
   font-weight: 600;
 }
 
+/* ───────── 🎧 yogurthub (Subsonic) search ───────── */
+.music-subsonic-open {
+  width: 100%; margin-top: 6px; padding: 6px 8px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(var(--accent-rgb), 0.5); background: rgba(var(--accent-rgb), 0.14); color: var(--t-1);
+}
+.music-subsonic-open:hover { background: rgba(var(--accent-rgb), 0.3); }
+.subsonic-backdrop {
+  position: fixed; inset: 0; z-index: 500; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center;
+}
+.subsonic-modal {
+  width: min(640px, calc(100vw - 32px)); height: min(720px, calc(100vh - 48px)); display: flex; flex-direction: column;
+  background: var(--c-panel); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  padding: 16px 18px; color: var(--t-1);
+}
+.subsonic-head { display: flex; align-items: center; justify-content: space-between; }
+.subsonic-head h3 { margin: 0; font-size: 17px; }
+.subsonic-close { border: none; background: none; color: var(--t-3); font-size: 18px; cursor: pointer; }
+.subsonic-close:hover { color: var(--t-1); }
+.subsonic-search { display: flex; gap: 8px; margin-top: 12px; }
+.subsonic-search input {
+  flex: 1; padding: 9px 11px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--c-backdrop); color: var(--t-1); font-size: 14px;
+}
+.subsonic-search button {
+  padding: 8px 16px; border-radius: 7px; border: none; background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
+}
+.subsonic-search button:disabled { opacity: 0.5; cursor: default; }
+.subsonic-note { margin: 6px 0 0; font-size: 12px; color: var(--t-3); }
+.subsonic-error { margin: 8px 0 0; font-size: 13px; color: #f0656a; }
+.subsonic-results { flex: 1; min-height: 0; overflow-y: auto; margin-top: 10px; padding-right: 4px; }
+.subsonic-section { margin: 12px 0 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--t-3); }
+.subsonic-row { display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 7px; }
+.subsonic-row:hover { background: rgba(255, 255, 255, 0.05); }
+.subsonic-row.album { cursor: pointer; }
+.subsonic-row img, .subsonic-cover-ph {
+  width: 40px; height: 40px; flex: 0 0 40px; border-radius: 5px; object-fit: cover; background: rgba(255, 255, 255, 0.06);
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.subsonic-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.subsonic-text b, .subsonic-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.subsonic-text b { font-size: 14px; font-weight: 600; }
+.subsonic-text small { font-size: 12px; color: var(--t-3); }
+.subsonic-dur { font-size: 12px; color: var(--t-3); font-variant-numeric: tabular-nums; }
+.subsonic-row button, .subsonic-add-all, .subsonic-back {
+  padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06);
+  color: var(--t-1); font-size: 12px; cursor: pointer; white-space: nowrap;
+}
+.subsonic-row button:hover, .subsonic-add-all:hover, .subsonic-back:hover { background: rgba(var(--accent-rgb), 0.3); }
+.subsonic-row button.done, .subsonic-add-all.done { color: #3ba55d; border-color: rgba(59, 165, 93, 0.5); }
+.subsonic-album-head { display: flex; align-items: center; gap: 10px; padding: 4px 0 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); margin-bottom: 4px; }
+
 .voice-tiles {
   display: flex;
   flex-wrap: wrap;

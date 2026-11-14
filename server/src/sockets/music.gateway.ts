@@ -2,6 +2,13 @@ import { extractYoutubeId, extractYoutubePlaylistId, SocketEvents, type MusicQue
 import { randomUUID } from "node:crypto";
 import type { Server as IOServer, Socket } from "socket.io";
 import { env } from "../env.js";
+import {
+  getSubsonicAlbumSongs,
+  getSubsonicSong,
+  subsonicEnabled,
+  subsonicStreamUrl,
+  type SubsonicSong,
+} from "../music/subsonic.js";
 
 const LOOKS_LIKE_URL = /^https?:\/\//i;
 
@@ -44,7 +51,14 @@ async function searchYoutube(query: string): Promise<{ videoId: string; title: s
 
 const PLAYLIST_MAX = 100;
 
-type Resolved = { videoId: string; title: string; thumbnailUrl: string };
+type Resolved = {
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  source?: "youtube" | "subsonic";
+  streamUrl?: string;
+  durationSeconds?: number;
+};
 
 /**
  * Every playable video of a playlist, in order (max 100). Needs the Data API key, like search.
@@ -183,6 +197,45 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     addToQueue(voiceChannelId, [resolved]);
   });
 
+  // Songs from the music server (yogurthub): picked in the 🎧 search, by id or a whole album.
+  // Resolved here (not trusted from the client) so titles/stream links are the server's own.
+  socket.on(
+    SocketEvents.MusicAddTracks,
+    async ({ voiceChannelId, trackIds, albumId }: { voiceChannelId: string; trackIds?: string[]; albumId?: string }) => {
+      if (!voiceChannelId || !subsonicEnabled()) {
+        socket.emit(SocketEvents.MusicAddError, { reason: "subsonic-unavailable" });
+        return;
+      }
+      try {
+        const songs: SubsonicSong[] = [];
+        if (typeof albumId === "string" && albumId) songs.push(...(await getSubsonicAlbumSongs(albumId)).slice(0, PLAYLIST_MAX));
+        if (Array.isArray(trackIds)) {
+          for (const id of trackIds.slice(0, PLAYLIST_MAX)) {
+            if (typeof id === "string" && id) songs.push(await getSubsonicSong(id));
+          }
+        }
+        if (songs.length === 0) {
+          socket.emit(SocketEvents.MusicAddError, { reason: "not-found" });
+          return;
+        }
+        addToQueue(
+          voiceChannelId,
+          songs.map((s) => ({
+            videoId: "",
+            title: s.artist ? `${s.artist} — ${s.title}` : s.title,
+            thumbnailUrl: s.coverUrl ?? "",
+            source: "subsonic" as const,
+            streamUrl: subsonicStreamUrl(s.id),
+            durationSeconds: s.durationSeconds,
+          })),
+        );
+      } catch (err) {
+        console.warn("adding subsonic tracks failed", err);
+        socket.emit(SocketEvents.MusicAddError, { reason: "subsonic-failed" });
+      }
+    },
+  );
+
   /** Appends songs to the channel's queue (one broadcast, however many were added). */
   function addToQueue(voiceChannelId: string, songs: Resolved[]) {
     const state = getOrCreateState(voiceChannelId);
@@ -196,6 +249,7 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
         title: s.title,
         thumbnailUrl: s.thumbnailUrl || null,
         addedByUsername: username,
+        ...(s.source === "subsonic" ? { source: "subsonic" as const, streamUrl: s.streamUrl, durationSeconds: s.durationSeconds } : {}),
       };
       state.queue.push(item);
     }
