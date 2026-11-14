@@ -56,6 +56,12 @@ Owner pronouns unknown: use they/them.
   `hudLayoutV2` reset everyone's saved HUD positions once.
 - Update banner: polls `/version.json`; silent reload if not in voice and tab hidden.
 
+- **Accounts**: login with e-mail OR username; Settings → Акаунт и парола (change password/e-mail);
+  login page: Забравена парола / Забравен имейл (masked) / Смяна на паролата; `/reset-password?token=`
+  page. Reset tokens use a key derived from JWT_SECRET (never valid as sessions) + a fingerprint of the
+  current password hash (single use). E-mail only if Render env `BREVO_API_KEY` + `MAIL_FROM` are set;
+  otherwise the server OWNER makes a 24 h link (Членове → person → 🔑 Линк за нова парола).
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

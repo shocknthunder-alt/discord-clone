@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { startConversationWith } from "../api/dm.api";
 import { apiError, kickMember, setMemberRole } from "../api/members.api";
+import { memberResetLink } from "../api/auth.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useDmStore } from "../store/dmStore";
@@ -172,6 +173,26 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
     onClose();
   }
 
+  // Owner only: a one-time link (24 h) for someone who forgot their password — copied to the
+  // clipboard, to send them in a DM / Messenger.
+  const canResetLink = myRank >= 1e9 && !isMe && !member.isOwner;
+  const [resetInfo, setResetInfo] = useState<string | null>(null);
+  async function makeResetLink() {
+    if (!serverId) return;
+    setError(null);
+    try {
+      const { link } = await memberResetLink(serverId, member.userId);
+      try {
+        await navigator.clipboard.writeText(link);
+        setResetInfo(`✓ Линкът е копиран — прати го на ${member.username}. Важи 24 ч. и само веднъж.`);
+      } catch {
+        window.prompt(`Линк за нова парола за ${member.username} (важи 24 ч.):`, link);
+      }
+    } catch (err) {
+      setError(apiError(err, "Не успях."));
+    }
+  }
+
   async function kick() {
     if (!serverId || !window.confirm(`Да изгоня ли ${member.username} от сървъра?`)) return;
     try {
@@ -220,6 +241,12 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
           </button>
         </>
       )}
+      {canResetLink && (
+        <button onClick={() => void makeResetLink()} title="Забравил си е паролата? Пусни му линка в лично съобщение.">
+          🔑 Линк за нова парола
+        </button>
+      )}
+      {resetInfo && <div className="member-menu-info">{resetInfo}</div>}
       {canKick && (
         <button className="danger" onClick={() => void kick()}>
           🚪 Изгони от сървъра

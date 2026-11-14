@@ -27,6 +27,7 @@ import {
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useAppPrefs } from "../utils/appPrefs";
+import AccountSettings from "./AccountSettings";
 import "./settings.css";
 
 // A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
@@ -48,10 +49,16 @@ function describeKeyCode(code: string): string {
   return known[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "");
 }
 
-type Section = "profile" | "voice" | "stream" | "chat" | "notifications" | "appearance" | "accessibility";
+type Section = "profile" | "account" | "voice" | "stream" | "chat" | "notifications" | "appearance" | "accessibility";
 
 const NAV: { group: string; items: { id: Section; icon: string; label: string }[] }[] = [
-  { group: "Потребител", items: [{ id: "profile", icon: "👤", label: "Моят профил" }] },
+  {
+    group: "Потребител",
+    items: [
+      { id: "profile", icon: "👤", label: "Моят профил" },
+      { id: "account", icon: "🔐", label: "Акаунт и парола" },
+    ],
+  },
   {
     group: "Приложение",
     items: [
@@ -67,6 +74,7 @@ const NAV: { group: string; items: { id: Section; icon: string; label: string }[
 
 const TITLES: Record<Section, string> = {
   profile: "Моят профил",
+  account: "Акаунт и парола",
   voice: "Глас и видео",
   stream: "Стрийм",
   chat: "Чат",
@@ -570,6 +578,8 @@ export default function UserSettingsModal({ onClose }: Props) {
                 </div>
               </Card>
             )}
+
+            {section === "account" && <AccountSettings />}
 
             {section === "voice" && (
               <>

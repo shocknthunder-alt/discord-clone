@@ -201,7 +201,8 @@ export default function VoiceChannelPanel() {
   const n = watched.length + shownCams.length;
   const gridCols = n <= 1 ? 1 : n <= 4 ? 2 : 3;
   // Height budget per frame, so 2×2 / 3×N grids still fit next to the tiles below.
-  const maxVh = n <= 1 ? 76 : n === 2 ? 64 : n <= 4 ? 36 : 26;
+  // Two rows (3–4) or three rows (5+) must leave room for the people row underneath.
+  const maxVh = n <= 1 ? 72 : n === 2 ? 62 : n <= 4 ? 31 : 21;
 
   function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
     e.preventDefault();
@@ -235,7 +236,7 @@ export default function VoiceChannelPanel() {
         <VoiceChannelIcon size={20} /> {channel?.name ?? ""}
       </div>
       <div
-        className="voice-panel"
+        className={`voice-panel ${n > 0 ? "has-streams" : ""}`}
         style={
           channel?.backgroundUrl
             ? {

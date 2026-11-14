@@ -17,6 +17,10 @@ const envSchema = z.object({
   // Optional: only needed for "search by title" in the music queue. Paste-a-link works
   // without it (YouTube's oEmbed is keyless); unset simply disables title search.
   YOUTUBE_API_KEY: z.string().optional(),
+  // Optional: "forgot password" e-mails via Brevo (see utils/mailer.ts). Unset = no e-mail; the
+  // server owner can still hand out reset links.
+  BREVO_API_KEY: z.string().optional(),
+  MAIL_FROM: z.string().optional(),
 });
 
 export const env = envSchema.parse(trimmedEnv);

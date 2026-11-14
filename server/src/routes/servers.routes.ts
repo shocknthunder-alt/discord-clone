@@ -15,6 +15,7 @@ import {
   deleteRole,
   kickMember,
   listMembers,
+  memberResetLink,
   reorderRoles,
   setMemberRole,
   updateRole,
@@ -37,6 +38,7 @@ serversRouter.delete("/:serverId/sounds/:soundId", deleteSound);
 serversRouter.get("/:serverId/members", listMembers);
 serversRouter.put("/:serverId/members/:userId/role", setMemberRole);
 serversRouter.delete("/:serverId/members/:userId", kickMember);
+serversRouter.post("/:serverId/members/:userId/reset-link", memberResetLink);
 serversRouter.post("/:serverId/roles", createRole);
 serversRouter.put("/:serverId/roles/order", reorderRoles);
 serversRouter.patch("/:serverId/roles/:roleId", updateRole);

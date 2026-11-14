@@ -107,6 +107,7 @@
   background: var(--c-input, rgba(0, 0, 0, 0.3)); color: var(--t-1);
 }
 .member-menu-error { color: #f0656a; font-size: 12px; padding: 4px 8px; }
+.member-menu-info { color: #3ba55d; font-size: 12px; padding: 4px 8px; max-width: 220px; }
 
 .members-toggle.on { opacity: 1; filter: none; }
 .members-toggle:not(.on) { opacity: 0.55; }

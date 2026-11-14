@@ -272,3 +272,10 @@
   .set-frames,
   .set-themes { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Акаунт и парола */
+.set-account-form { display: flex; flex-direction: column; gap: 6px; max-width: 380px; }
+.set-account-form .set-row { margin-top: 6px; }
+.set-account-form .password-field input { padding-right: 42px; }
+.set-account-row { display: flex; gap: 12px; align-items: baseline; }
+.set-error { color: #f0656a; font-size: 13px; }

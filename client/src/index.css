@@ -130,6 +130,13 @@ button {
   cursor: pointer;
 }
 
+.auth-card .auth-help-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+}
+
 .auth-card .error {
   color: #e5484d;
   font-size: 14px;
@@ -523,6 +530,7 @@ button {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .chat-header {
@@ -898,10 +906,31 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* "safe": when streams + people don't fit, start at the top and scroll instead of pushing the
+     people below the bottom edge (plain centring made them unreachable). */
+  justify-content: safe center;
   gap: 16px;
   background: var(--c-main);
   padding: 32px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.voice-panel > * {
+  flex-shrink: 0;
+}
+
+/* While streams/cameras are open the people row is compact, so it fits under them. */
+.voice-panel.has-streams {
+  padding: 16px 24px;
+}
+
+.voice-panel.has-streams .voice-tiles {
+  gap: 18px;
+}
+
+.voice-panel.has-streams .voice-tile {
+  min-height: 0;
 }
 
 .music-mini {

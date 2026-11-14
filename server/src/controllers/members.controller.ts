@@ -3,6 +3,7 @@ import { ALL_PERMS, Perm, SocketEvents, hasPerm, type MembersResponse, type Role
 import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
 import { can, ensureDefaultRole, memberContext, outranks } from "../permissions.js";
+import { resetLink, signResetToken } from "../utils/passwordReset.js";
 
 function io(req: Request): IOServer | undefined {
   return req.app.get("io");
@@ -167,6 +168,21 @@ export async function setMemberRole(req: Request, res: Response) {
   await prisma.membership.update({ where: { userId_serverId: { userId, serverId } }, data: { roleId } });
   notifyMembersChanged(io(req), serverId);
   res.status(204).end();
+}
+
+/**
+ * The server OWNER gives a member who forgot their password a one-time link to set a new one
+ * (valid 24 h, dies once used). Works without any e-mail set up — they send it over chat.
+ */
+export async function memberResetLink(req: Request, res: Response) {
+  const { serverId, userId } = req.params;
+  const me = await memberContext(req.userId!, serverId);
+  if (!me?.isOwner) return res.status(403).json({ error: "Само собственикът на сървъра." });
+  const target = await memberContext(userId, serverId);
+  if (!target || target.isOwner) return res.status(404).json({ error: "Няма такъв член." });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) return res.status(404).json({ error: "Няма такъв член." });
+  res.json({ link: resetLink(signResetToken(user.id, user.passwordHash, "24h")), username: user.username });
 }
 
 export async function kickMember(req: Request, res: Response) {
