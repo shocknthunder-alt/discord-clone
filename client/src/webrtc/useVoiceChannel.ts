@@ -131,6 +131,31 @@ function detachPushToTalkListeners() {
   pttGlobalUnsubscribe = null;
 }
 
+/** The screen/window (+ its sound) to stream. */
+function captureDisplay(quality: "low" | "standard" | "high"): Promise<MediaStream> {
+  return navigator.mediaDevices.getDisplayMedia({
+    video: {
+      width: { ideal: quality === "high" ? 3840 : quality === "low" ? 1280 : 1920 },
+      height: { ideal: quality === "high" ? 2160 : quality === "low" ? 720 : 1080 },
+      // Both modes capture 60 fps; they differ in what the encoder sacrifices (see SfuMediaManager).
+      frameRate: { ideal: 60, max: 60 },
+    },
+    // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the viewer
+    // only ever gets video. echoCancellation/noiseSuppression/autoGainControl are mic-tuned and
+    // distort music or video playback, so they're off for this stream.
+    audio: {
+      echoCancellation: false,
+      noiseSuppression: false,
+      autoGainControl: false,
+      // Keep this app's own sound (the friends' voices) out of the shared system audio, or
+      // viewers would hear themselves with an echo. Chromium-only option, not in the DOM types.
+      restrictOwnAudio: true,
+    } as MediaTrackConstraints,
+    // Chrome: pre-tick "Share system audio" in its picker (ignored elsewhere).
+    systemAudio: "include",
+  } as DisplayMediaStreamOptions);
+}
+
 /** Live numbers about the screen share being sent (null when not sharing). */
 export function getScreenShareStats() {
   return activeMediaManager?.getScreenStats() ?? Promise.resolve(null);
@@ -281,8 +306,10 @@ export function useVoiceChannel() {
     // why reports of "they can't hear me" / "I can't hear them" kept flipping direction
     // depending on timing. Registering listeners and awaiting the initial roster snapshot
     // before touching the SFU at all removes the race instead of narrowing it.
+    let rosterLoaded = false;
     const rosterReady = new Promise<void>((resolve) => {
       socket.once(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
+        rosterLoaded = true;
         for (const peer of peers) {
           useVoiceStore.getState().upsertPeer({
             socketId: peer.socketId,
@@ -349,6 +376,8 @@ export function useVoiceChannel() {
     reconnectHandler = () => {
       const state = useVoiceStore.getState();
       if (state.activeVoiceChannelId !== voiceChannelId) return;
+      // Still offline when we clicked join: the buffered join goes out by itself on connect.
+      if (!rosterLoaded) return;
       socket.once(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
         applyPeerSnapshot(peers);
         const now = useVoiceStore.getState();
@@ -459,24 +488,45 @@ export function useVoiceChannel() {
       });
     });
 
+    // SFU join + mic. If the media server was unreachable (or the join failed), keep trying in
+    // the background instead of leaving a call where you hear nobody / nobody hears you / the
+    // stream button does nothing until you leave and rejoin.
+    const startSfu = async (): Promise<boolean> => {
+      if (activeMediaManager !== manager || !activeMicProcessing) return true; // left meanwhile
+      try {
+        await manager.join(voiceChannelId);
+        await manager.produceMic(activeMicProcessing.outputTrack);
+        attachPushToTalkListeners();
+        applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
+        useVoiceStore.getState().setScreenShareNotice(null);
+        return true;
+      } catch (err) {
+        console.error("SFU join/produce failed", err);
+        return false;
+      }
+    };
+    const retrySfu = (attempt: number) => {
+      if (activeMediaManager !== manager) return;
+      useVoiceStore
+        .getState()
+        .setScreenShareNotice("Няма връзка с гласовия сървър — опитвам отново… (ако не мине, излез и влез пак в канала)");
+      const run = async () => {
+        if (activeMediaManager !== manager) return;
+        if (!mediaSocket.connected) {
+          mediaSocket.once("connect", () => void run());
+          return;
+        }
+        if (!(await startSfu()) && attempt < 5) setTimeout(() => retrySfu(attempt + 1), 3000 * (attempt + 1));
+      };
+      void run();
+    };
+
     if (!mediaSocketConnected) {
-      console.error("SFU media socket did not connect within 8s — voice audio/video will be unavailable");
+      console.error("SFU media socket did not connect within 8s — retrying in the background");
+      retrySfu(0);
       return;
     }
-
-    try {
-      await manager.join(voiceChannelId);
-      await manager.produceMic(activeMicProcessing.outputTrack);
-      attachPushToTalkListeners();
-      applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
-    } catch (err) {
-      // Logged rather than re-thrown: the rest of this function still has to run even if
-      // the SFU side failed, so the user at least shows up in the channel instead of
-      // silently vanishing — audio for them would be broken either way, but this makes
-      // that failure visible in devtools instead of a confusing "can't hear/be heard" with
-      // nothing to go on.
-      console.error("SFU join/produce failed", err);
-    }
+    if (!(await startSfu())) retrySfu(1);
   }, [store]);
 
   const leaveVoiceChannel = useCallback(() => {
@@ -622,6 +672,13 @@ export function useVoiceChannel() {
     // viewer's network. Standard (1080p, the safe default) still outresolves the
     // ~1100px-wide display area; High (4K) is opt-in for people whose hardware can handle
     // three layers of it, picked in Settings → Screen Share Quality.
+    if (!activeMediaManager.isReady) {
+      store.setScreenShareNotice(
+        "Стриймът не може да тръгне: няма връзка с гласовия сървър. Излез и влез пак в канала (или рефрешни).",
+      );
+      return;
+    }
+
     const quality = useVoiceStore.getState().screenShareQuality;
     const mode = useVoiceStore.getState().screenShareMode;
     let desktopAudioMode: "native" | "loopback" | "none" | undefined;
@@ -631,28 +688,21 @@ export function useVoiceChannel() {
       if (!choice) return; // cancelled
       desktopAudioMode = await window.shmirkaDesktop.selectScreenSource(choice.id, choice.audio);
     }
-    const screenStream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        width: { ideal: quality === "high" ? 3840 : quality === "low" ? 1280 : 1920 },
-        height: { ideal: quality === "high" ? 2160 : quality === "low" ? 720 : 1080 },
-        // Both modes capture 60 fps; they differ in what the encoder sacrifices (see SfuMediaManager).
-        frameRate: { ideal: 60, max: 60 },
-      },
-      // Capture the shared tab/system audio too (e.g. a YouTube clip) — without this the
-      // viewer only ever gets video. Chrome asks separately for this when sharing a tab;
-      // echoCancellation/noiseSuppression/autoGainControl are mic-tuned and distort music
-      // or video playback, so turn them off for this stream specifically.
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl: false,
-        // Keep this app's own sound (the friends' voices) out of the shared system audio, or
-        // viewers would hear themselves with an echo. Chromium-only option, not in the DOM types.
-        restrictOwnAudio: true,
-      } as MediaTrackConstraints,
-      // Chrome: pre-tick "Share system audio" in its picker (ignored elsewhere).
-      systemAudio: "include",
-    } as DisplayMediaStreamOptions);
+    let screenStream: MediaStream;
+    try {
+      screenStream = await captureDisplay(quality);
+    } catch (err) {
+      const name = (err as DOMException)?.name;
+      if (name === "NotAllowedError" && !window.shmirkaDesktop) return; // cancelled in the browser picker
+      console.error("screen capture failed", err);
+      if (desktopAudioMode === "native") stopNativeAppAudio();
+      store.setScreenShareNotice(
+        `Заснемането на екрана не тръгна (${name || "грешка"}). Опитай друг екран/прозорец${
+          window.shmirkaDesktop ? " или рестартирай приложението" : ""
+        }.`,
+      );
+      return;
+    }
     // Desktop app with per-app capture: add the shared program's own sound as the stream's audio track.
     if (desktopAudioMode === "native") {
       const appAudioTrack = await startNativeAppAudio();
@@ -671,7 +721,17 @@ export function useVoiceChannel() {
           ? "Стриймът е БЕЗ звук: браузърът не дава звук от прозорец (напр. игра). Спри и сподели „Цял екран“ с отметка „Share system audio“ — или ползвай десктоп приложението, което хваща звука само на играта."
           : "Стриймът е БЕЗ звук. Спри и сподели отново, като отметнеш „Share audio“ / „Share system audio“ в прозореца за избор.",
     );
-    await activeMediaManager.startScreenShare(screenStream, quality, mode, useVoiceStore.getState().screenShareSimulcast);
+    try {
+      await activeMediaManager.startScreenShare(screenStream, quality, mode, useVoiceStore.getState().screenShareSimulcast);
+    } catch (err) {
+      console.error("screen share produce failed", err);
+      screenStream.getTracks().forEach((t) => t.stop());
+      stopNativeAppAudio();
+      store.setLocalScreenStream(null);
+      store.setScreenSharing(false);
+      store.setScreenShareNotice("Стриймът не тръгна (гласовият сървър го отказа). Опитай пак; ако пак не става — излез и влез в канала.");
+      return;
+    }
     store.setScreenShareStartedAt(Date.now());
 
     const displaySurface = screenStream.getVideoTracks()[0]?.getSettings().displaySurface;

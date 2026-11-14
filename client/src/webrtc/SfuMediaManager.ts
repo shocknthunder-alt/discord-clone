@@ -85,8 +85,26 @@ export class SfuMediaManager {
     return request<T>(this.socket, event, { ...payload, roomId: this.roomId });
   }
 
+  /** Whether the call's media side is up (false = the SFU join hasn't succeeded yet). */
+  get isReady(): boolean {
+    return !!this.sendTransport && !this.sendTransport.closed;
+  }
+
   async join(roomId: string): Promise<void> {
     this.roomId = roomId;
+    // A retry after a failed attempt: drop whatever that attempt got half-way through.
+    if (this.statsInterval) clearInterval(this.statsInterval);
+    this.statsInterval = null;
+    this.micProducer?.close();
+    this.micProducer = null;
+    this.sendTransport?.close();
+    this.recvTransport?.close();
+    this.sendTransport = null;
+    this.recvTransport = null;
+    for (const c of this.consumers.values()) c.close();
+    this.consumers.clear();
+    this.producerMeta.clear();
+    for (const s of this.remoteAudioStreams.values()) s.getTracks().forEach((t) => s.removeTrack(t));
 
     const { rtpCapabilities, producers } = await request<{
       rtpCapabilities: MsTypes.RtpCapabilities;

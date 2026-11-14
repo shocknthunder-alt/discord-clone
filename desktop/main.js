@@ -18,10 +18,9 @@ const OFFLINE_PAGE = `data:text/html;charset=utf-8,${encodeURIComponent(`<!docty
 // comes from a recent Chromium (Electron 45 does it, 33 never did) + the H.264 High profile, which
 // the client picks. Measured: High → "NVIDIA H.264 Encoder MFT"; Constrained Baseline → OpenH264.
 
-// Two graphics cards (iGPU + discrete, or two discrete): render AND encode on the high-performance
-// one, as Windows' "High performance" graphics preference would. The video encoder lives on the
-// same card the app renders with, so this decides which card's NVENC/AMF/Quick Sync is used.
-app.commandLine.appendSwitch("force_high_performance_gpu");
+// NOT forcing the high-performance GPU (1.5.3 did): on two-GPU PCs screen capture can fail when the
+// app runs on a card that doesn't drive the monitor (same as OBS' black capture). Which card is
+// used is left to Windows (Settings → Display → Graphics per app).
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
