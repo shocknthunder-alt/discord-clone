@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Tray, desktopCapturer, ipcMain, nativeImage, s
 const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 const appAudio = require("./appAudio");
+const { autoUpdater } = require("electron-updater");
 
 // The app is a thin native shell around the live website, so every client update reaches the
 // desktop users immediately (no new installer). The shell only adds what a browser can't do:
@@ -131,6 +132,35 @@ app.whenReady().then(async () => {
   });
 
   win.loadURL(ORIGIN);
+
+  // Self-update (1.6.0+): new versions are GitHub releases of the repo (`npm run release`). The
+  // installer downloads quietly in the background; the page shows "Нова версия на приложението —
+  // Рестартирай" and the user picks the moment (never mid-call by itself). Not restarting at all
+  // is fine too: it installs the next time the app quits.
+  let readyUpdate = null; // version string once downloaded
+  const tellPage = () => {
+    if (readyUpdate && !win.isDestroyed()) win.webContents.send("desktop-update-ready", readyUpdate);
+  };
+  ipcMain.handle("app-version", () => app.getVersion());
+  ipcMain.on("desktop-update-query", tellPage);
+  ipcMain.on("desktop-update-install", () => {
+    if (!readyUpdate) return;
+    quitting = true;
+    autoUpdater.quitAndInstall(true, true); // silent install, start the app again afterwards
+  });
+  win.webContents.on("did-finish-load", tellPage);
+  if (app.isPackaged) {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.on("update-downloaded", (info) => {
+      readyUpdate = info.version;
+      tellPage();
+    });
+    autoUpdater.on("error", (err) => console.warn("auto-update failed", err && err.message));
+    const check = () => autoUpdater.checkForUpdates().catch(() => {});
+    setTimeout(check, 15_000);
+    setInterval(check, 30 * 60_000);
+  }
 
   // Like Discord: the X hides the window to the tray (voice keeps going); "Изход" in the tray menu
   // really quits.

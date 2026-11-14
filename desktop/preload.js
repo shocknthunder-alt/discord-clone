@@ -19,6 +19,17 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
   stopAppAudio: () => ipcRenderer.send("app-audio-stop"),
   /** Close and reopen the whole app (used to pick up a new site version cleanly). */
   relaunch: () => ipcRenderer.send("app-relaunch"),
+  /** Desktop 1.6.0+: this app's version. */
+  getVersion: () => ipcRenderer.invoke("app-version"),
+  /** Desktop 1.6.0+: cb(version) once a new app version has been downloaded. Returns an unsubscribe. */
+  onUpdateReady(cb) {
+    const handler = (_event, version) => cb(version);
+    ipcRenderer.on("desktop-update-ready", handler);
+    ipcRenderer.send("desktop-update-query");
+    return () => ipcRenderer.removeListener("desktop-update-ready", handler);
+  },
+  /** Close, install the downloaded version and start again. */
+  installUpdate: () => ipcRenderer.send("desktop-update-install"),
   onGlobalKey(cb) {
     const handler = (_event, code, down) => cb(code, down);
     ipcRenderer.on("global-key", handler);

@@ -17,6 +17,10 @@ interface Window {
     relaunch?(): void;
     /** Desktop 1.5.2+: window.open pop-outs (streams) open as app windows. */
     popOutWindows?: boolean;
+    /** Desktop 1.6.0+: self-update. */
+    getVersion?(): Promise<string>;
+    onUpdateReady?(cb: (version: string) => void): () => void;
+    installUpdate?(): void;
   };
 }
 

@@ -1,13 +1,14 @@
 {
   "name": "shmirka-desktop",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "private": true,
   "description": "ШмиркаТа — desktop app (Electron shell with the built client inside)",
   "main": "main.js",
   "author": "ШмиркаТа",
   "scripts": {
     "start": "node start.mjs",
-    "dist": "electron-builder --win nsis"
+    "dist": "electron-builder --win nsis --publish never",
+    "release": "electron-builder --win nsis --publish always"
   },
   "devDependencies": {
     "electron": "^45.3.1",
@@ -33,10 +34,20 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
-    }
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Shmirka-Setup-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "shocknthunder-alt",
+        "repo": "discord-clone",
+        "releaseType": "release"
+      }
+    ]
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "loopback-capture": "^4.0.0",
     "uiohook-napi": "^1.5.5"
   }

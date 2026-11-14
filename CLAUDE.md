@@ -16,7 +16,11 @@ Owner pronouns unknown: use they/them.
   Measured: 1 viewer of a ~35 Mbps stream ≈ 24% CPU — upgrade to CPX22 via Rescale if 4+ viewers stutter.
   Old Oracle SFU (https://130.61.251.202.nip.io, `~/.ssh/oracle_sfu_ed25519 ubuntu@`) still running as fallback.
 - `packages/shared` types + socket events (rebuild with `npm run build -w packages/shared` before tsc).
-- `desktop` Electron skeleton (not built/run yet — see `desktop/README.md` TODO).
+- `desktop` Electron shell (loads the live site). **Self-update since 1.6.0** (electron-updater, GitHub
+  Releases of this public repo): bump `desktop/package.json` version, then in `desktop/`
+  `GH_TOKEN=... npm run release` (or `npm run dist` + upload `dist/Shmirka-Setup-X.exe`, `.blockmap` and
+  `latest.yml` to a GitHub release tagged `vX`). Apps check every 30 min, download quietly, page shows
+  "Рестартирай" (DesktopUpdateBanner); shells < 1.6.0 get a one-time "install the new version" banner.
 - Windows machine: Git Bash + PowerShell; prefer the Write tool for files with quotes/heredocs.
 - Type-check: `npx tsc --noEmit -p client/tsconfig.json` and `-p server/tsconfig.json`. Commit trailer: Co-Authored-By.
 - `prisma migrate dev` locally hits the PRODUCTION Neon DB — write migrations by hand when possible.
