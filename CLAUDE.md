@@ -21,6 +21,8 @@ Owner pronouns unknown: use they/them.
   `GH_TOKEN=... npm run release` (or `npm run dist` + upload `dist/Shmirka-Setup-X.exe`, `.blockmap` and
   `latest.yml` to a GitHub release tagged `vX`). Apps check every 30 min, download quietly, page shows
   "Рестартирай" (DesktopUpdateBanner); shells < 1.6.0 get a one-time "install the new version" banner.
+  First GitHub release: v1.6.1 (2026-11-14, owner uploads manually — no `gh`/token here). Download links
+  (`DESKTOP_DOWNLOAD_URL`) point to `/releases/latest`, so no more Drive uploads.
 - Windows machine: Git Bash + PowerShell; prefer the Write tool for files with quotes/heredocs.
 - Type-check: `npx tsc --noEmit -p client/tsconfig.json` and `-p server/tsconfig.json`. Commit trailer: Co-Authored-By.
 - `prisma migrate dev` locally hits the PRODUCTION Neon DB — write migrations by hand when possible.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-export const DESKTOP_DOWNLOAD_URL = "https://drive.google.com/file/d/1t-3aHFBocwRS711jbslcTOd-e1YJtx9y/view?usp=sharing";
+// Always the newest desktop release (the page lists Shmirka-Setup-X.exe under "Assets").
+export const DESKTOP_DOWNLOAD_URL = "https://github.com/shocknthunder-alt/discord-clone/releases/latest";
 const DOWNLOAD_URL = DESKTOP_DOWNLOAD_URL;
 const HIDE_KEY = "desktopAppBannerHiddenUntil";
 const HIDE_FOR_MS = 7 * 24 * 60 * 60 * 1000;
