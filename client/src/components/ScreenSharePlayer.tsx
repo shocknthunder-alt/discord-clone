@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { canPopOutWindows, closePopout, popOutStream, usePopoutStore } from "../webrtc/streamPopouts";
+import { cancelControl, requestControl, sendControlInput, useControlStore } from "../webrtc/remoteControl";
 
 interface Props {
   stream: MediaStream;
@@ -87,6 +88,34 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
 
   const silent = muted || volume === 0;
 
+  // ── Remote control (viewer side): ask the streamer, then drive their PC from this picture ──
+  const streamerId = !preview && popout ? popout.nameKey : null;
+  const requesting = useControlStore((s) => !!streamerId && s.requesting === streamerId);
+  const controlling = useControlStore((s) => !!streamerId && s.controlling === streamerId);
+  const busyElsewhere = useControlStore((s) => (!!s.requesting || !!s.controlling) && s.requesting !== streamerId && s.controlling !== streamerId);
+  const heldKeys = useRef(new Set<string>());
+
+  /** 0..1 across the actual picture (the <video> letterboxes it with object-fit: contain). */
+  function norm(e: React.MouseEvent): { x: number; y: number } | null {
+    const v = ref.current;
+    if (!v || !v.videoWidth || !v.videoHeight) return null;
+    const r = v.getBoundingClientRect();
+    const scale = Math.min(r.width / v.videoWidth, r.height / v.videoHeight);
+    const w = v.videoWidth * scale;
+    const h = v.videoHeight * scale;
+    const x = (e.clientX - r.left - (r.width - w) / 2) / w;
+    const y = (e.clientY - r.top - (r.height - h) / 2) / h;
+    return { x: Math.min(Math.max(x, 0), 1), y: Math.min(Math.max(y, 0), 1) };
+  }
+  const buttonOf = (b: number): 0 | 1 | 2 | null => (b === 0 || b === 1 || b === 2 ? b : null);
+  function releaseKeys() {
+    for (const code of heldKeys.current) sendControlInput({ t: "keyup", code });
+    heldKeys.current.clear();
+  }
+  useEffect(() => {
+    if (!controlling) heldKeys.current.clear();
+  }, [controlling]);
+
   return (
     <div className="screen-share-wrap" ref={wrapRef}>
       <video
@@ -112,6 +141,70 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
           }
         >
           {poppedOut ? "⧉ Върни" : "⧉ Изкарай"}
+        </button>
+      )}
+      {controlling && !poppedOut && (
+        <div
+          className="rc-capture"
+          tabIndex={0}
+          title="Управляваш — мишката и клавиатурата отиват при стриймъра"
+          onMouseMove={(e) => {
+            const p = norm(e);
+            if (p) sendControlInput({ t: "move", ...p });
+          }}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.currentTarget.focus();
+            const p = norm(e);
+            const b = buttonOf(e.button);
+            if (p && b !== null) sendControlInput({ t: "down", b, ...p });
+          }}
+          onMouseUp={(e) => {
+            const p = norm(e);
+            const b = buttonOf(e.button);
+            if (p && b !== null) sendControlInput({ t: "up", b, ...p });
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          onWheel={(e) => {
+            const dy = Math.sign(e.deltaY) * Math.max(1, Math.round(Math.abs(e.deltaY) / 100));
+            const dx = Math.sign(e.deltaX) * Math.max(1, Math.round(Math.abs(e.deltaX) / 100));
+            sendControlInput({ t: "wheel", dx: e.deltaX ? dx : 0, dy: e.deltaY ? dy : 0 });
+          }}
+          onKeyDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            heldKeys.current.add(e.code);
+            sendControlInput({ t: "keydown", code: e.code });
+          }}
+          onKeyUp={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            heldKeys.current.delete(e.code);
+            sendControlInput({ t: "keyup", code: e.code });
+          }}
+          onBlur={releaseKeys}
+        />
+      )}
+      {streamerId && !poppedOut && (
+        <button
+          className={`stream-control-btn ${controlling ? "on" : ""} ${requesting ? "waiting" : ""}`}
+          disabled={busyElsewhere}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (controlling || requesting) {
+              releaseKeys();
+              cancelControl();
+            } else requestControl(streamerId);
+          }}
+          title={
+            controlling
+              ? "Спри да управляваш"
+              : requesting
+                ? "Чакаме стриймъра да разреши — цъкни, за да се откажеш"
+                : "Поискай да управляваш компютъра на стриймъра (той трябва да разреши; само от десктоп приложението)"
+          }
+        >
+          {controlling ? "✋ Спри контрола" : requesting ? "⏳ Чакам…" : "🖱 Поискай контрол"}
         </button>
       )}
       {poppedOut && <div className="stream-popped-note">Стриймът е в отделен прозорец</div>}

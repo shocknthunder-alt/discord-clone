@@ -139,6 +139,16 @@ export interface MusicQueueItem {
   durationSeconds?: number;
 }
 
+/**
+ * One input from the person controlling a streamer's PC. Mouse positions are 0..1 across the
+ * shared picture (screen or window); keys are KeyboardEvent.code values.
+ */
+export type ControlInputEvent =
+  | { t: "move"; x: number; y: number }
+  | { t: "down" | "up"; b: 0 | 1 | 2; x: number; y: number }
+  | { t: "wheel"; dx: number; dy: number }
+  | { t: "keydown" | "keyup"; code: string };
+
 export interface MusicState {
   queue: MusicQueueItem[];
   // Index into queue of the currently-loaded item; equal to queue.length when nothing is

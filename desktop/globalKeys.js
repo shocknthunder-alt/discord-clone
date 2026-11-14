@@ -17,6 +17,21 @@ for (const [name, keycode] of Object.entries(UiohookKey)) {
   CODE_BY_KEYCODE.set(keycode, code);
 }
 
+// KeyboardEvent.code -> uiohook keycode (= Windows set-1 scan code; 0xE0xx / 0x0Exx = extended key).
+const KEYCODE_BY_CODE = new Map();
+for (const [keycode, code] of CODE_BY_KEYCODE) if (!KEYCODE_BY_CODE.has(code)) KEYCODE_BY_CODE.set(code, keycode);
+for (const [code, alias] of [["AltRight", "AltRight"], ["ShiftRight", "ShiftRight"], ["MetaRight", "MetaRight"]]) {
+  if (!KEYCODE_BY_CODE.has(code) && UiohookKey[alias] !== undefined) KEYCODE_BY_CODE.set(code, UiohookKey[alias]);
+}
+
+/** { scan, extended } for a KeyboardEvent.code, or null. */
+function scanCodeFor(code) {
+  const keycode = KEYCODE_BY_CODE.get(code);
+  if (keycode === undefined) return null;
+  const high = keycode & 0xff00;
+  return { scan: keycode & 0xff, extended: high === 0xe000 || high === 0x0e00 };
+}
+
 let started = false;
 
 function startGlobalKeys(send) {
@@ -37,4 +52,4 @@ function stopGlobalKeys() {
   try { uIOhook.stop(); } catch { /* already stopped */ }
 }
 
-module.exports = { startGlobalKeys, stopGlobalKeys };
+module.exports = { startGlobalKeys, stopGlobalKeys, scanCodeFor, uIOhook };

@@ -104,6 +104,27 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     } satisfies SoundboardPlayedPayload);
   });
 
+  // Remote control of a streamer's PC (ticket 001). The server only relays between two people in
+  // the SAME voice channel and stamps who it is from; the streamer's desktop app decides (asks
+  // them, only obeys the person they allowed, stops on their hotkey).
+  const relayControl = (inEvent: string, outEvent: string, maxBytes = 300) => {
+    socket.on(inEvent, (p: { toUserId?: unknown } & Record<string, unknown>) => {
+      const channelId = socketVoiceChannel.get(socket.id);
+      if (!channelId || !p || typeof p.toUserId !== "string") return;
+      const { toUserId, ...rest } = p;
+      if (JSON.stringify(rest).length > maxBytes) return;
+      const roster = voiceRosters.get(channelId);
+      if (!roster) return;
+      for (const [sid, peer] of roster) {
+        if (peer.userId === toUserId) io.to(sid).emit(outEvent, { ...rest, fromUserId: socket.data.userId, fromUsername: socket.data.username });
+      }
+    });
+  };
+  relayControl(SocketEvents.ControlRequest, SocketEvents.ControlRequested);
+  relayControl(SocketEvents.ControlResponse, SocketEvents.ControlAnswered);
+  relayControl(SocketEvents.ControlInput, SocketEvents.ControlInputIn);
+  relayControl(SocketEvents.ControlStop, SocketEvents.ControlStopped);
+
   // Drag & drop in the channel list: move someone to another voice channel of the same server
   // (voiceChannelId null = disconnect them). Needs "move members" and a higher rank than theirs.
   // The moved client does the actual leave/join itself when it gets VoiceMoved.

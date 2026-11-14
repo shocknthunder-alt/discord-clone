@@ -30,6 +30,20 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
   },
   /** Close, install the downloaded version and start again. */
   installUpdate: () => ipcRenderer.send("desktop-update-install"),
+  /** Desktop 1.7.0+: let someone watching our stream control this PC (after the streamer allowed it). */
+  remoteControl: {
+    /** Start obeying `name` (shows the red bar + Ctrl+Alt+Esc). */
+    start: (name) => ipcRenderer.invoke("rc-start", name),
+    /** One input: { t: "move"|"down"|"up"|"wheel"|"keydown"|"keyup", ... } */
+    input: (ev) => ipcRenderer.send("rc-input", ev),
+    stop: () => ipcRenderer.send("rc-stop"),
+    /** cb(reason) when it ended here (hotkey, the bar's Спри, own mouse moved, page reload). */
+    onStopped(cb) {
+      const handler = (_event, reason) => cb(reason);
+      ipcRenderer.on("rc-stopped", handler);
+      return () => ipcRenderer.removeListener("rc-stopped", handler);
+    },
+  },
   onGlobalKey(cb) {
     const handler = (_event, code, down) => cb(code, down);
     ipcRenderer.on("global-key", handler);

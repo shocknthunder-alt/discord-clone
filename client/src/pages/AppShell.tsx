@@ -31,6 +31,8 @@ import { scheduleEventsReload, useEventsStore } from "../store/eventsStore";
 import { useEventReminders } from "../hooks/useEventReminders";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { rememberVoiceForRestart, takeVoiceResume } from "../webrtc/voiceResume";
+import { registerRemoteControl } from "../webrtc/remoteControl";
+import RemoteControlPrompt from "../components/RemoteControlPrompt";
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 
@@ -73,6 +75,8 @@ export default function AppShell() {
   useEffect(() => {
     if (!token) return;
     const socket = connectSocket(token);
+
+    registerRemoteControl(socket);
 
     socket.on(SocketEvents.PresenceUpdate, ({ userId, status }: { userId: string; status: string }) => {
       setUserOnline(userId, status === "online");
@@ -231,6 +235,7 @@ export default function AppShell() {
       <FloatingVoiceHud />
       <IncomingCallToast />
       <EventToasts onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
+      <RemoteControlPrompt />
       <EventBoardModal onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <SearchModal />
       <LiveBanner />

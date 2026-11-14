@@ -3002,6 +3002,42 @@ input[type="range"] {
 }
 .screen-share-wrap:hover .stream-popout, .stream-popout.on { opacity: 1; }
 .stream-popout:hover { background: rgba(var(--accent-rgb), 0.85); }
+
+/* ───────── remote control (ticket 001) ───────── */
+.stream-control-btn {
+  position: absolute; right: 10px; top: 10px; z-index: 4; padding: 4px 10px; border-radius: 14px; border: none;
+  background: rgba(0, 0, 0, 0.65); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; opacity: 0.35; transition: opacity 0.15s;
+}
+.screen-share-wrap:hover .stream-control-btn, .stream-control-btn.on, .stream-control-btn.waiting { opacity: 1; }
+.stream-control-btn:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.85); }
+.stream-control-btn.on { background: #b3261e; }
+.stream-control-btn:disabled { opacity: 0.2; cursor: default; }
+.rc-capture {
+  position: absolute; inset: 0; z-index: 2; cursor: crosshair; outline: none;
+  box-shadow: inset 0 0 0 2px rgba(179, 38, 30, 0.85);
+}
+.rc-capture:focus { box-shadow: inset 0 0 0 3px #e5483c; }
+.rc-prompt {
+  position: fixed; z-index: 900; top: 18px; left: 50%; transform: translateX(-50%); width: min(460px, calc(100vw - 32px));
+  padding: 16px 18px; border-radius: 12px; background: var(--c-panel); color: var(--t-1);
+  border: 1px solid rgba(229, 72, 60, 0.6); box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6);
+}
+.rc-prompt-title { font-size: 15px; font-weight: 700; }
+.rc-prompt-text { margin-top: 8px; font-size: 13px; color: var(--t-2); line-height: 1.45; }
+.rc-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.rc-prompt-actions button { padding: 7px 16px; border-radius: 7px; font-weight: 600; cursor: pointer; font-size: 13.5px; }
+.rc-deny { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.14); color: var(--t-1); }
+.rc-allow { background: #b3261e; border: none; color: #fff; }
+.rc-active {
+  position: fixed; z-index: 890; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 12px;
+  padding: 7px 8px 7px 14px; border-radius: 10px; background: #b3261e; color: #fff; font-size: 13px; font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.rc-active button { padding: 4px 12px; border-radius: 6px; border: none; background: #fff; color: #b3261e; font-weight: 700; cursor: pointer; }
+.rc-notice {
+  position: fixed; z-index: 880; bottom: 22px; left: 50%; transform: translateX(-50%); max-width: min(520px, calc(100vw - 32px));
+  padding: 9px 14px; border-radius: 9px; background: rgba(0, 0, 0, 0.85); color: #fff; font-size: 13px; text-align: center;
+}
 .stream-popped-note {
   position: absolute; inset: 0; z-index: 2; display: flex; align-items: center; justify-content: center;
   background: rgba(0, 0, 0, 0.75); color: rgba(255, 255, 255, 0.8); font-size: 14px; pointer-events: none;

@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, Tray, desktopCapturer, ipcMain, nativeImage, s
 const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 const appAudio = require("./appAudio");
+const remoteControl = require("./remoteControl");
 const { autoUpdater } = require("electron-updater");
 
 // The app is a thin native shell around the live website, so every client update reaches the
@@ -69,6 +70,20 @@ app.whenReady().then(async () => {
     return mode;
   });
   ipcMain.on("app-audio-stop", () => appAudio.stop());
+
+  // Remote control (1.7.0): the page asked the streamer and they allowed `name`.
+  ipcMain.handle("rc-start", (event, name) => {
+    const sender = event.sender;
+    // The page reloading / closing ends it too (nobody left to relay or show the state).
+    const end = () => remoteControl.stop("page");
+    sender.once("did-start-loading", end);
+    sender.once("destroyed", end);
+    return remoteControl.start(typeof name === "string" ? name.slice(0, 40) : "?", (reason) => {
+      if (!sender.isDestroyed()) sender.send("rc-stopped", reason);
+    });
+  });
+  ipcMain.on("rc-input", (_event, ev) => remoteControl.input(ev));
+  ipcMain.on("rc-stop", () => remoteControl.stop("streamer"));
   // "Обнови" in the update banner: a plain page reload left the shell in a broken state, so
   // restart the whole app instead (the new instance starts once this one has quit).
   ipcMain.on("app-relaunch", () => {
@@ -84,6 +99,7 @@ app.whenReady().then(async () => {
     const sources = await desktopCapturer.getSources({ types: ["screen", "window"] });
     const source = (choice && sources.find((s) => s.id === choice.id)) || sources.find((s) => s.id.startsWith("screen:"));
     if (!source) return callback({});
+    remoteControl.setSharedSource(source); // where a remote controller's clicks land
     callback(choice && choice.mode === "loopback" ? { video: source, audio: "loopback" } : { video: source });
   });
 
@@ -240,6 +256,7 @@ app.on("second-instance", () => {
 
 app.on("window-all-closed", () => app.quit());
 app.on("will-quit", () => {
+  remoteControl.stop("quit");
   stopGlobalKeys();
   appAudio.stop();
 });

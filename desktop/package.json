@@ -1,6 +1,6 @@
 {
   "name": "shmirka-desktop",
-  "version": "1.6.1",
+  "version": "1.7.0",
   "private": true,
   "description": "ШмиркаТа — desktop app (Electron shell with the built client inside)",
   "main": "main.js",
@@ -25,6 +25,7 @@
       "preload.js",
       "globalKeys.js",
       "appAudio.js",
+      "remoteControl.js",
       "build/icon.ico"
     ],
     "win": {
@@ -48,6 +49,7 @@
   },
   "dependencies": {
     "electron-updater": "^6.8.11",
+    "koffi": "^2.16.3",
     "loopback-capture": "^4.0.0",
     "uiohook-napi": "^1.5.5"
   }
