@@ -49,6 +49,43 @@ function upsertPeerMediaByUserId(userId: string, partial: Record<string, unknown
   }
 }
 
+/**
+ * Media already arriving from the SFU for this person. Needed when someone re-appears in the
+ * roster under a NEW socket id (their connection to the main server blipped and they rejoined)
+ * while their SFU audio never stopped: the SFU won't announce those streams again, so without
+ * this they'd be in the channel but silent for everyone until they refreshed.
+ */
+function existingMediaFor(userId: string) {
+  return activeMediaManager?.mediaFor(userId) ?? {};
+}
+
+let lastScreenShareLabel: string | null = null;
+/** Who just dropped out of the roster (userId → when, and what we were showing of them). */
+const recentlyLeft = new Map<string, { at: number; watching: boolean; bigCam: boolean }>();
+let reconnectHandler: (() => void) | null = null;
+
+/** The server's roster replaces ours (after a reconnect): drop who's gone, add/refresh the rest. */
+function applyPeerSnapshot(peers: VoicePeerInfo[]) {
+  const store = useVoiceStore.getState();
+  const ids = new Set(peers.map((p) => p.socketId));
+  for (const socketId of Array.from(store.peers.keys())) {
+    if (!ids.has(socketId)) store.removePeer(socketId);
+  }
+  for (const peer of peers) {
+    store.upsertPeer({
+      socketId: peer.socketId,
+      userId: peer.userId,
+      username: peer.username,
+      avatarUrl: peer.avatarUrl,
+      isMuted: peer.isMuted,
+      isDeafened: peer.isDeafened,
+      isScreenSharing: peer.isScreenSharing,
+      screenShareLabel: peer.screenShareLabel,
+      ...existingMediaFor(peer.userId),
+    });
+  }
+}
+
 // Single source of truth for whether the mic should actually be sending: manual mute
 // always wins, otherwise voice-activation mode transmits continuously and push-to-talk
 // transmits only while its bound key is held. Called from every place one of those three
@@ -281,12 +318,61 @@ export function useVoiceChannel() {
         avatarUrl: string | null;
         socketId: string;
       }) => {
-        useVoiceStore.getState().upsertPeer({ socketId, userId, username, avatarUrl });
-        playVoiceJoinSound();
+        // Same person back under a new connection (their link to the server blipped): take over
+        // the old entry's media instead of showing a second, silent copy, and don't "ding".
+        const stale = Array.from(useVoiceStore.getState().peers.values()).filter(
+          (p) => p.userId === userId && p.socketId !== socketId,
+        );
+        const left = recentlyLeft.get(userId);
+        recentlyLeft.delete(userId);
+        const back = left && Date.now() - left.at < 90_000;
+        const watch = useWatchStore.getState();
+        const wasWatching = (back && left.watching) || stale.some((p) => watch.watching.has(p.socketId));
+        const wasBigCam = (back && left.bigCam) || stale.some((p) => watch.bigCams.has(p.socketId));
+        for (const p of stale) {
+          closePopout(p.socketId);
+          useVoiceStore.getState().removePeer(p.socketId);
+        }
+        useVoiceStore.getState().upsertPeer({ socketId, userId, username, avatarUrl, ...existingMediaFor(userId) });
+        // Keep watching their stream / their enlarged camera under the new id.
+        if (wasWatching) watch.watch(socketId);
+        if (wasBigCam && !useWatchStore.getState().bigCams.has(socketId)) watch.toggleCam(socketId);
+        if (stale.length === 0 && !back) playVoiceJoinSound();
       },
     );
 
+    // Our own connection to the main server dropped and came back (Wi-Fi blip, server restart,
+    // a PC busy with a game missing the heartbeat): the server forgot us, so everyone else stopped
+    // seeing — and hearing — us while the SFU audio kept flowing. Join the roster again with the
+    // same state; the SFU side is untouched.
+    if (reconnectHandler) socket.off("connect", reconnectHandler);
+    reconnectHandler = () => {
+      const state = useVoiceStore.getState();
+      if (state.activeVoiceChannelId !== voiceChannelId) return;
+      socket.once(SocketEvents.VoicePeers, ({ peers }: { peers: VoicePeerInfo[] }) => {
+        applyPeerSnapshot(peers);
+        const now = useVoiceStore.getState();
+        if (now.isMuted) socket.emit(SocketEvents.VoiceMute, { voiceChannelId, isMuted: true });
+        if (now.isDeafened) socket.emit(SocketEvents.VoiceDeafen, { voiceChannelId, isDeafened: true });
+        if (now.isScreenSharing) {
+          socket.emit(SocketEvents.ScreenShareStart, { voiceChannelId, label: lastScreenShareLabel });
+        }
+      });
+      socket.emit(SocketEvents.VoiceJoin, { voiceChannelId });
+    };
+    socket.on("connect", reconnectHandler);
+
     socket.on(SocketEvents.VoicePeerLeft, ({ socketId }: { socketId: string }) => {
+      const peer = useVoiceStore.getState().peers.get(socketId);
+      if (peer?.userId) {
+        const watch = useWatchStore.getState();
+        recentlyLeft.set(peer.userId, {
+          at: Date.now(),
+          watching: watch.watching.has(socketId),
+          bigCam: watch.bigCams.has(socketId),
+        });
+      }
+      closePopout(socketId);
       useVoiceStore.getState().removePeer(socketId);
     });
 
@@ -410,6 +496,9 @@ export function useVoiceChannel() {
       socket.off(SocketEvents.MusicState);
       socket.off(SocketEvents.MusicAddError);
     }
+    if (socket && reconnectHandler) socket.off("connect", reconnectHandler);
+    reconnectHandler = null;
+    lastScreenShareLabel = null;
 
     // Every teardown step is isolated: one failing must never leave the user stuck in the call.
     const safely = (step: () => void) => {
@@ -595,6 +684,7 @@ export function useVoiceChannel() {
             ? "a Browser Tab"
             : null;
     socket.emit(SocketEvents.ScreenShareStart, { voiceChannelId: activeVoiceChannelId, label });
+    lastScreenShareLabel = label;
 
     screenStream.getVideoTracks()[0].onended = () => {
       void toggleScreenShare();

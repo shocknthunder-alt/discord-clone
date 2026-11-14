@@ -554,6 +554,18 @@ export class SfuMediaManager {
     this.screenAdaptTimer = null;
   }
 
+  /** Streams already arriving from this person (to re-attach after they re-appear in the roster). */
+  mediaFor(userId: string): { audioStream?: MediaStream; screenStream?: MediaStream; cameraStream?: MediaStream } {
+    const out: { audioStream?: MediaStream; screenStream?: MediaStream; cameraStream?: MediaStream } = {};
+    const audio = this.remoteAudioStreams.get(userId);
+    if (audio && audio.getTracks().length > 0) out.audioStream = audio;
+    const screen = this.remoteScreenStreams.get(userId);
+    if (screen && screen.getTracks().length > 0) out.screenStream = screen;
+    const camera = this.remoteCameraStreams.get(userId);
+    if (camera && camera.getTracks().length > 0) out.cameraStream = camera;
+    return out;
+  }
+
   private lastScreenStats: { at: number; bytes: number } | null = null;
 
   /** What the browser is actually doing with the outgoing screen share (fps, size, bitrate, codec, limit). */

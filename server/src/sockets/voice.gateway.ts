@@ -161,6 +161,14 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     pruneDeadPeers(io, voiceChannelId);
 
     const roster = voiceRosters.get(voiceChannelId) ?? new Map<string, VoicePeerInfo>();
+    // The same person rejoining after their connection blipped: the old socket may not have timed
+    // out yet. Replace it instead of listing them twice (media is keyed by user anyway).
+    for (const [oldSocketId, peer] of Array.from(roster.entries())) {
+      if (peer.userId !== userId || oldSocketId === socket.id) continue;
+      roster.delete(oldSocketId);
+      socketVoiceChannel.delete(oldSocketId);
+      io.to(roomName(voiceChannelId)).emit(SocketEvents.VoicePeerLeft, { userId, socketId: oldSocketId });
+    }
     const existingPeers = Array.from(roster.values());
 
     const self: VoicePeerInfo = {
