@@ -143,6 +143,8 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
             </>
           ) : (
             <>
+              {songs.length > 0 && <div className="subsonic-section">Песни</div>}
+              {songs.map(songRow)}
               {albums.length > 0 && <div className="subsonic-section">Албуми и плейлисти</div>}
               {albums.map((a) => (
                 <div key={a.id} className="subsonic-row album" onClick={() => void showAlbum(a)}>
@@ -166,8 +168,6 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
                   </button>
                 </div>
               ))}
-              {songs.length > 0 && <div className="subsonic-section">Песни</div>}
-              {songs.map(songRow)}
             </>
           )}
         </div>

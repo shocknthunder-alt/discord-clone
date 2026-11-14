@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { initMusicPlayerEngine, setMusicLocallyMuted, setMusicVolume, unlockMusicAudio } from "../music/musicPlayerEngine";
 import { useMusicStore } from "../store/musicStore";
-import { subsonicAvailable } from "../api/music.api";
+import { addSubsonicToQueue, searchSubsonic, subsonicAvailable } from "../api/music.api";
 import SubsonicSearchModal from "./SubsonicSearchModal";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -12,11 +12,12 @@ const MUSIC_DEFAULT_VOLUME = 10;
 const ADD_ERROR_MESSAGES: Record<string, string> = {
   "invalid-url": "Not a YouTube link — paste a link, or type a song name to search.",
   "lookup-failed": "Couldn't look that video up — it may be private, age-restricted, or removed.",
-  "not-found": "No results found for that search.",
+  "not-found": "Не намерих такава песен — опитай с изпълнителя или виж 🎧 търсачката.",
   "search-unavailable": "Searching by name needs a YouTube API key that isn't set up yet — paste a link instead.",
   "playlist-unavailable": "Този плейлист не може да се прочете — може да е частен или празен.",
   "playlist-needs-key": "За плейлисти трябва YouTube API ключ на сървъра — пусни отделни песни засега.",
   "subsonic-unavailable": "Музиката от yogurthub не е настроена на сървъра.",
+  "no-links": "Линкове вече не се приемат — напиши името на песента.",
   "subsonic-failed": "yogurthub не отговори — опитай пак след малко.",
 };
 
@@ -26,7 +27,7 @@ export default function MusicMiniPlayer() {
   const addError = useMusicStore((s) => s.addError);
   const audioLocked = useMusicStore((s) => s.audioLocked);
   const setAddError = useMusicStore((s) => s.setAddError);
-  const { addMusic, removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
+  const { removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
   // Open by default; the choice is remembered per browser.
   const [expanded, setExpanded] = useState(() => {
     try {
@@ -61,6 +62,7 @@ export default function MusicMiniPlayer() {
   // 🎧 yogurthub search — only when the server has it set up.
   const [subsonic, setSubsonic] = useState(false);
   const [showSubsonic, setShowSubsonic] = useState(false);
+  const [searching, setSearching] = useState(false);
   useEffect(() => {
     void subsonicAvailable().then(setSubsonic);
   }, []);
@@ -108,12 +110,29 @@ export default function MusicMiniPlayer() {
   const currentItem =
     musicState && musicState.currentIndex < musicState.queue.length ? musicState.queue[musicState.currentIndex] : null;
 
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     unlockMusicAudio();
-    if (!input.trim()) return;
-    addMusic(input.trim());
-    setInput("");
+    const text = input.trim();
+    if (!text || searching) return;
+    // Music comes only from yogurthub now (YouTube was dropped): the best match for the typed
+    // name is queued and plays.
+    if (/^https?:\/\//i.test(text)) {
+      setAddError("no-links");
+      return;
+    }
+    setSearching(true);
+    try {
+      const { songs } = await searchSubsonic(text);
+      if (songs.length > 0) {
+        addSubsonicToQueue([songs[0]]);
+        setInput("");
+      } else setAddError("not-found");
+    } catch {
+      setAddError("subsonic-failed");
+    } finally {
+      setSearching(false);
+    }
   }
 
   return (
@@ -182,19 +201,19 @@ export default function MusicMiniPlayer() {
         <div className="music-mini-expanded">
           {addError && <p className="music-add-error">{ADD_ERROR_MESSAGES[addError] ?? "Couldn't add that."}</p>}
 
-          <form className="music-add-form" onSubmit={handleAdd}>
+          <form className="music-add-form" onSubmit={(e) => void handleAdd(e)}>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Paste a link or type a song name…"
+              placeholder="Име на песен или изпълнител…"
             />
-            <button type="submit" disabled={!input.trim()}>
-              Add
+            <button type="submit" disabled={!input.trim() || searching}>
+              {searching ? "…" : "Пусни"}
             </button>
           </form>
           {subsonic && (
             <button className="music-subsonic-open" onClick={() => setShowSubsonic(true)} title="Търси в yogurthub (библиотеката + Tidal)">
-              🎧 Търси в yogurthub
+              🎧 Разгледай — албуми, плейлисти, друга версия
             </button>
           )}
           {showSubsonic && <SubsonicSearchModal onClose={() => setShowSubsonic(false)} />}
