@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.js";
-import { getSubsonicAlbumSongs, searchSubsonic, subsonicEnabled } from "../music/subsonic.js";
+import { getSubsonicAlbumSongs, searchSubsonic, subsonicClientAuth, subsonicEnabled } from "../music/subsonic.js";
 
 export const musicRouter = Router();
 musicRouter.use(requireAuth);
@@ -8,6 +8,12 @@ musicRouter.use(requireAuth);
 /** Whether the 🎧 yogurthub search is available at all. */
 musicRouter.get("/subsonic/status", (_req, res) => {
   res.json({ enabled: subsonicEnabled() });
+});
+
+/** Address + signed query so the player can talk to the music server directly (see subsonicClientAuth). */
+musicRouter.get("/subsonic/auth", (_req, res) => {
+  if (!subsonicEnabled()) return res.status(503).json({ error: "Музикалният сървър не е настроен." });
+  res.json(subsonicClientAuth());
 });
 
 musicRouter.get("/subsonic/search", async (req, res) => {

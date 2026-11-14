@@ -65,14 +65,25 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
 
   function addSong(s: SubsonicSong) {
     unlockMusicAudio();
-    addSubsonicToQueue({ trackIds: [s.id] });
+    addSubsonicToQueue([s]);
     setAdded((prev) => new Set(prev).add(s.id));
   }
 
-  function addAlbum(a: SubsonicAlbum) {
+  async function addAlbum(a: SubsonicAlbum) {
     unlockMusicAudio();
-    addSubsonicToQueue({ albumId: a.id });
-    setAdded((prev) => new Set(prev).add(`album:${a.id}`));
+    const key = `album:${a.id}`;
+    setAdded((prev) => new Set(prev).add(key));
+    try {
+      const list = openAlbum?.album.id === a.id && openAlbum.songs ? openAlbum.songs : await fetchSubsonicAlbum(a.id);
+      addSubsonicToQueue(list);
+    } catch {
+      setAdded((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      setError("Не успях да добавя албума.");
+    }
   }
 
   const songRow = (s: SubsonicSong) => (
@@ -123,7 +134,7 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
                 </div>
                 <button
                   className={`subsonic-add-all ${added.has(`album:${openAlbum.album.id}`) ? "done" : ""}`}
-                  onClick={() => addAlbum(openAlbum.album)}
+                  onClick={() => void addAlbum(openAlbum.album)}
                 >
                   {added.has(`album:${openAlbum.album.id}`) ? "✓ Добавен" : "+ Добави всичко"}
                 </button>
@@ -147,7 +158,7 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
                     className={added.has(`album:${a.id}`) ? "done" : ""}
                     onClick={(e) => {
                       e.stopPropagation();
-                      addAlbum(a);
+                      void addAlbum(a);
                     }}
                     title="Добави всички песни"
                   >

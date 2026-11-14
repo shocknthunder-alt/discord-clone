@@ -5,6 +5,7 @@ import { env } from "../env.js";
 import {
   getSubsonicAlbumSongs,
   getSubsonicSong,
+  isSubsonicUrl,
   subsonicEnabled,
   subsonicStreamUrl,
   type SubsonicSong,
@@ -201,9 +202,42 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
   // Resolved here (not trusted from the client) so titles/stream links are the server's own.
   socket.on(
     SocketEvents.MusicAddTracks,
-    async ({ voiceChannelId, trackIds, albumId }: { voiceChannelId: string; trackIds?: string[]; albumId?: string }) => {
+    async ({
+      voiceChannelId,
+      tracks,
+      trackIds,
+      albumId,
+    }: {
+      voiceChannelId: string;
+      tracks?: { id?: unknown; title?: unknown; artist?: unknown; durationSeconds?: unknown; coverUrl?: unknown }[];
+      trackIds?: string[];
+      albumId?: string;
+    }) => {
       if (!voiceChannelId || !subsonicEnabled()) {
         socket.emit(SocketEvents.MusicAddError, { reason: "subsonic-unavailable" });
+        return;
+      }
+      // Usual path: the player already looked the songs up on the music server itself (Render
+      // can't reach it through Cloudflare) — take id + labels, build the stream link here.
+      if (Array.isArray(tracks)) {
+        const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
+        const items = tracks
+          .slice(0, PLAYLIST_MAX)
+          .filter((t) => typeof t?.id === "string" && t.id && (t.id as string).length < 200)
+          .map((t) => {
+            const title = str(t.title, 200) || "?";
+            const artist = str(t.artist, 200);
+            return {
+              videoId: "",
+              title: artist ? `${artist} — ${title}` : title,
+              thumbnailUrl: isSubsonicUrl(t.coverUrl) ? t.coverUrl : "",
+              source: "subsonic" as const,
+              streamUrl: subsonicStreamUrl(t.id as string),
+              durationSeconds: Math.max(0, Math.min(Number(t.durationSeconds) || 0, 24 * 3600)),
+            };
+          });
+        if (items.length === 0) socket.emit(SocketEvents.MusicAddError, { reason: "not-found" });
+        else addToQueue(voiceChannelId, items);
         return;
       }
       try {

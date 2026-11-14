@@ -96,6 +96,21 @@ function album(a: RawAlbum): SubsonicAlbum {
   };
 }
 
+/**
+ * For the players to call the music server themselves (search, albums, covers): its address and a
+ * signed query (u/t/s/v/c/f — a salted token, not the password). Needed because the server sits
+ * behind Cloudflare, which refuses requests from data centres like Render, while people's own
+ * connections get through; it allows any origin (CORS *).
+ */
+export function subsonicClientAuth(): { base: string; query: string } {
+  return { base: base(), query: authParams().toString() };
+}
+
+/** Whether `url` points at our music server (so a client can't make others load anything else). */
+export function isSubsonicUrl(url: unknown): url is string {
+  return typeof url === "string" && url.length < 1000 && url.startsWith(`${base()}/rest/`);
+}
+
 export async function searchSubsonic(query: string): Promise<{ songs: SubsonicSong[]; albums: SubsonicAlbum[] }> {
   const r = await call<{ searchResult3?: { song?: RawSong[]; album?: RawAlbum[] } }>("search3", {
     query,
