@@ -352,6 +352,15 @@ export class SfuMediaManager {
     console.log(`[sfu] mic producer created: ${this.micProducer.id}`);
   }
 
+  /** A re-opened microphone: same producer, new track (nobody has to re-subscribe). */
+  async replaceMicTrack(track: MediaStreamTrack) {
+    if (this.micProducer && !this.micProducer.closed) {
+      await this.micProducer.replaceTrack({ track });
+    } else {
+      await this.produceMic(track);
+    }
+  }
+
   setMicEnabled(enabled: boolean) {
     if (!this.micProducer) return;
     if (enabled) void this.micProducer.resume();

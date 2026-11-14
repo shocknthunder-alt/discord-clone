@@ -131,6 +131,122 @@ function detachPushToTalkListeners() {
   pttGlobalUnsubscribe = null;
 }
 
+function micConstraints() {
+  return {
+    echoCancellation: getEchoCancellationEnabled(),
+    noiseSuppression: getNoiseSuppressionEnabled(),
+    autoGainControl: getAutoGainControlEnabled(),
+    // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
+    // default capture rate, paired with the bitrate tuning in mediasoupConfig.ts.
+    sampleRate: { ideal: 48000 },
+    channelCount: 1,
+  };
+}
+
+function startProcessing(stream: MediaStream) {
+  return startMicProcessing(stream, {
+    highpassEnabled: getHighpassFilterEnabled(),
+    aiSuppressionEnabled: getAiNoiseSuppressionEnabled(),
+    noiseGateEnabled: getNoiseGateEnabled(),
+    noiseGateSensitivity: getNoiseGateSensitivity(),
+  });
+}
+
+/*
+ * Mic watchdog. A headset/USB mic that sleeps, is unplugged/replugged, or a Windows default-device
+ * switch (common after being AFK) ENDS or silences the captured track — and a browser, unlike
+ * Discord, never re-opens it by itself: you kept hearing everyone while sending silence (your own
+ * speaking ring stayed dark) until a restart. Watch the track and re-open the mic in place: new
+ * capture → new processing → the SAME SFU producer gets the new track (no re-join, no blip for
+ * the others).
+ */
+let micWatchTimer: ReturnType<typeof setInterval> | null = null;
+let micRecovering = false;
+let micMutedSince: number | null = null;
+let onDeviceChange: (() => void) | null = null;
+
+function watchMicTrack(track: MediaStreamTrack | undefined) {
+  if (!track) return;
+  micMutedSince = null;
+  track.addEventListener("ended", () => void recoverMic("ended"));
+  track.addEventListener("mute", () => {
+    micMutedSince = Date.now();
+  });
+  track.addEventListener("unmute", () => {
+    micMutedSince = null;
+  });
+}
+
+async function recoverMic(reason: string) {
+  const state = useVoiceStore.getState();
+  if (micRecovering || !state.activeVoiceChannelId || !activeMediaManager) return;
+  micRecovering = true;
+  console.warn(`[mic] re-opening the microphone (${reason})`);
+  try {
+    const preferred = getPreferredMicDeviceId();
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { ...(preferred ? { deviceId: { exact: preferred } } : {}), ...micConstraints() },
+      });
+    } catch {
+      // The chosen mic is gone — take the system default rather than staying silent.
+      stream = await navigator.mediaDevices.getUserMedia({ audio: micConstraints() });
+    }
+    if (!useVoiceStore.getState().activeVoiceChannelId || !activeMediaManager) {
+      stream.getTracks().forEach((t) => t.stop());
+      return;
+    }
+    const processing = startProcessing(stream);
+    await activeMediaManager.replaceMicTrack(processing.outputTrack);
+    const old = useVoiceStore.getState().localStream;
+    activeMicProcessing?.destroy();
+    activeMicProcessing = processing;
+    old?.getTracks().forEach((t) => t.stop());
+    useVoiceStore.getState().setLocalStream(stream);
+    watchMicTrack(stream.getAudioTracks()[0]);
+    applyMicTransmitState(); // keeps mute / push-to-talk as they were
+  } catch (err) {
+    console.error("[mic] re-opening failed", err);
+  } finally {
+    micRecovering = false;
+  }
+}
+
+function startMicWatchdog() {
+  stopMicWatchdog();
+  watchMicTrack(useVoiceStore.getState().localStream?.getAudioTracks()[0]);
+  micWatchTimer = setInterval(() => {
+    const track = useVoiceStore.getState().localStream?.getAudioTracks()[0];
+    if (!track) return;
+    if (track.readyState === "ended") void recoverMic("ended");
+    // "muted" = the device delivers no audio at all (asleep / taken away) — not our mute button.
+    else if (micMutedSince && Date.now() - micMutedSince > 4000) void recoverMic("no audio from device");
+  }, 3000);
+  // A mic plugged in/out or the Windows default changed: if our device vanished, re-open.
+  let pending: ReturnType<typeof setTimeout> | null = null;
+  onDeviceChange = () => {
+    if (pending) clearTimeout(pending);
+    pending = setTimeout(async () => {
+      const track = useVoiceStore.getState().localStream?.getAudioTracks()[0];
+      if (!track) return;
+      const id = track.getSettings().deviceId;
+      const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+      const stillThere = devices.some((d) => d.kind === "audioinput" && d.deviceId === id);
+      if (track.readyState === "ended" || track.muted || (id && !stillThere)) void recoverMic("device changed");
+    }, 1500);
+  };
+  navigator.mediaDevices.addEventListener("devicechange", onDeviceChange);
+}
+
+function stopMicWatchdog() {
+  if (micWatchTimer) clearInterval(micWatchTimer);
+  micWatchTimer = null;
+  micMutedSince = null;
+  if (onDeviceChange) navigator.mediaDevices.removeEventListener("devicechange", onDeviceChange);
+  onDeviceChange = null;
+}
+
 /** The screen/window (+ its sound) to stream. */
 function captureDisplay(quality: "low" | "standard" | "high"): Promise<MediaStream> {
   return navigator.mediaDevices.getDisplayMedia({
@@ -210,15 +326,7 @@ export function useVoiceChannel() {
     }
 
     const preferredMicId = getPreferredMicDeviceId();
-    const audioConstraints = {
-      echoCancellation: getEchoCancellationEnabled(),
-      noiseSuppression: getNoiseSuppressionEnabled(),
-      autoGainControl: getAutoGainControlEnabled(),
-      // 48kHz mono is the Opus "fullband" sweet spot — higher than the browser's
-      // default capture rate, paired with the bitrate tuning in mediasoupConfig.ts.
-      sampleRate: { ideal: 48000 },
-      channelCount: 1,
-    };
+    const audioConstraints = micConstraints();
     let localStream: MediaStream;
     try {
       localStream = await navigator.mediaDevices.getUserMedia({
@@ -255,12 +363,7 @@ export function useVoiceChannel() {
     // raw localStream is untouched (still used for the self-speaking-indicator and for
     // mute, which this graph transparently respects — see micProcessing.ts).
     activeMicProcessing?.destroy();
-    activeMicProcessing = startMicProcessing(localStream, {
-      highpassEnabled: getHighpassFilterEnabled(),
-      aiSuppressionEnabled: getAiNoiseSuppressionEnabled(),
-      noiseGateEnabled: getNoiseGateEnabled(),
-      noiseGateSensitivity: getNoiseGateSensitivity(),
-    });
+    activeMicProcessing = startProcessing(localStream);
 
     const mediaSocket = connectMediaSocket(token);
     const manager = new SfuMediaManager(mediaSocket, {
@@ -498,6 +601,7 @@ export function useVoiceChannel() {
         await manager.produceMic(activeMicProcessing.outputTrack);
         attachPushToTalkListeners();
         applyMicTransmitState(); // starts silent if push-to-talk mode is active, per the mode
+        startMicWatchdog();
         useVoiceStore.getState().setScreenShareNotice(null);
         return true;
       } catch (err) {
@@ -558,6 +662,7 @@ export function useVoiceChannel() {
         console.warn("voice teardown step failed", err);
       }
     };
+    safely(stopMicWatchdog);
     safely(() => activeMediaManager?.leave());
     activeMediaManager = null;
     safely(() => activeMicProcessing?.destroy());
