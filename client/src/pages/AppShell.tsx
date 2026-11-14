@@ -44,26 +44,6 @@ export default function AppShell() {
 
   useEventReminders();
 
-  // Restarted for an update while in a call → straight back into the same channel (same
-  // mute/deafen), instead of everyone having to click it again.
-  const resumedRef = useRef(false);
-  useEffect(() => {
-    if (!token || resumedRef.current) return;
-    resumedRef.current = true;
-    const resume = takeVoiceResume();
-    if (!resume) return;
-    void (async () => {
-      try {
-        await joinEventVoice(resume.serverId, resume.voiceChannelId);
-        if (resume.deafened && !useVoiceStore.getState().isDeafened) toggleDeafen();
-        if (resume.muted && !useVoiceStore.getState().isMuted) toggleMute();
-      } catch (err) {
-        console.warn("rejoining voice after the restart failed", err);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-
   // Socket handlers are registered once; these refs always point at the current functions.
   const leaveRef = useRef(leaveVoiceChannel);
   leaveRef.current = leaveVoiceChannel;
@@ -185,6 +165,29 @@ export default function AppShell() {
       socket.disconnect();
     };
   }, [token, setUserOnline, setIncomingRing]);
+
+  // Restarted for an update while in a call → straight back into the same channel (same
+  // mute/deafen), instead of everyone having to click it again. Declared AFTER the socket effect
+  // on purpose: effects run in order, and joining needs the socket — placed above it, the join
+  // found no socket and silently did nothing.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (!token || resumedRef.current) return;
+    resumedRef.current = true;
+    const resume = takeVoiceResume();
+    if (!resume) return;
+    void (async () => {
+      try {
+        for (let i = 0; i < 50 && !getSocket(); i++) await new Promise((r) => setTimeout(r, 100));
+        await joinEventVoice(resume.serverId, resume.voiceChannelId);
+        if (resume.deafened && !useVoiceStore.getState().isDeafened) toggleDeafen();
+        if (resume.muted && !useVoiceStore.getState().isMuted) toggleMute();
+      } catch (err) {
+        console.warn("rejoining voice after the restart failed", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   useEffect(() => {
     fetchServers().then(setServers).catch(console.error);

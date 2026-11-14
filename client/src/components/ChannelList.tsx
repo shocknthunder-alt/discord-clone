@@ -30,6 +30,9 @@ import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 
+/** The voice buttons that start docked under the channel list (FloatingVoiceHud). */
+const HUD_DOCKED_IDS = ["hud-mute", "hud-deafen", "hud-screenshare", "hud-camera", "hud-disconnect", "hud-settings", "hud-network", "hud-soundboard"];
+
 interface Props {
   onSelectText: () => void;
   onSelectVoice: () => void;
@@ -169,7 +172,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const canMove = reallyOwner || hasPerm(myPerms, Perm.MOVE_MEMBERS);
   const [userDropId, setUserDropId] = useState<string | null>(null);
   // The voice controls sit at the bottom of this list by default: leave room for them.
-  const hudDocked = !!activeVoiceChannelId && !hasSavedPosition("hud-mute");
+  // Room is kept while ANY of the docked buttons is still in its spot (it used to look at mute only:
+  // mute moved away → no room, and the rest sat on top of the voice channels).
+  const hudDocked = !!activeVoiceChannelId && HUD_DOCKED_IDS.some((id) => !hasSavedPosition(id));
 
   function userDropProps(voiceChannelId: string) {
     if (!canMove) return {};

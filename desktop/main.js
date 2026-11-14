@@ -73,6 +73,7 @@ app.whenReady().then(async () => {
   // restart the whole app instead (the new instance starts once this one has quit).
   ipcMain.on("app-relaunch", () => {
     quitting = true;
+    session.defaultSession.flushStorageData(); // the page's "rejoin this voice channel" note
     app.relaunch();
     app.quit();
   });
@@ -155,6 +156,7 @@ app.whenReady().then(async () => {
   ipcMain.on("desktop-update-install", () => {
     if (!readyUpdate) return;
     quitting = true;
+    session.defaultSession.flushStorageData(); // the page's "rejoin this voice channel" note
     autoUpdater.quitAndInstall(true, true); // silent install, start the app again afterwards
   });
   win.webContents.on("did-finish-load", tellPage);
