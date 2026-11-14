@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 import { DESKTOP_DOWNLOAD_URL } from "./DesktopAppBanner";
+import { rememberVoiceForRestart } from "../webrtc/voiceResume";
 
 const OLD_SHELL_HIDE_KEY = "desktopSelfUpdateBannerHiddenUntil";
 const OLD_SHELL_HIDE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -35,9 +36,15 @@ export default function DesktopUpdateBanner() {
       <div className="desktop-app-banner" role="status">
         <span>
           🆕 Нова версия на приложението ({readyVersion}) е готова.
-          {inCall ? " Рестартът ще те извади от разговора за няколко секунди." : ""}
+          {inCall ? " След рестарта влизаш пак в същия канал." : ""}
         </span>
-        <button className="update-now" onClick={() => desktop.installUpdate?.()}>
+        <button
+          className="update-now"
+          onClick={() => {
+            rememberVoiceForRestart();
+            desktop.installUpdate?.();
+          }}
+        >
           Рестартирай
         </button>
         <button

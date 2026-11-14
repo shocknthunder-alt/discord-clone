@@ -30,6 +30,7 @@ import { useUnreadStore } from "../store/unreadStore";
 import { scheduleEventsReload, useEventsStore } from "../store/eventsStore";
 import { useEventReminders } from "../hooks/useEventReminders";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { takeVoiceResume } from "../webrtc/voiceResume";
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 
@@ -39,9 +40,29 @@ export default function AppShell() {
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const { view, activeConversationId, setIncomingRing } = useDmStore();
   const [viewMode, setViewMode] = useState<"text" | "voice">("text");
-  const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
+  const { joinVoiceChannel, leaveVoiceChannel, toggleMute, toggleDeafen } = useVoiceChannel();
 
   useEventReminders();
+
+  // Restarted for an update while in a call → straight back into the same channel (same
+  // mute/deafen), instead of everyone having to click it again.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (!token || resumedRef.current) return;
+    resumedRef.current = true;
+    const resume = takeVoiceResume();
+    if (!resume) return;
+    void (async () => {
+      try {
+        await joinEventVoice(resume.serverId, resume.voiceChannelId);
+        if (resume.deafened && !useVoiceStore.getState().isDeafened) toggleDeafen();
+        if (resume.muted && !useVoiceStore.getState().isMuted) toggleMute();
+      } catch (err) {
+        console.warn("rejoining voice after the restart failed", err);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   // Socket handlers are registered once; these refs always point at the current functions.
   const leaveRef = useRef(leaveVoiceChannel);

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
+import { rememberVoiceForRestart } from "../webrtc/voiceResume";
 
 const CHECK_EVERY_MS = 60_000;
 
@@ -61,11 +62,13 @@ export default function UpdateBanner() {
 
   return (
     <div className="update-banner" role="status">
-      <span>✨ Има нова версия на ШмиркаТа{inVoice ? " (презареждането ще те изключи от войс канала)" : ""}.</span>
+      <span>✨ Има нова версия на ШмиркаТа{inVoice ? " (ще те върне в канала след няколко секунди)" : ""}.</span>
       <button
         className="update-now"
         onClick={() => {
           // Desktop app: restart the whole app (a page reload left it broken); older shells reload.
+          // Either way, come back into the same voice channel.
+          rememberVoiceForRestart();
           if (window.shmirkaDesktop?.relaunch) window.shmirkaDesktop.relaunch();
           else window.location.reload();
         }}
