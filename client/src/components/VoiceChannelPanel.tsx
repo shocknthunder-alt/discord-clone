@@ -164,9 +164,9 @@ export default function VoiceChannelPanel() {
 
   // Only the shares the viewer clicked Watch on are shown (and downloaded at all) — your own
   // too, as a muted preview. Several watched shares sit side by side.
-  const streams: { key: string; stream: MediaStream; caption: string; preview: boolean }[] = Array.from(peers.values())
+  const streams: { key: string; stream: MediaStream; caption: string; preview: boolean; userId?: string }[] = Array.from(peers.values())
     .filter((p) => p.userId && p.screenStream)
-    .map((p) => ({ key: p.socketId, stream: p.screenStream!, caption: p.username || "Live", preview: false }));
+    .map((p) => ({ key: p.socketId, stream: p.screenStream!, caption: p.username || "Live", preview: false, userId: p.userId! }));
   if (isScreenSharing && localScreenStream) {
     streams.push({ key: SELF_STREAM_KEY, stream: localScreenStream, caption: `${currentUsername} (ти)`, preview: true });
   }
@@ -251,7 +251,11 @@ export default function VoiceChannelPanel() {
             {watched.map((s) => (
               <StreamFrame key={s.key} caption={s.caption} onStop={() => stopWatchingStream(s.key)} maxVh={maxVh}>
                 <div className="screen-share-viewer">
-                  <ScreenSharePlayer stream={s.stream} preview={s.preview} />
+                  <ScreenSharePlayer
+                    stream={s.stream}
+                    preview={s.preview}
+                    popout={s.userId ? { key: s.key, nameKey: s.userId, title: s.caption } : undefined}
+                  />
                 </div>
               </StreamFrame>
             ))}

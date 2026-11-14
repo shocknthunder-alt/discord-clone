@@ -15,6 +15,8 @@ interface Window {
     onGlobalKey(cb: (code: string, down: boolean) => void): () => void;
     /** Desktop 1.5.0+: close and reopen the app. */
     relaunch?(): void;
+    /** Desktop 1.5.2+: window.open pop-outs (streams) open as app windows. */
+    popOutWindows?: boolean;
   };
 }
 

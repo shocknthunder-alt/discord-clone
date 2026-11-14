@@ -1,6 +1,7 @@
 import { extractYoutubeId, SocketEvents, type MusicState, type VoicePeerInfo } from "@discord-clone/shared";
 import { requestDesktopScreenSource } from "../store/screenPickerStore";
 import { startNativeAppAudio, stopNativeAppAudio } from "./appAudio";
+import { closePopout } from "./streamPopouts";
 import { useCallback, useMemo } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
@@ -116,6 +117,7 @@ export function watchStream(key: string) {
 
 export function stopWatchingStream(key: string) {
   useWatchStore.getState().unwatch(key);
+  closePopout(key);
   if (key === SELF_STREAM_KEY) return;
   const userId = useVoiceStore.getState().peers.get(key)?.userId;
   if (userId) activeMediaManager?.unwatchScreen(userId);

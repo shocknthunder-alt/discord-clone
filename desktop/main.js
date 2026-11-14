@@ -92,8 +92,23 @@ app.whenReady().then(async () => {
     webPreferences: { preload: path.join(__dirname, "preload.js"), contextIsolation: true, nodeIntegration: false },
   });
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+  win.webContents.setWindowOpenHandler(({ url, frameName }) => {
+    // Stream pop-outs: a blank window the page fills itself (one per stream, movable to another
+    // monitor). Everything else goes to the system browser.
+    if ((url === "about:blank" || url === "") && frameName.startsWith("shmirka-stream-")) {
+      return {
+        action: "allow",
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          backgroundColor: "#000000",
+          minWidth: 240,
+          minHeight: 140,
+          icon: path.join(__dirname, "build", "icon.ico"),
+          webPreferences: { contextIsolation: true, nodeIntegration: false },
+        },
+      };
+    }
+    if (/^https?:/i.test(url)) shell.openExternal(url);
     return { action: "deny" };
   });
   win.webContents.on("will-navigate", (event, url) => {

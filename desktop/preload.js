@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require("electron");
 // The web client checks for this to know it is running inside the desktop app.
 contextBridge.exposeInMainWorld("shmirkaDesktop", {
   isDesktop: true,
+  /** Stream pop-outs (window.open "shmirka-stream-*") open as app windows (1.5.2+). */
+  popOutWindows: true,
   // Global (system-wide) key events: cb(code, down). Returns an unsubscribe function.
   /** Screens + windows with thumbnails: [{ id, name, isScreen, thumbnail, icon }]. */
   getScreenSources: () => ipcRenderer.invoke("screen-sources"),
