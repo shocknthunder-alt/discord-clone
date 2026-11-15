@@ -7,6 +7,7 @@ import CreateServerModal from "./CreateServerModal";
 import DraggableIcon from "./DraggableIcon";
 import { useNow } from "./eventUtils";
 import JoinServerModal from "./JoinServerModal";
+import { tr } from "../i18n";
 
 const DEFAULT_SIDEBAR_ACTION_ORDER = ["create", "join"];
 
@@ -24,12 +25,12 @@ export default function ServerSidebar() {
   const actionButtons: Record<string, React.ReactNode> = {
     create: (
       <button className="sidebar-action-button" onClick={() => setMode("create")}>
-        Create channel
+        {tr("Създай сървър", "Create server")}
       </button>
     ),
     join: (
       <button className="sidebar-action-button" onClick={() => setMode("join")}>
-        Join channel
+        {tr("Влез в сървър", "Join server")}
       </button>
     ),
   };
@@ -37,7 +38,7 @@ export default function ServerSidebar() {
   return (
     <div className="server-sidebar">
       <div className="server-icon-wrap">
-        <button className={`server-icon ${view === "dms" ? "active" : ""}`} title="Direct Messages" onClick={() => setView("dms")}>
+        <button className={`server-icon ${view === "dms" ? "active" : ""}`} title={tr("Лични съобщения", "Direct Messages")} onClick={() => setView("dms")}>
           💬
         </button>
         {totalUnread > 0 && <span className="server-icon-badge">{totalUnread > 99 ? "99+" : totalUnread}</span>}
@@ -50,7 +51,7 @@ export default function ServerSidebar() {
           <div key={server.id} className="server-icon-wrap">
             <button
               className={`server-icon ${view === "servers" && server.id === activeServerId ? "active" : ""}`}
-              title={today ? `${server.name} — ${live ? "тече събитие" : "събитие днес"}: ${today.title}` : server.name}
+              title={today ? `${server.name} — ${live ? tr("тече събитие", "event running") : tr("събитие днес", "event today")}: ${today.title}` : server.name}
               onClick={() => {
                 setView("servers");
                 setActiveServer(server.id);

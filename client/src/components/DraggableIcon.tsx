@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLayoutLockStore } from "../store/layoutLockStore";
+import { tr } from "../i18n";
 
 interface Props {
   id: string;
@@ -39,7 +40,7 @@ export default function DraggableIcon({ id, onDropItem, className, children }: P
         const dragId = e.dataTransfer.getData("text/plain");
         if (dragId) onDropItem(dragId, id);
       }}
-      title={locked ? undefined : "Drag to reorder"}
+      title={locked ? undefined : tr("Влачи, за да подредиш", "Drag to reorder")}
     >
       {children}
     </div>

@@ -4,6 +4,7 @@ import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import { useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
+import { tr } from "../i18n";
 
 interface Props {
   conversationId: string;
@@ -99,7 +100,7 @@ export default function DmMessageInput({ conversationId }: Props) {
       {pendingImage && (
         <div className="pending-image-preview">
           <img src={pendingImage.previewUrl} alt="Pasted" />
-          <button type="button" onClick={removePendingImage} aria-label="Remove image">
+          <button type="button" onClick={removePendingImage} aria-label={tr("Махни снимката", "Remove image")}>
             ✕
           </button>
         </div>
@@ -124,7 +125,7 @@ export default function DmMessageInput({ conversationId }: Props) {
           value={value}
           onChange={handleChange}
           onPaste={handlePaste}
-          placeholder={isCloudinaryConfigured() ? "Message… (постави или провлачи снимка/GIF)" : "Message…"}
+          placeholder={isCloudinaryConfigured() ? tr("Съобщение… (постави или провлачи снимка/GIF)", "Message… (paste or drop a picture/GIF)") : tr("Съобщение…", "Message…")}
         />
         <button type="submit" disabled={uploading || (!value.trim() && !pendingImage)}>
           {uploading ? "Uploading…" : "Send"}

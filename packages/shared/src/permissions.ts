@@ -37,19 +37,20 @@ export const ALL_PERMS = Object.values(Perm).reduce((a, b) => a | b, 0);
 /** What a plain member can do (the default rank starts with this). */
 export const DEFAULT_MEMBER_PERMS = Perm.CREATE_EVENTS | Perm.ADD_SOUNDS | Perm.ADD_EMOJIS;
 
-export const PERM_INFO: { key: PermKey; label: string; hint: string }[] = [
-  { key: "ADMINISTRATOR", label: "Администратор", hint: "Всички права по-долу." },
-  { key: "MANAGE_SERVER", label: "Управление на сървъра", hint: "Име и икона на сървъра." },
-  { key: "MANAGE_CHANNELS", label: "Управление на каналите", hint: "Създаване, преименуване, подреждане, изтриване." },
-  { key: "MANAGE_ROLES", label: "Управление на ранговете", hint: "Създава/променя рангове под своя и ги дава на хора." },
-  { key: "MOVE_MEMBERS", label: "Местене на хора", hint: "Влачи хора между гласовите канали и ги изключва от гласа." },
-  { key: "KICK_MEMBERS", label: "Изгонване", hint: "Премахва хора от сървъра." },
-  { key: "MANAGE_MESSAGES", label: "Управление на съобщенията", hint: "Трие чужди съобщения." },
-  { key: "MANAGE_EVENTS", label: "Управление на събитията", hint: "Редактира и трие чужди събития." },
-  { key: "MANAGE_SOUNDBOARD", label: "Управление на soundboard", hint: "Редактира и трие чужди звуци." },
-  { key: "CREATE_EVENTS", label: "Създаване на събития", hint: "" },
-  { key: "ADD_SOUNDS", label: "Качване на звуци", hint: "В soundboard-а." },
-  { key: "ADD_EMOJIS", label: "Добавяне на емоджита", hint: "" },
+/** Bulgarian label/hint + English (labelEn/hintEn) for the interface language switch. */
+export const PERM_INFO: { key: PermKey; label: string; hint: string; labelEn: string; hintEn: string }[] = [
+  { key: "ADMINISTRATOR", label: "Администратор", hint: "Всички права по-долу.", labelEn: "Administrator", hintEn: "All the permissions below." },
+  { key: "MANAGE_SERVER", label: "Управление на сървъра", hint: "Име и икона на сървъра.", labelEn: "Manage server", hintEn: "Server name and icon." },
+  { key: "MANAGE_CHANNELS", label: "Управление на каналите", hint: "Създаване, преименуване, подреждане, изтриване.", labelEn: "Manage channels", hintEn: "Create, rename, reorder, delete." },
+  { key: "MANAGE_ROLES", label: "Управление на ранговете", hint: "Създава/променя рангове под своя и ги дава на хора.", labelEn: "Manage ranks", hintEn: "Creates/edits ranks below their own and gives them to people." },
+  { key: "MOVE_MEMBERS", label: "Местене на хора", hint: "Влачи хора между гласовите канали и ги изключва от гласа.", labelEn: "Move members", hintEn: "Drags people between voice channels and disconnects them from voice." },
+  { key: "KICK_MEMBERS", label: "Изгонване", hint: "Премахва хора от сървъра.", labelEn: "Kick members", hintEn: "Removes people from the server." },
+  { key: "MANAGE_MESSAGES", label: "Управление на съобщенията", hint: "Трие чужди съобщения.", labelEn: "Manage messages", hintEn: "Deletes other people's messages." },
+  { key: "MANAGE_EVENTS", label: "Управление на събитията", hint: "Редактира и трие чужди събития.", labelEn: "Manage events", hintEn: "Edits and deletes other people's events." },
+  { key: "MANAGE_SOUNDBOARD", label: "Управление на soundboard", hint: "Редактира и трие чужди звуци.", labelEn: "Manage soundboard", hintEn: "Edits and deletes other people's sounds." },
+  { key: "CREATE_EVENTS", label: "Създаване на събития", hint: "", labelEn: "Create events", hintEn: "" },
+  { key: "ADD_SOUNDS", label: "Качване на звуци", hint: "В soundboard-а.", labelEn: "Upload sounds", hintEn: "To the soundboard." },
+  { key: "ADD_EMOJIS", label: "Добавяне на емоджита", hint: "", labelEn: "Add emojis", hintEn: "" },
 ];
 
 export function hasPerm(perms: number, p: number): boolean {

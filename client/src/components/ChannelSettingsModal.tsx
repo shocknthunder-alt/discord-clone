@@ -5,6 +5,7 @@ import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudina
 import { updateTextChannel, updateVoiceChannel } from "../api/channels.api";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { tr } from "../i18n";
 
 type Props =
   | { kind: "text"; channel: TextChannelDTO; onClose: () => void }
@@ -31,7 +32,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
       const url = await uploadImageToCloudinary(file);
       setBackgroundUrl(url);
     } catch {
-      setError("Image upload failed. Try again.");
+      setError(tr("Качването на снимката не успя. Опитай пак.", "Image upload failed. Try again."));
     } finally {
       setUploading(false);
     }
@@ -40,7 +41,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
   async function handleSave() {
     const trimmedName = name.trim();
     if (!trimmedName) {
-      setError("Channel name can't be empty.");
+      setError(tr("Името на канала не може да е празно.", "Channel name can't be empty."));
       return;
     }
 
@@ -56,7 +57,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
       }
       onClose();
     } catch {
-      setError("Could not save channel settings.");
+      setError(tr("Настройките на канала не се запазиха.", "Could not save channel settings."));
     } finally {
       setSaving(false);
     }
@@ -69,36 +70,36 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-back" onClick={onClose} aria-label="Back">
+        <button className="modal-back" onClick={onClose} aria-label={tr("Назад", "Back")}>
           ←
         </button>
 
-        <h1 className="modal-title">Channel Settings</h1>
+        <h1 className="modal-title">{tr("Настройки на канала", "Channel Settings")}</h1>
         <p className="modal-subtitle">{kind === "text" ? "#" : <VoiceChannelIcon size={16} />} {channel.name}</p>
 
         <label className="modal-label" htmlFor="channel-settings-name-input">
-          Channel Name
+          {tr("Име на канала", "Channel Name")}
         </label>
         <input
           id="channel-settings-name-input"
           className="modal-input"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Channel name"
+          placeholder={tr("Име на канала", "Channel name")}
         />
 
         <label className="modal-label" style={{ marginTop: 16 }}>
-          Background Image
+          {tr("Фон", "Background Image")}
         </label>
         {backgroundUrl ? (
           <div className="channel-background-preview-wrap">
             <img className="channel-background-preview" src={backgroundUrl} alt="" />
             <button type="button" onClick={handleRemove}>
-              Remove
+              {tr("Махни", "Remove")}
             </button>
           </div>
         ) : (
-          <div className="channel-background-preview-wrap empty">No background set</div>
+          <div className="channel-background-preview-wrap empty">{tr("Няма фон", "No background set")}</div>
         )}
 
         <div className="avatar-picker">
@@ -107,7 +108,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading || !isCloudinaryConfigured()}
           >
-            {uploading ? "Uploading…" : "Upload Background"}
+            {uploading ? tr("Качване…", "Uploading…") : tr("Качи фон", "Upload Background")}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handlePick} />
         </div>
@@ -115,7 +116,7 @@ export default function ChannelSettingsModal({ kind, channel, onClose }: Props) 
         {error && <div className="modal-error">{error}</div>}
 
         <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading}>
-          {saving ? "Saving…" : "Save Changes"}
+          {saving ? tr("Запазване…", "Saving…") : tr("Запази", "Save Changes")}
         </button>
       </div>
     </div>

@@ -4,6 +4,7 @@
 // closes when you stop watching or leave the call. Position/size are remembered per streamer.
 import { create } from "zustand";
 import { useVoiceStore } from "../store/voiceStore";
+import { tr } from "../i18n";
 
 interface PopoutState {
   open: Set<string>;
@@ -82,7 +83,7 @@ export function popOutStream(key: string, nameKey: string, title: string): boole
   if (!win) return false;
 
   const doc = win.document;
-  doc.title = `${title} — стрийм · ШмиркаТа`;
+  doc.title = `${title} — ${tr("стрийм", "stream")} · ШмиркаТа`;
   doc.body.innerHTML = "";
   doc.body.style.cssText = "margin:0;background:#000;overflow:hidden;font-family:sans-serif;";
   const video = doc.createElement("video");
@@ -90,7 +91,7 @@ export function popOutStream(key: string, nameKey: string, title: string): boole
   video.playsInline = true;
   video.controls = true; // native volume / mute / fullscreen on hover
   video.style.cssText = "width:100vw;height:100vh;object-fit:contain;display:block;background:#000;";
-  video.title = "Двоен клик = цял екран";
+  video.title = tr("Двоен клик = цял екран", "Double-click = fullscreen");
   // Sound plays here while popped out (the in-app player goes quiet), starting at your stream volume.
   const vol = Number(localStorage.getItem("streamVolume"));
   video.volume = Number.isFinite(vol) && localStorage.getItem("streamVolume") !== null ? Math.min(Math.max(vol, 0), 100) / 100 : 0.5;
@@ -101,7 +102,7 @@ export function popOutStream(key: string, nameKey: string, title: string): boole
   };
   const note = doc.createElement("div");
   note.id = "note";
-  note.textContent = "Стриймът спря";
+  note.textContent = tr("Стриймът спря", "The stream ended");
   note.style.cssText =
     "position:fixed;inset:0;display:none;align-items:center;justify-content:center;color:#aaa;font-size:16px;pointer-events:none;";
   doc.body.append(video, note);

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { eventEndMs, type ServerEventDTO } from "@discord-clone/shared";
 import { fetchEvents } from "../api/events.api";
+import { tr } from "../i18n";
 
 /**
  * The 📅 board: events of every server you're in (upcoming, running, and ended < 24 h ago),
@@ -126,12 +127,12 @@ export function upcomingOf(events: ServerEventDTO[], serverId: string | null, no
 
 export function countdown(e: ServerEventDTO, now = Date.now()): string {
   const start = Date.parse(e.startsAt);
-  if (isEnded(e, now)) return "приключи";
-  if (start <= now) return "тече сега";
+  if (isEnded(e, now)) return tr("приключи", "ended");
+  if (start <= now) return tr("тече сега", "happening now");
   const mins = Math.ceil((start - now) / 60_000);
-  if (mins < 60) return `след ${mins} мин`;
+  if (mins < 60) return tr(`след ${mins} мин`, `in ${mins} min`);
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `след ${hours}ч ${mins % 60}м`;
+  if (hours < 24) return tr(`след ${hours}ч ${mins % 60}м`, `in ${hours}h ${mins % 60}m`);
   const days = Math.round(hours / 24);
-  return days === 1 ? "след 1 ден" : `след ${days} дни`;
+  return days === 1 ? tr("след 1 ден", "in 1 day") : tr(`след ${days} дни`, `in ${days} days`);
 }

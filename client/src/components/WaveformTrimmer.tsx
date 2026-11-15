@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { tr } from "../i18n";
 
 interface Props {
   buffer: AudioBuffer;
@@ -274,7 +275,7 @@ export default function WaveformTrimmer({ buffer, start, end, maxLength, onChang
           className="wf-canvas"
           style={{ width: "100%", height: HEIGHT }}
           onPointerDown={onPointerDown}
-          title="Влачи дръжките или маркирай ново парче · колелце = zoom · Shift+колелце = местене"
+          title={tr("Влачи дръжките или маркирай ново парче · колелце = zoom · Shift+колелце = местене", "Drag the handles or mark a new piece · wheel = zoom · Shift+wheel = scroll")}
         />
       </div>
       {zoomed && (
@@ -286,30 +287,30 @@ export default function WaveformTrimmer({ buffer, start, end, maxLength, onChang
           step={0.01}
           value={viewStart}
           onChange={(e) => setViewStart(Number(e.target.value))}
-          aria-label="Местене по вълната"
+          aria-label={tr("Местене по вълната", "Scroll the waveform")}
         />
       )}
       <div className="wf-bar">
         <button className="sb-btn" onClick={preview}>
-          {playRef.current ? "■ Спри" : "▶ Чуй избраното"}
+          {playRef.current ? tr("■ Спри", "■ Stop") : tr("▶ Чуй избраното", "▶ Play selection")}
         </button>
         <span className="wf-time">
-          {fmt(start)} → {fmt(end)} · <strong>{(end - start).toFixed(2)} сек</strong>
+          {fmt(start)} → {fmt(end)} · <strong>{(end - start).toFixed(2)} {tr("сек", "s")}</strong>
         </span>
         <span className="wf-spacer" />
-        <button className="sb-btn" onClick={() => zoom(1.6)} title="Отдалечи">
+        <button className="sb-btn" onClick={() => zoom(1.6)} title={tr("Отдалечи", "Zoom out")}>
           −
         </button>
-        <button className="sb-btn" onClick={() => zoom(0.6)} title="Приближи">
+        <button className="sb-btn" onClick={() => zoom(0.6)} title={tr("Приближи", "Zoom in")}>
           +
         </button>
-        <button className="sb-btn" onClick={zoomToSelection} title="Приближи до избраното">
+        <button className="sb-btn" onClick={zoomToSelection} title={tr("Приближи до избраното", "Zoom to selection")}>
           ⤢
         </button>
       </div>
       <div className="wf-fine">
         <label>
-          Начало
+          {tr("Начало", "Start")}
           <input
             type="range"
             min={0}
@@ -323,7 +324,7 @@ export default function WaveformTrimmer({ buffer, start, end, maxLength, onChang
           />
         </label>
         <label>
-          Край
+          {tr("Край", "End")}
           <input
             type="range"
             min={0}

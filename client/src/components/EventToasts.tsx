@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useEventsStore, type EventToast } from "../store/eventsStore";
 import { useServerStore } from "../store/serverStore";
 import { useDmStore } from "../store/dmStore";
+import { tr } from "../i18n";
 import "./events.css";
 
 /** New event / reminder / "it started" pop-ups (top right). */
@@ -34,7 +35,7 @@ function Toast({ t, onJoinVoice }: { t: EventToast; onJoinVoice: (serverId: stri
     dismiss(t.id);
   }
 
-  const head = t.kind === "new" ? "📅 Ново събитие" : t.kind === "reminder" ? "⏰ Напомняне" : "🔴 Започна";
+  const head = t.kind === "new" ? tr("📅 Ново събитие", "📅 New event") : t.kind === "reminder" ? tr("⏰ Напомняне", "⏰ Reminder") : tr("🔴 Започна", "🔴 Started");
   return (
     <div className={`ev-toast ${t.kind}`}>
       {t.imageUrl && <img className="ev-toast-img" src={t.imageUrl} alt="" />}
@@ -51,14 +52,14 @@ function Toast({ t, onJoinVoice }: { t: EventToast; onJoinVoice: (serverId: stri
                 dismiss(t.id);
               }}
             >
-              Влез
+              {tr("Влез", "Join")}
             </button>
           )}
           <button className="ev-btn small" onClick={show}>
-            Виж
+            {tr("Виж", "View")}
           </button>
           <button className="ev-btn small" onClick={() => dismiss(t.id)}>
-            Затвори
+            {tr("Затвори", "Close")}
           </button>
         </div>
       </div>

@@ -17,6 +17,7 @@ import {
   toTimeInput,
   useNow,
 } from "./eventUtils";
+import { tr } from "../i18n";
 import "./events.css";
 
 interface Props {
@@ -40,7 +41,7 @@ function usePlace() {
   return (e: ServerEventDTO) => {
     if (e.voiceChannelId) {
       const vc = voiceChannels.find((v) => v.id === e.voiceChannelId);
-      return vc ? `🔊 ${vc.name}` : "🔊 гласов канал";
+      return vc ? `🔊 ${vc.name}` : tr("🔊 гласов канал", "🔊 voice channel");
     }
     return e.location ? `📍 ${e.location}` : "";
   };
@@ -79,7 +80,7 @@ export default function EventBoardModal({ onJoinVoice }: Props) {
   return (
     <div className="modal-overlay" onMouseDown={closeBoard}>
       <div className="ev-modal" onMouseDown={(e) => e.stopPropagation()}>
-        <button className="ev-close" onClick={closeBoard} aria-label="Затвори">
+        <button className="ev-close" onClick={closeBoard} aria-label={tr("Затвори", "Close")}>
           ✕
         </button>
         {view.kind === "list" && (
@@ -129,23 +130,23 @@ function EventList({ serverId, onOpen, onCreate }: { serverId: string; onOpen: (
   return (
     <>
       <div className="ev-head">
-        <h2>📅 Събития</h2>
+        <h2>📅 {tr("Събития", "Events")}</h2>
         <button className="ev-btn primary" onClick={onCreate}>
-          ＋ Ново събитие
+          ＋ {tr("Ново събитие", "New event")}
         </button>
       </div>
       <div className="ev-tabs">
         <button className={tab === "upcoming" ? "on" : ""} onClick={() => setTab("upcoming")}>
-          Предстоящи ({upcoming.length})
+          {tr("Предстоящи", "Upcoming")} ({upcoming.length})
         </button>
         <button className={tab === "archive" ? "on" : ""} onClick={() => setTab("archive")}>
-          Архив
+          {tr("Архив", "Archive")}
         </button>
       </div>
       <div className="ev-list">
         {shown.length === 0 && (
           <div className="ev-empty-big">
-            {tab === "upcoming" ? "Няма предстоящи събития. Създай първото! 🎉" : archive === null ? "Зареждане…" : "Архивът е празен."}
+            {tab === "upcoming" ? tr("Няма предстоящи събития. Създай първото! 🎉", "No upcoming events. Create the first one! 🎉") : archive === null ? tr("Зареждане…", "Loading…") : tr("Архивът е празен.", "The archive is empty.")}
           </div>
         )}
         {shown.map((e) => (
@@ -170,12 +171,12 @@ function EventCard({ e, now, onClick }: { e: ServerEventDTO; now: number; onClic
           <span className="ev-date-m">{d.toLocaleDateString("bg-BG", { month: "short" })}</span>
           <span className="ev-date-d">{d.getDate()}</span>
         </div>
-        {running && <span className="ev-live-tag">● ТЕЧЕ</span>}
+        {running && <span className="ev-live-tag">{tr("● ТЕЧЕ", "● LIVE")}</span>}
       </div>
       <div className="ev-card-body">
         <div className="ev-card-title">{e.title}</div>
         <div className="ev-card-meta">
-          {fmtDay(e.startsAt)} · {fmtRange(e)} {RECURRENCE_LABEL[e.recurrence] && <span>· {RECURRENCE_LABEL[e.recurrence]}</span>}
+          {fmtDay(e.startsAt)} · {fmtRange(e)} {RECURRENCE_LABEL()[e.recurrence] && <span>· {RECURRENCE_LABEL()[e.recurrence]}</span>}
         </div>
         {place && <div className="ev-card-meta">{place}</div>}
         <div className="ev-card-foot">
@@ -184,7 +185,7 @@ function EventCard({ e, now, onClick }: { e: ServerEventDTO; now: number; onClic
             {e.maxAttendees != null ? `/${e.maxAttendees}` : ""}
           </span>
           <span className="ev-countdown">{countdown(e, now)}</span>
-          {mine && <span className={`ev-mine ${mine}`}>{mine === "going" ? "Ще дойдеш" : mine === "maybe" ? "Може би" : "Няма да дойдеш"}</span>}
+          {mine && <span className={`ev-mine ${mine}`}>{mine === "going" ? tr("Ще дойдеш", "You're going") : mine === "maybe" ? tr("Може би", "Maybe") : tr("Няма да дойдеш", "Not going")}</span>}
         </div>
       </div>
     </button>
@@ -230,9 +231,9 @@ function EventDetail({
     return (
       <div className="ev-detail">
         <button className="ev-back" onClick={onBack}>
-          ← Всички събития
+          ← {tr("Всички събития", "All events")}
         </button>
-        <div className="ev-empty-big">Събитието не е намерено (може да е изтрито).</div>
+        <div className="ev-empty-big">{tr("Събитието не е намерено (може да е изтрито).", "Event not found (it may have been deleted).")}</div>
       </div>
     );
   }
@@ -254,40 +255,40 @@ function EventDetail({
     try {
       upsert(await setRsvp(e.id, mine === status ? null : status));
     } catch {
-      setError("Не успях да запиша отговора.");
+      setError(tr("Не успях да запиша отговора.", "Couldn't save your answer."));
     } finally {
       setBusy(false);
     }
   }
 
   async function handleDelete() {
-    if (!e || !window.confirm(`Да изтрия ли „${e.title}“?`)) return;
+    if (!e || !window.confirm(tr(`Да изтрия ли „${e.title}“?`, `Delete "${e.title}"?`))) return;
     try {
       await deleteEvent(e.id);
       remove(e.id);
       onBack();
     } catch {
-      setError("Не успях да го изтрия.");
+      setError(tr("Не успях да го изтрия.", "Couldn't delete it."));
     }
   }
 
   return (
     <div className="ev-detail">
       <button className="ev-back" onClick={onBack}>
-        ← Всички събития
+        ← {tr("Всички събития", "All events")}
       </button>
       {e.imageUrl && <img className="ev-detail-cover" src={e.imageUrl} alt="" />}
       <div className="ev-detail-head">
         <div>
           <h2 className="ev-detail-title">{e.title}</h2>
-          <div className="ev-detail-by">създадено от {e.creatorUsername}</div>
+          <div className="ev-detail-by">{tr("създадено от", "created by")} {e.creatorUsername}</div>
         </div>
         <span className={`ev-countdown big ${running ? "live" : ""}`}>{countdown(e, now)}</span>
       </div>
 
       <div className="ev-facts">
         <div>
-          🗓️ {fmtDay(e.startsAt)}, {fmtRange(e)} {RECURRENCE_LABEL[e.recurrence] && <span className="ev-muted">{RECURRENCE_LABEL[e.recurrence]}</span>}
+          🗓️ {fmtDay(e.startsAt)}, {fmtRange(e)} {RECURRENCE_LABEL()[e.recurrence] && <span className="ev-muted">{RECURRENCE_LABEL()[e.recurrence]}</span>}
         </div>
         {place && (
           <div className="ev-place">
@@ -300,12 +301,12 @@ function EventDetail({
                   closeBoard();
                 }}
               >
-                Влез
+                {tr("Влез", "Join")}
               </button>
             )}
           </div>
         )}
-        {e.maxAttendees != null && <div>👥 Места: {e.maxAttendees}</div>}
+        {e.maxAttendees != null && <div>👥 {tr("Места", "Spots")}: {e.maxAttendees}</div>}
       </div>
 
       {e.description && <div className="ev-desc">{linkifyText(e.description)}</div>}
@@ -313,29 +314,29 @@ function EventDetail({
       {!ended && (
         <div className="ev-rsvp">
           <button className={`going ${mine === "going" ? "on" : ""}`} disabled={busy} onClick={() => void answer("going")}>
-            ✅ Ще дойда
+            ✅ {tr("Ще дойда", "Going")}
           </button>
           <button className={`maybe ${mine === "maybe" ? "on" : ""}`} disabled={busy} onClick={() => void answer("maybe")}>
-            🤔 Може би
+            🤔 {tr("Може би", "Maybe")}
           </button>
           <button className={`no ${mine === "no" ? "on" : ""}`} disabled={busy} onClick={() => void answer("no")}>
-            ❌ Не
+            ❌ {tr("Не", "No")}
           </button>
         </div>
       )}
-      {myReserve && <div className="ev-note">Местата са заети — ти си в резервите и влизаш, ако някой се откаже.</div>}
+      {myReserve && <div className="ev-note">{tr("Местата са заети — ти си в резервите и влизаш, ако някой се откаже.", "The spots are taken — you're a reserve and get in if someone drops out.")}</div>}
       {error && <div className="ev-error">{error}</div>}
 
       <div className="ev-people">
-        <PeopleRow label={`Ще дойдат${e.maxAttendees != null ? ` (${going.length}/${e.maxAttendees})` : ` (${going.length})`}`} people={going} />
-        {reserves.length > 0 && <PeopleRow label={`Резерви (${reserves.length})`} people={reserves} />}
-        {maybe.length > 0 && <PeopleRow label={`Може би (${maybe.length})`} people={maybe} />}
-        {no.length > 0 && <PeopleRow label={`Няма да дойдат (${no.length})`} people={no} />}
+        <PeopleRow label={`${tr("Ще дойдат", "Going")}${e.maxAttendees != null ? ` (${going.length}/${e.maxAttendees})` : ` (${going.length})`}`} people={going} />
+        {reserves.length > 0 && <PeopleRow label={`${tr("Резерви", "Reserves")} (${reserves.length})`} people={reserves} />}
+        {maybe.length > 0 && <PeopleRow label={`${tr("Може би", "Maybe")} (${maybe.length})`} people={maybe} />}
+        {no.length > 0 && <PeopleRow label={`${tr("Няма да дойдат", "Not going")} (${no.length})`} people={no} />}
       </div>
 
       <div className="ev-actions">
         <button className="ev-btn" onClick={() => downloadIcs(e, place.replace(/^\S+\s/, ""))}>
-          📥 Добави в календар (.ics)
+          📥 {tr("Добави в календар (.ics)", "Add to calendar (.ics)")}
         </button>
         <a className="ev-btn" href={googleCalendarUrl(e, place.replace(/^\S+\s/, ""))} target="_blank" rel="noreferrer">
           Google Calendar
@@ -344,10 +345,10 @@ function EventDetail({
         {canEdit && (
           <>
             <button className="ev-btn" onClick={() => onEdit(e)}>
-              ✎ Редактирай
+              ✎ {tr("Редактирай", "Edit")}
             </button>
             <button className="ev-btn danger" onClick={() => void handleDelete()}>
-              🗑 Изтрий
+              🗑 {tr("Изтрий", "Delete")}
             </button>
           </>
         )}
@@ -361,7 +362,7 @@ function PeopleRow({ label, people }: { label: string; people: EventRsvpDTO[] })
     <div className="ev-people-row">
       <div className="ev-people-label">{label}</div>
       <div className="ev-people-list">
-        {people.length === 0 && <span className="ev-muted">още никой</span>}
+        {people.length === 0 && <span className="ev-muted">{tr("още никой", "nobody yet")}</span>}
         {people.map((r) => (
           <span key={r.userId} className="ev-person">
             <Avatar r={r} />
@@ -397,15 +398,15 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
 
   async function pickImage(file: File | undefined) {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return setError("Може само снимка или GIF.");
-    if (file.size > 10 * 1024 * 1024) return setError("Картинката е над 10 MB.");
-    if (!isCloudinaryConfigured()) return setError("Качването на картинки не е настроено.");
+    if (!file.type.startsWith("image/")) return setError(tr("Може само снимка или GIF.", "Only a picture or GIF."));
+    if (file.size > 10 * 1024 * 1024) return setError(tr("Картинката е над 10 MB.", "The picture is over 10 MB."));
+    if (!isCloudinaryConfigured()) return setError(tr("Качването на картинки не е настроено.", "Picture uploads aren't set up."));
     setUploading(true);
     setError(null);
     try {
       setImageUrl(await uploadImageToCloudinary(file));
     } catch {
-      setError("Качването не успя — опитай пак.");
+      setError(tr("Качването не успя — опитай пак.", "Upload failed — try again."));
     } finally {
       setUploading(false);
     }
@@ -414,7 +415,7 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
   async function submit(ev: React.FormEvent) {
     ev.preventDefault();
     const start = new Date(`${date}T${time}`);
-    if (Number.isNaN(start.getTime())) return setError("Избери дата и час.");
+    if (Number.isNaN(start.getTime())) return setError(tr("Избери дата и час.", "Pick a date and time."));
     let end: Date | null = null;
     if (endTime) {
       end = new Date(`${date}T${endTime}`);
@@ -440,7 +441,7 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
       onDone(saved.id);
     } catch (err) {
       const msg = (err as { response?: { data?: { error?: string } } }).response?.data?.error;
-      setError(msg ?? "Не успях да запазя събитието.");
+      setError(msg ?? tr("Не успях да запазя събитието.", "Couldn't save the event."));
     } finally {
       setSaving(false);
     }
@@ -472,16 +473,16 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
       }}
     >
       <button type="button" className="ev-back" onClick={() => onDone(editing?.id ?? null)}>
-        ← Назад
+        ← {tr("Назад", "Back")}
       </button>
-      <h2>{editing ? "Редактирай събитието" : "Ново събитие"}</h2>
+      <h2>{editing ? tr("Редактирай събитието", "Edit the event") : tr("Ново събитие", "New event")}</h2>
 
       <div
         className={`ev-cover-pick ${imageUrl ? "has" : ""}`}
         style={imageUrl ? { backgroundImage: `url("${imageUrl}")` } : undefined}
         onClick={() => fileRef.current?.click()}
       >
-        {uploading ? "Качване…" : imageUrl ? "" : "🖼️ Картинка — цъкни, провлачи или постави (Ctrl+V)"}
+        {uploading ? tr("Качване…", "Uploading…") : imageUrl ? "" : tr("🖼️ Картинка — цъкни, провлачи или постави (Ctrl+V)", "🖼️ Picture — click, drop or paste (Ctrl+V)")}
         {imageUrl && !uploading && (
           <button
             type="button"
@@ -491,37 +492,37 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
               setImageUrl(null);
             }}
           >
-            ✕ Махни
+            ✕ {tr("Махни", "Remove")}
           </button>
         )}
       </div>
       <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => void pickImage(e.target.files?.[0])} />
 
       <label className="ev-field">
-        <span>Име *</span>
-        <input className="ev-input" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder="напр. PoE2 рейд" autoFocus />
+        <span>{tr("Име *", "Name *")}</span>
+        <input className="ev-input" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} placeholder={tr("напр. PoE2 рейд", "e.g. PoE2 raid")} autoFocus />
       </label>
 
       <div className="ev-grid">
         <label className="ev-field">
-          <span>Дата *</span>
+          <span>{tr("Дата *", "Date *")}</span>
           <input className="ev-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
         </label>
         <label className="ev-field">
-          <span>Начало *</span>
+          <span>{tr("Начало *", "Start *")}</span>
           <input className="ev-input" type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
         </label>
         <label className="ev-field">
-          <span>Край (по желание)</span>
+          <span>{tr("Край (по желание)", "End (optional)")}</span>
           <input className="ev-input" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
         </label>
       </div>
 
       <div className="ev-grid">
         <label className="ev-field">
-          <span>Място</span>
+          <span>{tr("Място", "Place")}</span>
           <select className="ev-input" value={voiceChannelId} onChange={(e) => setVoiceChannelId(e.target.value)}>
-            <option value="">— друго (напиши) —</option>
+            <option value="">{tr("— друго (напиши) —", "— other (type it) —")}</option>
             {voiceChannels.map((v) => (
               <option key={v.id} value={v.id}>
                 🔊 {v.name}
@@ -531,15 +532,15 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
         </label>
         {!voiceChannelId && (
           <label className="ev-field">
-            <span>Къде</span>
-            <input className="ev-input" value={location} maxLength={100} onChange={(e) => setLocation(e.target.value)} placeholder="напр. в Steam / при Иван" />
+            <span>{tr("Къде", "Where")}</span>
+            <input className="ev-input" value={location} maxLength={100} onChange={(e) => setLocation(e.target.value)} placeholder={tr("напр. в Steam / при Иван", "e.g. on Steam / at John's")} />
           </label>
         )}
       </div>
 
       <div className="ev-grid">
         <label className="ev-field">
-          <span>Лимит на хората</span>
+          <span>{tr("Лимит на хората", "People limit")}</span>
           <input
             className="ev-input"
             type="number"
@@ -547,28 +548,28 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
             max={500}
             value={maxAttendees}
             onChange={(e) => setMaxAttendees(e.target.value)}
-            placeholder="без лимит"
+            placeholder={tr("без лимит", "no limit")}
           />
         </label>
         <label className="ev-field">
-          <span>Повтаря се</span>
+          <span>{tr("Повтаря се", "Repeats")}</span>
           <select className="ev-input" value={recurrence} onChange={(e) => setRecurrence(e.target.value as EventRecurrence)}>
-            <option value="none">Не</option>
-            <option value="daily">Всеки ден</option>
-            <option value="weekly">Всяка седмица</option>
+            <option value="none">{tr("Не", "No")}</option>
+            <option value="daily">{tr("Всеки ден", "Every day")}</option>
+            <option value="weekly">{tr("Всяка седмица", "Every week")}</option>
           </select>
         </label>
       </div>
 
       <label className="ev-field">
-        <span>Описание</span>
+        <span>{tr("Описание", "Description")}</span>
         <textarea
           className="ev-input"
           rows={4}
           value={description}
           maxLength={2000}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Какво ще правим, какво да подготвят хората…"
+          placeholder={tr("Какво ще правим, какво да подготвят хората…", "What we'll do, what people should prepare…")}
         />
       </label>
 
@@ -576,10 +577,10 @@ function EventForm({ serverId, editing, onDone }: { serverId: string; editing: S
       <div className="ev-actions">
         <span className="ev-spacer" />
         <button type="button" className="ev-btn" onClick={() => onDone(editing?.id ?? null)}>
-          Откажи
+          {tr("Откажи", "Cancel")}
         </button>
         <button type="submit" className="ev-btn primary" disabled={saving || uploading || !title.trim()}>
-          {saving ? "Запазване…" : editing ? "Запази" : "Създай"}
+          {saving ? tr("Запазване…", "Saving…") : editing ? tr("Запази", "Save") : tr("Създай", "Create")}
         </button>
       </div>
     </form>

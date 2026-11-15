@@ -18,7 +18,7 @@ import StreamFrame from "./StreamFrame";
 import { useMovableTile } from "../hooks/useMovableTile";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { closePopout, usePopoutStore } from "../webrtc/streamPopouts";
-import { tr } from "../i18n";
+import { shareLabel, tr } from "../i18n";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -126,7 +126,7 @@ function PeerTile({
       {peer.isScreenSharing && (
         <>
           <div className="screen-share-label">
-            <LiveIcon size={12} /> {tr("Стриймва", "Sharing")} {peer.screenShareLabel ?? tr("екрана си", "their screen")}
+            <LiveIcon size={12} /> {tr("Стриймва", "Sharing")} {shareLabel(peer.screenShareLabel)}
           </div>
           {!watchingThis && (
             <button

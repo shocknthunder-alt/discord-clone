@@ -3,6 +3,7 @@ import { createServer, updateServer } from "../api/servers.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { tr } from "../i18n";
 
 interface Props {
   onClose: () => void;
@@ -28,7 +29,7 @@ export default function CreateServerModal({ onClose }: Props) {
       const url = await uploadImageToCloudinary(file);
       setIconUrl(url);
     } catch {
-      setError("Image upload failed. Try again.");
+      setError(tr("Качването на снимката не успя. Опитай пак.", "Image upload failed. Try again."));
     } finally {
       setUploading(false);
     }
@@ -45,7 +46,7 @@ export default function CreateServerModal({ onClose }: Props) {
       setActiveServer(server.id);
       onClose();
     } catch {
-      setError("Could not create the server. Try again.");
+      setError(tr("Сървърът не се създаде. Опитай пак.", "Could not create the server. Try again."));
     } finally {
       setCreating(false);
     }
@@ -54,12 +55,12 @@ export default function CreateServerModal({ onClose }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-back" onClick={onClose} aria-label="Back">
+        <button className="modal-back" onClick={onClose} aria-label={tr("Назад", "Back")}>
           ←
         </button>
 
-        <h1 className="modal-title">Create your server</h1>
-        <p className="modal-subtitle">Give it a personality with a name and an icon. You can change these anytime.</p>
+        <h1 className="modal-title">{tr("Създай свой сървър", "Create your server")}</h1>
+        <p className="modal-subtitle">{tr("Дай му име и иконка. Можеш да ги смениш по всяко време.", "Give it a personality with a name and an icon. You can change these anytime.")}</p>
 
         <div className="avatar-picker">
           {iconUrl ? (
@@ -72,13 +73,13 @@ export default function CreateServerModal({ onClose }: Props) {
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading || !isCloudinaryConfigured()}
           >
-            {uploading ? "Uploading…" : "Upload Icon"}
+            {uploading ? tr("Качване…", "Uploading…") : tr("Качи иконка", "Upload Icon")}
           </button>
           <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleIconPick} />
         </div>
 
         <label className="modal-label" htmlFor="server-name-input">
-          Server Name
+          {tr("Име на сървъра", "Server Name")}
         </label>
         <input
           id="server-name-input"
@@ -86,7 +87,7 @@ export default function CreateServerModal({ onClose }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          placeholder="e.g. My Awesome Server"
+          placeholder={tr("напр. Нашият сървър", "e.g. My Awesome Server")}
           autoFocus
         />
 
@@ -97,7 +98,7 @@ export default function CreateServerModal({ onClose }: Props) {
           onClick={handleCreate}
           disabled={creating || uploading || !name.trim()}
         >
-          {creating ? "Creating…" : "Create Server"}
+          {creating ? tr("Създаване…", "Creating…") : tr("Създай сървъра", "Create Server")}
         </button>
       </div>
     </div>

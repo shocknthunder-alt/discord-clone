@@ -50,6 +50,24 @@ export function useT(): T {
   return lang === "en" ? (_bg, en) => en : (bg) => bg;
 }
 
+/** What someone is sharing — the label arrives in English from every client ("Entire Screen", "a Window"…). */
+export function shareLabel(label: string | null | undefined): string {
+  switch (label) {
+    case "Entire Screen":
+      return tr("целия екран", "Entire Screen");
+    case "a Window":
+      return tr("прозорец", "a Window");
+    case "a Browser Tab":
+      return tr("таб от браузъра", "a Browser Tab");
+    case undefined:
+    case null:
+    case "":
+      return tr("екрана си", "their screen");
+    default:
+      return label;
+  }
+}
+
 /** Same, for code outside React (reads the language at call time). */
 export function tr(bg: string, en: string): string {
   return useLangStore.getState().lang === "en" ? en : bg;

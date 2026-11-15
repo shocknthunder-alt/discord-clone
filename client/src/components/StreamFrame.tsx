@@ -1,6 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useStreamFrameStore } from "../store/streamFrameStore";
-import { STREAM_FRAMES } from "./streamFrames";
+import { STREAM_FRAMES, frameName } from "./streamFrames";
 import { tr } from "../i18n";
 
 interface Props {
@@ -89,7 +89,7 @@ export default function StreamFrame({ children, caption, onStop, maxVh = 76 }: P
           onClick={() => setFrameId(STREAM_FRAMES[(index + 1) % STREAM_FRAMES.length]!.id)}
           title={tr("Смени рамката", "Change the stream frame")}
         >
-          🎬 {frame.name}
+          🎬 {frameName(frame)}
         </button>
         <button className="stop-watching-button danger" onClick={onStop} title={tr("Спри да гледаш този стрийм", "Stop watching this stream")}>
           {tr("Спри да гледам", "Stop Watching")}

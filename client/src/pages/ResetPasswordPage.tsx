@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import PasswordInput from "../components/PasswordInput";
 import { resetPassword } from "../api/auth.api";
 import { useAuthStore } from "../store/authStore";
+import { tr } from "../i18n";
 
 /** Behind a reset link (from the e-mail or from the server owner): pick a new password → logged in. */
 export default function ResetPasswordPage() {
@@ -19,8 +20,8 @@ export default function ResetPasswordPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (newPassword.length < 6) return setError("Паролата трябва да е поне 6 знака.");
-    if (newPassword !== confirm) return setError("Паролите не съвпадат.");
+    if (newPassword.length < 6) return setError(tr("Паролата трябва да е поне 6 знака.", "The password must be at least 6 characters."));
+    if (newPassword !== confirm) return setError(tr("Паролите не съвпадат.", "The passwords don't match."));
     setBusy(true);
     try {
       const { user, token: session } = await resetPassword(token, newPassword);
@@ -28,7 +29,7 @@ export default function ResetPasswordPage() {
       navigate("/");
     } catch (err) {
       const message = axios.isAxiosError(err) ? err.response?.data?.error : undefined;
-      setError(typeof message === "string" ? message : "Не стана — опитай пак.");
+      setError(typeof message === "string" ? message : tr("Не стана — опитай пак.", "That didn't work — try again."));
     } finally {
       setBusy(false);
     }
@@ -37,23 +38,23 @@ export default function ResetPasswordPage() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={submit}>
-        <h1>Нова парола</h1>
+        <h1>{tr("Нова парола", "New password")}</h1>
         {!token ? (
-          <div className="error">Линкът е непълен — отвори го отново от писмото/съобщението.</div>
+          <div className="error">{tr("Линкът е непълен — отвори го отново от писмото/съобщението.", "The link is incomplete — open it again from the e-mail/message.")}</div>
         ) : (
           <>
-            <label htmlFor="rp-new">Нова парола</label>
+            <label htmlFor="rp-new">{tr("Нова парола", "New password")}</label>
             <PasswordInput id="rp-new" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
-            <label htmlFor="rp-confirm">Повтори паролата</label>
+            <label htmlFor="rp-confirm">{tr("Повтори паролата", "Repeat the password")}</label>
             <PasswordInput id="rp-confirm" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
             {error && <div className="error">{error}</div>}
             <button type="submit" disabled={busy}>
-              {busy ? "Запазване…" : "Запази и влез"}
+              {busy ? tr("Запазване…", "Saving…") : tr("Запази и влез", "Save and sign in")}
             </button>
           </>
         )}
         <div className="switch-link">
-          <Link to="/login">← Към входа</Link>
+          <Link to="/login">← {tr("Към входа", "To login")}</Link>
         </div>
       </form>
     </div>

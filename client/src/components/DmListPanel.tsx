@@ -7,6 +7,7 @@ import { resetAllPositions } from "../utils/floatingPositions";
 import MusicMiniPlayer from "./MusicMiniPlayer";
 import UserBar from "./UserBar";
 import VoiceStatusBar from "./VoiceStatusBar";
+import { tr } from "../i18n";
 
 export default function DmListPanel() {
   const { conversations, activeConversationId, unreadCounts, setConversations, setActiveConversation, setView } =
@@ -22,14 +23,14 @@ export default function DmListPanel() {
     <div className="channel-sidebar">
       <div className="channel-sidebar-scroll">
         <div className="channel-sidebar-header">
-          <button className="server-settings-button" onClick={() => setView("servers")} title="Back to servers">
+          <button className="server-settings-button" onClick={() => setView("servers")} title={tr("Обратно към сървърите", "Back to servers")}>
             ←
           </button>
-          <h2>Direct Messages</h2>
+          <h2>{tr("Лични съобщения", "Direct Messages")}</h2>
           <button
             className="server-settings-button"
             onClick={toggleLocked}
-            title={locked ? "Unlock layout (allow drag-reordering)" : "Lock layout (prevent drag-reordering)"}
+            title={locked ? tr("Отключи (позволи местене с влачене)", "Unlock layout (allow drag-reordering)") : tr("Заключи (без местене)", "Lock layout (prevent drag-reordering)")}
           >
             {locked ? "🔒" : "🔓"}
           </button>
@@ -37,12 +38,12 @@ export default function DmListPanel() {
             <button
               className="server-settings-button"
               onClick={() => {
-                if (window.confirm("Reset all moved icons/buttons back to their default positions?")) {
+                if (window.confirm(tr("Да върна ли всички преместени икони и бутони на местата им?", "Reset all moved icons/buttons back to their default positions?"))) {
                   resetAllPositions();
                   window.location.reload();
                 }
               }}
-              title="Reset icon positions"
+              title={tr("Върни иконите на местата им", "Reset icon positions")}
             >
               ↺
             </button>
@@ -51,7 +52,7 @@ export default function DmListPanel() {
 
         {conversations.length === 0 && (
           <div style={{ padding: 16, fontSize: 13, color: "var(--t-3)" }}>
-            No conversations yet. Right-click someone in a voice channel to message or call them.
+            {tr("Още няма разговори. Цъкни с десен бутон на някого в гласов канал, за да му пишеш или да му се обадиш.", "No conversations yet. Right-click someone in a voice channel to message or call them.")}
           </div>
         )}
 

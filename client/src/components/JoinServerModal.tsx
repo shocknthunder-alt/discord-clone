@@ -2,6 +2,7 @@ import { useState } from "react";
 import { joinServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { tr } from "../i18n";
 
 // Pre-filled so friends only have to press the button.
 const DEFAULT_INVITE_CODE = "cmw6c0h3z0004123k7n8dqxww";
@@ -35,7 +36,7 @@ export default function JoinServerModal({ onClose }: Props) {
       setActiveServer(server.id);
       onClose();
     } catch {
-      setError("Invalid invite — check the code and try again.");
+      setError(tr("Невалидна покана — провери кода и опитай пак.", "Invalid invite — check the code and try again."));
     } finally {
       setLoading(false);
     }
@@ -44,15 +45,15 @@ export default function JoinServerModal({ onClose }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-back" onClick={onClose} aria-label="Back">
+        <button className="modal-back" onClick={onClose} aria-label={tr("Назад", "Back")}>
           ←
         </button>
 
-        <h1 className="modal-title">Join a server</h1>
-        <p className="modal-subtitle">Enter an invite below to join an existing server.</p>
+        <h1 className="modal-title">{tr("Влез в сървър", "Join a server")}</h1>
+        <p className="modal-subtitle">{tr("Въведи код за покана, за да влезеш в съществуващ сървър.", "Enter an invite below to join an existing server.")}</p>
 
         <label className="modal-label" htmlFor="invite-input">
-          Invite Link
+          {tr("Код за покана", "Invite Link")}
         </label>
         <input
           id="invite-input"
@@ -60,16 +61,16 @@ export default function JoinServerModal({ onClose }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleJoin()}
-          placeholder="Paste an invite code"
+          placeholder={tr("Постави кода за покана", "Paste an invite code")}
           autoFocus
         />
 
-        <p className="modal-examples-text">Кликни <strong>Join Server</strong> Pepega !</p>
+        <p className="modal-examples-text">{tr("Кликни", "Click")} <strong>{tr("Влез", "Join Server")}</strong> Pepega !</p>
 
         {error && <div className="modal-error">{error}</div>}
 
         <button className="modal-join-button" onClick={handleJoin} disabled={loading || !input.trim()}>
-          {loading ? "Joining…" : "Join Server"}
+          {loading ? tr("Влизане…", "Joining…") : tr("Влез", "Join Server")}
         </button>
       </div>
     </div>

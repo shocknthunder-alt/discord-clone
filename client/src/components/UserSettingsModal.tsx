@@ -2,9 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
-import { STREAM_FRAMES } from "./streamFrames";
+import { STREAM_FRAMES, frameName } from "./streamFrames";
 import { useStreamFrameStore } from "../store/streamFrameStore";
-import { THEMES, applyTheme, getStoredThemeId } from "../theme/themes";
+import { THEMES, applyTheme, getStoredThemeId, themeName } from "../theme/themes";
 import { useVoiceStore } from "../store/voiceStore";
 import {
   getAutoGainControlEnabled,
@@ -855,7 +855,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                           />
                           <f.Art />
                         </div>
-                        <span>{f.name}</span>
+                        <span>{frameName(f)}</span>
                       </button>
                     ))}
                   </div>
@@ -949,7 +949,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                       key={th.id}
                       type="button"
                       className={`theme-swatch ${draft.themeId === th.id ? "selected" : ""}`}
-                      title={th.name}
+                      title={themeName(th)}
                       onClick={() => edit({ themeId: th.id })}
                     >
                       <span
@@ -961,7 +961,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                       >
                         <span className="theme-swatch-accent" style={{ background: th.accent }} />
                       </span>
-                      <span className="theme-swatch-name">{th.name}</span>
+                      <span className="theme-swatch-name">{themeName(th)}</span>
                     </button>
                   ))}
                 </div>

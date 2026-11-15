@@ -39,6 +39,7 @@ import { useLayoutLockStore } from "../store/layoutLockStore";
 const HUD_RAIL_IDS = ["hud-network", "hud-mute", "hud-deafen", "hud-camera", "hud-screenshare", "hud-soundboard", "hud-settings", "hud-disconnect"];
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
+import { tr } from "../i18n";
 
 export default function AppShell() {
   const token = useAuthStore((s) => s.token);
@@ -122,14 +123,14 @@ export default function AppShell() {
         st.setActiveServer(null);
       }
       st.setServers(st.servers.filter((s) => s.id !== serverId));
-      window.alert("Беше премахнат от един сървър.");
+      window.alert(tr("Беше премахнат от един сървър.", "You were removed from a server."));
     });
 
     // 📅 Events: refetch on any change; a toast (+ desktop notification) for new ones.
     socket.on(SocketEvents.EventsChanged, () => scheduleEventsReload());
     socket.on(SocketEvents.EventCreated, (p: EventCreatedPayload) => {
       if (p.creatorId === useAuthStore.getState().user?.id) return;
-      const text = `${p.creatorUsername} · ${fmtDay(p.startsAt)} в ${fmtTime(p.startsAt)}`;
+      const text = `${p.creatorUsername} · ${fmtDay(p.startsAt)} ${tr("в", "at")} ${fmtTime(p.startsAt)}`;
       useEventsStore.getState().pushToast({
         kind: "new",
         eventId: p.eventId,
@@ -139,7 +140,7 @@ export default function AppShell() {
         voiceChannelId: null,
         serverId: p.serverId,
       });
-      notifyDesktop(`📅 Ново събитие: ${p.title}`, text);
+      notifyDesktop(`📅 ${tr("Ново събитие", "New event")}: ${p.title}`, text);
     });
     // After a reconnect (e.g. the server restarted) the list may have changed while we were away.
     socket.on("connect", () => scheduleEventsReload());
@@ -152,7 +153,7 @@ export default function AppShell() {
       const dmState = useDmStore.getState();
       const isActivelyViewing = dmState.view === "dms" && dmState.activeConversationId === conversationId;
       if (!isActivelyViewing) dmState.incrementUnread(conversationId);
-      if (!isActivelyViewing || !document.hasFocus()) notifyDesktop("ШмиркаТа", "Ново лично съобщение");
+      if (!isActivelyViewing || !document.hasFocus()) notifyDesktop("ШмиркаТа", tr("Ново лично съобщение", "New direct message"));
     });
 
     socket.on(

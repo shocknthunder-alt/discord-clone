@@ -28,7 +28,7 @@ import UserBar from "./UserBar";
 import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
-import { tr } from "../i18n";
+import { shareLabel, tr } from "../i18n";
 
 
 interface Props {
@@ -86,7 +86,7 @@ function ParticipantRow({
       <ParticipantAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
       <span
         className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}
-        title={peer.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${peer.screenShareLabel ?? tr("екрана си", "their screen")}` : undefined}
+        title={peer.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${shareLabel(peer.screenShareLabel)}` : undefined}
       >
         {peer.isScreenSharing && <LiveIcon size={11} />}{" "}
         {peer.username || tr("свързва се…", "connecting…")}
@@ -118,7 +118,7 @@ function OccupantRow({ occupant, canMove }: { occupant: VoicePeerInfo; canMove: 
       <ParticipantAvatar avatarUrl={occupant.avatarUrl} name={occupant.username} speaking={false} />
       <span
         className={occupant.isScreenSharing ? "participant-name streaming" : "participant-name"}
-        title={occupant.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${occupant.screenShareLabel ?? tr("екрана си", "their screen")}` : undefined}
+        title={occupant.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${shareLabel(occupant.screenShareLabel)}` : undefined}
       >
         {occupant.isScreenSharing && <LiveIcon size={11} />}{" "}
         {occupant.username}

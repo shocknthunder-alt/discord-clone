@@ -1,6 +1,9 @@
 import { eventEndMs, type ServerEventDTO } from "@discord-clone/shared";
 import { useEffect, useState } from "react";
 import { getAppPrefs } from "../utils/appPrefs";
+import { tr, useLangStore } from "../i18n";
+
+const locale = () => (useLangStore.getState().lang === "en" ? "en-GB" : "bg-BG");
 
 /** Re-renders every `ms` (countdowns). */
 export function useNow(ms = 30_000) {
@@ -13,16 +16,16 @@ export function useNow(ms = 30_000) {
 }
 
 export function fmtTime(iso: string | number) {
-  return new Date(iso).toLocaleTimeString("bg-BG", { hour: "2-digit", minute: "2-digit", hour12: !getAppPrefs().clock24h });
+  return new Date(iso).toLocaleTimeString(locale(), { hour: "2-digit", minute: "2-digit", hour12: !getAppPrefs().clock24h });
 }
 
 export function fmtDay(iso: string | number) {
   const d = new Date(iso);
   const today = new Date();
   const tomorrow = new Date(Date.now() + 24 * 3600_000);
-  if (d.toDateString() === today.toDateString()) return "Днес";
-  if (d.toDateString() === tomorrow.toDateString()) return "Утре";
-  return d.toLocaleDateString("bg-BG", { weekday: "short", day: "numeric", month: "long" });
+  if (d.toDateString() === today.toDateString()) return tr("Днес", "Today");
+  if (d.toDateString() === tomorrow.toDateString()) return tr("Утре", "Tomorrow");
+  return d.toLocaleDateString(locale(), { weekday: "short", day: "numeric", month: "long" });
 }
 
 export function fmtRange(e: ServerEventDTO) {
@@ -30,11 +33,11 @@ export function fmtRange(e: ServerEventDTO) {
   return e.endsAt ? `${start} – ${fmtTime(e.endsAt)}` : start;
 }
 
-export const RECURRENCE_LABEL: Record<string, string> = {
+export const RECURRENCE_LABEL = (): Record<string, string> => ({
   none: "",
-  daily: "🔁 всеки ден",
-  weekly: "🔁 всяка седмица",
-};
+  daily: tr("🔁 всеки ден", "🔁 every day"),
+  weekly: tr("🔁 всяка седмица", "🔁 every week"),
+});
 
 /** yyyy-mm-dd / HH:mm in local time, for <input type="date|time">. */
 export function toDateInput(d: Date) {

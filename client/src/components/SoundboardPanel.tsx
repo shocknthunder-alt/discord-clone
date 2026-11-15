@@ -13,6 +13,7 @@ import { useAppPrefs } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 import "./soundboard.css";
 import WaveformTrimmer, { encodeSelectionWav } from "./WaveformTrimmer";
+import { tr } from "../i18n";
 
 const MAX_SEC = 10;
 /** The source file may be long — you cut a ≤10 s part out of it. */
@@ -26,7 +27,7 @@ async function decodeFile(file: File): Promise<AudioBuffer> {
   try {
     return await ctx.decodeAudioData(await file.arrayBuffer());
   } catch {
-    throw new Error("Файлът не е аудио, което може да се отвори (пробвай mp3, ogg или wav).");
+    throw new Error(tr("Файлът не е аудио, което може да се отвори (пробвай mp3, ogg или wav).", "The file isn't audio that can be opened (try mp3, ogg or wav)."));
   } finally {
     void ctx.close();
   }
@@ -89,10 +90,10 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
   async function pickFile(file: File | undefined) {
     if (!file || !editing) return;
     setError(null);
-    if (file.size > MAX_SOURCE_BYTES) return setError("Файлът е над 25 MB.");
+    if (file.size > MAX_SOURCE_BYTES) return setError(tr("Файлът е над 25 MB.", "The file is over 25 MB."));
     try {
       const buffer = await decodeFile(file);
-      if (buffer.duration > MAX_SOURCE_SEC) return setError("Файлът е над 3 минути — избери по-кратък.");
+      if (buffer.duration > MAX_SOURCE_SEC) return setError(tr("Файлът е над 3 минути — избери по-кратък.", "The file is over 3 minutes — pick a shorter one."));
       setEditing({
         ...editing,
         file,
@@ -102,20 +103,20 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
         name: editing.name || file.name.replace(/\.[^.]+$/, "").slice(0, 32),
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Не може да се прочете файлът.");
+      setError(err instanceof Error ? err.message : tr("Не може да се прочете файлът.", "The file can't be read."));
     }
   }
 
   async function save() {
     if (!editing || !serverId) return;
-    if (!editing.name.trim()) return setError("Дай име на звука.");
+    if (!editing.name.trim()) return setError(tr("Дай име на звука.", "Give the sound a name."));
     setBusy(true);
     setError(null);
     try {
       if (editing.id) {
         await updateSound(serverId, editing.id, { name: editing.name, emoji: editing.emoji, volume: editing.volume });
       } else {
-        if (!editing.buffer) throw new Error("Избери аудио файл.");
+        if (!editing.buffer) throw new Error(tr("Избери аудио файл.", "Pick an audio file."));
         // Only the chosen part is uploaded (mono WAV); Cloudinary serves it back as mp3.
         const clip = encodeSelectionWav(editing.buffer, editing.start, editing.end);
         const { url } = await uploadAudioToCloudinary(clip);
@@ -131,14 +132,14 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
       setEditing(null);
     } catch (err) {
       const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
-      setError(msg ?? (err instanceof Error ? err.message : "Не се запази."));
+      setError(msg ?? (err instanceof Error ? err.message : tr("Не се запази.", "It wasn't saved.")));
     } finally {
       setBusy(false);
     }
   }
 
   async function remove(sound: SoundboardSoundDTO) {
-    if (!serverId || !window.confirm(`Да изтрия ли „${sound.name}“?`)) return;
+    if (!serverId || !window.confirm(tr(`Да изтрия ли „${sound.name}“?`, `Delete "${sound.name}"?`))) return;
     await deleteSound(serverId, sound.id).catch(() => {});
     setSounds(await fetchSounds(serverId));
   }
@@ -149,7 +150,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
     <div className={`sb-panel ${editing && !editing.id ? "wide" : ""}`} role="dialog" aria-label="Soundboard">
       <header className="sb-head">
         <span>🔊 Soundboard</span>
-        <button className="sb-x" onClick={onClose} title="Затвори (Esc)">
+        <button className="sb-x" onClick={onClose} title={tr("Затвори (Esc)", "Close (Esc)")}>
           ✕
         </button>
       </header>
@@ -158,7 +159,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
         <button
           className="sb-mute"
           onClick={() => prefs.set({ soundboardEnabled: !prefs.soundboardEnabled })}
-          title={prefs.soundboardEnabled ? "Заглуши soundboard (само за теб)" : "Включи soundboard"}
+          title={prefs.soundboardEnabled ? tr("Заглуши soundboard (само за теб)", "Mute the soundboard (only for you)") : tr("Включи soundboard", "Unmute the soundboard")}
         >
           {prefs.soundboardEnabled ? "🔊" : "🔇"}
         </button>
@@ -168,7 +169,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
           max={100}
           value={prefs.soundboardVolume}
           onChange={(e) => prefs.set({ soundboardVolume: Number(e.target.value), soundboardEnabled: true })}
-          aria-label="Твоята сила на soundboard"
+          aria-label={tr("Твоята сила на soundboard", "Your soundboard volume")}
         />
         <span className="sb-volume-value">{prefs.soundboardVolume}%</span>
       </div>
@@ -176,23 +177,23 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
       <div className="sb-grid">
         {all.map((s) => (
           <div key={s.id} className={`sb-tile ${lastPlayed === s.id ? "pressed" : ""}`}>
-            <button className="sb-play" onClick={() => play(s)} title={`${s.name} — пусни за всички`}>
+            <button className="sb-play" onClick={() => play(s)} title={`${s.name} — ${tr("пусни за всички", "play for everyone")}`}>
               <span className="sb-emoji">{s.emoji}</span>
               <span className="sb-name">{s.name}</span>
             </button>
             <div className="sb-tools">
-              <button title="Чуй само ти" onClick={() => playSoundboardClip(s.url, s.volume, { force: true })}>
+              <button title={tr("Чуй само ти", "Preview (only you)")} onClick={() => playSoundboardClip(s.url, s.volume, { force: true })}>
                 👂
               </button>
               {canEdit(s) && (
                 <>
                   <button
-                    title="Редактирай"
+                    title={tr("Редактирай", "Edit")}
                     onClick={() => setEditing({ ...EMPTY, id: s.id, name: s.name, emoji: s.emoji, volume: s.volume })}
                   >
                     ✎
                   </button>
-                  <button title="Изтрий" onClick={() => void remove(s)}>
+                  <button title={tr("Изтрий", "Delete")} onClick={() => void remove(s)}>
                     🗑
                   </button>
                 </>
@@ -209,7 +210,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
             }}
           >
             <span className="sb-emoji">＋</span>
-            <span className="sb-name">Добави звук</span>
+            <span className="sb-name">{tr("Добави звук", "Add sound")}</span>
           </button>
         )}
       </div>
@@ -217,17 +218,17 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
       {editing && (
         <div className="sb-form">
           <div className="sb-form-title">
-            {editing.id ? "Редактирай звук" : "Нов звук — избери файл и изрежи до 10 сек"}
+            {editing.id ? tr("Редактирай звук", "Edit sound") : tr("Нов звук — избери файл и изрежи до 10 сек", "New sound — pick a file and trim it to 10 s")}
           </div>
           {!editing.id && (
             <div className="sb-row">
               <button className="sb-btn" onClick={() => fileRef.current?.click()}>
-                {editing.file ? "Друг файл…" : "Избери файл…"}
+                {editing.file ? tr("Друг файл…", "Another file…") : tr("Избери файл…", "Pick a file…")}
               </button>
               <span className="sb-file">
                 {editing.file && editing.buffer
-                  ? `${editing.file.name} · ${editing.buffer.duration.toFixed(1)} сек`
-                  : "mp3 / ogg / wav, до 3 мин"}
+                  ? `${editing.file.name} · ${editing.buffer.duration.toFixed(1)} ${tr("сек", "s")}`
+                  : tr("mp3 / ogg / wav, до 3 мин", "mp3 / ogg / wav, up to 3 min")}
               </span>
               <input ref={fileRef} type="file" accept="audio/*" hidden onChange={(e) => void pickFile(e.target.files?.[0])} />
             </div>
@@ -246,7 +247,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
           <div className="sb-row">
             <input
               className="sb-input"
-              placeholder="Име"
+              placeholder={tr("Име", "Name")}
               maxLength={32}
               value={editing.name}
               onChange={(e) => setEditing({ ...editing, name: e.target.value })}
@@ -256,7 +257,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
               value={editing.emoji}
               maxLength={8}
               onChange={(e) => setEditing({ ...editing, emoji: e.target.value })}
-              title="Емоджи"
+              title={tr("Емоджи", "Emoji")}
             />
           </div>
           <div className="sb-quick">
@@ -267,7 +268,7 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           <div className="sb-row">
-            <span className="sb-label">Сила на звука</span>
+            <span className="sb-label">{tr("Сила на звука", "Volume")}</span>
             <input
               type="range"
               min={5}
@@ -284,17 +285,17 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
                   if (url) playSoundboardClip(url, editing.volume, { force: true, raw: true });
                 }}
               >
-                ▶ Чуй
+                ▶ {tr("Чуй", "Play")}
               </button>
             )}
           </div>
           {error && <div className="sb-error">{error}</div>}
           <div className="sb-row sb-actions">
             <button className="sb-btn" onClick={() => setEditing(null)} disabled={busy}>
-              Откажи
+              {tr("Откажи", "Cancel")}
             </button>
             <button className="sb-btn primary" onClick={() => void save()} disabled={busy || (!editing.id && !editing.buffer)}>
-              {busy ? "Качване…" : editing.id ? "Запази" : "Качи"}
+              {busy ? tr("Качване…", "Uploading…") : editing.id ? tr("Запази", "Save") : tr("Качи", "Upload")}
             </button>
           </div>
         </div>

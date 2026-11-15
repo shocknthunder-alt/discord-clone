@@ -3,6 +3,7 @@ import { eventEndMs, type ServerEventDTO } from "@discord-clone/shared";
 import { useAuthStore } from "../store/authStore";
 import { useEventsStore } from "../store/eventsStore";
 import { getAppPrefs, notifyDesktop } from "../utils/appPrefs";
+import { tr } from "../i18n";
 
 /**
  * Personal reminders for events you signed up for (✅ / 🤔): N minutes before (your setting) and
@@ -83,7 +84,7 @@ function check() {
         shown[startKey] = shown[preKey] = now;
         changed = true;
         const late = now - start > 5 * 60_000;
-        const text = late ? `Започна в ${time}${placeOf(e)}` : `Започва сега!${placeOf(e)}`;
+        const text = late ? `${tr("Започна в", "Started at")} ${time}${placeOf(e)}` : `${tr("Започва сега!", "Starting now!")}${placeOf(e)}`;
         pushToast({ kind: "started", eventId: e.id, title: e.title, text, imageUrl: e.imageUrl, voiceChannelId: e.voiceChannelId, serverId: e.serverId });
         notifyDesktop(`🔴 ${e.title}`, text, e.imageUrl);
         playEventChime();
@@ -92,7 +93,7 @@ function check() {
       shown[preKey] = now;
       changed = true;
       const mins = Math.max(1, Math.round((start - now) / 60_000));
-      const text = `Започва след ${mins} мин (${time})${placeOf(e)}`;
+      const text = `${tr("Започва след", "Starts in")} ${mins} ${tr("мин", "min")} (${time})${placeOf(e)}`;
       pushToast({ kind: "reminder", eventId: e.id, title: e.title, text, imageUrl: e.imageUrl, voiceChannelId: e.voiceChannelId, serverId: e.serverId });
       notifyDesktop(`⏰ ${e.title}`, text, e.imageUrl);
       playEventChime();

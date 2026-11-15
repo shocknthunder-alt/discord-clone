@@ -10,6 +10,7 @@ import { useDmStore } from "../store/dmStore";
 import { rankOf, roleOf, useMembersStore } from "../store/membersStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
+import { tr } from "../i18n";
 import "./members.css";
 
 /** userId → the voice channel they are in (this server only). */
@@ -39,18 +40,18 @@ export default function MemberListPanel() {
   // Groups: owner, then every non-default rank (highest first), then the default rank as "Онлайн".
   const groups: { key: string; label: string; color: string | null; people: MemberDTO[] }[] = [];
   const owners = online.filter((m) => m.isOwner).sort(byName);
-  if (owners.length) groups.push({ key: "owner", label: "👑 Собственик", color: null, people: owners });
+  if (owners.length) groups.push({ key: "owner", label: tr("👑 Собственик", "👑 Owner"), color: null, people: owners });
   for (const r of roles.filter((x) => !x.isDefault)) {
     const people = online.filter((m) => !m.isOwner && m.roleId === r.id).sort(byName);
     if (people.length) groups.push({ key: r.id, label: r.name, color: r.color, people });
   }
   const rest = online.filter((m) => !m.isOwner && !roles.some((r) => !r.isDefault && r.id === m.roleId)).sort(byName);
-  if (rest.length) groups.push({ key: "online", label: "Онлайн", color: null, people: rest });
+  if (rest.length) groups.push({ key: "online", label: tr("Онлайн", "Online"), color: null, people: rest });
 
   if (!open) {
     return (
       <aside className="members-panel collapsed">
-        <button className="members-rail" onClick={togglePanel} title="Покажи членовете">
+        <button className="members-rail" onClick={togglePanel} title={tr("Покажи членовете", "Show members")}>
           <span className="members-rail-arrow">‹</span>
           <span className="members-rail-icon">👥</span>
           <span className="members-rail-count">
@@ -66,13 +67,13 @@ export default function MemberListPanel() {
     <aside className="members-panel">
       <div className="members-head">
         <span className="members-title">
-          Членове — {members.length}
-          <button className="members-collapse" onClick={togglePanel} title="Скрий членовете" aria-label="Скрий членовете">
+          {tr("Членове", "Members")} — {members.length}
+          <button className="members-collapse" onClick={togglePanel} title={tr("Скрий членовете", "Hide members")} aria-label={tr("Скрий членовете", "Hide members")}>
             ›
           </button>
         </span>
         <span className="members-counts">
-          <span className="members-dot on" /> {online.length} онлайн · <span className="members-dot" /> {offline.length} офлайн
+          <span className="members-dot on" /> {online.length} {tr("онлайн", "online")} · <span className="members-dot" /> {offline.length} {tr("офлайн", "offline")}
         </span>
       </div>
       <div className="members-scroll">
@@ -88,7 +89,7 @@ export default function MemberListPanel() {
         ))}
         {offline.length > 0 && (
           <>
-            <div className="members-group">Офлайн — {offline.length}</div>
+            <div className="members-group">{tr("Офлайн", "Offline")} — {offline.length}</div>
             {offline.map((m) => (
               <MemberRow key={m.userId} m={m} offline onClick={(e) => setMenu({ member: m, x: e.clientX, y: e.clientY })} />
             ))}
@@ -111,7 +112,7 @@ function MemberRow({ m, voice, offline, onClick }: { m: MemberDTO; voice?: strin
       </span>
       <span className="member-text">
         <span className="member-name" style={color ? { color } : undefined}>
-          {m.username} {m.isOwner && <span title="Собственик">👑</span>}
+          {m.username} {m.isOwner && <span title={tr("Собственик", "Owner")}>👑</span>}
         </span>
         {voice && <span className="member-sub">🔊 {voice}</span>}
       </span>
@@ -162,7 +163,7 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
     try {
       await setMemberRole(serverId, member.userId, roleId || null);
     } catch (err) {
-      setError(apiError(err, "Не успях."));
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
     } finally {
       setBusy(false);
     }
@@ -184,22 +185,22 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
       const { link } = await memberResetLink(serverId, member.userId);
       try {
         await navigator.clipboard.writeText(link);
-        setResetInfo(`✓ Линкът е копиран — прати го на ${member.username}. Важи 24 ч. и само веднъж.`);
+        setResetInfo(tr(`✓ Линкът е копиран — прати го на ${member.username}. Важи 24 ч. и само веднъж.`, `✓ Link copied — send it to ${member.username}. Valid for 24 h, once.`));
       } catch {
-        window.prompt(`Линк за нова парола за ${member.username} (важи 24 ч.):`, link);
+        window.prompt(tr(`Линк за нова парола за ${member.username} (важи 24 ч.):`, `New-password link for ${member.username} (valid for 24 h):`), link);
       }
     } catch (err) {
-      setError(apiError(err, "Не успях."));
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
     }
   }
 
   async function kick() {
-    if (!serverId || !window.confirm(`Да изгоня ли ${member.username} от сървъра?`)) return;
+    if (!serverId || !window.confirm(tr(`Да изгоня ли ${member.username} от сървъра?`, `Kick ${member.username} from the server?`))) return;
     try {
       await kickMember(serverId, member.userId);
       onClose();
     } catch (err) {
-      setError(apiError(err, "Не успях."));
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
     }
   }
 
@@ -209,12 +210,12 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
     <div ref={ref} className="member-menu" style={{ left, top }}>
       <div className="member-menu-head">
         <strong style={role?.color ? { color: role.color } : undefined}>{member.username}</strong>
-        <span>{member.isOwner ? "👑 Собственик" : role?.name ?? ""}</span>
+        <span>{member.isOwner ? tr("👑 Собственик", "👑 Owner") : role?.name ?? ""}</span>
       </div>
-      {!isMe && <button onClick={() => void message()}>💬 Съобщение</button>}
+      {!isMe && <button onClick={() => void message()}>💬 {tr("Съобщение", "Message")}</button>}
       {canRole && (
         <label className="member-menu-row">
-          Ранг
+          {tr("Ранг", "Rank")}
           <select value={member.roleId ?? ""} disabled={busy} onChange={(e) => void changeRole(e.target.value)}>
             {roles
               .filter((r) => r.position < myRank || r.id === member.roleId)
@@ -228,7 +229,7 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
       )}
       {canMove && (
         <>
-          <div className="member-menu-label">Премести в</div>
+          <div className="member-menu-label">{tr("Премести в", "Move to")}</div>
           {voiceChannels
             .filter((v) => v.id !== voiceChannelId)
             .map((v) => (
@@ -237,19 +238,19 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
               </button>
             ))}
           <button className="danger" onClick={() => move(null)}>
-            ⛔ Изключи от гласа
+            ⛔ {tr("Изключи от гласа", "Disconnect from voice")}
           </button>
         </>
       )}
       {canResetLink && (
-        <button onClick={() => void makeResetLink()} title="Забравил си е паролата? Пусни му линка в лично съобщение.">
-          🔑 Линк за нова парола
+        <button onClick={() => void makeResetLink()} title={tr("Забравил си е паролата? Пусни му линка в лично съобщение.", "Forgot their password? Send them the link in a direct message.")}>
+          🔑 {tr("Линк за нова парола", "New-password link")}
         </button>
       )}
       {resetInfo && <div className="member-menu-info">{resetInfo}</div>}
       {canKick && (
         <button className="danger" onClick={() => void kick()}>
-          🚪 Изгони от сървъра
+          🚪 {tr("Изгони от сървъра", "Kick from the server")}
         </button>
       )}
       {error && <div className="member-menu-error">{error}</div>}

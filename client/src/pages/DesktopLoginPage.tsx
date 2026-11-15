@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { handOffToDesktop } from "../api/oauth.api";
 import OAuthButtons from "../components/OAuthButtons";
 import { useAuthStore } from "../store/authStore";
+import { tr } from "../i18n";
 
 /**
  * Opened in the REAL browser by the desktop app's "Влез с Google/Microsoft" (Google refuses sign-in
@@ -36,8 +37,8 @@ export default function DesktopLoginPage() {
     return (
       <div className="auth-page">
         <div className="auth-card">
-          <h1>Невалиден линк</h1>
-          <p>Натисни „Влез с Google / Microsoft“ в приложението пак.</p>
+          <h1>{tr("Невалиден линк", "Invalid link")}</h1>
+          <p>{tr("Натисни „Влез с Google / Microsoft“ в приложението пак.", "Press \"Sign in with Google / Microsoft\" in the app again.")}</p>
         </div>
       </div>
     );
@@ -46,24 +47,24 @@ export default function DesktopLoginPage() {
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <h1>Вход за десктоп приложението</h1>
+        <h1>{tr("Вход за десктоп приложението", "Desktop app sign-in")}</h1>
         {state === "done" ? (
-          <div className="success">✓ Готово! Върни се в приложението ШмиркаТа — вече си вътре. Този таб може да се затвори.</div>
+          <div className="success">{tr("✓ Готово! Върни се в приложението ШмиркаТа — вече си вътре. Този таб може да се затвори.", "✓ Done! Go back to the ШмиркаТа app — you're signed in. You can close this tab.")}</div>
         ) : token && user && !justSignedIn ? (
           <>
             <p>
-              В този браузър вече си влязъл като <b>{user.username}</b>.
+              {tr("В този браузър вече си влязъл като", "In this browser you're already signed in as")} <b>{user.username}</b>.
             </p>
             <button type="button" disabled={state === "sending"} onClick={() => void send()}>
-              {state === "sending" ? "Свързване…" : `Влез в приложението като ${user.username}`}
+              {state === "sending" ? tr("Свързване…", "Connecting…") : `${tr("Влез в приложението като", "Sign in to the app as")} ${user.username}`}
             </button>
             <div className="switch-link">
-              Друг акаунт? <a onClick={() => useAuthStore.getState().logout()}>Излез оттук</a> и влез наново.
+              {tr("Друг акаунт?", "Another account?")} <a onClick={() => useAuthStore.getState().logout()}>{tr("Излез оттук", "Log out here")}</a> {tr("и влез наново.", "and sign in again.")}
             </div>
           </>
         ) : (
           <>
-            <p>Влез с бутона отдолу — после се върни в приложението.</p>
+            <p>{tr("Влез с бутона отдолу — после се върни в приложението.", "Sign in with the button below — then go back to the app.")}</p>
             <OAuthButtons
               onSignedIn={({ user: u, token: t }) => {
                 setAuth(u, t, true);
@@ -72,7 +73,7 @@ export default function DesktopLoginPage() {
             />
           </>
         )}
-        {state === "error" && <div className="error">Не стана — натисни бутона в приложението пак.</div>}
+        {state === "error" && <div className="error">{tr("Не стана — натисни бутона в приложението пак.", "That didn't work — press the button in the app again.")}</div>}
       </div>
     </div>
   );

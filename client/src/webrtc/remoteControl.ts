@@ -3,6 +3,7 @@ import type { Socket } from "socket.io-client";
 import { create } from "zustand";
 import { getSocket } from "../socket/socket";
 import { useVoiceStore } from "../store/voiceStore";
+import { tr } from "../i18n";
 
 /**
  * Remote control of a streamer's PC (ticket 001).
@@ -40,13 +41,13 @@ function notice(text: string | null) {
   if (text) noticeTimer = setTimeout(() => useControlStore.setState({ notice: null }), 7000);
 }
 
-const REASONS: Record<string, string> = {
-  denied: "отказа контрола.",
-  timeout: "не отговори.",
-  unsupported: "не може да бъде управляван — трябва да стриймва от десктоп приложението (1.7.0+).",
-  "not-sharing": "вече не стриймва.",
-  busy: "вече е управляван от някой друг.",
-};
+const REASONS = (): Record<string, string> => ({
+  denied: tr("отказа контрола.", "declined control."),
+  timeout: tr("не отговори.", "didn't answer."),
+  unsupported: tr("не може да бъде управляван — трябва да стриймва от десктоп приложението (1.7.0+).", "can't be controlled — they must stream from the desktop app (1.7.0+)."),
+  "not-sharing": tr("вече не стриймва.", "isn't streaming any more."),
+  busy: tr("вече е управляван от някой друг.", "is already controlled by someone else."),
+});
 
 /** Whether THIS app can be controlled (desktop 1.7.0+). */
 export function canBeControlled(): boolean {
@@ -60,14 +61,14 @@ export function requestControl(streamerUserId: string) {
   const s = useControlStore.getState();
   if (s.requesting || s.controlling) return;
   useControlStore.setState({ requesting: streamerUserId });
-  notice("Изчакваме стриймъра да разреши…");
+  notice(tr("Изчакваме стриймъра да разреши…", "Waiting for the streamer to allow it…"));
   getSocket()?.emit(SocketEvents.ControlRequest, { toUserId: streamerUserId });
   if (requestTimer) clearTimeout(requestTimer);
   // Older apps / browser streamers never answer at all.
   requestTimer = setTimeout(() => {
     if (useControlStore.getState().requesting !== streamerUserId) return;
     useControlStore.setState({ requesting: null });
-    notice("Няма отговор — стриймърът трябва да е в десктоп приложението (1.7.0+) и да натисне „Разреши“.");
+    notice(tr("Няма отговор — стриймърът трябва да е в десктоп приложението (1.7.0+) и да натисне „Разреши“.", "No answer — the streamer must be in the desktop app (1.7.0+) and press \"Allow\"."));
   }, 40_000);
 }
 
@@ -180,10 +181,10 @@ export function registerRemoteControl(socket: Socket) {
       if (requestTimer) clearTimeout(requestTimer);
       if (granted) {
         useControlStore.setState({ requesting: null, controlling: fromUserId });
-        notice(`Управляваш компютъра на ${fromUsername}. Цъкни върху стрийма, за да пишеш с клавиатурата.`);
+        notice(tr(`Управляваш компютъра на ${fromUsername}. Цъкни върху стрийма, за да пишеш с клавиатурата.`, `You're controlling ${fromUsername}'s PC. Click the stream to type with the keyboard.`));
       } else {
         useControlStore.setState({ requesting: null });
-        notice(`${fromUsername} ${REASONS[reason ?? "denied"] ?? REASONS.denied}`);
+        notice(`${fromUsername} ${REASONS()[reason ?? "denied"] ?? REASONS().denied}`);
       }
     },
   );
@@ -203,7 +204,7 @@ export function registerRemoteControl(socket: Socket) {
     if (s.incoming?.userId === fromUserId) useControlStore.setState({ incoming: null });
     if (s.controlling === fromUserId || s.requesting === fromUserId) {
       useControlStore.setState({ controlling: null, requesting: null });
-      notice(`${fromUsername} спря контрола.`);
+      notice(tr(`${fromUsername} спря контрола.`, `${fromUsername} stopped the control.`));
     }
   });
 }

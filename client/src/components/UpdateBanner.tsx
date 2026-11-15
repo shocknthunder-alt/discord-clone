@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 import { rememberVoiceForRestart } from "../webrtc/voiceResume";
+import { tr } from "../i18n";
 
 const CHECK_EVERY_MS = 60_000;
 
@@ -62,7 +63,7 @@ export default function UpdateBanner() {
 
   return (
     <div className="update-banner" role="status">
-      <span>✨ Има нова версия на ШмиркаТа{inVoice ? " (ще те върне в канала след няколко секунди)" : ""}.</span>
+      <span>✨ {tr("Има нова версия на ШмиркаТа", "A new version of ШмиркаТа is out")}{inVoice ? tr(" (ще те върне в канала след няколко секунди)", " (you'll be back in the channel in a few seconds)") : ""}.</span>
       <button
         className="update-now"
         onClick={() => {
@@ -73,9 +74,9 @@ export default function UpdateBanner() {
           else window.location.reload();
         }}
       >
-        Обнови
+        {tr("Обнови", "Update")}
       </button>
-      <button className="update-later" onClick={() => setDismissed(true)} aria-label="По-късно">
+      <button className="update-later" onClick={() => setDismissed(true)} aria-label={tr("По-късно", "Later")}>
         ✕
       </button>
     </div>

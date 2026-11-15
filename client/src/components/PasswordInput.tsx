@@ -1,4 +1,5 @@
 import { useState, type InputHTMLAttributes } from "react";
+import { tr } from "../i18n";
 
 /** Password field with an eye button that shows/hides what was typed. */
 export default function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputElement>, "type">) {
@@ -10,8 +11,8 @@ export default function PasswordInput(props: Omit<InputHTMLAttributes<HTMLInputE
         type="button"
         className="password-eye"
         onClick={() => setVisible((v) => !v)}
-        aria-label={visible ? "Скрий паролата" : "Покажи паролата"}
-        title={visible ? "Скрий паролата" : "Покажи паролата"}
+        aria-label={visible ? tr("Скрий паролата", "Hide password") : tr("Покажи паролата", "Show password")}
+        title={visible ? tr("Скрий паролата", "Hide password") : tr("Покажи паролата", "Show password")}
         tabIndex={-1}
       >
         {visible ? (

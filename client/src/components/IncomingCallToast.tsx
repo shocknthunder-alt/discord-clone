@@ -1,5 +1,6 @@
 import { useDmStore } from "../store/dmStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { tr } from "../i18n";
 
 export default function IncomingCallToast() {
   const { incomingRing, setIncomingRing, setView, setActiveConversation } = useDmStore();
@@ -17,12 +18,12 @@ export default function IncomingCallToast() {
 
   return (
     <div className="incoming-call-toast">
-      <div>📞 {incomingRing.callerUsername} is calling…</div>
+      <div>📞 {incomingRing.callerUsername} {tr("те търси…", "is calling…")}</div>
       <div className="incoming-call-toast-actions">
         <button className="modal-create-button" onClick={handleJoin}>
-          Join
+          {tr("Влез", "Join")}
         </button>
-        <button onClick={() => setIncomingRing(null)}>Dismiss</button>
+        <button onClick={() => setIncomingRing(null)}>{tr("Отказ", "Dismiss")}</button>
       </div>
     </div>
   );

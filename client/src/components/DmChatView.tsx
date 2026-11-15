@@ -10,6 +10,7 @@ import { useVoiceStore } from "../store/voiceStore";
 import { linkifyText } from "../utils/linkify";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import DmMessageInput from "./DmMessageInput";
+import { tr } from "../i18n";
 
 interface Props {
   conversationId: string;
@@ -32,7 +33,7 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
   }
 
   function handleDelete() {
-    if (!window.confirm("Delete this message?")) return;
+    if (!window.confirm(tr("Да изтрия ли това съобщение?", "Delete this message?"))) return;
     getSocket()?.emit(SocketEvents.DmDelete, { messageId: message.id });
   }
 
@@ -45,11 +46,11 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
       {isOwn && !editing && (
         <span className="message-actions">
           {message.content && (
-            <button onClick={() => setEditing(true)} title="Edit">
+            <button onClick={() => setEditing(true)} title={tr("Редактирай", "Edit")}>
               ✏️
             </button>
           )}
-          <button onClick={handleDelete} title="Delete">
+          <button onClick={handleDelete} title={tr("Изтрий", "Delete")}>
             🗑️
           </button>
         </span>
@@ -66,8 +67,8 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
             }}
             autoFocus
           />
-          <button className="save" onClick={saveEdit}>Save</button>
-          <button onClick={cancelEdit}>Cancel</button>
+          <button className="save" onClick={saveEdit}>{tr("Запази", "Save")}</button>
+          <button onClick={cancelEdit}>{tr("Отказ", "Cancel")}</button>
         </div>
       ) : (
         message.content && (
@@ -176,7 +177,7 @@ export default function DmChatView({ conversationId }: Props) {
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
         <span className="chat-header-title">@ {conversation?.otherUser.username ?? ""}</span>
-        <button className="server-settings-button" onClick={handleCallToggle} title="Call">
+        <button className="server-settings-button" onClick={handleCallToggle} title={tr("Обади се", "Call")}>
           {inThisCall ? "📞 Hang up" : "📞 Call"}
         </button>
       </div>

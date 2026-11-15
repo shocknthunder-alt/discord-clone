@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 import { DESKTOP_DOWNLOAD_URL } from "./DesktopAppBanner";
 import { rememberVoiceForRestart } from "../webrtc/voiceResume";
+import { tr } from "../i18n";
 
 const OLD_SHELL_HIDE_KEY = "desktopSelfUpdateBannerHiddenUntil";
 const OLD_SHELL_HIDE_MS = 3 * 24 * 60 * 60 * 1000;
@@ -35,8 +36,8 @@ export default function DesktopUpdateBanner() {
     return (
       <div className="desktop-app-banner" role="status">
         <span>
-          🆕 Нова версия на приложението ({readyVersion}) е готова.
-          {inCall ? " След рестарта влизаш пак в същия канал." : ""}
+          🆕 {tr("Нова версия на приложението", "A new app version")} ({readyVersion}) {tr("е готова.", "is ready.")}
+          {inCall ? tr(" След рестарта влизаш пак в същия канал.", " After the restart you rejoin the same channel.") : ""}
         </span>
         <button
           className="update-now"
@@ -45,13 +46,13 @@ export default function DesktopUpdateBanner() {
             desktop.installUpdate?.();
           }}
         >
-          Рестартирай
+          {tr("Рестартирай", "Restart")}
         </button>
         <button
           className="update-later"
           onClick={() => setDismissed(true)}
-          title="По-късно — ще се инсталира сама, когато затвориш приложението"
-          aria-label="По-късно"
+          title={tr("По-късно — ще се инсталира сама, когато затвориш приложението", "Later — it installs itself when you close the app")}
+          aria-label={tr("По-късно", "Later")}
         >
           ✕
         </button>
@@ -70,11 +71,11 @@ export default function DesktopUpdateBanner() {
     };
     return (
       <div className="desktop-app-banner" role="status">
-        <span>💻 Инсталирай новата версия на приложението веднъж — оттам нататък ще се обновява само.</span>
+        <span>💻 {tr("Инсталирай новата версия на приложението веднъж — оттам нататък ще се обновява само.", "Install the new app version once — from then on it updates itself.")}</span>
         <a className="update-now" href={DESKTOP_DOWNLOAD_URL} target="_blank" rel="noreferrer" onClick={hide}>
-          Изтегли
+          {tr("Изтегли", "Download")}
         </a>
-        <button className="update-later" onClick={hide} aria-label="Скрий" title="Скрий за 3 дни">
+        <button className="update-later" onClick={hide} aria-label={tr("Скрий", "Hide")} title={tr("Скрий за 3 дни", "Hide for 3 days")}>
           ✕
         </button>
       </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { imageLinksIn } from "../utils/linkify";
+import { tr } from "../i18n";
 
 /** A chat attachment: click opens it full-size in an in-app viewer (close with click, ✕ or Esc). */
 export default function ChatImage({ url }: { url: string }) {
@@ -43,7 +44,7 @@ function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
   useEscapeKey(onClose);
   return createPortal(
     <div className="lightbox-overlay" onClick={onClose}>
-      <button className="lightbox-close" onClick={onClose} aria-label="Затвори">
+      <button className="lightbox-close" onClick={onClose} aria-label={tr("Затвори", "Close")}>
         ✕
       </button>
       <img
@@ -54,7 +55,7 @@ function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       />
       <a className="lightbox-open" href={url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>
-        Отвори оригинала
+        {tr("Отвори оригинала", "Open original")}
       </a>
     </div>,
     document.body,

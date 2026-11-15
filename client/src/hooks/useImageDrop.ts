@@ -1,4 +1,5 @@
 import { useEffect, useRef, type RefObject } from "react";
+import { tr } from "../i18n";
 
 /** Cloudinary's free plan refuses images over 10 MB. */
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -41,11 +42,11 @@ export function useImageDrop(anchorRef: RefObject<HTMLElement | null>, onImage: 
       e.preventDefault();
       const file = Array.from(e.dataTransfer?.files ?? []).find((f) => f.type.startsWith("image/"));
       if (!file) {
-        window.alert("Може да се пускат само снимки и GIF-ове.");
+        window.alert(tr("Може да се пускат само снимки и GIF-ове.", "Only pictures and GIFs can be dropped."));
         return;
       }
       if (file.size > MAX_BYTES) {
-        window.alert("Файлът е над 10 MB — твърде голям за качване.");
+        window.alert(tr("Файлът е над 10 MB — твърде голям за качване.", "The file is over 10 MB — too big to upload."));
         return;
       }
       onImageRef.current(file);

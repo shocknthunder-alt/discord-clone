@@ -7,6 +7,7 @@ import { useAuthStore } from "../store/authStore";
 import { rankOf, roleOf, useMembersStore } from "../store/membersStore";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { tr } from "../i18n";
 import "./members.css";
 
 interface Props {
@@ -27,24 +28,24 @@ export default function ServerSettingsModal({ server, onClose }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card ss-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-back" onClick={onClose} aria-label="Back">
+        <button className="modal-back" onClick={onClose} aria-label={tr("Назад", "Back")}>
           ←
         </button>
-        <h1 className="modal-title">Настройки на сървъра</h1>
+        <h1 className="modal-title">{tr("Настройки на сървъра", "Server settings")}</h1>
         <div className="ss-tabs">
           {canServer && (
             <button className={tab === "general" ? "on" : ""} onClick={() => setTab("general")}>
-              Общи
+              {tr("Общи", "General")}
             </button>
           )}
           {canRoles && (
             <button className={tab === "roles" ? "on" : ""} onClick={() => setTab("roles")}>
-              Рангове
+              {tr("Рангове", "Ranks")}
             </button>
           )}
           {(canRoles || canKick) && (
             <button className={tab === "members" ? "on" : ""} onClick={() => setTab("members")}>
-              Членове
+              {tr("Членове", "Members")}
             </button>
           )}
         </div>
@@ -75,7 +76,7 @@ function GeneralTab({ server, onClose }: Props) {
     try {
       setIconUrl(await uploadImageToCloudinary(file));
     } catch {
-      setError("Качването не успя.");
+      setError(tr("Качването не успя.", "Upload failed."));
     } finally {
       setUploading(false);
     }
@@ -90,7 +91,7 @@ function GeneralTab({ server, onClose }: Props) {
       updateServerInList(updated);
       onClose();
     } catch (err) {
-      setError(apiError(err, "Не успях да запазя."));
+      setError(apiError(err, tr("Не успях да запазя.", "Couldn't save.")));
     } finally {
       setSaving(false);
     }
@@ -105,17 +106,17 @@ function GeneralTab({ server, onClose }: Props) {
           <div className="avatar-picker-preview placeholder">{name.slice(0, 2).toUpperCase()}</div>
         )}
         <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading || !isCloudinaryConfigured()}>
-          {uploading ? "Качване…" : "Смени иконата"}
+          {uploading ? tr("Качване…", "Uploading…") : tr("Смени иконата", "Change icon")}
         </button>
         <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleIconPick} />
       </div>
       <label className="modal-label" htmlFor="server-name-input">
-        Име на сървъра
+        {tr("Име на сървъра", "Server name")}
       </label>
       <input id="server-name-input" className="modal-input" value={name} onChange={(e) => setName(e.target.value)} />
       {error && <div className="modal-error">{error}</div>}
       <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !name.trim()}>
-        {saving ? "Запазване…" : "Запази"}
+        {saving ? tr("Запазване…", "Saving…") : tr("Запази", "Save")}
       </button>
     </>
   );
@@ -139,11 +140,11 @@ function RolesTab({ serverId }: { serverId: string }) {
   async function add() {
     setError(null);
     try {
-      const r = await createRole(serverId, { name: "Нов ранг" });
+      const r = await createRole(serverId, { name: tr("Нов ранг", "New rank") });
       setSelectedId(r.id);
       await useMembersStore.getState().load(serverId);
     } catch (err) {
-      setError(apiError(err, "Не успях да създам ранг."));
+      setError(apiError(err, tr("Не успях да създам ранг.", "Couldn't create a rank.")));
     }
   }
 
@@ -158,7 +159,7 @@ function RolesTab({ serverId }: { serverId: string }) {
       await reorderRoles(serverId, ids);
       await useMembersStore.getState().load(serverId);
     } catch (err) {
-      setError(apiError(err, "Не успях да ги пренаредя."));
+      setError(apiError(err, tr("Не успях да ги пренаредя.", "Couldn't reorder them.")));
     }
   }
 
@@ -168,31 +169,31 @@ function RolesTab({ serverId }: { serverId: string }) {
     <div className="ss-roles">
       <div className="ss-role-list">
         <button className="ss-btn primary" onClick={() => void add()} style={{ marginBottom: 8 }}>
-          ＋ Нов ранг
+          ＋ {tr("Нов ранг", "New rank")}
         </button>
         {[...ordered, ...(defaultRole ? [defaultRole] : [])].map((r, i) => (
           <div key={r.id} className={`ss-role ${selected?.id === r.id ? "on" : ""}`} onClick={() => setSelectedId(r.id)}>
             <span className="ss-role-dot" style={r.color ? { background: r.color } : undefined} />
-            <span className="ss-role-name">{r.isDefault ? `${r.name} (всички)` : r.name}</span>
+            <span className="ss-role-name">{r.isDefault ? `${r.name} (${tr("всички", "everyone")})` : r.name}</span>
             {!r.isDefault && editable(r) && (
               <span className="ss-role-move">
                 {i > 0 && editable(ordered[i - 1]!) && (
-                  <span title="По-високо" onClick={(e) => { e.stopPropagation(); void move(r, -1); }}>▲</span>
+                  <span title={tr("По-високо", "Higher")} onClick={(e) => { e.stopPropagation(); void move(r, -1); }}>▲</span>
                 )}
                 {i < ordered.length - 1 && (
-                  <span title="По-ниско" onClick={(e) => { e.stopPropagation(); void move(r, 1); }}>▼</span>
+                  <span title={tr("По-ниско", "Lower")} onClick={(e) => { e.stopPropagation(); void move(r, 1); }}>▼</span>
                 )}
               </span>
             )}
           </div>
         ))}
-        <p className="ss-note">Горе = по-висок ранг. Всеки управлява само хора и рангове под своя.</p>
+        <p className="ss-note">{tr("Горе = по-висок ранг. Всеки управлява само хора и рангове под своя.", "Top = higher rank. Everyone only manages people and ranks below their own.")}</p>
         {error && <div className="ss-error">{error}</div>}
       </div>
       {selected ? (
         <RoleEditor key={selected.id} serverId={serverId} role={selected} canEdit={editable(selected)} grantable={isAdmin ? ALL_PERMS : myPerms} />
       ) : (
-        <div className="ss-note">Няма рангове.</div>
+        <div className="ss-note">{tr("Няма рангове.", "No ranks.")}</div>
       )}
     </div>
   );
@@ -217,43 +218,43 @@ function RoleEditor({ serverId, role, canEdit, grantable }: { serverId: string; 
       await useMembersStore.getState().load(serverId);
       setSaved(true);
     } catch (err) {
-      setError(apiError(err, "Не успях да запазя."));
+      setError(apiError(err, tr("Не успях да запазя.", "Couldn't save.")));
     } finally {
       setSaving(false);
     }
   }
 
-  const defaultName = useMembersStore((s) => s.roles.find((r) => r.isDefault)?.name ?? "основния ранг");
+  const defaultName = useMembersStore((s) => s.roles.find((r) => r.isDefault)?.name ?? tr("основния ранг", "the default rank"));
 
   async function remove() {
-    if (!window.confirm(`Да изтрия ли ранга „${role.name}“? Хората с него стават „${defaultName}“.`)) return;
+    if (!window.confirm(tr(`Да изтрия ли ранга „${role.name}“? Хората с него стават „${defaultName}“.`, `Delete the rank "${role.name}"? People with it become "${defaultName}".`))) return;
     try {
       await deleteRole(serverId, role.id);
       await useMembersStore.getState().load(serverId);
     } catch (err) {
-      setError(apiError(err, "Не успях да го изтрия."));
+      setError(apiError(err, tr("Не успях да го изтрия.", "Couldn't delete it.")));
     }
   }
 
   return (
     <div className="ss-editor">
-      {!canEdit && <div className="ss-note">Този ранг е равен или над твоя — можеш само да го разгледаш.</div>}
+      {!canEdit && <div className="ss-note">{tr("Този ранг е равен или над твоя — можеш само да го разгледаш.", "This rank is equal to or above yours — you can only look at it.")}</div>}
       <label className="ss-field">
-        <span>Име</span>
+        <span>{tr("Име", "Name")}</span>
         <input className="ss-input" value={name} maxLength={32} disabled={!canEdit} onChange={(e) => setName(e.target.value)} />
       </label>
       <div className="ss-field">
-        <span>Цвят на името</span>
+        <span>{tr("Цвят на името", "Name colour")}</span>
         <div className="ss-colors">
-          <button type="button" className={`ss-color none ${color === null ? "on" : ""}`} title="Без цвят" disabled={!canEdit} onClick={() => setColor(null)} />
+          <button type="button" className={`ss-color none ${color === null ? "on" : ""}`} title={tr("Без цвят", "No colour")} disabled={!canEdit} onClick={() => setColor(null)} />
           {COLORS.map((c) => (
             <button type="button" key={c} className={`ss-color ${color === c ? "on" : ""}`} style={{ background: c }} disabled={!canEdit} onClick={() => setColor(c)} />
           ))}
-          <input type="color" value={color ?? "#99aab5"} disabled={!canEdit} onChange={(e) => setColor(e.target.value)} title="Друг цвят" />
+          <input type="color" value={color ?? "#99aab5"} disabled={!canEdit} onChange={(e) => setColor(e.target.value)} title={tr("Друг цвят", "Other colour")} />
         </div>
       </div>
       <div className="ss-field">
-        <span>Права</span>
+        <span>{tr("Права", "Permissions")}</span>
         <div className="ss-perms">
           {PERM_INFO.map((p) => {
             const bit = Perm[p.key];
@@ -261,8 +262,8 @@ function RoleEditor({ serverId, role, canEdit, grantable }: { serverId: string; 
             return (
               <label key={p.key} className={`ss-perm ${allowed ? "" : "disabled"}`}>
                 <span className="ss-perm-text">
-                  <b>{p.label}</b>
-                  {p.hint && <small>{p.hint}</small>}
+                  <b>{tr(p.label, p.labelEn)}</b>
+                  {p.hint && <small>{tr(p.hint, p.hintEn)}</small>}
                 </span>
                 <input
                   type="checkbox"
@@ -280,11 +281,11 @@ function RoleEditor({ serverId, role, canEdit, grantable }: { serverId: string; 
         <div className="ss-actions">
           {!role.isDefault && (
             <button className="ss-btn danger" onClick={() => void remove()}>
-              Изтрий ранга
+              {tr("Изтрий ранга", "Delete rank")}
             </button>
           )}
           <span className="ss-spacer" />
-          {saved && !dirty && <span className="ss-note">✓ Запазено</span>}
+          {saved && !dirty && <span className="ss-note">{tr("✓ Запазено", "✓ Saved")}</span>}
           <button
             className="ss-btn"
             disabled={!dirty}
@@ -294,10 +295,10 @@ function RoleEditor({ serverId, role, canEdit, grantable }: { serverId: string; 
               setPerms(role.permissions);
             }}
           >
-            Откажи
+            {tr("Откажи", "Discard")}
           </button>
           <button className="ss-btn primary" disabled={!dirty || saving || !name.trim()} onClick={() => void save()}>
-            {saving ? "Запазване…" : "Запази"}
+            {saving ? tr("Запазване…", "Saving…") : tr("Запази", "Save")}
           </button>
         </div>
       )}
@@ -320,17 +321,17 @@ function MembersTab({ serverId }: { serverId: string }) {
     try {
       await setMemberRole(serverId, userId, roleId || null);
     } catch (err) {
-      setError(apiError(err, "Не успях."));
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
     }
   }
 
   async function kick(userId: string, username: string) {
-    if (!window.confirm(`Да изгоня ли ${username} от сървъра?`)) return;
+    if (!window.confirm(tr(`Да изгоня ли ${username} от сървъра?`, `Kick ${username} from the server?`))) return;
     setError(null);
     try {
       await kickMember(serverId, userId);
     } catch (err) {
-      setError(apiError(err, "Не успях."));
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
     }
   }
 
@@ -347,7 +348,7 @@ function MembersTab({ serverId }: { serverId: string }) {
               {m.username} {m.isOwner && "👑"}
             </span>
             {m.isOwner ? (
-              <span className="ss-note">Собственик</span>
+              <span className="ss-note">{tr("Собственик", "Owner")}</span>
             ) : canRoles && above ? (
               <select value={m.roleId ?? ""} onChange={(e) => void change(m.userId, e.target.value)}>
                 {roles
@@ -363,7 +364,7 @@ function MembersTab({ serverId }: { serverId: string }) {
             )}
             {canKick && above && m.userId !== me && (
               <button className="ss-btn danger" onClick={() => void kick(m.userId, m.username)}>
-                Изгони
+                {tr("Изгони", "Kick")}
               </button>
             )}
           </div>

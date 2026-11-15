@@ -1,3 +1,5 @@
+import { tr } from "../i18n";
+
 export interface ThemeDef {
   id: string;
   name: string;
@@ -15,6 +17,35 @@ export interface ThemeDef {
   panelBorder?: string;
   panelShadow?: string;
   headingFont?: string;
+}
+
+const THEME_NAME_EN: Record<string, string> = {
+  graphite: "Graphite",
+  midnight: "Midnight",
+  ocean: "Ocean",
+  forest: "Forest",
+  plum: "Plum",
+  sunset: "Sunset",
+  burgundy: "Burgundy",
+  mocha: "Mocha",
+  lavender: "Lavender",
+  mint: "Mint",
+  charcoal: "Charcoal",
+  daylight: "Daylight",
+  sky: "Sky",
+  meadow: "Meadow",
+  sand: "Sand",
+  flames: "🔥 Flames",
+  inferno: "🔥 Inferno",
+  jungle: "🌿 Jungle",
+  poe2: "⚔ Path of Exile 2",
+  cyber: "⚡ Cyberpunk",
+  aurora: "🌌 Northern lights",
+};
+
+/** The theme's name in the interface language. */
+export function themeName(t: ThemeDef): string {
+  return tr(t.name, THEME_NAME_EN[t.id] ?? t.name);
 }
 
 export const THEMES: ThemeDef[] = [
