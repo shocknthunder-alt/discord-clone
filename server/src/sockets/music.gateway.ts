@@ -122,6 +122,15 @@ function settlePosition(state: MusicState) {
   state.updatedAt = Date.now();
 }
 
+/**
+ * A song that finished (or was skipped) leaves the list, together with anything before it, and the
+ * next one becomes the current one. Older servers kept played songs and only moved the index.
+ */
+function dropPlayed(state: MusicState) {
+  state.queue.splice(0, Math.min(state.currentIndex + 1, state.queue.length));
+  state.currentIndex = 0;
+}
+
 function getOrCreateState(voiceChannelId: string): MusicState {
   let state = musicStates.get(voiceChannelId);
   if (!state) {
@@ -348,7 +357,7 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     ({ voiceChannelId, itemId }: { voiceChannelId: string; itemId: string }) => {
       const state = musicStates.get(voiceChannelId);
       if (!state || state.queue[state.currentIndex]?.id !== itemId) return;
-      state.currentIndex += 1;
+      dropPlayed(state);
       state.positionSeconds = 0;
       state.isPlaying = state.currentIndex < state.queue.length;
       state.updatedAt = Date.now();
@@ -359,7 +368,7 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
   socket.on(SocketEvents.MusicSkip, ({ voiceChannelId }: { voiceChannelId: string }) => {
     const state = musicStates.get(voiceChannelId);
     if (!state) return;
-    state.currentIndex = Math.min(state.currentIndex + 1, state.queue.length);
+    dropPlayed(state);
     state.positionSeconds = 0;
     state.isPlaying = state.currentIndex < state.queue.length;
     state.updatedAt = Date.now();

@@ -134,8 +134,29 @@
 .participant-row[draggable="true"] { cursor: grab; }
 .participant-row.dragging { opacity: 0.4; }
 
-/* Room for the voice controls docked at the bottom of the channel list. */
-.hud-dock-space { flex: 0 0 232px; border-top: 1px solid rgba(255, 255, 255, 0.05); }
+/* The voice buttons' own column (FloatingVoiceHud puts the buttons over it): real layout space,
+   so they never cover the channels, the chat or the streams, whatever the window size. */
+.voice-rail {
+  flex: 0 0 60px;
+  width: 60px;
+  min-height: 0;
+  border-radius: 14px;
+  background: var(--c-panel);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* LIVE (Go Live) button: a red dot + LIVE; red and pulsing while you stream. */
+.hud-icon-button.hud-live { flex-direction: column; gap: 3px; color: var(--t-1); }
+.hud-live-dot {
+  width: 12px; height: 12px; border-radius: 50%; background: #e0262f;
+  box-shadow: 0 0 0 3px rgba(224, 38, 47, 0.25);
+}
+.hud-live-text { font-size: 9.5px; font-weight: 800; letter-spacing: 0.06em; line-height: 1; }
+.hud-icon-button.hud-live:hover .hud-live-dot { box-shadow: 0 0 0 4px rgba(224, 38, 47, 0.4); }
+.hud-icon-button.hud-live.on { background: #e0262f; color: #fff; animation: liveHud 1.4s ease-in-out infinite; }
+.hud-icon-button.hud-live.on .hud-live-dot { background: #fff; box-shadow: none; animation: liveBlink 1.4s ease-in-out infinite; }
+
+.hud-lock-button.compact { width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 50%; }
 
 /* ───────── server settings: ranks & members ───────── */
 .ss-card { width: min(780px, calc(100vw - 32px)) !important; max-width: none !important; }

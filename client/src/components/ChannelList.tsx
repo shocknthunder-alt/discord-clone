@@ -12,7 +12,6 @@ import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { isChannelUnread, useUnreadStore } from "../store/unreadStore";
 import { useAppPrefs } from "../utils/appPrefs";
 import { useMembersStore } from "../store/membersStore";
-import { hasSavedPosition } from "../utils/floatingPositions";
 import { resetAllPositions } from "../utils/floatingPositions";
 import { voiceStatusIcons } from "../utils/voiceStatus";
 import { useVoiceChannel, watchStream } from "../webrtc/useVoiceChannel";
@@ -30,8 +29,6 @@ import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 
-/** The voice buttons that start docked under the channel list (FloatingVoiceHud). */
-const HUD_DOCKED_IDS = ["hud-mute", "hud-deafen", "hud-screenshare", "hud-camera", "hud-disconnect", "hud-settings", "hud-network", "hud-soundboard"];
 
 interface Props {
   onSelectText: () => void;
@@ -171,10 +168,6 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     reallyOwner || hasPerm(myPerms, Perm.MANAGE_SERVER) || hasPerm(myPerms, Perm.MANAGE_ROLES) || hasPerm(myPerms, Perm.KICK_MEMBERS);
   const canMove = reallyOwner || hasPerm(myPerms, Perm.MOVE_MEMBERS);
   const [userDropId, setUserDropId] = useState<string | null>(null);
-  // The voice controls sit at the bottom of this list by default: leave room for them.
-  // Room is kept while ANY of the docked buttons is still in its spot (it used to look at mute only:
-  // mute moved away → no room, and the rest sat on top of the voice channels).
-  const hudDocked = !!activeVoiceChannelId && HUD_DOCKED_IDS.some((id) => !hasSavedPosition(id));
 
   function userDropProps(voiceChannelId: string) {
     if (!canMove) return {};
@@ -452,9 +445,6 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
         )}
       </div>
 
-      {/* Real space for the docked voice buttons, so the channel list ends above them instead of
-          scrolling underneath (a short window made them cover the channels). */}
-      {hudDocked && <div className="hud-dock-space" />}
       <VoiceStatusBar />
       <MusicMiniPlayer />
       {!activeVoiceChannelId && <UserBar />}

@@ -33,6 +33,10 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { rememberVoiceForRestart, takeVoiceResume } from "../webrtc/voiceResume";
 import { registerRemoteControl } from "../webrtc/remoteControl";
 import RemoteControlPrompt from "../components/RemoteControlPrompt";
+import { hasSavedPosition } from "../utils/floatingPositions";
+import { useLayoutLockStore } from "../store/layoutLockStore";
+
+const HUD_RAIL_IDS = ["hud-network", "hud-mute", "hud-deafen", "hud-camera", "hud-screenshare", "hud-soundboard", "hud-settings", "hud-disconnect"];
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 
@@ -229,6 +233,11 @@ export default function AppShell() {
   }, [activeServerId, setChannels]);
 
 
+  // The voice buttons' own column (FloatingVoiceHud places them over it) — while in a call and at
+  // least one button still sits in it (everything dragged elsewhere → no empty column).
+  useLayoutLockStore((s) => s.locked); // re-check after someone moved buttons (they unlock/lock to do it)
+  const railShown = !!activeVoiceChannelId && HUD_RAIL_IDS.some((id) => !hasSavedPosition(id));
+
   return (
     <div className="app-shell">
       <VoiceAudioBridge />
@@ -244,11 +253,13 @@ export default function AppShell() {
       {view === "dms" ? (
         <>
           <DmListPanel />
+          {railShown && <div className="voice-rail" />}
           {activeConversationId ? <DmChatView conversationId={activeConversationId} /> : <WelcomeScreen />}
         </>
       ) : (
         <>
           <ChannelList onSelectVoice={() => setViewMode("voice")} onSelectText={() => setViewMode("text")} />
+          {railShown && <div className="voice-rail" />}
           {viewMode === "voice" && activeVoiceChannelId ? (
             <VoiceChannelPanel />
           ) : activeTextChannelId ? (
