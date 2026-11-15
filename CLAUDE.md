@@ -87,8 +87,9 @@ Owner pronouns unknown: use they/them.
   - Attachments ride in `imageUrl` with a URL fragment (`#voice=<ms>.<peaks>`, `#clip=<ms>`,
     `client/src/utils/attachments.ts`), uploaded to Cloudinary `video/upload` (clips play the `.mp4`
     Cloudinary makes). ChatImage dispatches to VoiceMessage/ChatVideo.
-  - ✂️ Клип: `webrtc/clipBuffer.ts` = MediaRecorder (H.264 webm, 1 s pieces, keyframe every 1 s) on
-    watched streams; clip = header + bytes from the first Cluster in the last 30 s. Setting `clipBuffer`.
+  - ✂️ Клип (last 30 s): `webrtc/clipBuffer.ts` → worker `clipWorker.ts` (MediaStreamTrackProcessor on cloned
+    tracks → WebCodecs H.264 with a keyframe every 1 s we request + Opus, ~35 s kept) → `webmMux.ts` (own
+    WebM writer, checked with ffprobe). MediaRecorder ignored keyframe requests → 5 s clips. Setting `clipBuffer`.
   - 📺 in the music player: the synced YouTube iframe box (never moved in the DOM) is repositioned
     over `MusicVideoWindow`.
   - Desktop 1.8.0 `overlay.js`/`overlay.html`: click-through always-on-top window, shown only when the
