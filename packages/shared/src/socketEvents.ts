@@ -89,6 +89,8 @@ export const SocketEvents = {
   MusicSeek: "music:seek",
   /** { voiceChannelId, trackIds?: string[], albumId?: string } — songs from the music server (yogurthub). */
   MusicAddTracks: "music:add-tracks",
+  /** { voiceChannelId, itemId, toIndex } — drag a queued song to another place (not the playing one). */
+  MusicMove: "music:move",
 
   // Remote control of a streamer's PC (desktop app only). Client→server events carry
   // { toUserId, ... }; the server relays them to that person (same voice channel only) as the

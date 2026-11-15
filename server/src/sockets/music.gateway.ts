@@ -328,6 +328,25 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     broadcastState(io, voiceChannelId, state);
   });
 
+  // Drag-and-drop in the list: only songs still waiting can move, and only among themselves (the
+  // playing one and anything before it stay put, so nobody's music jumps).
+  socket.on(
+    SocketEvents.MusicMove,
+    ({ voiceChannelId, itemId, toIndex }: { voiceChannelId: string; itemId: string; toIndex: number }) => {
+      const state = musicStates.get(voiceChannelId);
+      if (!state || typeof toIndex !== "number" || !Number.isFinite(toIndex)) return;
+      const from = state.queue.findIndex((i) => i.id === itemId);
+      const firstMovable = Math.min(state.currentIndex + 1, state.queue.length);
+      if (from < firstMovable) return;
+      const to = Math.max(firstMovable, Math.min(Math.floor(toIndex), state.queue.length - 1));
+      if (to === from) return;
+      const [item] = state.queue.splice(from, 1);
+      state.queue.splice(to, 0, item);
+      settlePosition(state);
+      broadcastState(io, voiceChannelId, state);
+    },
+  );
+
   socket.on(SocketEvents.MusicPlay, ({ voiceChannelId }: { voiceChannelId: string }) => {
     const state = musicStates.get(voiceChannelId);
     if (!state || state.currentIndex >= state.queue.length) return;

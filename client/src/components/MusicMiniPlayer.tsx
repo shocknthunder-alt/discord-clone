@@ -5,6 +5,8 @@ import { addSubsonicToQueue, searchSubsonic, subsonicAvailable } from "../api/mu
 import SubsonicSearchModal from "./SubsonicSearchModal";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
+import { getSocket } from "../socket/socket";
+import { SocketEvents } from "@discord-clone/shared";
 
 /** New listeners start quiet — music under a voice call should never drown the voices. */
 const MUSIC_DEFAULT_VOLUME = 10;
@@ -21,6 +23,18 @@ const ADD_ERROR_MESSAGES: Record<string, string> = {
   "subsonic-failed": "yogurthub не отговори — опитай пак след малко.",
 };
 
+/** Queue items are stored as "Artist — Song" (yogurthub); show the song first, the artist under it. */
+function splitTitle(title: string): { song: string; artist: string | null } {
+  const at = title.indexOf(" — ");
+  if (at <= 0) return { song: title, artist: null };
+  return { song: title.slice(at + 3), artist: title.slice(0, at) };
+}
+
+function moveMusic(itemId: string, toIndex: number) {
+  const voiceChannelId = useVoiceStore.getState().activeVoiceChannelId;
+  if (voiceChannelId) getSocket()?.emit(SocketEvents.MusicMove, { voiceChannelId, itemId, toIndex });
+}
+
 export default function MusicMiniPlayer() {
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const musicState = useMusicStore((s) => s.state);
@@ -36,6 +50,9 @@ export default function MusicMiniPlayer() {
       return true;
     }
   });
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [dropAfter, setDropAfter] = useState(false);
   const [muted, setMuted] = useState(false);
   const [input, setInput] = useState("");
   // Starts low (and is remembered once changed): a new joiner used to be blasted by the music.
@@ -225,15 +242,62 @@ export default function MusicMiniPlayer() {
 
           {musicState && musicState.queue.length > 0 && (
             <div className="music-queue">
-              {musicState.queue.map((item, i) => (
-                <div key={item.id} className={`music-queue-item ${i === musicState.currentIndex ? "active" : ""}`}>
-                  <span className="music-queue-title">{item.title}</span>
-                  <span className="music-queue-meta">added by {item.addedByUsername}</span>
-                  <button onClick={() => removeMusic(item.id)} aria-label="Remove">
-                    ✕
-                  </button>
-                </div>
-              ))}
+              {musicState.queue.map((item, i) => {
+                const { song, artist } = splitTitle(item.title);
+                const movable = i > musicState.currentIndex;
+                const dropHere = dragId !== null && dropIndex === i && dragId !== item.id;
+                return (
+                  <div
+                    key={item.id}
+                    className={`music-queue-item ${i === musicState.currentIndex ? "active" : ""}${movable ? " movable" : ""}${
+                      dragId === item.id ? " dragging" : ""
+                    }${dropHere ? (dropAfter ? " drop-after" : " drop-before") : ""}`}
+                    draggable={movable}
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      e.dataTransfer.setData("text/plain", item.id);
+                      setDragId(item.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setDropIndex(null);
+                    }}
+                    onDragOver={(e) => {
+                      if (!dragId || !movable) return;
+                      e.preventDefault();
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setDropIndex(i);
+                      setDropAfter(e.clientY > r.top + r.height / 2);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (!dragId || dropIndex === null) return;
+                      const from = musicState.queue.findIndex((q) => q.id === dragId);
+                      let to = dropIndex + (dropAfter ? 1 : 0);
+                      if (from < to) to -= 1;
+                      if (from !== -1 && to !== from) moveMusic(dragId, to);
+                      setDragId(null);
+                      setDropIndex(null);
+                    }}
+                    title={movable ? "Хвани и премести" : undefined}
+                  >
+                    <span className="music-queue-grip" aria-hidden="true">
+                      {i === musicState.currentIndex ? "▶" : "⋮⋮"}
+                    </span>
+                    <div className="music-queue-text">
+                      <span className="music-queue-title" title={item.title}>
+                        {song}
+                      </span>
+                      <span className="music-queue-meta">
+                        {artist ? `${artist} · ` : ""}от {item.addedByUsername}
+                      </span>
+                    </div>
+                    <button onClick={() => removeMusic(item.id)} aria-label="Махни" title="Махни от списъка">
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
