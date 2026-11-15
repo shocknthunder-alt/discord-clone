@@ -83,6 +83,18 @@ Owner pronouns unknown: use they/them.
   current password hash (single use). E-mail only if Render env `BREVO_API_KEY` + `MAIL_FROM` are set;
   otherwise the server OWNER makes a 24 h link (Членове → person → 🔑 Линк за нова парола).
 
+- **Clips / voice messages / watch together / overlay** (2026-11-15):
+  - Attachments ride in `imageUrl` with a URL fragment (`#voice=<ms>.<peaks>`, `#clip=<ms>`,
+    `client/src/utils/attachments.ts`), uploaded to Cloudinary `video/upload` (clips play the `.mp4`
+    Cloudinary makes). ChatImage dispatches to VoiceMessage/ChatVideo.
+  - ✂️ Клип: `webrtc/clipBuffer.ts` = MediaRecorder (H.264 webm, 1 s pieces, keyframe every 1 s) on
+    watched streams; clip = header + bytes from the first Cluster in the last 30 s. Setting `clipBuffer`.
+  - 📺 in the music player: the synced YouTube iframe box (never moved in the DOM) is repositioned
+    over `MusicVideoWindow`.
+  - Desktop 1.8.0 `overlay.js`/`overlay.html`: click-through always-on-top window, shown only when the
+    foreground window covers its display without a title bar (koffi) and our window isn't focused;
+    fed by `DesktopOverlayFeed` via `overlay-update`. Settings → Глас → Овърлей в игрите.
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

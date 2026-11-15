@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
   getVersion: () => ipcRenderer.invoke("app-version"),
   /** Desktop 1.8.0+: seconds since the last keyboard/mouse input anywhere in Windows. */
   getSystemIdleSeconds: () => ipcRenderer.invoke("system-idle"),
+  /** Desktop 1.8.0+: in-game overlay — who is in the call / talking, new messages. */
+  overlay: { update: (state) => ipcRenderer.send("overlay-update", state) },
   /** Desktop 1.6.0+: cb(version) once a new app version has been downloaded. Returns an unsubscribe. */
   onUpdateReady(cb) {
     const handler = (_event, version) => cb(version);

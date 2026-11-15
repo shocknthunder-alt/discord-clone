@@ -30,6 +30,8 @@ interface Window {
     installUpdate?(): void;
     /** Desktop 1.8.0+: seconds since the last keyboard/mouse input anywhere in Windows. */
     getSystemIdleSeconds?(): Promise<number>;
+    /** Desktop 1.8.0+: in-game overlay (who's talking + messages), see DesktopOverlayFeed. */
+    overlay?: { update(state: unknown): void };
   };
 }
 

@@ -31,6 +31,44 @@ let unmuted = false;
 let volume = 70;
 let locallyMuted = false;
 let initPromise: Promise<void> | null = null;
+// The YouTube player's box. Moving an iframe in the DOM reloads it, so "watch together" never
+// moves it: it only changes this fixed-position box from 1 px off-screen to a visible rectangle.
+let container: HTMLDivElement | null = null;
+let videoRect: { x: number; y: number; w: number; h: number } | null = null;
+
+function applyVideoRect() {
+  if (!container) return;
+  const s = container.style;
+  if (videoRect) {
+    s.left = `${videoRect.x}px`;
+    s.top = `${videoRect.y}px`;
+    s.width = `${videoRect.w}px`;
+    s.height = `${videoRect.h}px`;
+    s.zIndex = "900";
+  } else {
+    s.left = "-9999px";
+    s.top = "-9999px";
+    s.width = "1px";
+    s.height = "1px";
+    s.zIndex = "";
+  }
+  const iframe = container.querySelector("iframe");
+  if (iframe) {
+    iframe.style.width = "100%";
+    iframe.style.height = "100%";
+  }
+}
+
+/** Shows the synced YouTube video in this screen rectangle (null = audio only again). */
+export function setMusicVideoRect(rect: { x: number; y: number; w: number; h: number } | null) {
+  videoRect = rect;
+  applyVideoRect();
+}
+
+/** The video box, for fullscreen. */
+export function getMusicVideoContainer(): HTMLDivElement | null {
+  return container;
+}
 
 // ── Songs from the music server (yogurthub, Subsonic): a plain <audio> element. ──
 // The stream is a live transcode that can't be seeked, so "start at 1:20" = ask the server for a
@@ -195,19 +233,24 @@ export function initMusicPlayerEngine(): Promise<void> {
   initPromise = loadYouTubeIframeApi().then((YTApi) => {
     // Audio only, by design — off-screen rather than display:none, since some browsers
     // throttle/pause players that are fully removed from layout.
-    const container = document.createElement("div");
-    container.style.position = "fixed";
-    container.style.left = "-9999px";
-    container.style.top = "-9999px";
-    container.style.width = "1px";
-    container.style.height = "1px";
-    document.body.appendChild(container);
+    const box = document.createElement("div");
+    box.className = "music-video-box";
+    box.style.position = "fixed";
+    // Clicks never reach YouTube's own controls: pausing there would desync this listener only.
+    box.style.pointerEvents = "none";
+    box.style.background = "#000";
+    const target = document.createElement("div");
+    box.appendChild(target);
+    document.body.appendChild(box);
+    container = box;
+    applyVideoRect();
 
-    player = new YTApi.Player(container, {
+    player = new YTApi.Player(target, {
       playerVars: { playsinline: 1, mute: 1 },
       events: {
         onReady: () => {
           ready = true;
+          applyVideoRect();
           if (unmuted && !locallyMuted) player?.unMute();
           player?.setVolume(volume);
           applyState();

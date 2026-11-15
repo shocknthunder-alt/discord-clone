@@ -2,6 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { canPopOutWindows, closePopout, popOutStream, usePopoutStore } from "../webrtc/streamPopouts";
 import { cancelControl, requestControl, sendControlInput, useControlStore } from "../webrtc/remoteControl";
 import { tr } from "../i18n";
+import { ClipBuffer } from "../webrtc/clipBuffer";
+import { useAppPrefs } from "../utils/appPrefs";
+import ClipDialog from "./ClipDialog";
 
 interface Props {
   stream: MediaStream;
@@ -35,6 +38,37 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
   useEffect(() => {
     if (ref.current) ref.current.srcObject = stream;
   }, [stream]);
+
+  // 🎬 Clip: someone else's stream keeps its last 30 s in memory (Settings → Общи can turn it off).
+  const clipEnabled = useAppPrefs((s) => s.clipBuffer) && !preview && !!popout;
+  const clipBuf = useRef<ClipBuffer | null>(null);
+  const [clip, setClip] = useState<{ blob: Blob; seconds: number } | null>(null);
+  const [clipping, setClipping] = useState(false);
+  useEffect(() => {
+    if (!clipEnabled) return;
+    const b = new ClipBuffer(stream);
+    b.start();
+    clipBuf.current = b;
+    return () => {
+      b.stop();
+      if (clipBuf.current === b) clipBuf.current = null;
+    };
+  }, [stream, clipEnabled]);
+  async function makeClip() {
+    const b = clipBuf.current;
+    if (!b || clipping) return;
+    setClipping(true);
+    try {
+      const c = await b.clip();
+      if (c) {
+        // The dialog lives on <body>, which a fullscreen stream would cover.
+        if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+        setClip(c);
+      }
+    } finally {
+      setClipping(false);
+    }
+  }
 
   // The stream's sound plays through this <video>, so its volume IS the stream volume. Quiet while
   // a pop-out window plays it instead.
@@ -207,6 +241,22 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
         >
           {controlling ? tr("✋ Спри контрола", "✋ Stop control") : requesting ? tr("⏳ Чакам…", "⏳ Waiting…") : tr("🖱 Поискай контрол", "🖱 Request control")}
         </button>
+      )}
+      {clipEnabled && popout && (
+        <button
+          className="stream-clip-btn"
+          disabled={clipping}
+          onClick={(e) => {
+            e.stopPropagation();
+            void makeClip();
+          }}
+          title={tr("Клип от последните 30 секунди — гледай го, прати го в канал или го запази", "Clip the last 30 seconds — watch it, post it to a channel or save it")}
+        >
+          {clipping ? "⏳" : "✂️"} {tr("Клип", "Clip")}
+        </button>
+      )}
+      {clip && popout && (
+        <ClipDialog blob={clip.blob} seconds={clip.seconds} streamerName={popout.title} onClose={() => setClip(null)} />
       )}
       {poppedOut && <div className="stream-popped-note">{tr("Стриймът е в отделен прозорец", "The stream is in a separate window")}</div>}
       {blocked && !poppedOut && <div className="stream-popped-note">{tr("Браузърът спря изскачащия прозорец — разреши pop-ups за сайта", "The browser blocked the pop-up — allow pop-ups for this site")}</div>}

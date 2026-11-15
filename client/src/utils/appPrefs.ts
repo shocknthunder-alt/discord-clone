@@ -27,6 +27,14 @@ export interface AppPrefs {
   eventReminders: boolean;
   /** How many minutes before the start: 5, 15 or 60. */
   eventReminderMinutes: number;
+  /** Keep the last 30 s of streams you watch so you can clip them (🎬). */
+  clipBuffer: boolean;
+  /** Desktop app: show who's talking (and new messages) over games. */
+  gameOverlay: boolean;
+  /** Overlay corner: tl / tr / bl / br. */
+  overlayCorner: "tl" | "tr" | "bl" | "br";
+  /** Overlay also pops up new chat messages. */
+  overlayMessages: boolean;
 }
 
 const KEY = "appPrefs";
@@ -43,6 +51,10 @@ const DEFAULTS: AppPrefs = {
   soundboardVolume: 20,
   eventReminders: true,
   eventReminderMinutes: 15,
+  clipBuffer: true,
+  gameOverlay: true,
+  overlayCorner: "tl",
+  overlayMessages: true,
 };
 
 function load(): AppPrefs {

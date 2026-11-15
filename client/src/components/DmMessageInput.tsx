@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
 import { tr } from "../i18n";
+import VoiceRecorder from "./VoiceRecorder";
 
 interface Props {
   conversationId: string;
@@ -127,8 +128,11 @@ export default function DmMessageInput({ conversationId }: Props) {
           onPaste={handlePaste}
           placeholder={isCloudinaryConfigured() ? tr("Съобщение… (постави или провлачи снимка/GIF)", "Message… (paste or drop a picture/GIF)") : tr("Съобщение…", "Message…")}
         />
+        <VoiceRecorder
+          send={(attachment) => getSocket()?.emit(SocketEvents.DmSend, { conversationId, content: "", imageUrl: attachment })}
+        />
         <button type="submit" disabled={uploading || (!value.trim() && !pendingImage)}>
-          {uploading ? "Uploading…" : "Send"}
+          {uploading ? tr("Качване…", "Uploading…") : tr("Прати", "Send")}
         </button>
       </form>
     </div>

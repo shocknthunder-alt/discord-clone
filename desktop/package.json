@@ -26,6 +26,8 @@
       "globalKeys.js",
       "appAudio.js",
       "remoteControl.js",
+      "overlay.js",
+      "overlay.html",
       "build/icon.ico"
     ],
     "win": {

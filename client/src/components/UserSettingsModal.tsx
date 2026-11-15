@@ -246,6 +246,10 @@ interface Draft {
   soundboardVolume: number;
   eventReminders: boolean;
   eventReminderMinutes: number;
+  clipBuffer: boolean;
+  gameOverlay: boolean;
+  overlayCorner: "tl" | "tr" | "bl" | "br";
+  overlayMessages: boolean;
 }
 
 /** The values as they are applied right now. */
@@ -286,6 +290,10 @@ function readCurrent(): Draft {
     soundboardVolume: p.soundboardVolume,
     eventReminders: p.eventReminders,
     eventReminderMinutes: p.eventReminderMinutes,
+    clipBuffer: p.clipBuffer,
+    gameOverlay: p.gameOverlay,
+    overlayCorner: p.overlayCorner,
+    overlayMessages: p.overlayMessages,
   };
 }
 
@@ -455,6 +463,10 @@ export default function UserSettingsModal({ onClose }: Props) {
         soundboardVolume: d.soundboardVolume,
         eventReminders: d.eventReminders,
         eventReminderMinutes: d.eventReminderMinutes,
+        clipBuffer: d.clipBuffer,
+        gameOverlay: d.gameOverlay,
+        overlayCorner: d.overlayCorner,
+        overlayMessages: d.overlayMessages,
       });
       const now = { ...d, username: d.username.trim() };
       setBase(now);
@@ -687,6 +699,42 @@ export default function UserSettingsModal({ onClose }: Props) {
                   </div>
                 </Card>
 
+                <Card
+                  title={t("Овърлей в игрите", "In-game overlay")}
+                  hint={t(
+                    "Малка прозрачна лента в ъгъла над играта: кой е в канала, кой говори и новите съобщения. Само в десктоп приложението (1.8.0+), само над игри на цял екран; при „Fullscreen“ (exclusive) не се вижда — ползвай Borderless.",
+                    "A small see-through strip in a corner over your game: who's in the channel, who's talking and new messages. Desktop app only (1.8.0+), only over full-screen games; not visible in exclusive Fullscreen — use Borderless.",
+                  )}
+                >
+                  {!window.shmirkaDesktop?.overlay && (
+                    <p className="set-hint">{t("Нужно е десктоп приложението, версия 1.8.0 или по-нова.", "Needs the desktop app, version 1.8.0 or newer.")}</p>
+                  )}
+                  <Toggle
+                    label={t("Показвай овърлея", "Show the overlay")}
+                    checked={draft.gameOverlay}
+                    onChange={(on) => edit({ gameOverlay: on })}
+                  />
+                  <Toggle
+                    label={t("И новите съобщения", "New messages too")}
+                    checked={draft.overlayMessages}
+                    disabled={!draft.gameOverlay}
+                    onChange={(on) => edit({ overlayMessages: on })}
+                  />
+                  <div className="set-slider">
+                    <span>{t("Ъгъл", "Corner")}</span>
+                    <select
+                      value={draft.overlayCorner}
+                      disabled={!draft.gameOverlay}
+                      onChange={(e) => edit({ overlayCorner: e.target.value as Draft["overlayCorner"] })}
+                    >
+                      <option value="tl">{t("Горе вляво", "Top left")}</option>
+                      <option value="tr">{t("Горе вдясно", "Top right")}</option>
+                      <option value="bl">{t("Долу вляво", "Bottom left")}</option>
+                      <option value="br">{t("Долу вдясно", "Bottom right")}</option>
+                    </select>
+                  </div>
+                </Card>
+
                 <Card title={t("Обработка на звука", "Sound processing")} hint={t("Всичко е включено по подразбиране — изключи нещо, ако пречи на твоя микрофон.", "Everything is on by default — turn something off if it fights your microphone.")}>
                   <Toggle
                     label={t("AI шумопотискане", "AI noise suppression")}
@@ -859,6 +907,15 @@ export default function UserSettingsModal({ onClose }: Props) {
                       </button>
                     ))}
                   </div>
+                </Card>
+
+                <Card title={t("Клипове", "Clips")} hint={t("Бутонът ✂️ Клип върху стрийм, който гледаш, запазва последните 30 секунди — гледаш ги, пращаш ги в канал или ги сваляш.", "The ✂️ Clip button on a stream you watch saves the last 30 seconds — watch it, post it to a channel or download it.")}>
+                  <Toggle
+                    label={t("Пази последните 30 секунди от стриймовете", "Keep the last 30 seconds of streams")}
+                    hint={t("Използва малко памет и видеокартата, докато гледаш. Изключи го, ако компютърът е слаб.", "Uses a little memory and the graphics card while you watch. Turn it off on a weak PC.")}
+                    checked={draft.clipBuffer}
+                    onChange={(on) => edit({ clipBuffer: on })}
+                  />
                 </Card>
               </>
             )}

@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
+  body { font: 600 13px "Segoe UI", system-ui, sans-serif; color: #fff; display: flex; flex-direction: column; gap: 8px; padding: 2px; box-sizing: border-box; }
+  body.bottom { justify-content: flex-end; }
+  body.right { align-items: flex-end; }
+  .people { display: flex; flex-direction: column; gap: 3px; }
+  .p { display: flex; align-items: center; gap: 7px; padding: 3px 9px 3px 3px; border-radius: 16px;
+       background: rgba(10, 10, 14, 0.55); width: fit-content; max-width: 280px; opacity: 0.75; transition: opacity .12s, background .12s; }
+  .p.speaking { opacity: 1; background: rgba(10, 10, 14, 0.8); }
+  .av { width: 24px; height: 24px; border-radius: 50%; background: #3a3f4b center/cover no-repeat; flex: none;
+        display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 0 0 2px transparent; transition: box-shadow .1s; }
+  .p.speaking .av { box-shadow: 0 0 0 2px #3ba55d, 0 0 8px #3ba55d; }
+  .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px #000; }
+  .ic { font-size: 11px; opacity: .9; }
+  .live { background: #e5383b; border-radius: 4px; padding: 0 4px; font-size: 10px; letter-spacing: .5px; }
+  .toasts { display: flex; flex-direction: column; gap: 6px; }
+  .t { display: flex; gap: 8px; align-items: flex-start; background: rgba(10, 10, 14, 0.82); border-radius: 10px; padding: 7px 10px;
+       max-width: 280px; box-sizing: border-box; border-left: 3px solid #5865f2; animation: in .2s ease-out; }
+  .t .av { width: 28px; height: 28px; }
+  .t .who { font-size: 12px; color: #c9cdfb; }
+  .t .txt { font-weight: 500; font-size: 13px; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  @keyframes in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div class="people" id="people"></div>
+<div class="toasts" id="toasts"></div>
+<script>
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function avatar(url, name) {
+    const a = el("div", "av");
+    if (url && /^https:\/\//.test(url)) a.style.backgroundImage = 'url("' + url.replace(/"/g, "%22") + '")';
+    else a.textContent = (name || "?").slice(0, 1).toUpperCase();
+    return a;
+  }
+  window.render = function (s) {
+    const corner = s.corner || "tl";
+    document.body.className = (corner[0] === "b" ? "bottom " : "") + (corner[1] === "r" ? "right" : "");
+    const people = document.getElementById("people");
+    const toasts = document.getElementById("toasts");
+    people.replaceChildren();
+    toasts.replaceChildren();
+    for (const p of s.people || []) {
+      const row = el("div", "p" + (p.speaking ? " speaking" : ""));
+      row.append(avatar(p.avatar, p.name), el("span", "name", p.name));
+      if (p.live) row.append(el("span", "live", "LIVE"));
+      if (p.deafened) row.append(el("span", "ic", "🎧̸"));
+      else if (p.muted) row.append(el("span", "ic", "🔇"));
+      people.append(row);
+    }
+    for (const t of s.toasts || []) {
+      const box = el("div", "t");
+      const body = el("div");
+      body.append(el("div", "who", t.author), el("div", "txt", t.text));
+      box.append(avatar(t.avatar, t.author), body);
+      toasts.append(box);
+    }
+    // Messages sit on the far side from the corner: under the people at the top, above them at the bottom.
+    if (corner[0] === "b") document.body.prepend(toasts);
+    else document.body.append(toasts);
+  };
+</script>
+</body>
+</html>

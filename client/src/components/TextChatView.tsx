@@ -1,4 +1,5 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
+import { attachmentLabel } from "../utils/attachments";
 import { Perm, SocketEvents, hasPerm, type MessageDTO } from "@discord-clone/shared";
 import ChatImage, { LinkedImages } from "./ChatImage";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -198,7 +199,7 @@ export default function TextChatView({ channelId }: Props) {
       if (message.textChannelId === channelId) {
         addMessage(message);
         if (message.authorId !== useAuthStore.getState().user?.id) {
-          notifyDesktop(message.authorUsername, message.content || tr("📷 изображение", "📷 image"), message.authorAvatarUrl);
+          notifyDesktop(message.authorUsername, message.content || attachmentLabel(message.imageUrl), message.authorAvatarUrl);
         }
       }
     }

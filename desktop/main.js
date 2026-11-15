@@ -3,6 +3,7 @@ const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 const appAudio = require("./appAudio");
 const remoteControl = require("./remoteControl");
+const overlay = require("./overlay");
 const { autoUpdater } = require("electron-updater");
 
 // The app is a thin native shell around the live website, so every client update reaches the
@@ -149,6 +150,8 @@ app.whenReady().then(async () => {
     }
   });
 
+  overlay.init(win, ipcMain);
+
   startGlobalKeys((code, down) => {
     if (!win.isDestroyed()) win.webContents.send("global-key", code, down);
   });
@@ -245,10 +248,12 @@ let tray = null;
 let quitting = false;
 app.on("before-quit", () => {
   quitting = true;
+  overlay.destroy();
 });
 
 app.on("second-instance", () => {
-  const win = BrowserWindow.getAllWindows()[0];
+  // Not the overlay (it can't take focus) — the main window.
+  const win = BrowserWindow.getAllWindows().find((w) => w.isFocusable() && !w.getParentWindow());
   if (win) {
     if (win.isMinimized()) win.restore();
     win.show();

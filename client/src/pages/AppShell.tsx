@@ -4,6 +4,8 @@ import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
 import AfkWatcher from "../components/AfkWatcher";
+import MusicVideoWindow from "../components/MusicVideoWindow";
+import DesktopOverlayFeed from "../components/DesktopOverlayFeed";
 import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
 import EventBoardModal from "../components/EventBoardModal";
@@ -253,6 +255,8 @@ export default function AppShell() {
       <EventToasts onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <RemoteControlPrompt />
       <AfkWatcher join={joinVoiceChannel} leave={leaveVoiceChannel} deafen={toggleDeafen} />
+      <MusicVideoWindow />
+      <DesktopOverlayFeed />
       <EventBoardModal onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <SearchModal />
       <LiveBanner />

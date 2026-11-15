@@ -3,9 +3,18 @@ import { createPortal } from "react-dom";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { imageLinksIn } from "../utils/linkify";
 import { tr } from "../i18n";
+import { parseAttachment } from "../utils/attachments";
+import { ChatVideo, VoiceMessage } from "./MediaAttachments";
 
 /** A chat attachment: click opens it full-size in an in-app viewer (close with click, ✕ or Esc). */
-export default function ChatImage({ url }: { url: string }) {
+export default function ChatImage({ url: raw }: { url: string }) {
+  const att = parseAttachment(raw);
+  if (att.kind === "voice") return <VoiceMessage url={att.url} durationMs={att.durationMs} peaks={att.peaks} />;
+  if (att.kind === "clip") return <ChatVideo url={att.url} />;
+  return <ImageAttachment url={att.url} />;
+}
+
+function ImageAttachment({ url }: { url: string }) {
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
   // A pasted link to an image that's gone/blocked just stays a link — no broken-image icon.

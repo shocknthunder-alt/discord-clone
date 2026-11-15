@@ -8,6 +8,7 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { getSocket } from "../socket/socket";
 import { SocketEvents } from "@discord-clone/shared";
 import { tr } from "../i18n";
+import { useMusicVideoStore } from "./MusicVideoWindow";
 
 /** New listeners start quiet — music under a voice call should never drown the voices. */
 const MUSIC_DEFAULT_VOLUME = 10;
@@ -51,6 +52,8 @@ export default function MusicMiniPlayer() {
       return true;
     }
   });
+  const videoOpen = useMusicVideoStore((s) => s.open);
+  const toggleVideo = useMusicVideoStore((s) => s.toggle);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [dropAfter, setDropAfter] = useState(false);
@@ -173,6 +176,19 @@ export default function MusicMiniPlayer() {
         <div className="music-mini-title" title={currentItem?.title ?? ""}>
           {currentItem ? currentItem.title : tr("Не свири музика", "No music playing")}
         </div>
+        <button
+          className={`music-mini-control ${videoOpen ? "on" : ""}`}
+          onClick={() => {
+            unlockMusicAudio();
+            toggleVideo();
+          }}
+          title={tr(
+            "Гледай видеото заедно — пусни YouTube линк и всеки, който отвори 📺, вижда същия момент",
+            "Watch the video together — paste a YouTube link; everyone who opens 📺 sees the same moment",
+          )}
+        >
+          📺
+        </button>
         <button
           className="music-mini-control"
           onClick={() => {

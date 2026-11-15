@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { tr } from "../i18n";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
+import VoiceRecorder from "./VoiceRecorder";
 
 interface Props {
   channelId: string;
@@ -150,6 +151,17 @@ export default function MessageInput({
           autoFocus={autoFocus}
           placeholder={
             placeholder ?? (isCloudinaryConfigured() ? tr("Съобщение… (постави или провлачи снимка/GIF)", "Message… (paste or drop a picture/GIF)") : tr("Съобщение…", "Message…"))
+          }
+        />
+        <VoiceRecorder
+          send={(attachment) =>
+            getSocket()?.emit(SocketEvents.MessageSend, {
+              textChannelId: channelId,
+              content: "",
+              imageUrl: attachment,
+              replyToId,
+              alsoSendToChannel: replyToId ? alsoSendToChannel : undefined,
+            })
           }
         />
         <button type="submit" disabled={uploading || (!value.trim() && !pendingImage)}>
