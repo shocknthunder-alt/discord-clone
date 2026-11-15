@@ -30,6 +30,35 @@ export default function DesktopUpdateBanner() {
 
   useEffect(() => desktop?.onUpdateReady?.((version) => setReadyVersion(version)), [desktop]);
 
+  // Install by itself at a quiet moment: not in a call (or streaming), and the app has been in the
+  // background for a minute or untouched for 5 minutes. A restart takes a few seconds.
+  useEffect(() => {
+    if (!readyVersion || !desktop?.installUpdate) return;
+    let lastInput = Date.now();
+    let hiddenSince = document.hasFocus() ? 0 : Date.now();
+    const onInput = () => (lastInput = Date.now());
+    const onFocus = () => (hiddenSince = 0);
+    const onBlur = () => (hiddenSince = Date.now());
+    const events = ["keydown", "pointerdown", "pointermove", "wheel"] as const;
+    events.forEach((e) => window.addEventListener(e, onInput, { passive: true }));
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onBlur);
+    const id = setInterval(() => {
+      const v = useVoiceStore.getState();
+      if (v.activeVoiceChannelId || v.isScreenSharing) return;
+      const now = Date.now();
+      const background = hiddenSince > 0 && now - hiddenSince > 60_000;
+      const idle = now - lastInput > 5 * 60_000;
+      if (background || idle) desktop.installUpdate?.();
+    }, 15_000);
+    return () => {
+      clearInterval(id);
+      events.forEach((e) => window.removeEventListener(e, onInput));
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [readyVersion, desktop]);
+
   if (!desktop) return null;
 
   if (readyVersion && !dismissed && desktop.installUpdate) {
@@ -37,7 +66,12 @@ export default function DesktopUpdateBanner() {
       <div className="desktop-app-banner" role="status">
         <span>
           🆕 {tr("Нова версия на приложението", "A new app version")} ({readyVersion}) {tr("е готова.", "is ready.")}
-          {inCall ? tr(" След рестарта влизаш пак в същия канал.", " After the restart you rejoin the same channel.") : ""}
+          {inCall
+            ? tr(
+                " Ще се инсталира сама, когато излезеш от разговора — или рестартирай сега (влизаш пак в същия канал).",
+                " It installs itself once you leave the call — or restart now (you rejoin the same channel).",
+              )
+            : tr(" Ще се инсталира сама след малко, когато не ползваш приложението.", " It installs itself shortly, when you're not using the app.")}
         </span>
         <button
           className="update-now"
