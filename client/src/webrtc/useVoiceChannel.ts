@@ -5,6 +5,7 @@ import { closePopout } from "./streamPopouts";
 import { useCallback, useMemo } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
+import { tr } from "../i18n";
 import { useAuthStore } from "../store/authStore";
 import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore, type RemoteStreamStats } from "../store/voiceStore";
@@ -616,7 +617,7 @@ export function useVoiceChannel() {
       if (activeMediaManager !== manager) return;
       useVoiceStore
         .getState()
-        .setScreenShareNotice("Няма връзка с гласовия сървър — опитвам отново… (ако не мине, излез и влез пак в канала)");
+        .setScreenShareNotice(tr("Няма връзка с гласовия сървър — опитвам отново… (ако не мине, излез и влез пак в канала)", "No connection to the voice server — retrying… (if it doesn't come back, leave and rejoin the channel)"));
       const run = async () => {
         if (activeMediaManager !== manager) return;
         if (!mediaSocket.connected) {
@@ -782,7 +783,7 @@ export function useVoiceChannel() {
     // three layers of it, picked in Settings → Screen Share Quality.
     if (!activeMediaManager.isReady) {
       store.setScreenShareNotice(
-        "Стриймът не може да тръгне: няма връзка с гласовия сървър. Излез и влез пак в канала (или рефрешни).",
+        tr("Стриймът не може да тръгне: няма връзка с гласовия сървър. Излез и влез пак в канала (или рефрешни).", "The stream can't start: no connection to the voice server. Leave and rejoin the channel (or refresh)."),
       );
       return;
     }
@@ -805,8 +806,8 @@ export function useVoiceChannel() {
       console.error("screen capture failed", err);
       if (desktopAudioMode === "native") stopNativeAppAudio();
       store.setScreenShareNotice(
-        `Заснемането на екрана не тръгна (${name || "грешка"}). Опитай друг екран/прозорец${
-          window.shmirkaDesktop ? " или рестартирай приложението" : ""
+        `${tr("Заснемането на екрана не тръгна", "Screen capture didn't start")} (${name || tr("грешка", "error")}). ${tr("Опитай друг екран/прозорец", "Try another screen/window")}${
+          window.shmirkaDesktop ? tr(" или рестартирай приложението", " or restart the app") : ""
         }.`,
       );
       return;
@@ -826,8 +827,8 @@ export function useVoiceChannel() {
       screenStream.getAudioTracks().length > 0
         ? null
         : sharedSurface === "window"
-          ? "Стриймът е БЕЗ звук: браузърът не дава звук от прозорец (напр. игра). Спри и сподели „Цял екран“ с отметка „Share system audio“ — или ползвай десктоп приложението, което хваща звука само на играта."
-          : "Стриймът е БЕЗ звук. Спри и сподели отново, като отметнеш „Share audio“ / „Share system audio“ в прозореца за избор.",
+          ? tr("Стриймът е БЕЗ звук: браузърът не дава звук от прозорец (напр. игра). Спри и сподели „Цял екран“ с отметка „Share system audio“ — или ползвай десктоп приложението, което хваща звука само на играта.", "The stream has NO sound: browsers don't give sound from a window (e.g. a game). Stop and share \"Entire screen\" with \"Share system audio\" ticked — or use the desktop app, which captures just the game's sound.")
+          : tr("Стриймът е БЕЗ звук. Спри и сподели отново, като отметнеш „Share audio“ / „Share system audio“ в прозореца за избор.", "The stream has NO sound. Stop and share again with \"Share audio\" / \"Share system audio\" ticked in the picker."),
     );
     try {
       await activeMediaManager.startScreenShare(screenStream, quality, mode, useVoiceStore.getState().screenShareSimulcast);
@@ -837,7 +838,7 @@ export function useVoiceChannel() {
       stopNativeAppAudio();
       store.setLocalScreenStream(null);
       store.setScreenSharing(false);
-      store.setScreenShareNotice("Стриймът не тръгна (гласовият сървър го отказа). Опитай пак; ако пак не става — излез и влез в канала.");
+      store.setScreenShareNotice(tr("Стриймът не тръгна (гласовият сървър го отказа). Опитай пак; ако пак не става — излез и влез в канала.", "The stream didn't start (the voice server refused it). Try again; if it still fails — leave and rejoin the channel."));
       return;
     }
     store.setScreenShareStartedAt(Date.now());

@@ -1,6 +1,7 @@
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type ConnectionQuality } from "../store/voiceStore";
+import { tr } from "../i18n";
 
 const QUALITY_COLOR: Record<ConnectionQuality, string> = {
   good: "#23a559",
@@ -40,7 +41,7 @@ export default function VoiceStatusBar() {
 
   if (!activeVoiceChannelId) return null;
 
-  let label = "Voice Connected";
+  let label = tr("Свързан с гласа", "Voice Connected");
   if (activeVoiceChannelId.startsWith("dm:")) {
     const conversationId = activeVoiceChannelId.slice(3);
     const conversation = conversations.find((c) => c.id === conversationId);
@@ -53,7 +54,7 @@ export default function VoiceStatusBar() {
   return (
     <div className="voice-status-bar">
       <div className="voice-status-bar-text">
-        <div className="voice-status-bar-title">Voice Connected</div>
+        <div className="voice-status-bar-title">{tr("Свързан с гласа", "Voice Connected")}</div>
         <div className="voice-status-bar-subtitle">{label}</div>
       </div>
     </div>

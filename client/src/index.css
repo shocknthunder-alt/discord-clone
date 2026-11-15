@@ -24,7 +24,12 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
+
+.lang-switch { position: absolute; top: 16px; right: 16px; display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: rgba(0, 0, 0, 0.35); z-index: 2; }
+.lang-switch button { width: auto; margin: 0; padding: 5px 10px; border: none; border-radius: 6px; background: none; color: var(--t-2); font-size: 13px; font-weight: 600; cursor: pointer; }
+.lang-switch button.on { background: var(--accent); color: #fff; }
 
 .auth-card {
   background: var(--c-panel);

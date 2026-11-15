@@ -30,20 +30,21 @@ import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useAppPrefs } from "../utils/appPrefs";
 import AccountSettings from "./AccountSettings";
 import "./settings.css";
+import { setLang, tr, useLang, useT } from "../i18n";
 
 // A short, readable label for a KeyboardEvent.code — covers the keys people actually bind
 // PTT to (modifiers, function keys, mouse-adjacent keys like CapsLock); falls back to the
 // raw code for anything else rather than guessing at every possible layout.
 function describeKeyCode(code: string): string {
   const known: Record<string, string> = {
-    ControlLeft: "Ляв Ctrl",
-    ControlRight: "Десен Ctrl",
-    AltLeft: "Ляв Alt",
-    AltRight: "Десен Alt",
-    ShiftLeft: "Ляв Shift",
-    ShiftRight: "Десен Shift",
+    ControlLeft: tr("Ляв Ctrl", "Left Ctrl"),
+    ControlRight: tr("Десен Ctrl", "Right Ctrl"),
+    AltLeft: tr("Ляв Alt", "Left Alt"),
+    AltRight: tr("Десен Alt", "Right Alt"),
+    ShiftLeft: tr("Ляв Shift", "Left Shift"),
+    ShiftRight: tr("Десен Shift", "Right Shift"),
     CapsLock: "Caps Lock",
-    Space: "Интервал",
+    Space: tr("Интервал", "Space"),
     Tab: "Tab",
     Backquote: "`",
   };
@@ -52,37 +53,43 @@ function describeKeyCode(code: string): string {
 
 type Section = "profile" | "account" | "voice" | "stream" | "chat" | "notifications" | "appearance" | "accessibility";
 
-const NAV: { group: string; items: { id: Section; icon: string; label: string }[] }[] = [
-  {
-    group: "Потребител",
-    items: [
-      { id: "profile", icon: "👤", label: "Моят профил" },
-      { id: "account", icon: "🔐", label: "Акаунт и парола" },
-    ],
-  },
-  {
-    group: "Приложение",
-    items: [
-      { id: "voice", icon: "🎙️", label: "Глас и видео" },
-      { id: "stream", icon: "📺", label: "Стрийм" },
-      { id: "chat", icon: "💬", label: "Чат" },
-      { id: "notifications", icon: "🔔", label: "Известия" },
-      { id: "appearance", icon: "🎨", label: "Външен вид" },
-      { id: "accessibility", icon: "♿", label: "Достъпност" },
-    ],
-  },
-];
+// Built at render time so the labels follow the interface language.
+function titles(): Record<Section, string> {
+  return {
+    profile: tr("Моят профил", "My profile"),
+    account: tr("Акаунт и парола", "Account & password"),
+    voice: tr("Глас и видео", "Voice & video"),
+    stream: tr("Стрийм", "Streaming"),
+    chat: tr("Чат", "Chat"),
+    notifications: tr("Известия", "Notifications"),
+    appearance: tr("Външен вид и език", "Appearance & language"),
+    accessibility: tr("Достъпност", "Accessibility"),
+  };
+}
 
-const TITLES: Record<Section, string> = {
-  profile: "Моят профил",
-  account: "Акаунт и парола",
-  voice: "Глас и видео",
-  stream: "Стрийм",
-  chat: "Чат",
-  notifications: "Известия",
-  appearance: "Външен вид",
-  accessibility: "Достъпност",
-};
+function nav(): { group: string; items: { id: Section; icon: string; label: string }[] }[] {
+  const t = titles();
+  return [
+    {
+      group: tr("Потребител", "User"),
+      items: [
+        { id: "profile", icon: "👤", label: t.profile },
+        { id: "account", icon: "🔐", label: t.account },
+      ],
+    },
+    {
+      group: tr("Приложение", "App"),
+      items: [
+        { id: "voice", icon: "🎙️", label: t.voice },
+        { id: "stream", icon: "📺", label: t.stream },
+        { id: "chat", icon: "💬", label: t.chat },
+        { id: "notifications", icon: "🔔", label: t.notifications },
+        { id: "appearance", icon: "🎨", label: t.appearance },
+        { id: "accessibility", icon: "♿", label: t.accessibility },
+      ],
+    },
+  ];
+}
 
 /* ───────────── building blocks ───────────── */
 
@@ -147,6 +154,7 @@ function Choice({
 
 /** Live input level of the chosen microphone — start/stop so it doesn't hold the mic. */
 function MicTest({ deviceId }: { deviceId: string }) {
+  const t = useT();
   const [running, setRunning] = useState(false);
   const [level, setLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -176,14 +184,14 @@ function MicTest({ deviceId }: { deviceId: string }) {
         };
         tick();
       } catch {
-        setError("Няма достъп до микрофона.");
+        setError(tr("Няма достъп до микрофона.", "No access to the microphone."));
         setRunning(false);
       }
     })();
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
-      stream?.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((tr) => tr.stop());
       void ctx?.close();
       setLevel(0);
     };
@@ -192,9 +200,9 @@ function MicTest({ deviceId }: { deviceId: string }) {
   return (
     <div className="set-mictest">
       <button type="button" className="set-button" onClick={() => { setError(null); setRunning((r) => !r); }}>
-        {running ? "Спри теста" : "Тествай микрофона"}
+        {running ? t("Спри теста", "Stop the test") : t("Тествай микрофона", "Test the microphone")}
       </button>
-      <div className="set-meter" aria-label="Ниво на микрофона">
+      <div className="set-meter" aria-label={t("Ниво на микрофона", "Microphone level")}>
         <div className="set-meter-fill" style={{ width: `${Math.round(level * 100)}%` }} />
       </div>
       {error && <span className="set-error-inline">{error}</span>}
@@ -286,6 +294,8 @@ interface Props {
 }
 
 export default function UserSettingsModal({ onClose }: Props) {
+  const t = useT();
+  const lang = useLang();
   const { logout, setUser } = useAuthStore();
   const user = useAuthStore((s) => s.user);
   const [section, setSection] = useState<Section>("profile");
@@ -330,7 +340,7 @@ export default function UserSettingsModal({ onClose }: Props) {
   }
 
   function close() {
-    if (dirty && !window.confirm("Имаш незапазени промени. Затвори без да ги запазиш?")) return;
+    if (dirty && !window.confirm(t("Имаш незапазени промени. Затвори без да ги запазиш?", "You have unsaved changes. Close without saving them?"))) return;
     applyTheme(base.themeId);
     onClose();
   }
@@ -347,7 +357,7 @@ export default function UserSettingsModal({ onClose }: Props) {
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
-        stream.getTracks().forEach((t) => t.stop());
+        stream.getTracks().forEach((track) => track.stop());
         return Promise.all([listMicDevices(), listSpeakerDevices()]);
       })
       .then(([mics, speakers]) => {
@@ -383,7 +393,7 @@ export default function UserSettingsModal({ onClose }: Props) {
     try {
       edit({ avatarUrl: await uploadImageToCloudinary(file) });
     } catch {
-      setError("Качването на снимката не успя. Опитай пак.");
+      setError(t("Качването на снимката не успя. Опитай пак.", "The picture didn't upload. Try again."));
     } finally {
       setUploading(false);
     }
@@ -407,11 +417,11 @@ export default function UserSettingsModal({ onClose }: Props) {
     setError(null);
     try {
       if (has("username") || has("avatarUrl")) {
-        if (!d.username.trim()) throw new Error("Името не може да е празно.");
+        if (!d.username.trim()) throw new Error(t("Името не може да е празно.", "The name can't be empty."));
         try {
           setUser(await updateProfile({ username: d.username.trim(), avatarUrl: d.avatarUrl }));
         } catch {
-          throw new Error("Профилът не се запази — може би името вече е заето.");
+          throw new Error(t("Профилът не се запази — може би името вече е заето.", "The profile wasn't saved — the name may already be taken."));
         }
       }
       if (has("micId")) setPreferredMicDeviceId(d.micId || null);
@@ -451,7 +461,7 @@ export default function UserSettingsModal({ onClose }: Props) {
       setDraft(now);
       setJustSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Нещо се обърка при запазването.");
+      setError(err instanceof Error ? err.message : t("Нещо се обърка при запазването.", "Something went wrong while saving."));
     } finally {
       setSaving(false);
     }
@@ -502,17 +512,17 @@ export default function UserSettingsModal({ onClose }: Props) {
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
-        aria-label="Настройки"
+        aria-label={t("Настройки", "Settings")}
       >
         {/* ── sidebar ── */}
         <nav className="set-nav">
-          <div className="set-nav-head" onPointerDown={startDrag} title="Хвани и премести прозореца">
+          <div className="set-nav-head" onPointerDown={startDrag} title={t("Хвани и премести прозореца", "Drag to move the window")}>
             <span className="set-nav-avatar">
               {user?.avatarUrl ? <img src={user.avatarUrl} alt="" /> : (user?.username ?? "?").slice(0, 2).toUpperCase()}
             </span>
             <span className="set-nav-name">{user?.username}</span>
           </div>
-          {NAV.map((g) => (
+          {nav().map((g) => (
             <div key={g.group} className="set-nav-group">
               <div className="set-nav-group-title">{g.group}</div>
               {g.items.map((it) => (
@@ -537,29 +547,29 @@ export default function UserSettingsModal({ onClose }: Props) {
             }}
           >
             <span className="set-nav-icon">🚪</span>
-            Изход от акаунта
+            {t("Изход от акаунта", "Log out")}
           </button>
         </nav>
 
         {/* ── content ── */}
         <div className="set-main">
           <header className="set-main-head" onPointerDown={startDrag}>
-            <h2>{TITLES[section]}</h2>
-            <button className="set-close" onPointerDown={(e) => e.stopPropagation()} onClick={close} title="Затвори (Esc)">
+            <h2>{titles()[section]}</h2>
+            <button className="set-close" onPointerDown={(e) => e.stopPropagation()} onClick={close} title={t("Затвори (Esc)", "Close (Esc)")}>
               ✕
             </button>
           </header>
 
           <div className="set-scroll">
             {section === "profile" && (
-              <Card title="Аватар и име" hint="Така те виждат другите в чата и в гласовите канали.">
+              <Card title={t("Аватар и име", "Avatar & name")} hint={t("Така те виждат другите в чата и в гласовите канали.", "This is how others see you in chat and voice channels.")}>
                 <div className="set-profile">
                   <div className="set-profile-avatar">
                     {draft.avatarUrl ? <img src={draft.avatarUrl} alt="" /> : <span>{draft.username.slice(0, 2).toUpperCase()}</span>}
                   </div>
                   <div className="set-profile-fields">
                     <label className="set-field-label" htmlFor="username-input">
-                      Потребителско име
+                      {t("Потребителско име", "Username")}
                     </label>
                     <input
                       id="username-input"
@@ -574,7 +584,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading || !isCloudinaryConfigured()}
                       >
-                        {uploading ? "Качване…" : "Смени аватара"}
+                        {uploading ? t("Качване…", "Uploading…") : t("Смени аватара", "Change avatar")}
                       </button>
                       <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={handleAvatarPick} />
                     </div>
@@ -587,23 +597,23 @@ export default function UserSettingsModal({ onClose }: Props) {
 
             {section === "voice" && (
               <>
-                <Card title="Устройства">
+                <Card title={t("Устройства", "Devices")}>
                   <label className="set-field-label" htmlFor="mic-select">
-                    Микрофон
+                    {t("Микрофон", "Microphone")}
                   </label>
                   <select id="mic-select" className="set-input" value={draft.micId} onChange={(e) => edit({ micId: e.target.value })}>
-                    <option value="">По подразбиране (системен)</option>
+                    <option value="">{t("По подразбиране (системен)", "Default (system)")}</option>
                     {micDevices.map((d) => (
                       <option key={d.deviceId} value={d.deviceId}>
-                        {d.label || `Микрофон ${d.deviceId.slice(0, 6)}`}
+                        {d.label || `${t("Микрофон", "Microphone")} ${d.deviceId.slice(0, 6)}`}
                       </option>
                     ))}
                   </select>
-                  <p className="set-hint">Сменя се при следващото влизане в гласов канал.</p>
+                  <p className="set-hint">{t("Сменя се при следващото влизане в гласов канал.", "Takes effect the next time you join a voice channel.")}</p>
                   <MicTest deviceId={draft.micId} />
 
                   <label className="set-field-label" htmlFor="speaker-select">
-                    Слушалки / високоговорители
+                    {t("Слушалки / високоговорители", "Headphones / speakers")}
                   </label>
                   {supportsOutputDeviceSelection() ? (
                     <select
@@ -612,59 +622,59 @@ export default function UserSettingsModal({ onClose }: Props) {
                       value={draft.speakerId}
                       onChange={(e) => edit({ speakerId: e.target.value })}
                     >
-                      <option value="">По подразбиране (системен)</option>
+                      <option value="">{t("По подразбиране (системен)", "Default (system)")}</option>
                       {speakerDevices.map((d) => (
                         <option key={d.deviceId} value={d.deviceId}>
-                          {d.label || `Изход ${d.deviceId.slice(0, 6)}`}
+                          {d.label || `${t("Изход", "Output")} ${d.deviceId.slice(0, 6)}`}
                         </option>
                       ))}
                     </select>
                   ) : (
-                    <p className="set-hint">Този браузър не позволява избор на изход — звукът е през системния.</p>
+                    <p className="set-hint">{t("Този браузър не позволява избор на изход — звукът е през системния.", "This browser can't pick an output — sound goes through the system default.")}</p>
                   )}
                 </Card>
 
-                <Card title="Режим на микрофона">
+                <Card title={t("Режим на микрофона", "Microphone mode")}>
                   <div className="set-choices">
                     <Choice
                       name="mic-mode"
                       checked={draft.micMode === "voice-activation"}
-                      title="Гласова активност"
-                      hint="Микрофонът е включен, щом не си на mute."
+                      title={t("Гласова активност", "Voice activity")}
+                      hint={t("Микрофонът е включен, щом не си на mute.", "The mic is on whenever you're not muted.")}
                       onSelect={() => edit({ micMode: "voice-activation" })}
                     />
                     <Choice
                       name="mic-mode"
                       checked={draft.micMode === "push-to-talk"}
                       title="Push-to-talk"
-                      hint="Говориш само докато държиш клавиш."
+                      hint={t("Говориш само докато държиш клавиш.", "You only talk while holding a key.")}
                       onSelect={() => edit({ micMode: "push-to-talk" })}
                     />
                   </div>
                   {draft.micMode === "push-to-talk" && (
                     <div className="set-row spaced">
                       <span>
-                        Клавиш:{" "}
+                        {t("Клавиш:", "Key:")}{" "}
                         <strong>
-                          {listeningForKey ? "Натисни клавиш…" : draft.pttKey ? describeKeyCode(draft.pttKey) : "не е избран"}
+                          {listeningForKey ? t("Натисни клавиш…", "Press a key…") : draft.pttKey ? describeKeyCode(draft.pttKey) : t("не е избран", "not set")}
                         </strong>
                       </span>
                       <button type="button" className="set-button" onClick={startBindingPushToTalkKey} disabled={listeningForKey}>
-                        {draft.pttKey ? "Смени" : "Избери клавиш"}
+                        {draft.pttKey ? t("Смени", "Change") : t("Избери клавиш", "Pick a key")}
                       </button>
                     </div>
                   )}
-                  <p className="set-hint">В браузъра работи само когато прозорецът е на фокус; в десктоп приложението — винаги.</p>
+                  <p className="set-hint">{t("В браузъра работи само когато прозорецът е на фокус; в десктоп приложението — винаги.", "In the browser it only works while the window is focused; in the desktop app — always.")}</p>
                 </Card>
 
-                <Card title="Soundboard" hint="Кратките звуци, които хората пускат в гласовия канал (бутон 🔊).">
+                <Card title="Soundboard" hint={t("Кратките звуци, които хората пускат в гласовия канал (бутон 🔊).", "The short sounds people play in the voice channel (🔊 button).")}>
                   <Toggle
-                    label="Чувай soundboard звуците"
+                    label={t("Чувай soundboard звуците", "Hear soundboard sounds")}
                     checked={draft.soundboardEnabled}
                     onChange={(on) => edit({ soundboardEnabled: on })}
                   />
                   <div className="set-slider">
-                    <span>Сила на звука</span>
+                    <span>{t("Сила на звука", "Volume")}</span>
                     <input
                       type="range"
                       min={0}
@@ -677,30 +687,30 @@ export default function UserSettingsModal({ onClose }: Props) {
                   </div>
                 </Card>
 
-                <Card title="Обработка на звука" hint="Всичко е включено по подразбиране — изключи нещо, ако пречи на твоя микрофон.">
+                <Card title={t("Обработка на звука", "Sound processing")} hint={t("Всичко е включено по подразбиране — изключи нещо, ако пречи на твоя микрофон.", "Everything is on by default — turn something off if it fights your microphone.")}>
                   <Toggle
-                    label="AI шумопотискане"
-                    hint="Маха клавиатура, вентилатор, дишане и шум в стаята; оставя гласа."
+                    label={t("AI шумопотискане", "AI noise suppression")}
+                    hint={t("Маха клавиатура, вентилатор, дишане и шум в стаята; оставя гласа.", "Removes keyboard, fan, breathing and room noise; keeps the voice.")}
                     checked={draft.aiSuppression}
                     onChange={(on) => edit({ aiSuppression: on })}
                   />
                   {draft.aiSuppression && (
                     <Toggle
-                      label="Само глас (без клавиатура)"
-                      hint="Микрофонът праща звук само докато говориш — тракането на клавиатурата и мишката между думите не се чува. Изключи го, ако ти реже началото на думите."
+                      label={t("Само глас (без клавиатура)", "Voice only (no keyboard)")}
+                      hint={t("Микрофонът праща звук само докато говориш — тракането на клавиатурата и мишката между думите не се чува. Изключи го, ако ти реже началото на думите.", "The mic only sends while you talk — keyboard and mouse clicks between words aren't heard. Turn it off if it cuts the start of your words.")}
                       checked={draft.voiceOnly}
                       onChange={(on) => edit({ voiceOnly: on })}
                     />
                   )}
                   <Toggle
-                    label="Шумова врата"
-                    hint="Заглушава микрофона между думите, когато е тихо."
+                    label={t("Шумова врата", "Noise gate")}
+                    hint={t("Заглушава микрофона между думите, когато е тихо.", "Mutes the mic between words when it's quiet.")}
                     checked={draft.noiseGate}
                     onChange={(on) => edit({ noiseGate: on })}
                   />
                   {draft.noiseGate && (
                     <div className="set-slider">
-                      <span>Чувствителност</span>
+                      <span>{t("Чувствителност", "Sensitivity")}</span>
                       <input
                         type="range"
                         min={0}
@@ -712,26 +722,28 @@ export default function UserSettingsModal({ onClose }: Props) {
                     </div>
                   )}
                   <Toggle
-                    label="Филтър за ниски честоти"
-                    hint="Реже бръмчене — вентилатор, климатик, удари по бюрото."
+                    label={t("Филтър за ниски честоти", "Low-cut filter")}
+                    hint={t("Реже бръмчене — вентилатор, климатик, удари по бюрото.", "Cuts hum — fans, air conditioning, desk bumps.")}
                     checked={draft.highpassFilter}
                     onChange={(on) => edit({ highpassFilter: on })}
                   />
-                  <Toggle label="Премахване на ехо" checked={draft.echoCancellation} onChange={(on) => edit({ echoCancellation: on })} />
+                  <Toggle label={t("Премахване на ехо", "Echo cancellation")} checked={draft.echoCancellation} onChange={(on) => edit({ echoCancellation: on })} />
                   <Toggle
-                    label="Потискане на шума (браузърно)"
+                    label={t("Потискане на шума (браузърно)", "Noise suppression (browser)")}
                     checked={draft.noiseSuppression}
                     onChange={(on) => edit({ noiseSuppression: on })}
                   />
                   <Toggle
-                    label="Автоматично ниво на звука"
-                    hint="Изравнява тих и силен глас."
+                    label={t("Автоматично ниво на звука", "Automatic gain")}
+                    hint={t("Изравнява тих и силен глас.", "Evens out quiet and loud voices.")}
                     checked={draft.autoGainControl}
                     onChange={(on) => edit({ autoGainControl: on })}
                   />
                   <p className="set-hint">
-                    След „Запази“: AI, шумовата врата и филтърът действат веднага; ехото, браузърното потискане и нивото — при
-                    следващото влизане в канал.
+                    {t(
+                      "След „Запази“: AI, шумовата врата и филтърът действат веднага; ехото, браузърното потискане и нивото — при следващото влизане в канал.",
+                      "After Save: AI, the noise gate and the filter apply at once; echo, browser suppression and gain — the next time you join a channel.",
+                    )}
                   </p>
                 </Card>
               </>
@@ -739,93 +751,95 @@ export default function UserSettingsModal({ onClose }: Props) {
 
             {section === "stream" && (
               <>
-                <Card title="Режим" hint="И двата са 60 кадъра на видеокартата. Разликата е какво се жертва, ако мрежата или компютърът не смогват.">
+                <Card title={t("Режим", "Mode")} hint={t("И двата са 60 кадъра на видеокартата. Разликата е какво се жертва, ако мрежата или компютърът не смогват.", "Both are 60 fps on the graphics card. The difference is what gives way when the network or the PC can't keep up.")}>
                   <div className="set-choices">
                     <Choice
                       name="share-mode"
                       checked={draft.shareMode === "smooth"}
-                      title="Плавно · 60 fps"
-                      hint="Пази плавността, сваля резолюцията при нужда — за игри и видео."
+                      title={t("Плавно · 60 fps", "Smooth · 60 fps")}
+                      hint={t("Пази плавността, сваля резолюцията при нужда — за игри и видео.", "Keeps it smooth, lowers the resolution when needed — for games and video.")}
                       onSelect={() => edit({ shareMode: "smooth" })}
                     />
                     <Choice
                       name="share-mode"
                       checked={draft.shareMode === "sharp"}
-                      title="Остро · 60 fps"
-                      hint="Пази пълната резолюция и повече битрейт, пуска кадри при нужда — за текст, код, детайл."
+                      title={t("Остро · 60 fps", "Sharp · 60 fps")}
+                      hint={t("Пази пълната резолюция и повече битрейт, пуска кадри при нужда — за текст, код, детайл.", "Keeps full resolution and more bitrate, drops frames when needed — for text, code, detail.")}
                       onSelect={() => edit({ shareMode: "sharp" })}
                     />
                   </div>
                 </Card>
 
                 <Card
-                  title="Кодиране"
-                  hint="Важи от следващото пускане на стрийм. „Процесор“ е за видеокарти, чийто енкодер засича играта (напр. някои AMD) — натоварва процесора повече."
+                  title={t("Кодиране", "Encoding")}
+                  hint={t("Важи от следващото пускане на стрийм. „Процесор“ е за видеокарти, чийто енкодер засича играта (напр. някои AMD) — натоварва процесора повече.", "Applies from the next stream. \"Processor\" is for graphics cards whose encoder makes the game stutter (e.g. some AMD) — it loads the CPU more.")}
                 >
                   <div className="set-choices">
                     <Choice
                       name="share-encoder"
                       checked={draft.shareEncoder === "gpu"}
-                      title="Видеокарта"
-                      hint="По подразбиране. Най-леко за компютъра."
+                      title={t("Видеокарта", "Graphics card")}
+                      hint={t("По подразбиране. Най-леко за компютъра.", "Default. Lightest for the PC.")}
                       onSelect={() => edit({ shareEncoder: "gpu" })}
                     />
                     <Choice
                       name="share-encoder"
                       checked={draft.shareEncoder === "cpu"}
-                      title="Процесор"
-                      hint="Софтуерно кодиране — пробвай, ако играта губи fps, докато стриймваш."
+                      title={t("Процесор", "Processor")}
+                      hint={t("Софтуерно кодиране — пробвай, ако играта губи fps, докато стриймваш.", "Software encoding — try it if the game loses fps while you stream.")}
                       onSelect={() => edit({ shareEncoder: "cpu" })}
                     />
                   </div>
                   <div className="set-slider">
-                    <span>Освежавай енкодера</span>
+                    <span>{t("Освежавай енкодера", "Refresh the encoder")}</span>
                     <select className="set-input" value={draft.shareAutoRefresh} onChange={(e) => edit({ shareAutoRefresh: Number(e.target.value) })}>
-                      <option value={0}>Никога</option>
-                      <option value={3}>на всеки 3 мин</option>
-                      <option value={5}>на всеки 5 мин</option>
-                      <option value={8}>на всеки 8 мин</option>
+                      <option value={0}>{t("Никога", "Never")}</option>
+                      <option value={3}>{t("на всеки 3 мин", "every 3 min")}</option>
+                      <option value={5}>{t("на всеки 5 мин", "every 5 min")}</option>
+                      <option value={8}>{t("на всеки 8 мин", "every 8 min")}</option>
                     </select>
                   </div>
                   <p className="set-hint">
-                    Ако играта ти започва да засича след няколко минути стрийм и спирането/пускането го оправя — това го прави
-                    само (зрителите виждат само миг пауза). Ръчно: бутонът 🔄 в панела 📊 на стрийма.
+                    {t(
+                      "Ако играта ти започва да засича след няколко минути стрийм и спирането/пускането го оправя — това го прави само (зрителите виждат само миг пауза). Ръчно: бутонът 🔄 в панела 📊 на стрийма.",
+                      "If your game starts stuttering after a few minutes of streaming and stopping/starting fixes it — this does that by itself (viewers only see a brief pause). Manually: the 🔄 button in the stream's 📊 panel.",
+                    )}
                   </p>
                 </Card>
 
-                <Card title="Качество" hint="Важи от следващото пускане на стрийм.">
+                <Card title={t("Качество", "Quality")} hint={t("Важи от следващото пускане на стрийм.", "Applies from the next stream.")}>
                   <div className="set-choices three">
                     <Choice
                       name="share-quality"
                       checked={draft.shareQuality === "low"}
-                      title="Леко · 720p"
-                      hint="Слаб компютър или бавен upload."
+                      title={t("Леко · 720p", "Light · 720p")}
+                      hint={t("Слаб компютър или бавен upload.", "Weak PC or slow upload.")}
                       onSelect={() => edit({ shareQuality: "low" })}
                     />
                     <Choice
                       name="share-quality"
                       checked={draft.shareQuality === "standard"}
-                      title="Стандарт · 1080p"
-                      hint="Безопасно за повечето."
+                      title={t("Стандарт · 1080p", "Standard · 1080p")}
+                      hint={t("Безопасно за повечето.", "Safe for most.")}
                       onSelect={() => edit({ shareQuality: "standard" })}
                     />
                     <Choice
                       name="share-quality"
                       checked={draft.shareQuality === "high"}
-                      title="Високо · 4K"
-                      hint="Силна видеокарта и бърз upload."
+                      title={t("Високо · 4K", "High · 4K")}
+                      hint={t("Силна видеокарта и бърз upload.", "Strong graphics card and fast upload.")}
                       onSelect={() => edit({ shareQuality: "high" })}
                     />
                   </div>
                   <Toggle
-                    label="Олекотено копие за слаби връзки (експериментално)"
-                    hint="Праща и втори, по-малък поток. Натоварва повече компютъра ти."
+                    label={t("Олекотено копие за слаби връзки (експериментално)", "Light copy for weak connections (experimental)")}
+                    hint={t("Праща и втори, по-малък поток. Натоварва повече компютъра ти.", "Also sends a second, smaller stream. Loads your PC more.")}
                     checked={draft.simulcast}
                     onChange={(on) => edit({ simulcast: on })}
                   />
                 </Card>
 
-                <Card title="Рамка на стрийма" hint="Как изглежда стриймът, който гледаш. Сменя се и с 🎬 върху самия стрийм.">
+                <Card title={t("Рамка на стрийма", "Stream frame")} hint={t("Как изглежда стриймът, който гледаш. Сменя се и с 🎬 върху самия стрийм.", "How the stream you watch looks. Also changed with 🎬 on the stream itself.")}>
                   <div className="stream-frame-picker set-frames">
                     {STREAM_FRAMES.map((f) => (
                       <button
@@ -851,9 +865,9 @@ export default function UserSettingsModal({ onClose }: Props) {
 
             {section === "chat" && (
               <>
-                <Card title="Текст">
+                <Card title={t("Текст", "Text")}>
                   <div className="set-slider">
-                    <span>Размер на текста</span>
+                    <span>{t("Размер на текста", "Text size")}</span>
                     <input
                       type="range"
                       min={12}
@@ -864,56 +878,56 @@ export default function UserSettingsModal({ onClose }: Props) {
                     <span className="set-slider-value">{draft.chatFontSize}px</span>
                   </div>
                   <div className="set-preview" style={{ fontSize: draft.chatFontSize }}>
-                    Здрасти! Така ще изглеждат съобщенията в чата. 👋
+                    {t("Здрасти! Така ще изглеждат съобщенията в чата. 👋", "Hi! This is how chat messages will look. 👋")}
                   </div>
                 </Card>
-                <Card title="Час на съобщенията" hint={`Пример: ${sampleClock}`}>
-                  <Toggle label="24-часов формат" checked={draft.clock24h} onChange={(on) => edit({ clock24h: on })} />
-                  <Toggle label="Показвай секундите" checked={draft.showSeconds} onChange={(on) => edit({ showSeconds: on })} />
+                <Card title={t("Час на съобщенията", "Message time")} hint={`${t("Пример", "Example")}: ${sampleClock}`}>
+                  <Toggle label={t("24-часов формат", "24-hour clock")} checked={draft.clock24h} onChange={(on) => edit({ clock24h: on })} />
+                  <Toggle label={t("Показвай секундите", "Show seconds")} checked={draft.showSeconds} onChange={(on) => edit({ showSeconds: on })} />
                 </Card>
               </>
             )}
 
             {section === "notifications" && (
-              <Card title="Известия">
+              <Card title={t("Известия", "Notifications")}>
                 <Toggle
-                  label="Известия на работния плот"
-                  hint="За нови съобщения и лични съобщения, когато прозорецът не е на фокус."
+                  label={t("Известия на работния плот", "Desktop notifications")}
+                  hint={t("За нови съобщения и лични съобщения, когато прозорецът не е на фокус.", "For new messages and direct messages while the window isn't focused.")}
                   checked={draft.desktopNotifications && notifPermission === "granted"}
                   disabled={notifPermission === "unsupported"}
                   onChange={(on) => void toggleNotifications(on)}
                 />
                 {notifPermission === "denied" && (
-                  <p className="set-hint warn">Браузърът блокира известията — разреши ги от иконата до адреса на сайта.</p>
+                  <p className="set-hint warn">{t("Браузърът блокира известията — разреши ги от иконата до адреса на сайта.", "The browser blocks notifications — allow them from the icon next to the site address.")}</p>
                 )}
                 <Toggle
-                  label="Маркирай непрочетените канали"
-                  hint="Текстов канал с нови съобщения, които не си видял, светва с удебелено име и черта отляво."
+                  label={t("Маркирай непрочетените канали", "Mark unread channels")}
+                  hint={t("Текстов канал с нови съобщения, които не си видял, светва с удебелено име и черта отляво.", "A text channel with messages you haven't seen lights up with a bold name and a bar on the left.")}
                   checked={draft.unreadMarkers}
                   onChange={(on) => edit({ unreadMarkers: on })}
                 />
                 <Toggle
-                  label="Напомняния за събития"
-                  hint="Известие и звук преди събитие, за което си записан (✅ или 🤔), и когато започне."
+                  label={t("Напомняния за събития", "Event reminders")}
+                  hint={t("Известие и звук преди събитие, за което си записан (✅ или 🤔), и когато започне.", "A notification and sound before an event you signed up for (✅ or 🤔), and when it starts.")}
                   checked={draft.eventReminders}
                   onChange={(on) => edit({ eventReminders: on })}
                 />
                 <div className="set-slider">
-                  <span>Напомни ми</span>
+                  <span>{t("Напомни ми", "Remind me")}</span>
                   <select
                     className="set-input"
                     value={draft.eventReminderMinutes}
                     disabled={!draft.eventReminders}
                     onChange={(e) => edit({ eventReminderMinutes: Number(e.target.value) })}
                   >
-                    <option value={5}>5 минути преди</option>
-                    <option value={15}>15 минути преди</option>
-                    <option value={60}>1 час преди</option>
+                    <option value={5}>{t("5 минути преди", "5 minutes before")}</option>
+                    <option value={15}>{t("15 минути преди", "15 minutes before")}</option>
+                    <option value={60}>{t("1 час преди", "1 hour before")}</option>
                   </select>
                 </div>
                 <Toggle
-                  label="Звук при влизане в гласов канал"
-                  hint="Кратък звук, когато някой влезе при теб."
+                  label={t("Звук при влизане в гласов канал", "Voice channel join sound")}
+                  hint={t("Кратък звук, когато някой влезе при теб.", "A short sound when someone joins you.")}
                   checked={draft.joinSound}
                   onChange={(on) => edit({ joinSound: on })}
                 />
@@ -921,41 +935,49 @@ export default function UserSettingsModal({ onClose }: Props) {
             )}
 
             {section === "appearance" && (
-              <Card title="Тема" hint="Виждаш я веднага като преглед — остава, ако натиснеш „Запази“.">
+              <>
+              <Card title={t("Език", "Language")} hint={t("Сменя се веднага.", "Changes right away.")}>
+                <div className="set-choices">
+                  <Choice name="ui-lang" checked={lang === "bg"} title="Български" hint="Интерфейсът на български." onSelect={() => setLang("bg")} />
+                  <Choice name="ui-lang" checked={lang === "en"} title="English" hint="The interface in English." onSelect={() => setLang("en")} />
+                </div>
+              </Card>
+              <Card title={t("Тема", "Theme")} hint={t("Виждаш я веднага като преглед — остава, ако натиснеш „Запази“.", "You see it right away as a preview — it stays if you press Save.")}>
                 <div className="theme-grid set-themes">
-                  {THEMES.map((t) => (
+                  {THEMES.map((th) => (
                     <button
-                      key={t.id}
+                      key={th.id}
                       type="button"
-                      className={`theme-swatch ${draft.themeId === t.id ? "selected" : ""}`}
-                      title={t.name}
-                      onClick={() => edit({ themeId: t.id })}
+                      className={`theme-swatch ${draft.themeId === th.id ? "selected" : ""}`}
+                      title={th.name}
+                      onClick={() => edit({ themeId: th.id })}
                     >
                       <span
                         className="theme-swatch-preview"
                         style={{
-                          background: t.bodyImage ? `${t.bodyImage}, hsl(${t.h} ${t.s}% ${t.l}%)` : `hsl(${t.h} ${t.s}% ${t.l}%)`,
-                          borderColor: `hsl(${t.h} ${t.s}% ${t.light ? t.l - 14 : t.l + 14}%)`,
+                          background: th.bodyImage ? `${th.bodyImage}, hsl(${th.h} ${th.s}% ${th.l}%)` : `hsl(${th.h} ${th.s}% ${th.l}%)`,
+                          borderColor: `hsl(${th.h} ${th.s}% ${th.light ? th.l - 14 : th.l + 14}%)`,
                         }}
                       >
-                        <span className="theme-swatch-accent" style={{ background: t.accent }} />
+                        <span className="theme-swatch-accent" style={{ background: th.accent }} />
                       </span>
-                      <span className="theme-swatch-name">{t.name}</span>
+                      <span className="theme-swatch-name">{th.name}</span>
                     </button>
                   ))}
                 </div>
               </Card>
+              </>
             )}
 
             {section === "accessibility" && (
-              <Card title="Движение и мащаб">
+              <Card title={t("Движение и мащаб", "Motion & zoom")}>
                 <Toggle
-                  label="Намали анимациите"
-                  hint="Спира анимациите; огънят на Inferno темата спира след презареждане."
+                  label={t("Намали анимациите", "Reduce motion")}
+                  hint={t("Спира анимациите; огънят на Inferno темата спира след презареждане.", "Stops animations; the Inferno theme's fire stops after a reload.")}
                   checked={draft.reduceMotion}
                   onChange={(on) => edit({ reduceMotion: on })}
                 />
-                <p className="set-hint">Мащаб на целия прозорец: Ctrl + / Ctrl − / Ctrl 0.</p>
+                <p className="set-hint">{t("Мащаб на целия прозорец: Ctrl + / Ctrl − / Ctrl 0.", "Zoom the whole window: Ctrl + / Ctrl − / Ctrl 0.")}</p>
               </Card>
             )}
           </div>
@@ -966,18 +988,18 @@ export default function UserSettingsModal({ onClose }: Props) {
               {error ? (
                 <span className="set-error-inline">{error}</span>
               ) : dirty ? (
-                "Имаш незапазени промени"
+                t("Имаш незапазени промени", "You have unsaved changes")
               ) : justSaved ? (
-                <span className="set-ok">Запазено ✓</span>
+                <span className="set-ok">{t("Запазено ✓", "Saved ✓")}</span>
               ) : (
-                "Всичко е запазено"
+                t("Всичко е запазено", "Everything is saved")
               )}
             </span>
             <button className="set-button" onClick={discard} disabled={!dirty || saving}>
-              Откажи
+              {t("Откажи", "Discard")}
             </button>
             <button className="set-button primary" onClick={() => void save()} disabled={!dirty || saving || uploading}>
-              {saving ? "Запазване…" : "Запази промените"}
+              {saving ? t("Запазване…", "Saving…") : t("Запази промените", "Save changes")}
             </button>
           </footer>
         </div>

@@ -2,6 +2,7 @@ import { Perm, SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import { usePerm } from "../store/membersStore";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { tr } from "../i18n";
 import { createPortal } from "react-dom";
 import { getSocket } from "../socket/socket";
 import { useServerStore } from "../store/serverStore";
@@ -82,7 +83,7 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
 
   function handleDelete() {
     setPopover(null);
-    if (!window.confirm("Delete this message?")) return;
+    if (!window.confirm(tr("Да изтрия ли това съобщение?", "Delete this message?"))) return;
     getSocket()?.emit(SocketEvents.MessageDelete, { messageId: message.id });
   }
 
@@ -94,10 +95,10 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
         </button>
       ))}
       <button ref={reactButtonRef} onClick={() => setPopover(popover === "picker" ? null : "picker")}>
-        ☺ React
+        ☺ {tr("Реакция", "React")}
       </button>
-      <button onClick={onReply}>💬 Reply</button>
-      <button ref={moreButtonRef} onClick={() => setPopover(popover === "menu" ? null : "menu")} title="More actions">
+      <button onClick={onReply}>💬 {tr("Отговори", "Reply")}</button>
+      <button ref={moreButtonRef} onClick={() => setPopover(popover === "menu" ? null : "menu")} title={tr("Още", "More actions")}>
         ⋮
       </button>
 
@@ -121,7 +122,7 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
                       setShowAddEmoji(true);
                     }}
                   >
-                    Add Emoji
+                    {tr("Добави емоджи", "Add Emoji")}
                   </button>
                 </div>
               </div>
@@ -134,7 +135,7 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
                       onEdit();
                     }}
                   >
-                    Edit message
+                    {tr("Редактирай", "Edit message")}
                   </button>
                 )}
                 {message.content && (
@@ -144,12 +145,12 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
                       setPopover(null);
                     }}
                   >
-                    Copy message
+                    {tr("Копирай текста", "Copy message")}
                   </button>
                 )}
                 {(isOwn || canDeleteAny) && (
                   <button className="danger" onClick={handleDelete}>
-                    Delete message…
+                    {tr("Изтрий…", "Delete message…")}
                   </button>
                 )}
               </div>

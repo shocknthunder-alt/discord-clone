@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLayoutLockStore } from "../store/layoutLockStore";
 import { hasSavedPosition, loadPosition, savePosition, type Position } from "../utils/floatingPositions";
+import { tr } from "../i18n";
 
 interface Props {
   id: string;
@@ -121,7 +122,7 @@ export default function FloatingIcon({ id, getDefaultPosition, children }: Props
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      title={locked ? undefined : "Drag to move anywhere"}
+      title={locked ? undefined : tr("Влачи, за да го преместиш", "Drag to move anywhere")}
     >
       {children}
     </div>

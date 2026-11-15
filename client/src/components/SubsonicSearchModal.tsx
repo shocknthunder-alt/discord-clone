@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { addSubsonicToQueue, fetchSubsonicAlbum, searchSubsonic, type SubsonicAlbum, type SubsonicSong } from "../api/music.api";
 import { unlockMusicAudio } from "../music/musicPlayerEngine";
+import { tr } from "../i18n";
 
 function fmt(sec: number) {
   if (!sec) return "";
@@ -44,9 +45,9 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
       if (seq !== searchSeq.current) return;
       setSongs(r.songs);
       setAlbums(r.albums);
-      if (r.songs.length === 0 && r.albums.length === 0) setError("Нищо не намерих.");
+      if (r.songs.length === 0 && r.albums.length === 0) setError(tr("Нищо не намерих.", "Nothing found."));
     } catch {
-      if (seq === searchSeq.current) setError("Музикалният сървър не отговаря. Опитай пак след малко.");
+      if (seq === searchSeq.current) setError(tr("Музикалният сървър не отговаря. Опитай пак след малко.", "The music server isn't answering. Try again in a moment."));
     } finally {
       if (seq === searchSeq.current) setBusy(false);
     }
@@ -59,7 +60,7 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
       setOpenAlbum((cur) => (cur?.album.id === album.id ? { album, songs: list } : cur));
     } catch {
       setOpenAlbum(null);
-      setError("Не успях да отворя албума.");
+      setError(tr("Не успях да отворя албума.", "Couldn't open the album."));
     }
   }
 
@@ -82,7 +83,7 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
         next.delete(key);
         return next;
       });
-      setError("Не успях да добавя албума.");
+      setError(tr("Не успях да добавя албума.", "Couldn't add the album."));
     }
   }
 
@@ -97,28 +98,28 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
         </small>
       </div>
       <span className="subsonic-dur">{fmt(s.durationSeconds)}</span>
-      <button className={added.has(s.id) ? "done" : ""} onClick={() => addSong(s)} title="Добави в опашката">
-        {added.has(s.id) ? "✓" : "+ Добави"}
+      <button className={added.has(s.id) ? "done" : ""} onClick={() => addSong(s)} title={tr("Добави в опашката", "Add to the queue")}>
+        {added.has(s.id) ? "✓" : tr("+ Добави", "+ Add")}
       </button>
     </div>
   );
 
   return createPortal(
     <div className="subsonic-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="subsonic-modal" role="dialog" aria-label="Музика от yogurthub">
+      <div className="subsonic-modal" role="dialog" aria-label={tr("Музика от yogurthub", "Music from yogurthub")}>
         <div className="subsonic-head">
-          <h3>🎧 Музика от yogurthub</h3>
-          <button className="subsonic-close" onClick={onClose} aria-label="Затвори">
+          <h3>🎧 {tr("Музика от yogurthub", "Music from yogurthub")}</h3>
+          <button className="subsonic-close" onClick={onClose} aria-label={tr("Затвори", "Close")}>
             ✕
           </button>
         </div>
         <form className="subsonic-search" onSubmit={(e) => void run(e)}>
-          <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Песен, изпълнител или албум…" />
+          <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr("Песен, изпълнител или албум…", "Song, artist or album…")} />
           <button type="submit" disabled={!q.trim() || busy}>
-            {busy ? "Търся…" : "Търси"}
+            {busy ? tr("Търся…", "Searching…") : tr("Търси", "Search")}
           </button>
         </form>
-        <p className="subsonic-note">Търси в библиотеката и в Tidal. Песен от Tidal може да тръгне след няколко секунди.</p>
+        <p className="subsonic-note">{tr("Търси в библиотеката и в Tidal. Песен от Tidal може да тръгне след няколко секунди.", "Searches the library and Tidal. A song from Tidal may take a few seconds to start.")}</p>
         {error && <p className="subsonic-error">{error}</p>}
 
         <div className="subsonic-results">
@@ -126,7 +127,7 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
             <>
               <div className="subsonic-album-head">
                 <button className="subsonic-back" onClick={() => setOpenAlbum(null)}>
-                  ← Назад
+                  ← {tr("Назад", "Back")}
                 </button>
                 <div className="subsonic-text">
                   <b>{openAlbum.album.name}</b>
@@ -136,16 +137,16 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
                   className={`subsonic-add-all ${added.has(`album:${openAlbum.album.id}`) ? "done" : ""}`}
                   onClick={() => void addAlbum(openAlbum.album)}
                 >
-                  {added.has(`album:${openAlbum.album.id}`) ? "✓ Добавен" : "+ Добави всичко"}
+                  {added.has(`album:${openAlbum.album.id}`) ? tr("✓ Добавен", "✓ Added") : tr("+ Добави всичко", "+ Add all")}
                 </button>
               </div>
-              {openAlbum.songs === null ? <p className="subsonic-note">Зареждам…</p> : openAlbum.songs.map(songRow)}
+              {openAlbum.songs === null ? <p className="subsonic-note">{tr("Зареждам…", "Loading…")}</p> : openAlbum.songs.map(songRow)}
             </>
           ) : (
             <>
-              {songs.length > 0 && <div className="subsonic-section">Песни</div>}
+              {songs.length > 0 && <div className="subsonic-section">{tr("Песни", "Songs")}</div>}
               {songs.map(songRow)}
-              {albums.length > 0 && <div className="subsonic-section">Албуми и плейлисти</div>}
+              {albums.length > 0 && <div className="subsonic-section">{tr("Албуми и плейлисти", "Albums and playlists")}</div>}
               {albums.map((a) => (
                 <div key={a.id} className="subsonic-row album" onClick={() => void showAlbum(a)}>
                   {a.coverUrl ? <img src={a.coverUrl} alt="" loading="lazy" /> : <span className="subsonic-cover-ph">💿</span>}
@@ -153,7 +154,7 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
                     <b>{a.name}</b>
                     <small>
                       {a.artist}
-                      {a.year ? ` · ${a.year}` : ""} · {a.songCount} песни
+                      {a.year ? ` · ${a.year}` : ""} · {a.songCount} {tr("песни", "songs")}
                     </small>
                   </div>
                   <button
@@ -162,9 +163,9 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
                       e.stopPropagation();
                       void addAlbum(a);
                     }}
-                    title="Добави всички песни"
+                    title={tr("Добави всички песни", "Add all songs")}
                   >
-                    {added.has(`album:${a.id}`) ? "✓" : "+ Всички"}
+                    {added.has(`album:${a.id}`) ? "✓" : tr("+ Всички", "+ All")}
                   </button>
                 </div>
               ))}

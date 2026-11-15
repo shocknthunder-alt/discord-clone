@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import FloatingIcon from "./FloatingIcon";
+import { tr } from "../i18n";
 
 function formatElapsed(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -52,12 +53,12 @@ export default function LiveBanner() {
         <span className="live-dot" />
         <strong>LIVE</strong>
         <span className="live-text">
-          {isScreenSharing ? "Стриймваш екрана си" : "Камерата ти е включена"}
+          {isScreenSharing ? tr("Стриймваш екрана си", "You're streaming your screen") : tr("Камерата ти е включена", "Your camera is on")}
           {isScreenSharing && startedAt ? ` · ${formatElapsed(now - startedAt)}` : ""}
-          {isScreenSharing && isCameraOn ? " · + камера" : ""}
+          {isScreenSharing && isCameraOn ? tr(" · + камера", " · + camera") : ""}
         </span>
         <button className="live-stop" onClick={() => (isScreenSharing ? void toggleScreenShare() : void toggleCamera())}>
-          {isScreenSharing ? "Спри стрийма" : "Изключи"}
+          {isScreenSharing ? tr("Спри стрийма", "Stop streaming") : tr("Изключи", "Turn off")}
         </button>
       </div>
       </FloatingIcon>

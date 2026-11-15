@@ -7,6 +7,7 @@ import { CameraIcon, HangupIcon, HeadphoneIcon, LockIcon, MicIcon } from "./HudI
 import SoundboardPanel from "./SoundboardPanel";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
+import { tr } from "../i18n";
 
 // Starting layout: a vertical rail of its own (.voice-rail, a real column between the channel list
 // and the chat/voice view — so the buttons never cover anything, whatever the window size):
@@ -65,14 +66,14 @@ export default function FloatingVoiceHud() {
   return (
     <>
       <FloatingIcon id="hud-network" getDefaultPosition={() => railSlot(0)}>
-        <div className="hud-icon-button static" title={`Connection: ${connectionQuality}${localRttMs !== null ? ` — ${localRttMs}ms (твоят пинг)` : ""}`}>
+        <div className="hud-icon-button static" title={`${tr("Връзка", "Connection")}: ${connectionQuality}${localRttMs !== null ? ` — ${localRttMs}ms (${tr("твоят пинг", "your ping")})` : ""}`}>
           <SignalIcon quality={connectionQuality} size={localRttMs !== null ? 16 : 20} />
           {localRttMs !== null && <span className="hud-ping">{localRttMs}ms</span>}
         </div>
       </FloatingIcon>
 
       <FloatingIcon id="hud-mute" getDefaultPosition={() => railSlot(1)}>
-        <button className={`hud-icon-button ${isMuted ? "active" : ""}`} onClick={toggleMute} title={isMuted ? "Включи микрофона" : "Заглуши микрофона"}>
+        <button className={`hud-icon-button ${isMuted ? "active" : ""}`} onClick={toggleMute} title={isMuted ? tr("Включи микрофона", "Unmute") : tr("Заглуши микрофона", "Mute")}>
           <MicIcon muted={isMuted} size={24} />
         </button>
       </FloatingIcon>
@@ -81,7 +82,7 @@ export default function FloatingVoiceHud() {
         <button
           className={`hud-icon-button ${isDeafened ? "active" : ""}`}
           onClick={toggleDeafen}
-          title={isDeafened ? "Включи звука" : "Заглуши всички"}
+          title={isDeafened ? tr("Включи звука", "Undeafen") : tr("Заглуши всички", "Deafen")}
         >
           <HeadphoneIcon muted={isDeafened} size={24} />
         </button>
@@ -91,7 +92,7 @@ export default function FloatingVoiceHud() {
         <button
           className={`hud-icon-button ${isCameraOn ? "active" : ""}`}
           onClick={() => void toggleCamera()}
-          title={isCameraOn ? "Изключи камерата" : "Включи камерата"}
+          title={isCameraOn ? tr("Изключи камерата", "Turn camera off") : tr("Включи камерата", "Turn camera on")}
         >
           <CameraIcon off={!isCameraOn} size={24} />
         </button>
@@ -101,7 +102,7 @@ export default function FloatingVoiceHud() {
         <button
           className={`hud-icon-button hud-live ${isScreenSharing ? "on" : ""}`}
           onClick={() => toggleScreenShare()}
-          title={isScreenSharing ? "Спри стрийма" : "Започни стрийм (Go Live)"}
+          title={isScreenSharing ? tr("Спри стрийма", "Stop streaming") : tr("Започни стрийм (Go Live)", "Go Live")}
         >
           <span className="hud-live-dot" />
           <span className="hud-live-text">LIVE</span>
@@ -119,13 +120,13 @@ export default function FloatingVoiceHud() {
       </FloatingIcon>
 
       <FloatingIcon id="hud-settings" getDefaultPosition={() => railSlot(6)}>
-        <button className="hud-icon-button" onClick={() => setShowSettings(true)} title="Настройки">
+        <button className="hud-icon-button" onClick={() => setShowSettings(true)} title={tr("Настройки", "Settings")}>
           ⚙️
         </button>
       </FloatingIcon>
 
       <FloatingIcon id="hud-disconnect" getDefaultPosition={() => railBottomSlot(0)}>
-        <button className="hud-icon-button hangup" onClick={leaveVoiceChannel} title="Излез от канала">
+        <button className="hud-icon-button hangup" onClick={leaveVoiceChannel} title={tr("Излез от канала", "Leave the channel")}>
           <HangupIcon size={24} />
         </button>
       </FloatingIcon>
@@ -135,8 +136,8 @@ export default function FloatingVoiceHud() {
         <button
           className={`hud-lock-button compact ${locked ? "locked" : "unlocked"}`}
           onClick={toggleLocked}
-          title={locked ? "Отключи — бутоните могат да се местят с влачене" : "Заключи бутоните на място"}
-          aria-label={locked ? "Unlock layout" : "Lock layout"}
+          title={locked ? tr("Отключи — бутоните могат да се местят с влачене", "Unlock — buttons can be dragged around") : tr("Заключи бутоните на място", "Lock the buttons in place")}
+          aria-label={locked ? tr("Отключи", "Unlock layout") : tr("Заключи", "Lock layout")}
         >
           <LockIcon locked={locked} size={14} color={locked ? "var(--c-backdrop)" : "var(--t-3)"} />
         </button>

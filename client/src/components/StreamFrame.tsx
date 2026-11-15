@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useStreamFrameStore } from "../store/streamFrameStore";
 import { STREAM_FRAMES } from "./streamFrames";
+import { tr } from "../i18n";
 
 interface Props {
   children: ReactNode;
@@ -86,12 +87,12 @@ export default function StreamFrame({ children, caption, onStop, maxVh = 76 }: P
         <button
           className="stop-watching-button"
           onClick={() => setFrameId(STREAM_FRAMES[(index + 1) % STREAM_FRAMES.length]!.id)}
-          title="Change the stream frame"
+          title={tr("Смени рамката", "Change the stream frame")}
         >
           🎬 {frame.name}
         </button>
-        <button className="stop-watching-button danger" onClick={onStop} title="Stop watching this stream">
-          Stop Watching
+        <button className="stop-watching-button danger" onClick={onStop} title={tr("Спри да гледаш този стрийм", "Stop watching this stream")}>
+          {tr("Спри да гледам", "Stop Watching")}
         </button>
       </div>
       <div className="tv-caption">{caption}</div>
@@ -99,7 +100,7 @@ export default function StreamFrame({ children, caption, onStop, maxVh = 76 }: P
         className="stream-resize-handle"
         onPointerDown={startResize}
         onDoubleClick={resetSize}
-        title="Влачи, за да смениш размера · двоен клик = автоматичен размер"
+        title={tr("Влачи, за да смениш размера · двоен клик = автоматичен размер", "Drag to resize · double-click = automatic size")}
       />
     </div>
   );

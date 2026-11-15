@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { canPopOutWindows, closePopout, popOutStream, usePopoutStore } from "../webrtc/streamPopouts";
 import { cancelControl, requestControl, sendControlInput, useControlStore } from "../webrtc/remoteControl";
+import { tr } from "../i18n";
 
 interface Props {
   stream: MediaStream;
@@ -125,7 +126,7 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
         playsInline
         muted={preview}
         onClick={toggleFullscreen}
-        title="Click to toggle fullscreen"
+        title={tr("Клик за цял екран", "Click to toggle fullscreen")}
       />
       {popout && (
         <button
@@ -136,18 +137,18 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
           }}
           title={
             poppedOut
-              ? "Върни стрийма тук"
-              : "Изкарай стрийма в отделен прозорец — мести го на друг монитор и го оразмерявай; може за няколко стрийма едновременно"
+              ? tr("Върни стрийма тук", "Bring the stream back here")
+              : tr("Изкарай стрийма в отделен прозорец — мести го на друг монитор и го оразмерявай; може за няколко стрийма едновременно", "Pop the stream out into its own window — move it to another monitor and resize it; works for several streams at once")
           }
         >
-          {poppedOut ? "⧉ Върни" : "⧉ Изкарай"}
+          {poppedOut ? `⧉ ${tr("Върни", "Bring back")}` : `⧉ ${tr("Изкарай", "Pop out")}`}
         </button>
       )}
       {controlling && !poppedOut && (
         <div
           className="rc-capture"
           tabIndex={0}
-          title="Управляваш — мишката и клавиатурата отиват при стриймъра"
+          title={tr("Управляваш — мишката и клавиатурата отиват при стриймъра", "You're in control — your mouse and keyboard go to the streamer")}
           onMouseMove={(e) => {
             const p = norm(e);
             if (p) sendControlInput({ t: "move", ...p });
@@ -198,17 +199,17 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
           }}
           title={
             controlling
-              ? "Спри да управляваш"
+              ? tr("Спри да управляваш", "Stop controlling")
               : requesting
-                ? "Чакаме стриймъра да разреши — цъкни, за да се откажеш"
-                : "Поискай да управляваш компютъра на стриймъра (той трябва да разреши; само от десктоп приложението)"
+                ? tr("Чакаме стриймъра да разреши — цъкни, за да се откажеш", "Waiting for the streamer to allow it — click to cancel")
+                : tr("Поискай да управляваш компютъра на стриймъра (той трябва да разреши; само от десктоп приложението)", "Ask to control the streamer's PC (they must allow it; desktop app only)")
           }
         >
-          {controlling ? "✋ Спри контрола" : requesting ? "⏳ Чакам…" : "🖱 Поискай контрол"}
+          {controlling ? tr("✋ Спри контрола", "✋ Stop control") : requesting ? tr("⏳ Чакам…", "⏳ Waiting…") : tr("🖱 Поискай контрол", "🖱 Request control")}
         </button>
       )}
-      {poppedOut && <div className="stream-popped-note">Стриймът е в отделен прозорец</div>}
-      {blocked && !poppedOut && <div className="stream-popped-note">Браузърът спря изскачащия прозорец — разреши pop-ups за сайта</div>}
+      {poppedOut && <div className="stream-popped-note">{tr("Стриймът е в отделен прозорец", "The stream is in a separate window")}</div>}
+      {blocked && !poppedOut && <div className="stream-popped-note">{tr("Браузърът спря изскачащия прозорец — разреши pop-ups за сайта", "The browser blocked the pop-up — allow pop-ups for this site")}</div>}
       {!preview && !inWindow && (
       <div className="stream-volume" onClick={(e) => e.stopPropagation()}>
         <button
@@ -217,7 +218,7 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
             if (silent && volume === 0) setVolume(50);
             setMuted(!silent);
           }}
-          title={silent ? "Включи звука" : "Заглуши стрийма"}
+          title={silent ? tr("Включи звука", "Unmute") : tr("Заглуши стрийма", "Mute the stream")}
         >
           {silent ? "🔇" : volume < 50 ? "🔉" : "🔊"}
         </button>
@@ -230,9 +231,9 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
             setVolume(Number(e.target.value));
             setMuted(false);
           }}
-          aria-label="Сила на звука на стрийма"
+          aria-label={tr("Сила на звука на стрийма", "Stream volume")}
         />
-        {!hasAudio && <span className="stream-volume-note">няма звук</span>}
+        {!hasAudio && <span className="stream-volume-note">{tr("няма звук", "no sound")}</span>}
       </div>
       )}
     </div>

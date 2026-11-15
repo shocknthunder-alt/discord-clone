@@ -28,6 +28,7 @@ import UserBar from "./UserBar";
 import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
+import { tr } from "../i18n";
 
 
 interface Props {
@@ -85,10 +86,10 @@ function ParticipantRow({
       <ParticipantAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
       <span
         className={peer.isScreenSharing ? "participant-name streaming" : "participant-name"}
-        title={peer.isScreenSharing ? `Sharing ${peer.screenShareLabel ?? "their screen"}` : undefined}
+        title={peer.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${peer.screenShareLabel ?? tr("екрана си", "their screen")}` : undefined}
       >
         {peer.isScreenSharing && <LiveIcon size={11} />}{" "}
-        {peer.username || "connecting…"}
+        {peer.username || tr("свързва се…", "connecting…")}
       </span>
       {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
         <span className="voice-status-icons"> {voiceStatusIcons(peer.isMuted, peer.isDeafened)}</span>
@@ -102,9 +103,9 @@ function ParticipantRow({
             e.stopPropagation();
             onWatch(peer.socketId);
           }}
-          title={watching ? "Show the stream" : "Watch this stream"}
+          title={watching ? tr("Покажи стрийма", "Show the stream") : tr("Гледай стрийма", "Watch this stream")}
         >
-          {watching ? "LIVE" : "Watch"}
+          {watching ? "LIVE" : tr("Гледай", "Watch")}
         </button>
       )}
     </div>
@@ -117,7 +118,7 @@ function OccupantRow({ occupant, canMove }: { occupant: VoicePeerInfo; canMove: 
       <ParticipantAvatar avatarUrl={occupant.avatarUrl} name={occupant.username} speaking={false} />
       <span
         className={occupant.isScreenSharing ? "participant-name streaming" : "participant-name"}
-        title={occupant.isScreenSharing ? `Sharing ${occupant.screenShareLabel ?? "their screen"}` : undefined}
+        title={occupant.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${occupant.screenShareLabel ?? tr("екрана си", "their screen")}` : undefined}
       >
         {occupant.isScreenSharing && <LiveIcon size={11} />}{" "}
         {occupant.username}
@@ -145,7 +146,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const { setView, setActiveConversation, upsertConversation } = useDmStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
-  const currentUsername = useAuthStore((s) => s.user?.username) ?? "You";
+  const currentUsername = useAuthStore((s) => s.user?.username) ?? tr("Ти", "You");
   const [showServerSettings, setShowServerSettings] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
   const [channelContextMenu, setChannelContextMenu] = useState<{ type: "text" | "voice"; x: number; y: number } | null>(
@@ -301,36 +302,36 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 <button
                   className="server-settings-button"
                   onClick={() => {
-                    if (window.confirm("Reset all moved icons/buttons back to their default positions?")) {
+                    if (window.confirm(tr("Да върна ли всички преместени икони и бутони на местата им?", "Reset all moved icons/buttons back to their default positions?"))) {
                       resetAllPositions();
                       window.location.reload();
                     }
                   }}
-                  title="Reset icon positions"
+                  title={tr("Върни иконите на местата им", "Reset icon positions")}
                 >
                   ↺
                 </button>
               )}
               {canOpenServerSettings && (
-                <button className="server-settings-button" onClick={() => setShowServerSettings(true)} title="Настройки на сървъра">
+                <button className="server-settings-button" onClick={() => setShowServerSettings(true)} title={tr("Настройки на сървъра", "Server settings")}>
                   ⚙️
                 </button>
               )}
             </div>
             <div style={{ padding: "0 16px", fontSize: 12, color: "var(--t-3)" }}>
-              Invite code: {activeServer.inviteCode}
+              {tr("Код за покана", "Invite code")}: {activeServer.inviteCode}
             </div>
 
             <EventsSection />
 
             <div onContextMenu={(e) => handleSectionContextMenu(e, "text")}>
-              <div className="channel-section">Text Channels</div>
+              <div className="channel-section">{tr("Текстови канали", "Text Channels")}</div>
               {textChannels.map((channel) => (
                 <div
                   key={channel.id}
                   {...dragProps("text", channel.id)}
                   className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${unreadMarkers && isChannelUnread(unread, channel.id) ? "unread" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
-                  title={unreadMarkers && isChannelUnread(unread, channel.id) ? "Има непрочетени съобщения" : undefined}
+                  title={unreadMarkers && isChannelUnread(unread, channel.id) ? tr("Има непрочетени съобщения", "Unread messages") : undefined}
                   onClick={() => {
                     setActiveTextChannel(channel.id);
                     onSelectText();
@@ -344,7 +345,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         e.stopPropagation();
                         setEditingChannel({ kind: "text", channel });
                       }}
-                      title="Edit Channel"
+                      title={tr("Настройки на канала", "Edit Channel")}
                     >
                       ⚙️
                     </button>
@@ -354,7 +355,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
             </div>
 
             <div onContextMenu={(e) => handleSectionContextMenu(e, "voice")}>
-              <div className="channel-section">Voice Channels</div>
+              <div className="channel-section">{tr("Гласови канали", "Voice Channels")}</div>
               {voiceChannels.map((channel) => {
                 const isActive = channel.id === activeVoiceChannelId;
                 const occupants = isActive ? null : channelOccupants.get(channel.id);
@@ -372,7 +373,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                         <VoiceChannelIcon /> {channel.name}
                       </span>
                       {count > 0 && (
-                        <span className="voice-count" title={`${count} в канала`}>
+                        <span className="voice-count" title={`${count} ${tr("в канала", "in the channel")}`}>
                           {count}
                         </span>
                       )}
@@ -383,7 +384,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                             e.stopPropagation();
                             setEditingChannel({ kind: "voice", channel });
                           }}
-                          title="Edit Channel"
+                          title={tr("Настройки на канала", "Edit Channel")}
                         >
                           ⚙️
                         </button>
@@ -422,9 +423,9 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                                 watchStream(SELF_STREAM_KEY);
                                 onSelectVoice();
                               }}
-                              title={selfWatching ? "Show your stream" : "Preview your stream"}
+                              title={selfWatching ? tr("Покажи стрийма си", "Show your stream") : tr("Виж как изглежда стриймът ти", "Preview your stream")}
                             >
-                              {selfWatching ? "LIVE" : "Watch"}
+                              {selfWatching ? "LIVE" : tr("Гледай", "Watch")}
                             </button>
                           )}
                         </div>

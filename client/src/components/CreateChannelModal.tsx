@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { tr } from "../i18n";
 import { createTextChannel, createVoiceChannel } from "../api/channels.api";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -29,7 +30,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
       }
       onClose();
     } catch {
-      setError("Could not create the channel.");
+      setError(tr("Каналът не се създаде.", "Could not create the channel."));
     } finally {
       setCreating(false);
     }
@@ -38,14 +39,14 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-back" onClick={onClose} aria-label="Back">
+        <button className="modal-back" onClick={onClose} aria-label={tr("Назад", "Back")}>
           ←
         </button>
 
-        <h1 className="modal-title">{type === "text" ? "Create Text Channel" : "Create Voice Channel"}</h1>
+        <h1 className="modal-title">{type === "text" ? tr("Нов текстов канал", "Create Text Channel") : tr("Нов гласов канал", "Create Voice Channel")}</h1>
 
         <label className="modal-label" htmlFor="channel-name-input">
-          Channel Name
+          {tr("Име на канала", "Channel Name")}
         </label>
         <input
           id="channel-name-input"
@@ -53,21 +54,21 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          placeholder={type === "text" ? "e.g. announcements" : "e.g. Gaming"}
+          placeholder={type === "text" ? tr("напр. новини", "e.g. announcements") : tr("напр. Игри", "e.g. Gaming")}
           autoFocus
         />
 
         {type === "text" && (
           <label className="modal-checkbox-label">
             <input type="checkbox" checked={trivia} onChange={(e) => setTrivia(e.target.checked)} />
-            🎲 Trivia channel (Trivia Bot answers here)
+            🎲 {tr("Тривия канал (ботът за тривия отговаря тук)", "Trivia channel (Trivia Bot answers here)")}
           </label>
         )}
 
         {error && <div className="modal-error">{error}</div>}
 
         <button className="modal-create-button" onClick={handleCreate} disabled={creating || !name.trim()}>
-          {creating ? "Creating…" : "Create Channel"}
+          {creating ? tr("Създаване…", "Creating…") : tr("Създай канала", "Create Channel")}
         </button>
       </div>
     </div>

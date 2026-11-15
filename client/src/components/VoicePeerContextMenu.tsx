@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useVoiceStore } from "../store/voiceStore";
+import { tr } from "../i18n";
 
 interface Props {
   socketId: string;
@@ -40,7 +41,7 @@ export default function VoicePeerContextMenu({ socketId, x, y, onClose, onMessag
       <div className="context-menu-header">{peer.username}</div>
 
       <div className="context-menu-volume">
-        <span>Volume: {peer.localVolume}%</span>
+        <span>{tr("Сила", "Volume")}: {peer.localVolume}%</span>
         <input
           type="range"
           min={0}
@@ -56,7 +57,7 @@ export default function VoicePeerContextMenu({ socketId, x, y, onClose, onMessag
           setPeerLocalMuted(peer.socketId, !peer.localMuted);
         }}
       >
-        {peer.localMuted ? "Unmute for me" : "Mute for me"}
+        {peer.localMuted ? tr("Включи го за мен", "Unmute for me") : tr("Заглуши го за мен", "Mute for me")}
       </button>
 
       <button
@@ -66,7 +67,7 @@ export default function VoicePeerContextMenu({ socketId, x, y, onClose, onMessag
           onClose();
         }}
       >
-        Message {peer.username}
+        {tr("Съобщение до", "Message")} {peer.username}
       </button>
 
       <button
@@ -76,7 +77,7 @@ export default function VoicePeerContextMenu({ socketId, x, y, onClose, onMessag
           onClose();
         }}
       >
-        Call {peer.username}
+        {tr("Обади се на", "Call")} {peer.username}
       </button>
     </div>
   );

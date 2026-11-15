@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useIgnoredUsersStore } from "../store/ignoredUsersStore";
+import { tr } from "../i18n";
 
 interface Props {
   userId: string;
@@ -42,7 +43,7 @@ export default function UserContextMenu({ userId, username, x, y, onClose, onMes
           onClose();
         }}
       >
-        {isIgnored ? "Unignore" : "Ignore"} {username}
+        {isIgnored ? tr("Спри да игнорираш", "Unignore") : tr("Игнорирай", "Ignore")} {username}
       </button>
 
       <button
@@ -52,7 +53,7 @@ export default function UserContextMenu({ userId, username, x, y, onClose, onMes
           onClose();
         }}
       >
-        Message {username}
+        {tr("Съобщение до", "Message")} {username}
       </button>
 
       <button
@@ -62,7 +63,7 @@ export default function UserContextMenu({ userId, username, x, y, onClose, onMes
           onClose();
         }}
       >
-        Call {username}
+        {tr("Обади се на", "Call")} {username}
       </button>
     </div>
   );

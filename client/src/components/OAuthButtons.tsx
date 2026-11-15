@@ -11,6 +11,7 @@ import {
   type OAuthResult,
 } from "../api/oauth.api";
 import PasswordInput from "./PasswordInput";
+import { useLang, useT } from "../i18n";
 
 /**
  * "Влез с Google / Microsoft" under the login and register forms.
@@ -77,6 +78,8 @@ function randomCode() {
 }
 
 export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: import("@discord-clone/shared").UserDTO; token: string }) => void }) {
+  const t = useT();
+  const lang = useLang();
   const [config, setConfig] = useState<OAuthConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<OAuthProvider | "desktop" | null>(null);
@@ -99,7 +102,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
       if (r.kind === "ok") onSignedInRef.current(r);
       else setLink(r);
     } catch (err) {
-      setError(errorText(err, "Входът не стана. Опитай пак."));
+      setError(errorText(err, t("Входът не стана. Опитай пак.", "Sign-in failed. Try again.")));
     } finally {
       setBusy(null);
     }
@@ -121,13 +124,13 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
           callback: (r) => r.credential && void finishRef.current("google", r.credential),
         });
         el.innerHTML = "";
-        g.accounts.id.renderButton(el, { theme: "filled_black", size: "large", text: "continue_with", shape: "pill", width: 300, locale: "bg" });
+        g.accounts.id.renderButton(el, { theme: "filled_black", size: "large", text: "continue_with", shape: "pill", width: 300, locale: lang });
       })
-      .catch(() => !cancelled && setError("Google входът не се зареди (провери интернета/блокер на реклами)."));
+      .catch(() => !cancelled && setError(t("Google входът не се зареди (провери интернета/блокер на реклами).", "Google sign-in didn't load (check the internet / ad blocker).")));
     return () => {
       cancelled = true;
     };
-  }, [config?.google, desktop]);
+  }, [config?.google, desktop, lang]);
 
   async function microsoft() {
     if (!config?.microsoft) return;
@@ -141,7 +144,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
     } catch (err) {
       setBusy(null);
       const code = (err as { errorCode?: string }).errorCode;
-      if (code !== "user_cancelled") setError("Microsoft входът не стана. Опитай пак.");
+      if (code !== "user_cancelled") setError(t("Microsoft входът не стана. Опитай пак.", "Microsoft sign-in failed. Try again."));
     }
   }
 
@@ -162,7 +165,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
         window.clearInterval(pollRef.current!);
         pollRef.current = null;
         setBusy(null);
-        setError("Времето изтече — натисни бутона пак.");
+        setError(t("Времето изтече — натисни бутона пак.", "Timed out — press the button again."));
         return;
       }
       const r = await takeDesktopHandoff(code);
@@ -182,7 +185,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
     try {
       onSignedInRef.current(await oauthLinkWithPassword(link.linkToken, linkPassword));
     } catch (err) {
-      setError(errorText(err, "Грешна парола."));
+      setError(errorText(err, t("Грешна парола.", "Wrong password.")));
     }
   }
 
@@ -192,8 +195,11 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
     return (
       <div className="oauth-box">
         <div className="oauth-link-text">
-          Имейлът ({link.email}) вече има акаунт <b>{link.username}</b>. Въведи паролата му веднъж и следващия път влизаш само с
-          Microsoft.
+          {t("Имейлът", "The e-mail")} ({link.email}) {t("вече има акаунт", "already has an account")} <b>{link.username}</b>.{" "}
+          {t(
+            "Въведи паролата му веднъж и следващия път влизаш само с Microsoft.",
+            "Enter its password once and next time Microsoft alone signs you in.",
+          )}
         </div>
         {/* Not a <form>: this sits inside the login form (forms can't nest). */}
         <div
@@ -207,12 +213,12 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
         >
           <PasswordInput autoComplete="current-password" value={linkPassword} onChange={(e) => setLinkPassword(e.target.value)} />
           <button type="button" className="oauth-btn" disabled={!linkPassword} onClick={(e) => void submitLink(e)}>
-            Свържи и влез
+            {t("Свържи и влез", "Link and sign in")}
           </button>
         </div>
         {error && <div className="error">{error}</div>}
         <a className="oauth-cancel" onClick={() => setLink(null)}>
-          Отказ
+          {t("Отказ", "Cancel")}
         </a>
       </div>
     );
@@ -221,16 +227,16 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
   return (
     <div className="oauth-box">
       <div className="oauth-or">
-        <span>или</span>
+        <span>{t("или", "or")}</span>
       </div>
       {desktop ? (
         <>
           <button type="button" className="oauth-btn" disabled={busy === "desktop"} onClick={desktopSignIn}>
-            {busy === "desktop" ? "Чакам да влезеш в браузъра…" : `Влез с ${[config.google && "Google", config.microsoft && "Microsoft"].filter(Boolean).join(" или ")}`}
+            {busy === "desktop" ? t("Чакам да влезеш в браузъра…", "Waiting for you to sign in in the browser…") : `${t("Влез с", "Sign in with")} ${[config.google && "Google", config.microsoft && "Microsoft"].filter(Boolean).join(t(" или ", " or "))}`}
           </button>
           {busy === "desktop" && (
             <div className="oauth-hint">
-              Отвори се браузърът ти — влез там и се върни тук. <a onClick={() => desktopSignIn()}>Отвори пак</a>
+              {t("Отвори се браузърът ти — влез там и се върни тук.", "Your browser opened — sign in there and come back.")} <a onClick={() => desktopSignIn()}>{t("Отвори пак", "Open again")}</a>
             </div>
           )}
         </>
@@ -245,7 +251,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
                 <rect x="1" y="11" width="9" height="9" fill="#00a4ef" />
                 <rect x="11" y="11" width="9" height="9" fill="#ffb900" />
               </svg>
-              {busy === "microsoft" ? "Влизане…" : "Продължи с Microsoft"}
+              {busy === "microsoft" ? t("Влизане…", "Signing in…") : t("Продължи с Microsoft", "Continue with Microsoft")}
             </button>
           )}
         </>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import UserSettingsModal from "./UserSettingsModal";
+import { tr } from "../i18n";
 
 export default function UserBar() {
   const user = useAuthStore((s) => s.user);
@@ -16,7 +17,7 @@ export default function UserBar() {
         <div className="user-bar-avatar placeholder">{user.username.slice(0, 2).toUpperCase()}</div>
       )}
       <div className="user-bar-name">{user.username}</div>
-      <button className="user-bar-settings-button" onClick={() => setShowSettings(true)} title="User Settings">
+      <button className="user-bar-settings-button" onClick={() => setShowSettings(true)} title={tr("Настройки", "User Settings")}>
         ⚙️
       </button>
 

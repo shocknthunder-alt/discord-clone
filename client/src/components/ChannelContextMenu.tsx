@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { tr } from "../i18n";
 
 interface Props {
   type: "text" | "voice";
@@ -35,7 +36,7 @@ export default function ChannelContextMenu({ type, x, y, onClose, onCreate }: Pr
           onClose();
         }}
       >
-        {type === "text" ? "Create Text Channel" : "Create Voice Channel"}
+        {type === "text" ? tr("Нов текстов канал", "Create Text Channel") : tr("Нов гласов канал", "Create Voice Channel")}
       </button>
     </div>
   );

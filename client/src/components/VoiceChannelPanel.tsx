@@ -18,6 +18,7 @@ import StreamFrame from "./StreamFrame";
 import { useMovableTile } from "../hooks/useMovableTile";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { closePopout, usePopoutStore } from "../webrtc/streamPopouts";
+import { tr } from "../i18n";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -52,7 +53,7 @@ function CamExpandButton({ camKey }: { camKey: string }) {
         e.stopPropagation();
         toggleCam(camKey);
       }}
-      title={big ? "Смали камерата" : "Уголеми камерата"}
+      title={big ? tr("Смали камерата", "Shrink the camera") : tr("Уголеми камерата", "Enlarge the camera")}
     >
       {big ? "⤡" : "⤢"}
     </button>
@@ -81,10 +82,10 @@ function BigCamera({ stream, caption, mirrored, onClose, maxVh }: { stream: Medi
           if (document.fullscreenElement) void document.exitFullscreen();
           else void wrapRef.current?.requestFullscreen();
         }}
-        title="Клик за цял екран"
+        title={tr("Клик за цял екран", "Click for fullscreen")}
       />
       <div className="cam-big-caption">📷 {caption}</div>
-      <button className="cam-big-close" onClick={onClose} title="Смали обратно">
+      <button className="cam-big-close" onClick={onClose} title={tr("Смали обратно", "Shrink back")}>
         ✕
       </button>
     </div>
@@ -119,13 +120,13 @@ function PeerTile({
       ) : (
         <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
       )}
-      <div>{peer.username || "connecting…"}</div>
+      <div>{peer.username || tr("свързва се…", "connecting…")}</div>
       <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
       {peer.isScreenSharing && (
         <>
           <div className="screen-share-label">
-            <LiveIcon size={12} /> Sharing {peer.screenShareLabel ?? "their screen"}
+            <LiveIcon size={12} /> {tr("Стриймва", "Sharing")} {peer.screenShareLabel ?? tr("екрана си", "their screen")}
           </div>
           {!watchingThis && (
             <button
@@ -135,9 +136,9 @@ function PeerTile({
                 e.stopPropagation();
                 watchStream(peer.socketId);
               }}
-              title="Гледай стрийма"
+              title={tr("Гледай стрийма", "Watch the stream")}
             >
-              Watch Stream
+              {tr("Гледай стрийма", "Watch Stream")}
             </button>
           )}
         </>
@@ -169,7 +170,7 @@ export default function VoiceChannelPanel() {
     .filter((p) => p.userId && p.screenStream)
     .map((p) => ({ key: p.socketId, stream: p.screenStream!, caption: p.username || "Live", preview: false, userId: p.userId! }));
   if (isScreenSharing && localScreenStream) {
-    streams.push({ key: SELF_STREAM_KEY, stream: localScreenStream, caption: `${currentUsername} (ти)`, preview: true });
+    streams.push({ key: SELF_STREAM_KEY, stream: localScreenStream, caption: `${currentUsername} (${tr("ти", "you")})`, preview: true });
   }
   // Streams popped out into their own window don't keep an (empty) frame here — just a slim bar.
   const poppedKeys = usePopoutStore((s) => s.open);
@@ -195,7 +196,7 @@ export default function VoiceChannelPanel() {
   const cams: { key: string; stream: MediaStream; caption: string; mirrored: boolean }[] = Array.from(peers.values())
     .filter((p) => p.userId && p.cameraStream)
     .map((p) => ({ key: p.socketId, stream: p.cameraStream!, caption: p.username, mirrored: false }));
-  if (localCameraStream) cams.push({ key: SELF_STREAM_KEY, stream: localCameraStream, caption: `${currentUsername} (ти)`, mirrored: true });
+  if (localCameraStream) cams.push({ key: SELF_STREAM_KEY, stream: localCameraStream, caption: `${currentUsername} (${tr("ти", "you")})`, mirrored: true });
   const shownCams = cams.filter((c) => bigCams.has(c.key));
   const camKey = cams.map((c) => c.key).join(",");
 
@@ -256,11 +257,11 @@ export default function VoiceChannelPanel() {
           <div className="popped-streams">
             {popped.map((s) => (
               <div key={s.key} className="popped-stream-chip">
-                <span>⧉ {s.caption} — в отделен прозорец</span>
-                <button onClick={() => closePopout(s.key)} title="Върни стрийма тук">
-                  Върни
+                <span>⧉ {s.caption} — {tr("в отделен прозорец", "in a separate window")}</span>
+                <button onClick={() => closePopout(s.key)} title={tr("Върни стрийма тук", "Bring the stream back here")}>
+                  {tr("Върни", "Bring back")}
                 </button>
-                <button onClick={() => stopWatchingStream(s.key)} title="Спри да гледаш">
+                <button onClick={() => stopWatchingStream(s.key)} title={tr("Спри да гледаш", "Stop watching")}>
                   ✕
                 </button>
               </div>
@@ -312,7 +313,7 @@ export default function VoiceChannelPanel() {
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
             {isScreenSharing && (
               <div className="screen-share-badge self">
-                <LiveIcon size={12} color="#ffffff" /> You're sharing
+                <LiveIcon size={12} color="#ffffff" /> {tr("Стриймваш", "You're sharing")}
               </div>
             )}
             {isScreenSharing && screenShareNotice && <div className="screen-share-notice">{screenShareNotice}</div>}

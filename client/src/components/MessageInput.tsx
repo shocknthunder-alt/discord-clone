@@ -2,6 +2,7 @@ import { useImageDrop } from "../hooks/useImageDrop";
 import { SocketEvents } from "@discord-clone/shared";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import { useRef, useState } from "react";
+import { tr } from "../i18n";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
 
@@ -120,8 +121,8 @@ export default function MessageInput({
     <div className="message-input-bar" ref={barRef}>
       {pendingImage && (
         <div className="pending-image-preview">
-          <img src={pendingImage.previewUrl} alt="Pasted" />
-          <button type="button" onClick={removePendingImage} aria-label="Remove image">
+          <img src={pendingImage.previewUrl} alt="" />
+          <button type="button" onClick={removePendingImage} aria-label={tr("Махни снимката", "Remove image")}>
             ✕
           </button>
         </div>
@@ -148,18 +149,18 @@ export default function MessageInput({
           onPaste={handlePaste}
           autoFocus={autoFocus}
           placeholder={
-            placeholder ?? (isCloudinaryConfigured() ? "Message… (постави или провлачи снимка/GIF)" : "Message…")
+            placeholder ?? (isCloudinaryConfigured() ? tr("Съобщение… (постави или провлачи снимка/GIF)", "Message… (paste or drop a picture/GIF)") : tr("Съобщение…", "Message…"))
           }
         />
         <button type="submit" disabled={uploading || (!value.trim() && !pendingImage)}>
-          {uploading ? "Uploading…" : "Send"}
+          {uploading ? tr("Качване…", "Uploading…") : tr("Прати", "Send")}
         </button>
       </form>
 
       {showSendToChannelOption && (
         <label className="also-send-checkbox">
           <input type="checkbox" checked={alsoSendToChannel} onChange={(e) => setAlsoSendToChannel(e.target.checked)} />
-          Also send to channel
+          {tr("Прати и в канала", "Also send to channel")}
         </label>
       )}
     </div>

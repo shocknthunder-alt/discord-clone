@@ -11,6 +11,7 @@ import DesktopAppBanner from "./components/DesktopAppBanner";
 import DesktopUpdateBanner from "./components/DesktopUpdateBanner";
 import ScreenSourcePicker from "./components/ScreenSourcePicker";
 import ThemeFlames from "./components/ThemeFlames";
+import { useLang } from "./i18n";
 
 /**
  * Login, register and the app share ONE route element, so a logged-in person pressing Back (mouse
@@ -34,6 +35,9 @@ function Root() {
 }
 
 export default function App() {
+  // Subscribing here re-renders the whole tree when the interface language changes, so texts
+  // written with tr() follow too. (No `key`: remounting would drop the voice call.)
+  useLang();
   return (
     <BrowserRouter>
       <UpdateBanner />

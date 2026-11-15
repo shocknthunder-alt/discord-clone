@@ -1,5 +1,6 @@
 import { formatDateTime } from "../utils/appPrefs";
 import { Fragment, useEffect, useRef, useState } from "react";
+import { tr } from "../i18n";
 import { searchMessages, type SearchResult } from "../api/channels.api";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useChatStore } from "../store/chatStore";
@@ -90,19 +91,19 @@ export default function SearchModal() {
         <input
           ref={inputRef}
           className="search-input"
-          placeholder="Search messages in all channels…"
+          placeholder={tr("Търси в съобщенията във всички канали…", "Search messages in all channels…")}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         {activeTextChannelId && (
           <label className="search-scope">
             <input type="checkbox" checked={thisChannelOnly} onChange={(e) => setThisChannelOnly(e.target.checked)} />
-            Only in #{channelName}
+            {tr("Само в", "Only in")} #{channelName}
           </label>
         )}
         <div className="search-results">
-          {q.length < 2 && <div className="search-hint">Type at least 2 characters. Tip: Ctrl+K opens search anywhere.</div>}
-          {q.length >= 2 && !loading && results.length === 0 && <div className="search-hint">No messages found.</div>}
+          {q.length < 2 && <div className="search-hint">{tr("Напиши поне 2 знака. Ctrl+K отваря търсенето отвсякъде.", "Type at least 2 characters. Tip: Ctrl+K opens search anywhere.")}</div>}
+          {q.length >= 2 && !loading && results.length === 0 && <div className="search-hint">{tr("Няма намерени съобщения.", "No messages found.")}</div>}
           {results.map((r, i) => (
             <Fragment key={r.id}>
               {(i === 0 || results[i - 1]!.textChannelId !== r.textChannelId) && (
@@ -112,7 +113,7 @@ export default function SearchModal() {
                 <div className="search-result-meta">
                   <strong>{r.authorUsername}</strong>
                   <span>{formatDateTime(r.createdAt)}</span>
-                  {r.replyToId && <span>· in thread</span>}
+                  {r.replyToId && <span>· {tr("в нишка", "in thread")}</span>}
                 </div>
                 <div className="search-result-text">{highlight(r.content, q)}</div>
               </button>

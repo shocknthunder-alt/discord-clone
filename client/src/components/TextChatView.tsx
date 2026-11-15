@@ -20,6 +20,7 @@ import MessageInput from "./MessageInput";
 import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
 import UserContextMenu from "./UserContextMenu";
+import { tr } from "../i18n";
 
 interface Props {
   channelId: string;
@@ -84,7 +85,7 @@ function MessageRow({
         {message.authorUsername}
       </span>
       <span className="timestamp">{formatTime(message.createdAt)}</span>
-      {message.editedAt && <span className="edited-tag">(edited)</span>}
+      {message.editedAt && <span className="edited-tag">({tr("редактирано", "edited")})</span>}
 
       {editing ? (
         <div className="message-edit-form">
@@ -97,8 +98,8 @@ function MessageRow({
             }}
             autoFocus
           />
-          <button className="save" onClick={saveEdit}>Save</button>
-          <button onClick={cancelEdit}>Cancel</button>
+          <button className="save" onClick={saveEdit}>{tr("Запази", "Save")}</button>
+          <button onClick={cancelEdit}>{tr("Отказ", "Cancel")}</button>
         </div>
       ) : (
         message.content && (
@@ -139,7 +140,7 @@ function MessageRow({
             ))}
           </div>
           <span>
-            {replyCount} {replyCount === 1 ? "reply" : "replies"}
+            {replyCount} {replyCount === 1 ? tr("отговор", "reply") : tr("отговора", "replies")}
           </span>
         </div>
       )}
@@ -197,7 +198,7 @@ export default function TextChatView({ channelId }: Props) {
       if (message.textChannelId === channelId) {
         addMessage(message);
         if (message.authorId !== useAuthStore.getState().user?.id) {
-          notifyDesktop(message.authorUsername, message.content || "📷 изображение", message.authorAvatarUrl);
+          notifyDesktop(message.authorUsername, message.content || tr("📷 изображение", "📷 image"), message.authorAvatarUrl);
         }
       }
     }
@@ -320,18 +321,18 @@ export default function TextChatView({ channelId }: Props) {
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
         <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : "#"} {channel?.name ?? ""}</span>
-        <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title="Search messages (Ctrl+K)">
+        <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title={tr("Търси в съобщенията (Ctrl+K)", "Search messages (Ctrl+K)")}>
           🔍
         </button>
         <button
           className={`server-settings-button members-toggle ${membersPanelOpen ? "on" : ""}`}
           onClick={() => useMembersStore.getState().togglePanel()}
-          title={membersPanelOpen ? "Скрий членовете" : "Покажи членовете"}
+          title={membersPanelOpen ? tr("Скрий членовете", "Hide members") : tr("Покажи членовете", "Show members")}
         >
           👥
         </button>
         {isOwner && (
-          <button className="server-settings-button" onClick={() => setShowChannelSettings(true)} title="Channel settings">
+          <button className="server-settings-button" onClick={() => setShowChannelSettings(true)} title={tr("Настройки на канала", "Channel settings")}>
             ⚙️
           </button>
         )}
@@ -377,11 +378,11 @@ export default function TextChatView({ channelId }: Props) {
             <div ref={bottomRef} />
           </div>
           <div className="typing-indicator">
-            {typingUsers.length > 0 ? `${typingUsers.length} user(s) typing…` : ""}
+            {typingUsers.length > 0 ? `${typingUsers.length} ${tr("пише…", "typing…")}` : ""}
           </div>
           {channel?.type === "trivia" && (
             <div className="trivia-hint">
-              🎲 <b>!trivia</b> — безкрайна игра · <b>!trivia 15</b> · <b>!trivia en</b> · <b>!hint</b> подсказка · <b>!skip</b> · <b>!score</b> · <b>!top</b> · <b>!стоп</b> — пиши отговорите свободно, като в чата
+              🎲 <b>!trivia</b> — {tr("безкрайна игра", "endless game")} · <b>!trivia 15</b> · <b>!trivia en</b> · <b>!hint</b> {tr("подсказка", "hint")} · <b>!skip</b> · <b>!score</b> · <b>!top</b> · <b>!стоп</b> — {tr("пиши отговорите свободно, като в чата", "type the answers freely, like in chat")}
             </div>
           )}
           <MessageInput channelId={channelId} />

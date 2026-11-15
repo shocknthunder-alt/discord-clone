@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { closeScreenPicker, useScreenPickerStore } from "../store/screenPickerStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { tr } from "../i18n";
 
 /**
  * Desktop-app-only picker: what to stream. One page, no tabs — the whole screen comes first and is
@@ -61,7 +62,7 @@ function PickerDialog() {
     const list = sources ?? [];
     const windows = list.filter((s) => !s.isScreen);
     return {
-      screens: list.filter((s) => s.isScreen).map((s, i, all) => ({ ...s, name: all.length > 1 ? `Екран ${i + 1}` : "Целият екран" })),
+      screens: list.filter((s) => s.isScreen).map((s, i, all) => ({ ...s, name: all.length > 1 ? `${tr("Екран", "Screen")} ${i + 1}` : tr("Целият екран", "Entire screen") })),
       apps: windows.filter((s) => !BROWSER_TITLE.test(s.name)),
       browser: windows.filter((s) => BROWSER_TITLE.test(s.name)),
     };
@@ -123,19 +124,19 @@ function PickerDialog() {
   return (
     <div className="modal-overlay" onClick={() => closeScreenPicker(null)}>
       <div className="modal-card screen-picker-card" onClick={(e) => e.stopPropagation()}>
-        <button className="modal-back" onClick={() => closeScreenPicker(null)} aria-label="Затвори">
+        <button className="modal-back" onClick={() => closeScreenPicker(null)} aria-label={tr("Затвори", "Close")}>
           ✕
         </button>
-        <h1 className="modal-title">Какво да стриймваш?</h1>
+        <h1 className="modal-title">{tr("Какво да стриймваш?", "What do you want to stream?")}</h1>
 
         <div className="screen-picker-body">
-          {sources === null && <p className="modal-subtitle">Зареждане…</p>}
-          {sources !== null && sources.length === 0 && <p className="modal-subtitle">Не са намерени екрани или прозорци.</p>}
+          {sources === null && <p className="modal-subtitle">{tr("Зареждане…", "Loading…")}</p>}
+          {sources !== null && sources.length === 0 && <p className="modal-subtitle">{tr("Не са намерени екрани или прозорци.", "No screens or windows found.")}</p>}
 
           {groups.screens.length > 0 && (
             <>
               <div className="screen-picker-section">
-                🖥 Цял екран <span className="screen-picker-badge">препоръчано за игри</span>
+                🖥 {tr("Цял екран", "Entire screen")} <span className="screen-picker-badge">{tr("препоръчано за игри", "recommended for games")}</span>
               </div>
               <div className="screen-picker-grid screens">{groups.screens.map((s) => card(s, true))}</div>
             </>
@@ -143,19 +144,19 @@ function PickerDialog() {
 
           {windowCount > 0 && !showWindows && (
             <button className="screen-picker-more" onClick={() => setShowWindows(true)}>
-              Само един прозорец ({windowCount}) ▾
+              {tr("Само един прозорец", "Just one window")} ({windowCount}) ▾
             </button>
           )}
 
           {showWindows && groups.apps.length > 0 && (
             <>
-              <div className="screen-picker-section">🎮 Програми и игри (само прозорецът)</div>
+              <div className="screen-picker-section">🎮 {tr("Програми и игри (само прозорецът)", "Apps and games (just the window)")}</div>
               <div className="screen-picker-grid">{groups.apps.map((s) => card(s))}</div>
             </>
           )}
           {showWindows && groups.browser.length > 0 && (
             <>
-              <div className="screen-picker-section">🌐 Браузър</div>
+              <div className="screen-picker-section">🌐 {tr("Браузър", "Browser")}</div>
               <div className="screen-picker-grid">{groups.browser.map((s) => card(s))}</div>
             </>
           )}
@@ -163,18 +164,19 @@ function PickerDialog() {
 
         {windowChosen && !BROWSER_TITLE.test(chosen.name) && groups.screens.length > 0 && (
           <div className="screen-picker-warning">
-            ⚠ За игра е по-добре <b>Цял екран</b>: стриймът на отделен прозорец слага жълта рамка и може да накъса играта.{" "}
-            <a onClick={() => setSelected(groups.screens[0].id)}>Избери Цял екран</a>
+            ⚠ {tr("За игра е по-добре", "For a game,")} <b>{tr("Цял екран", "Entire screen")}</b>{" "}
+            {tr("е по-добре: стриймът на отделен прозорец слага жълта рамка и може да накъса играта.", "is better: streaming a single window adds a yellow border and can make the game stutter.")}{" "}
+            <a onClick={() => setSelected(groups.screens[0].id)}>{tr("Избери Цял екран", "Pick Entire screen")}</a>
           </div>
         )}
 
         <div className="screen-picker-footer">
           <span className="screen-picker-hint">
-            {windowChosen ? "Другите виждат само този прозорец. " : chosen ? "Другите виждат целия екран. " : ""}
-            Звукът се споделя винаги.
+            {windowChosen ? tr("Другите виждат само този прозорец. ", "Others only see this window. ") : chosen ? tr("Другите виждат целия екран. ", "Others see the whole screen. ") : ""}
+            {tr("Звукът се споделя винаги.", "Sound is always shared.")}
           </span>
           <button className="modal-join-button screen-picker-go" disabled={!selected} onClick={() => start(selected)}>
-            <span className="hud-live-dot" /> Започни стрийм
+            <span className="hud-live-dot" /> {tr("Започни стрийм", "Go Live")}
           </button>
         </div>
       </div>
