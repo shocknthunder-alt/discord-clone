@@ -12,10 +12,10 @@ import { SocketEvents } from "@discord-clone/shared";
 const MUSIC_DEFAULT_VOLUME = 10;
 
 const ADD_ERROR_MESSAGES: Record<string, string> = {
-  "invalid-url": "Not a YouTube link — paste a link, or type a song name to search.",
-  "lookup-failed": "Couldn't look that video up — it may be private, age-restricted, or removed.",
-  "not-found": "Не намерих такава песен — опитай с изпълнителя или виж 🎧 търсачката.",
-  "search-unavailable": "Searching by name needs a YouTube API key that isn't set up yet — paste a link instead.",
+  "invalid-url": "Това не е YouTube линк — постави линк от YouTube или напиши името на песента.",
+  "lookup-failed": "Не мога да отворя това видео — може да е частно, с възрастово ограничение или изтрито.",
+  "not-found": "Не намерих такава песен нито в yogurthub, нито в YouTube — опитай с изпълнителя или виж 🎧 търсачката.",
+  "search-unavailable": "Няма я в yogurthub, а търсенето в YouTube не е настроено на сървъра — постави YouTube линк.",
   "playlist-unavailable": "Този плейлист не може да се прочете — може да е частен или празен.",
   "playlist-needs-key": "За плейлисти трябва YouTube API ключ на сървъра — пусни отделни песни засега.",
   "subsonic-unavailable": "Музиката от yogurthub не е настроена на сървъра.",
@@ -41,7 +41,7 @@ export default function MusicMiniPlayer() {
   const addError = useMusicStore((s) => s.addError);
   const audioLocked = useMusicStore((s) => s.audioLocked);
   const setAddError = useMusicStore((s) => s.setAddError);
-  const { removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
+  const { addMusic, removeMusic, playMusic, pauseMusic, skipMusic } = useVoiceChannel();
   // Open by default; the choice is remembered per browser.
   const [expanded, setExpanded] = useState(() => {
     try {
@@ -132,21 +132,28 @@ export default function MusicMiniPlayer() {
     unlockMusicAudio();
     const text = input.trim();
     if (!text || searching) return;
-    // Music comes only from yogurthub now (YouTube was dropped): the best match for the typed
-    // name is queued and plays.
+    // yogurthub first: the best match for the typed name is queued and plays. YouTube is the
+    // backup — when yogurthub has nothing (or doesn't answer), and for pasted YouTube links.
+    setAddError(null);
     if (/^https?:\/\//i.test(text)) {
-      setAddError("no-links");
+      addMusic(text); // YouTube link (anything else is rejected there)
+      setInput("");
+      return;
+    }
+    if (!subsonic) {
+      addMusic(text);
+      setInput("");
       return;
     }
     setSearching(true);
     try {
       const { songs } = await searchSubsonic(text);
-      if (songs.length > 0) {
-        addSubsonicToQueue([songs[0]]);
-        setInput("");
-      } else setAddError("not-found");
+      if (songs.length > 0) addSubsonicToQueue([songs[0]]);
+      else addMusic(text); // not on yogurthub → YouTube search
+      setInput("");
     } catch {
-      setAddError("subsonic-failed");
+      addMusic(text); // yogurthub down → YouTube
+      setInput("");
     } finally {
       setSearching(false);
     }
@@ -289,6 +296,7 @@ export default function MusicMiniPlayer() {
                         {song}
                       </span>
                       <span className="music-queue-meta">
+                        {item.source !== "subsonic" ? "YouTube · " : ""}
                         {artist ? `${artist} · ` : ""}от {item.addedByUsername}
                       </span>
                     </div>
