@@ -8,18 +8,35 @@
 export const RNNOISE_PROCESSOR_NAME = "shmirka-rnnoise";
 
 // RNNoise works on 10 ms frames of 48 kHz mono audio: 480 samples, scaled to the 16-bit range.
+//
+// "Само глас" (voiceOnly): RNNoise also says, per frame, how likely it is that someone is SPEAKING
+// (0..1). Loud clicky keyboards get through the level-based noise gate (a keystroke is as loud as a
+// word), but they don't look like speech — so frames are held back 30 ms (lookahead, so a word's
+// start isn't clipped) and only let out while speech was detected nearby, with a 350 ms hold that
+// bridges the gaps between words. Typing while not talking is then silent; typing WHILE talking is
+// still only as quiet as RNNoise makes it.
 const PROCESSOR_SOURCE = `
 const FRAME = 480;
+const LOOKAHEAD = 3;      // frames (30 ms)
+const HOLD = 35;          // frames (350 ms) kept open after the last speech frame
+const SPEECH_VAD = 0.5;   // RNNoise speech probability that counts as talking
 class RnnoiseProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
     this.ready = false;
     this.enabled = true;
+    this.voiceOnly = true;
     this.inBuf = new Float32Array(FRAME);
     this.inFill = 0;
-    this.ring = new Float32Array(4096);
+    this.ring = new Float32Array(8192);
     this.ringRead = 0;
-    this.ringWrite = FRAME; // 480 samples of silence up front: 10 ms of latency that guarantees no underrun
+    // Silence up front: 10 ms (frame assembly) + the lookahead — guarantees no underrun.
+    this.ringWrite = FRAME * (1 + LOOKAHEAD);
+    this.queue = [];
+    this.hold = 0;
+    this.gain = 1;
+    this.attack = 1 - Math.exp(-1 / (sampleRate * 0.004));
+    this.release = 1 - Math.exp(-1 / (sampleRate * 0.06));
     try {
       const m = createRNNWasmModuleSync();
       this.m = m;
@@ -32,15 +49,29 @@ class RnnoiseProcessor extends AudioWorkletProcessor {
     }
     this.port.onmessage = (e) => {
       if (typeof e.data.enabled === "boolean") this.enabled = e.data.enabled;
+      if (typeof e.data.voiceOnly === "boolean") this.voiceOnly = e.data.voiceOnly;
     };
   }
   denoiseFrame() {
     const heap = this.m.HEAPF32;
     for (let i = 0; i < FRAME; i++) heap[this.idx + i] = this.inBuf[i] * 32768;
-    this.m._rnnoise_process_frame(this.state, this.ptr, this.ptr);
+    const vad = this.m._rnnoise_process_frame(this.state, this.ptr, this.ptr);
+    const data = new Float32Array(FRAME);
+    for (let i = 0; i < FRAME; i++) data[i] = heap[this.idx + i] / 32768;
+    this.queue.push({ data, vad: typeof vad === "number" ? vad : 1 });
+    if (this.queue.length <= LOOKAHEAD) return;
+    const frame = this.queue.shift();
+    // Speech in this frame or in the next 30 ms keeps (re)opening; otherwise the hold runs down.
+    let speech = frame.vad >= SPEECH_VAD;
+    for (let q = 0; q < this.queue.length && !speech; q++) speech = this.queue[q].vad >= SPEECH_VAD;
+    if (speech) this.hold = HOLD;
+    else if (this.hold > 0) this.hold--;
+    const target = !this.voiceOnly || this.hold > 0 ? 1 : 0;
+    const coef = target > this.gain ? this.attack : this.release;
     const size = this.ring.length;
     for (let i = 0; i < FRAME; i++) {
-      this.ring[this.ringWrite] = heap[this.idx + i] / 32768;
+      this.gain += (target - this.gain) * coef;
+      this.ring[this.ringWrite] = frame.data[i] * this.gain;
       this.ringWrite = (this.ringWrite + 1) % size;
     }
   }

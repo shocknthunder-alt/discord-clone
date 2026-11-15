@@ -25,6 +25,8 @@ import {
   setAiNoiseSuppressionEnabled as persistAiNoiseSuppressionEnabled,
   setNoiseGateSensitivity as persistNoiseGateSensitivity,
   setNoiseSuppressionEnabled as persistNoiseSuppressionEnabled,
+  getVoiceOnlyEnabled,
+  setVoiceOnlyEnabled as persistVoiceOnlyEnabled,
 } from "./devicePrefs";
 import { startMicProcessing, type MicProcessingHandle } from "./micProcessing";
 import { SfuMediaManager } from "./SfuMediaManager";
@@ -147,6 +149,7 @@ function startProcessing(stream: MediaStream) {
   return startMicProcessing(stream, {
     highpassEnabled: getHighpassFilterEnabled(),
     aiSuppressionEnabled: getAiNoiseSuppressionEnabled(),
+    voiceOnlyEnabled: getVoiceOnlyEnabled(),
     noiseGateEnabled: getNoiseGateEnabled(),
     noiseGateSensitivity: getNoiseGateSensitivity(),
   });
@@ -886,6 +889,10 @@ export function useVoiceChannel() {
     persistAiNoiseSuppressionEnabled(enabled);
     activeMicProcessing?.setAiSuppressionEnabled(enabled);
   }, []);
+  const setVoiceOnlyEnabled = useCallback((enabled: boolean) => {
+    persistVoiceOnlyEnabled(enabled);
+    activeMicProcessing?.setVoiceOnlyEnabled(enabled);
+  }, []);
   const setNoiseGateEnabled = useCallback((enabled: boolean) => {
     persistNoiseGateEnabled(enabled);
     activeMicProcessing?.setNoiseGateEnabled(enabled);
@@ -958,6 +965,7 @@ export function useVoiceChannel() {
     setAiNoiseSuppressionEnabled,
     setNoiseGateEnabled,
     setNoiseGateSensitivity,
+    setVoiceOnlyEnabled,
     addMusic,
     removeMusic,
     playMusic,

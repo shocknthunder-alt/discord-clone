@@ -14,6 +14,7 @@ import {
   getAiNoiseSuppressionEnabled,
   getNoiseGateSensitivity,
   getNoiseSuppressionEnabled,
+  getVoiceOnlyEnabled,
   getPreferredMicDeviceId,
   getScreenShareAutoRefreshMin,
   getScreenShareEncoder,
@@ -212,6 +213,7 @@ interface Draft {
   micMode: "voice-activation" | "push-to-talk";
   pttKey: string | null;
   aiSuppression: boolean;
+  voiceOnly: boolean;
   noiseGate: boolean;
   noiseGateSensitivity: number;
   highpassFilter: boolean;
@@ -251,6 +253,7 @@ function readCurrent(): Draft {
     micMode: v.micMode,
     pttKey: v.pushToTalkKey,
     aiSuppression: getAiNoiseSuppressionEnabled(),
+    voiceOnly: getVoiceOnlyEnabled(),
     noiseGate: getNoiseGateEnabled(),
     noiseGateSensitivity: getNoiseGateSensitivity(),
     highpassFilter: getHighpassFilterEnabled(),
@@ -416,6 +419,7 @@ export default function UserSettingsModal({ onClose }: Props) {
       if (has("micMode")) voice.setMicMode(d.micMode);
       if (has("pttKey") && d.pttKey) voice.setPushToTalkKey(d.pttKey);
       if (has("aiSuppression")) voice.setAiNoiseSuppressionEnabled(d.aiSuppression);
+      if (has("voiceOnly")) voice.setVoiceOnlyEnabled(d.voiceOnly);
       if (has("noiseGate")) voice.setNoiseGateEnabled(d.noiseGate);
       if (has("noiseGateSensitivity")) voice.setNoiseGateSensitivity(d.noiseGateSensitivity);
       if (has("highpassFilter")) voice.setHighpassFilterEnabled(d.highpassFilter);
@@ -680,6 +684,14 @@ export default function UserSettingsModal({ onClose }: Props) {
                     checked={draft.aiSuppression}
                     onChange={(on) => edit({ aiSuppression: on })}
                   />
+                  {draft.aiSuppression && (
+                    <Toggle
+                      label="Само глас (без клавиатура)"
+                      hint="Микрофонът праща звук само докато говориш — тракането на клавиатурата и мишката между думите не се чува. Изключи го, ако ти реже началото на думите."
+                      checked={draft.voiceOnly}
+                      onChange={(on) => edit({ voiceOnly: on })}
+                    />
+                  )}
                   <Toggle
                     label="Шумова врата"
                     hint="Заглушава микрофона между думите, когато е тихо."

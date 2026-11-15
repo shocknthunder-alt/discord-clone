@@ -14,6 +14,8 @@ import { loadRnnoiseWorkletSource, RNNOISE_PROCESSOR_NAME } from "./rnnoise";
 
 export interface MicProcessingOptions {
   aiSuppressionEnabled: boolean;
+  /** Only let audio out while RNNoise detects speech (keyboard clicks between words are cut). */
+  voiceOnlyEnabled: boolean;
   highpassEnabled: boolean;
   noiseGateEnabled: boolean;
   noiseGateSensitivity: number; // 0-100, see devicePrefs.ts
@@ -23,6 +25,7 @@ export interface MicProcessingHandle {
   outputTrack: MediaStreamTrack;
   setHighpassEnabled: (enabled: boolean) => void;
   setAiSuppressionEnabled: (enabled: boolean) => void;
+  setVoiceOnlyEnabled: (enabled: boolean) => void;
   setNoiseGateEnabled: (enabled: boolean) => void;
   setNoiseGateSensitivity: (sensitivity: number) => void;
   destroy: () => void;
@@ -113,6 +116,7 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
   let noiseGateEnabled = options.noiseGateEnabled;
   let thresholdDb = sensitivityToThresholdDb(options.noiseGateSensitivity);
   let aiEnabled = options.aiSuppressionEnabled;
+  let voiceOnly = options.voiceOnlyEnabled;
   let aiNode: AudioWorkletNode | null = null;
   let gateNode: AudioWorkletNode | null = null;
   let destroyed = false;
@@ -192,6 +196,7 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
           connectGraph();
         }
       };
+      node.port.postMessage({ voiceOnly });
       aiNode = node;
       connectGraph();
     })
@@ -208,6 +213,10 @@ export function startMicProcessing(rawStream: MediaStream, options: MicProcessin
     setAiSuppressionEnabled: (enabled) => {
       aiEnabled = enabled;
       connectGraph();
+    },
+    setVoiceOnlyEnabled: (enabled) => {
+      voiceOnly = enabled;
+      aiNode?.port.postMessage({ voiceOnly });
     },
     setNoiseGateEnabled: (enabled) => {
       noiseGateEnabled = enabled;

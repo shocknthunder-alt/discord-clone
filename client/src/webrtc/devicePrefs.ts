@@ -162,7 +162,13 @@ export const setHighpassFilterEnabled = (v: boolean) => setBoolPref(HIGHPASS_FIL
 export const getAiNoiseSuppressionEnabled = () => getBoolPref(AI_NOISE_SUPPRESSION_KEY, true);
 export const setAiNoiseSuppressionEnabled = (v: boolean) => setBoolPref(AI_NOISE_SUPPRESSION_KEY, v);
 
-export const getNoiseGateEnabled = () => getBoolPref(NOISE_GATE_ENABLED_KEY, true);
+// "Само глас": on top of RNNoise, the mic only sends while it detects speech — clicky keyboards
+// between words are cut completely. Needs the AI suppression on.
+const VOICE_ONLY_KEY = "audioVoiceOnly";
+export const getVoiceOnlyEnabled = () => getBoolPref(VOICE_ONLY_KEY, true);
+export const setVoiceOnlyEnabled = (v: boolean) => setBoolPref(VOICE_ONLY_KEY, v);
+
+export const getNoiseGateEnabled =() => getBoolPref(NOISE_GATE_ENABLED_KEY, true);
 export const setNoiseGateEnabled = (v: boolean) => setBoolPref(NOISE_GATE_ENABLED_KEY, v);
 
 // 0-100 "sensitivity" as shown to the user; higher = gate opens more easily (lower volume
