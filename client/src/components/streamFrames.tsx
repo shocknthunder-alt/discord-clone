@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /**
  * Selectable frames for a watched screen share. Every frame is an SVG drawn on the same
@@ -941,6 +941,65 @@ function SwirlArt() {
   );
 }
 
+/* ───────────────────────── Clean: dark panel, LIVE pill, thin rim, timer ─────────────────────────
+   Own canvas (1100x700): a slim top bar, the 16:9 picture with only a few units of rim around it,
+   and a bottom strip with how long you have been watching. */
+
+const CLEAN_H = 700;
+const CLEAN_SCREEN = { x: 16, y: 56, w: 1068, h: 601 };
+
+function useWatchClock() {
+  const [start] = useState(() => Date.now());
+  const [now, setNow] = useState(start);
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const s = Math.floor((now - start) / 1000);
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${two(Math.floor(s / 3600))}:${two(Math.floor(s / 60) % 60)}:${two(s % 60)}`;
+}
+
+function CleanArt() {
+  const s = CLEAN_SCREEN;
+  const clock = useWatchClock();
+  return (
+    <svg className="stream-frame-art" viewBox={`0 0 ${W} ${CLEAN_H}`} preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <mask id="cl-hole">
+          <rect width={W} height={CLEAN_H} fill="white" />
+          <rect x={s.x} y={s.y} width={s.w} height={s.h} rx="6" fill="black" />
+        </mask>
+        <linearGradient id="cl-panel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#111114" />
+          <stop offset="1" stopColor="#09090b" />
+        </linearGradient>
+      </defs>
+      <g mask="url(#cl-hole)">
+        <rect x="1" y="1" width={W - 2} height={CLEAN_H - 2} rx="16" fill="url(#cl-panel)" stroke="#ffffff" strokeOpacity="0.07" strokeWidth="2" />
+        {/* thin light rim right around the picture */}
+        <rect x={s.x - 3} y={s.y - 3} width={s.w + 6} height={s.h + 6} rx="8" fill="none" stroke="#c9ccd3" strokeOpacity="0.55" strokeWidth="2.5" />
+      </g>
+      {/* LIVE pill */}
+      <rect x="16" y="11" width="92" height="34" rx="7" fill="#ffffff" fillOpacity="0.09" />
+      <circle cx="36" cy="28" r="7" fill="#ed3b3b" />
+      <text x="50" y="36" fill="#fff" fontSize="22" fontWeight="600" fontFamily="system-ui, Segoe UI, sans-serif" letterSpacing="1">
+        LIVE
+      </text>
+      {/* speaker */}
+      <g transform="translate(124 15)" fill="none" stroke="#e8e8ea" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 9 h6 l8 -7 v24 l-8 -7 h-6 z" fill="#e8e8ea" />
+        <path d="M22 8 a8 8 0 0 1 0 10" />
+        <path d="M26 3.5 a14 14 0 0 1 0 19" />
+      </g>
+      {/* time watched */}
+      <text x="18" y={s.y + s.h + 32} fill="#b9bcc4" fontSize="20" fontFamily="ui-monospace, Consolas, monospace" letterSpacing="1">
+        {clock}
+      </text>
+    </svg>
+  );
+}
+
 /* ───────────────────────── Path of Exile 2 key-art frame ───────────────────────── */
 
 function Poe2Art() {
@@ -974,6 +1033,19 @@ function imgFrame(id: string, name: string, file: string, w: number, h: number, 
 }
 
 export const STREAM_FRAMES: StreamFrameDef[] = [
+  {
+    id: "clean",
+    name: "Изчистена LIVE",
+    height: CLEAN_H,
+    screen: {
+      l: (CLEAN_SCREEN.x / W) * 100,
+      t: (CLEAN_SCREEN.y / CLEAN_H) * 100,
+      w: (CLEAN_SCREEN.w / W) * 100,
+      h: (CLEAN_SCREEN.h / CLEAN_H) * 100,
+    },
+    clip: "inset(0 round 6px)",
+    Art: CleanArt,
+  },
   { id: "retro", name: "Ретро телевизор", screen: RETRO, crt: true, Art: RetroArt },
   { id: "cinema", name: "Кино салон", screen: rect(CINEMA_SCREEN.x, CINEMA_SCREEN.y, CINEMA_SCREEN.w, CINEMA_SCREEN.h), Art: CinemaArt },
   { id: "slate", name: "Модерен монитор", screen: rect(SLATE_SCREEN.x, SLATE_SCREEN.y, SLATE_SCREEN.w, SLATE_SCREEN.h), Art: SlateArt },
@@ -1008,7 +1080,7 @@ export const STREAM_FRAMES: StreamFrameDef[] = [
   { id: "swirl", name: "Неонов свитък", screen: rect(SWIRL_SCREEN.x, SWIRL_SCREEN.y, SWIRL_SCREEN.w, SWIRL_SCREEN.h), Art: SwirlArt },
 ];
 
-export const DEFAULT_FRAME_ID = "metal-black";
+export const DEFAULT_FRAME_ID = "clean";
 const STORAGE_KEY = "shmirka-stream-frame";
 
 export function getStoredFrameId(): string {

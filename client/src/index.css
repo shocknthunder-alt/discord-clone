@@ -2499,6 +2499,9 @@ input[type="range"] {
   outline-color: var(--accent);
 }
 .frame-poe2 .tv-caption { display: none; }
+/* Clean LIVE frame: the timer sits bottom-left (in the art), the caption bottom-right. */
+.frame-clean .tv-caption { left: auto; right: 2%; bottom: 1.2%; text-align: right; color: #b9bcc4; }
+.frame-clean { filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.5)); }
 .frame-poe2 { filter: drop-shadow(0 14px 22px rgba(0, 0, 0, 0.55)); }
 
 /* ---- Camera pictures inside voice tiles ---- */
