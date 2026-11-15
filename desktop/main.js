@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, desktopCapturer, ipcMain, nativeImage, session, shell } = require("electron");
+const { app, BrowserWindow, Menu, Tray, desktopCapturer, ipcMain, nativeImage, powerMonitor, session, shell } = require("electron");
 const path = require("node:path");
 const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 const appAudio = require("./appAudio");
@@ -168,6 +168,8 @@ app.whenReady().then(async () => {
     if (readyUpdate && !win.isDestroyed()) win.webContents.send("desktop-update-ready", readyUpdate);
   };
   ipcMain.handle("app-version", () => app.getVersion());
+  // Seconds since the last keyboard/mouse input anywhere in Windows (games included) — AFK channel.
+  ipcMain.handle("system-idle", () => powerMonitor.getSystemIdleTime());
   ipcMain.on("desktop-update-query", tellPage);
   ipcMain.on("desktop-update-install", () => {
     if (!readyUpdate) return;

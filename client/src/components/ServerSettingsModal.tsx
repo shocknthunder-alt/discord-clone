@@ -152,8 +152,8 @@ function GeneralTab({ server, onClose }: Props) {
           </select>
           <p className="modal-hint">
             {tr(
-              "Който не е говорил толкова време, отива в AFK канала със заглушен звук и микрофон. Не се мести, ако стриймва, гледа стрийм или е с камера.",
-              "Anyone who hasn't talked for that long goes to the AFK channel, deafened. Not moved while streaming, watching a stream or on camera.",
+              "Който толкова време не говори и не пипа клавиатура/мишка, отива в AFK канала със заглушен звук и микрофон. В десктоп приложението се брои активност навсякъде (и в игри). Не се мести, ако стриймва, гледа стрийм или е с камера.",
+              "Anyone who hasn't talked or touched the keyboard/mouse for that long goes to the AFK channel, deafened. In the desktop app activity anywhere counts (games too). Not moved while streaming, watching a stream or on camera.",
             )}
           </p>
         </>

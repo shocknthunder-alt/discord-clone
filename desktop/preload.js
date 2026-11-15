@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
   relaunch: () => ipcRenderer.send("app-relaunch"),
   /** Desktop 1.6.0+: this app's version. */
   getVersion: () => ipcRenderer.invoke("app-version"),
+  /** Desktop 1.8.0+: seconds since the last keyboard/mouse input anywhere in Windows. */
+  getSystemIdleSeconds: () => ipcRenderer.invoke("system-idle"),
   /** Desktop 1.6.0+: cb(version) once a new app version has been downloaded. Returns an unsubscribe. */
   onUpdateReady(cb) {
     const handler = (_event, version) => cb(version);

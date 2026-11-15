@@ -28,6 +28,8 @@ interface Window {
     getVersion?(): Promise<string>;
     onUpdateReady?(cb: (version: string) => void): () => void;
     installUpdate?(): void;
+    /** Desktop 1.8.0+: seconds since the last keyboard/mouse input anywhere in Windows. */
+    getSystemIdleSeconds?(): Promise<number>;
   };
 }
 

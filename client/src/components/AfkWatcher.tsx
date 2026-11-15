@@ -57,7 +57,13 @@ export default function AfkWatcher({
     };
     const events = ["keydown", "pointerdown", "pointermove", "wheel"] as const;
     events.forEach((e) => window.addEventListener(e, bump, { passive: true }));
-    return () => events.forEach((e) => window.removeEventListener(e, bump));
+    // Desktop app: keys pressed anywhere in Windows (e.g. in a game) count too — every shell
+    // already forwards them for global push-to-talk.
+    const offGlobal = window.shmirkaDesktop?.onGlobalKey?.(() => bump()) ?? null;
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, bump));
+      offGlobal?.();
+    };
   }, []);
 
   // Entering the AFK channel (moved or by hand) → deafened.
@@ -81,7 +87,17 @@ export default function AfkWatcher({
   const leaveRef = useRef(leave);
   leaveRef.current = leave;
   useEffect(() => {
-    const id = setInterval(() => {
+    const id = setInterval(async () => {
+      // Desktop 1.8.0+: mouse/keyboard anywhere in Windows (games included).
+      const idle = window.shmirkaDesktop?.getSystemIdleSeconds;
+      if (idle) {
+        try {
+          const lastInput = Date.now() - (await idle()) * 1000;
+          if (lastInput > lastActive.current) lastActive.current = lastInput;
+        } catch {
+          /* older shell / IPC hiccup */
+        }
+      }
       const v = useVoiceStore.getState();
       const channelId = v.activeVoiceChannelId;
       if (!channelId || channelId.startsWith("dm:")) return;
@@ -100,8 +116,8 @@ export default function AfkWatcher({
       void joinRef.current(afkId).then(() => {
         setNotice(
           tr(
-            `💤 Преместен си в AFK канала — не си говорил ${minutes} мин. Влез в друг канал, когато се върнеш.`,
-            `💤 You were moved to the AFK channel — you haven't talked for ${minutes} min. Join another channel when you're back.`,
+            `💤 Преместен си в AFK канала — не си бил активен ${minutes} мин. Влез в друг канал, когато се върнеш.`,
+            `💤 You were moved to the AFK channel — you were inactive for ${minutes} min. Join another channel when you're back.`,
           ),
         );
       });
