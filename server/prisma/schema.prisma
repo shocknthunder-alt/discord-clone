@@ -76,6 +76,9 @@ model Server {
   owner      User     @relation("ServerOwner", fields: [ownerId], references: [id])
   inviteCode String   @unique @default(cuid())
   createdAt  DateTime @default(now())
+  /// AFK voice channel: people silent for afkTimeoutMin minutes are moved there (deafened).
+  afkChannelId  String?
+  afkTimeoutMin Int     @default(20)
 
   memberships   Membership[]
   customEmojis  CustomEmoji[]

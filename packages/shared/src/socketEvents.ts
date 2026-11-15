@@ -46,6 +46,8 @@ export const SocketEvents = {
   MembersChanged: "members:changed",
   /** server → the kicked user's room. */
   ServerKicked: "server:kicked",
+  /** { server: ServerDTO } — name/icon/AFK settings changed (to everyone in the server). */
+  ServerUpdated: "server:updated",
   /** client → server: move someone to another voice channel (null = disconnect them). */
   VoiceMoveMember: "voice:move-member",
   /** server → the moved person's socket. */

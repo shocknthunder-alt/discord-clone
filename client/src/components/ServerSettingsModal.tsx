@@ -1,6 +1,7 @@
 import { ALL_PERMS, PERM_INFO, Perm, hasPerm, type RoleDTO, type ServerDTO } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { updateServer } from "../api/servers.api";
+import { createVoiceChannel } from "../api/channels.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { apiError, createRole, deleteRole, kickMember, reorderRoles, setMemberRole, updateRole } from "../api/members.api";
 import { useAuthStore } from "../store/authStore";
@@ -61,6 +62,11 @@ export default function ServerSettingsModal({ server, onClose }: Props) {
 
 function GeneralTab({ server, onClose }: Props) {
   const updateServerInList = useServerStore((s) => s.updateServerInList);
+  const allVoiceChannels = useServerStore((s) => s.voiceChannels);
+  const voiceChannels = allVoiceChannels.filter((v) => v.serverId === server.id);
+  const addVoiceChannel = useServerStore((s) => s.addVoiceChannel);
+  const [afkChannelId, setAfkChannelId] = useState<string>(server.afkChannelId ?? "");
+  const [afkTimeoutMin, setAfkTimeoutMin] = useState<number>(server.afkTimeoutMin ?? 20);
   const [name, setName] = useState(server.name);
   const [iconUrl, setIconUrl] = useState(server.iconUrl);
   const [uploading, setUploading] = useState(false);
@@ -87,7 +93,13 @@ function GeneralTab({ server, onClose }: Props) {
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateServer(server.id, { name: name.trim(), iconUrl });
+      let afkId = afkChannelId || null;
+      if (afkId === "new") {
+        const vc = await createVoiceChannel(server.id, "💤 AFK");
+        addVoiceChannel(vc);
+        afkId = vc.id;
+      }
+      const updated = await updateServer(server.id, { name: name.trim(), iconUrl, afkChannelId: afkId, afkTimeoutMin });
       updateServerInList(updated);
       onClose();
     } catch (err) {
@@ -114,6 +126,38 @@ function GeneralTab({ server, onClose }: Props) {
         {tr("Име на сървъра", "Server name")}
       </label>
       <input id="server-name-input" className="modal-input" value={name} onChange={(e) => setName(e.target.value)} />
+      <label className="modal-label" htmlFor="afk-channel-select" style={{ marginTop: 14 }}>
+        {tr("💤 AFK канал", "💤 AFK channel")}
+      </label>
+      <select id="afk-channel-select" className="modal-input" value={afkChannelId} onChange={(e) => setAfkChannelId(e.target.value)}>
+        <option value="">{tr("Няма (никой не се мести)", "None (nobody is moved)")}</option>
+        {voiceChannels.map((v) => (
+          <option key={v.id} value={v.id}>
+            🔊 {v.name}
+          </option>
+        ))}
+        <option value="new">{tr("＋ Създай нов канал „💤 AFK“", "＋ Create a new \"💤 AFK\" channel")}</option>
+      </select>
+      {afkChannelId && (
+        <>
+          <label className="modal-label" htmlFor="afk-timeout-select" style={{ marginTop: 10 }}>
+            {tr("Мести там след", "Move people there after")}
+          </label>
+          <select id="afk-timeout-select" className="modal-input" value={afkTimeoutMin} onChange={(e) => setAfkTimeoutMin(Number(e.target.value))}>
+            {[5, 10, 15, 20, 30, 60].map((m) => (
+              <option key={m} value={m}>
+                {m} {tr("мин без говорене", "min without talking")}
+              </option>
+            ))}
+          </select>
+          <p className="modal-hint">
+            {tr(
+              "Който не е говорил толкова време, отива в AFK канала със заглушен звук и микрофон. Не се мести, ако стриймва, гледа стрийм или е с камера.",
+              "Anyone who hasn't talked for that long goes to the AFK channel, deafened. Not moved while streaming, watching a stream or on camera.",
+            )}
+          </p>
+        </>
+      )}
       {error && <div className="modal-error">{error}</div>}
       <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !name.trim()}>
         {saving ? tr("Запазване…", "Saving…") : tr("Запази", "Save")}

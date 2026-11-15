@@ -71,7 +71,7 @@ export async function getServer(req: Request, res: Response) {
 
 export async function updateServer(req: Request, res: Response) {
   const { serverId } = req.params;
-  const { name, iconUrl } = req.body ?? {};
+  const { name, iconUrl, afkChannelId, afkTimeoutMin } = req.body ?? {};
 
   if (!(await can(req.userId!, serverId, Perm.MANAGE_SERVER))) {
     return res.status(403).json({ error: "Нямаш право да променяш сървъра." });
@@ -83,15 +83,25 @@ export async function updateServer(req: Request, res: Response) {
   if (iconUrl !== undefined && iconUrl !== null && typeof iconUrl !== "string") {
     return res.status(400).json({ error: "iconUrl must be a string or null" });
   }
+  if (afkChannelId !== undefined && afkChannelId !== null) {
+    const vc = typeof afkChannelId === "string" ? await prisma.voiceChannel.findUnique({ where: { id: afkChannelId } }) : null;
+    if (!vc || vc.serverId !== serverId) return res.status(400).json({ error: "afkChannelId must be a voice channel of this server" });
+  }
+  if (afkTimeoutMin !== undefined && (!Number.isInteger(afkTimeoutMin) || afkTimeoutMin < 1 || afkTimeoutMin > 240)) {
+    return res.status(400).json({ error: "afkTimeoutMin must be 1-240 minutes" });
+  }
 
   const server = await prisma.server.update({
     where: { id: serverId },
     data: {
       ...(name !== undefined ? { name: name.trim() } : {}),
       ...(iconUrl !== undefined ? { iconUrl } : {}),
+      ...(afkChannelId !== undefined ? { afkChannelId } : {}),
+      ...(afkTimeoutMin !== undefined ? { afkTimeoutMin } : {}),
     },
   });
 
+  (req.app.get("io") as IOServer | undefined)?.to(`server:${serverId}`).emit(SocketEvents.ServerUpdated, { server });
   res.json({ server });
 }
 

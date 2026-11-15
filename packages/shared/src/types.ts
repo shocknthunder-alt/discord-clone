@@ -11,6 +11,10 @@ export interface ServerDTO {
   iconUrl: string | null;
   ownerId: string;
   inviteCode: string;
+  /** AFK voice channel (null/absent = none). Older servers' rows may not have these yet. */
+  afkChannelId?: string | null;
+  /** Minutes without speaking before someone is moved to the AFK channel. */
+  afkTimeoutMin?: number;
 }
 
 export interface CustomEmojiDTO {

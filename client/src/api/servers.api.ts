@@ -18,7 +18,10 @@ export function joinServer(inviteCode: string) {
   return http.post<{ server: ServerDTO }>("/api/servers/join", { inviteCode }).then((r) => r.data.server);
 }
 
-export function updateServer(serverId: string, data: { name?: string; iconUrl?: string | null }) {
+export function updateServer(
+  serverId: string,
+  data: { name?: string; iconUrl?: string | null; afkChannelId?: string | null; afkTimeoutMin?: number },
+) {
   return http.patch<{ server: ServerDTO }>(`/api/servers/${serverId}`, data).then((r) => r.data.server);
 }
 

@@ -371,6 +371,11 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                     >
                       <span className="channel-item-name">
                         <VoiceChannelIcon /> {channel.name}
+                        {activeServer?.afkChannelId === channel.id && (
+                          <span className="afk-tag" title={tr("AFK канал — тук идват мълчаливите, със заглушен звук", "AFK channel — idle people land here, deafened")}>
+                            💤
+                          </span>
+                        )}
                       </span>
                       {count > 0 && (
                         <span className="voice-count" title={`${count} ${tr("в канала", "in the channel")}`}>

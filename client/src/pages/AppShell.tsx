@@ -1,8 +1,9 @@
-import { SocketEvents, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type ServerDTO, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
+import AfkWatcher from "../components/AfkWatcher";
 import DmChatView from "../components/DmChatView";
 import DmListPanel from "../components/DmListPanel";
 import EventBoardModal from "../components/EventBoardModal";
@@ -113,6 +114,11 @@ export default function AppShell() {
     // Someone with "move members" dragged me to another voice channel (or disconnected me).
     socket.on(SocketEvents.VoiceMoved, (p: VoiceMovedPayload) => {
       void moveMeRef.current(p);
+    });
+
+    // Name/icon/AFK settings of a server changed.
+    socket.on(SocketEvents.ServerUpdated, ({ server }: { server: ServerDTO }) => {
+      useServerStore.getState().updateServerInList(server);
     });
 
     // I was removed from a server.
@@ -246,6 +252,7 @@ export default function AppShell() {
       <IncomingCallToast />
       <EventToasts onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <RemoteControlPrompt />
+      <AfkWatcher join={joinVoiceChannel} leave={leaveVoiceChannel} deafen={toggleDeafen} />
       <EventBoardModal onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <SearchModal />
       <LiveBanner />
