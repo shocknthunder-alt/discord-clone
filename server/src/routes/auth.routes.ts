@@ -11,6 +11,7 @@ import {
   resetPassword,
   updateMe,
 } from "../controllers/auth.controller.js";
+import { handoffPut, handoffTake, oauthConfigHandler, oauthLink, oauthLogin } from "../controllers/oauth.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 import { rateLimit } from "../middleware/rateLimit.js";
 
@@ -29,3 +30,11 @@ authRouter.post("/change-password", accountLimit, changePassword);
 authRouter.post("/forgot-password", accountLimit, forgotPassword);
 authRouter.post("/forgot-email", accountLimit, forgotEmail);
 authRouter.post("/reset-password", accountLimit, resetPassword);
+
+// "Влез с Google / Microsoft" + handing a browser sign-in over to the desktop app.
+const oauthLimit = rateLimit(30, 10 * 60_000);
+authRouter.get("/oauth/config", oauthConfigHandler);
+authRouter.post("/oauth", oauthLimit, oauthLogin);
+authRouter.post("/oauth/link", accountLimit, oauthLink);
+authRouter.post("/handoff", requireAuth, handoffPut);
+authRouter.get("/handoff/:code", handoffTake);

@@ -70,6 +70,13 @@ Owner pronouns unknown: use they/them.
   window = DWM frame bounds; scan codes from uiohook keycodes). Safety: red always-on-top bar with Спри,
   Ctrl+Alt+Esc, streamer moving own mouse, stream end/leave/reload all stop it; held keys released.
   Client logic in `client/src/webrtc/remoteControl.ts`. Not from pop-out windows; anti-cheat games may ignore it.
+- **Google / Microsoft sign-in**: Render env `GOOGLE_CLIENT_ID`, `MICROSOFT_CLIENT_ID` (public IDs; no
+  secrets). Client gets an ID token (Google Identity Services button / MSAL `loginPopup`, redirect page
+  `client/public/msal-redirect.html`), server verifies it with `jose` against the providers' JWKS
+  (`server/src/utils/oauth.ts`, `controllers/oauth.controller.ts`); `OAuthIdentity` table links accounts.
+  Same e-mail: Google (email_verified) links directly, Microsoft asks the password once (`/oauth/link`).
+  New people get an account with a random password. Desktop app: Google refuses embedded sign-in, so the
+  button opens the system browser at `/desktop-login?code=` and the app polls `/api/auth/handoff/:code`.
 - **Accounts**: login with e-mail OR username; Settings → Акаунт и парола (change password/e-mail);
   login page: Забравена парола / Забравен имейл (masked) / Смяна на паролата; `/reset-password?token=`
   page. Reset tokens use a key derived from JWT_SECRET (never valid as sessions) + a fingerprint of the

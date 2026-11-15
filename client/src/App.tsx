@@ -4,6 +4,7 @@ import { useAuthStore } from "./store/authStore";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import DesktopLoginPage from "./pages/DesktopLoginPage";
 import AppShell from "./pages/AppShell";
 import UpdateBanner from "./components/UpdateBanner";
 import DesktopAppBanner from "./components/DesktopAppBanner";
@@ -42,6 +43,7 @@ export default function App() {
       <ThemeFlames />
       <Routes>
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/desktop-login" element={<DesktopLoginPage />} />
         <Route path="/*" element={<Root />} />
       </Routes>
     </BrowserRouter>

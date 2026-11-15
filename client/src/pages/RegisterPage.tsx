@@ -1,4 +1,5 @@
 import PasswordInput from "../components/PasswordInput";
+import OAuthButtons from "../components/OAuthButtons";
 import axios from "axios";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -45,6 +46,12 @@ export default function RegisterPage() {
         />
         {error && <div className="error">{error}</div>}
         <button type="submit">Register</button>
+        <OAuthButtons
+          onSignedIn={({ user, token }) => {
+            setAuth(user, token);
+            navigate("/");
+          }}
+        />
         <div className="switch-link">
           Already have an account? <Link to="/login">Log In</Link>
         </div>

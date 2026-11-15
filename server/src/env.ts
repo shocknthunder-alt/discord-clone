@@ -26,6 +26,10 @@ const envSchema = z.object({
   SUBSONIC_URL: z.string().url().optional(),
   SUBSONIC_USER: z.string().optional(),
   SUBSONIC_PASSWORD: z.string().optional(),
+  // Optional: "Влез с Google / Microsoft". The client IDs are public (no secrets needed: the app
+  // sends the sign-in's ID token and the server checks its signature).
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  MICROSOFT_CLIENT_ID: z.string().optional(),
 });
 
 export const env = envSchema.parse(trimmedEnv);

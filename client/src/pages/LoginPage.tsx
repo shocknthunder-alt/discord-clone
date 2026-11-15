@@ -1,4 +1,5 @@
 import PasswordInput from "../components/PasswordInput";
+import OAuthButtons from "../components/OAuthButtons";
 import axios from "axios";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -183,6 +184,12 @@ export default function LoginPage() {
         <button type="submit" disabled={busy}>
           {busy ? "Влизане…" : "Влез"}
         </button>
+        <OAuthButtons
+          onSignedIn={({ user, token }) => {
+            setAuth(user, token, rememberMe);
+            navigate("/");
+          }}
+        />
         <div className="switch-link">
           Нямаш акаунт? <Link to="/register">Регистрирай се</Link>
         </div>

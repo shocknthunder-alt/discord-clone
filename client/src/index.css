@@ -2340,6 +2340,25 @@ body {
   border-radius: 12px;
 }
 
+/* ── "Влез с Google / Microsoft" ── */
+.oauth-box { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 16px; }
+.oauth-or { width: 100%; display: flex; align-items: center; gap: 10px; color: var(--t-3); font-size: 12px; }
+.oauth-or::before, .oauth-or::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1); }
+.oauth-google { min-height: 44px; display: flex; justify-content: center; }
+.oauth-btn {
+  width: 300px; max-width: 100%; height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.18); background: #131314; color: #e3e3e3;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+}
+.oauth-btn:hover:not(:disabled) { background: #202124; }
+.oauth-btn:disabled { opacity: 0.6; cursor: default; }
+.oauth-hint { font-size: 12px; color: var(--t-3); text-align: center; }
+.oauth-hint a, .oauth-cancel { color: var(--link, #00a8fc); cursor: pointer; }
+.oauth-link-text { font-size: 13px; color: var(--t-2); line-height: 1.45; text-align: center; }
+.oauth-link-form { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.oauth-link-form > * { width: 100%; }
+.oauth-cancel { font-size: 12px; }
+
 .message-input-form input {
   border-radius: 16px;
 }

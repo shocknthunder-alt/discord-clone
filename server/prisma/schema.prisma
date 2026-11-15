@@ -24,6 +24,22 @@ model User {
   eventRsvps           EventRsvp[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
+  oauthIdentities      OAuthIdentity[]
+}
+
+/// "Влез с Google / Microsoft": which outside account belongs to which user.
+model OAuthIdentity {
+  id        String   @id @default(cuid())
+  provider  String // "google" | "microsoft"
+  subject   String // the provider's stable user id (sub / oid)
+  userId    String
+  email     String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([userId])
 }
 
 model DmConversation {
