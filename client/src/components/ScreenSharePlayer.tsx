@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "re
 import { canPopOutWindows, closePopout, popOutStream, usePopoutStore } from "../webrtc/streamPopouts";
 import { cancelControl, requestControl, sendControlInput, useControlStore } from "../webrtc/remoteControl";
 import { tr } from "../i18n";
-import { ClipBuffer } from "../webrtc/clipBuffer";
+import { ClipBuffer, clipsSupported } from "../webrtc/clipBuffer";
 import { useAppPrefs } from "../utils/appPrefs";
 import ClipDialog from "./ClipDialog";
 
@@ -40,7 +40,7 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
   }, [stream]);
 
   // 🎬 Clip: someone else's stream keeps its last 30 s in memory (Settings → Общи can turn it off).
-  const clipEnabled = useAppPrefs((s) => s.clipBuffer) && !preview && !!popout;
+  const clipEnabled = useAppPrefs((s) => s.clipBuffer) && !preview && !!popout && clipsSupported();
   const clipBuf = useRef<ClipBuffer | null>(null);
   const [clip, setClip] = useState<{ blob: Blob; seconds: number } | null>(null);
   const [clipping, setClipping] = useState(false);
