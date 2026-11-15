@@ -2,39 +2,69 @@ import { useEffect, useMemo, useState } from "react";
 import { closeScreenPicker, useScreenPickerStore } from "../store/screenPickerStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
-/** Desktop-app-only picker: what to stream — a game/app window, a browser window, or a whole screen. */
+/**
+ * Desktop-app-only picker: what to stream. One page, no tabs — the whole screen comes first and is
+ * pre-selected (one click on "Започни стрийм" is enough), windows are listed below it.
+ *
+ * Why the screen first: Windows captures a single WINDOW with "Windows Graphics Capture", which
+ * draws a yellow border around it and, for a game, adds work to the game's own frames (people's
+ * games stuttered). The whole screen is captured by desktop duplication — no border, much lighter.
+ */
 export default function ScreenSourcePicker() {
   const open = useScreenPickerStore((s) => s.open);
   return open ? <PickerDialog /> : null;
 }
 
-type Tab = "apps" | "browser" | "screens";
-
 // Browser windows are told apart by their title ("YouTube - Brave", "… — Mozilla Firefox"). Windows
 // hands out one entry per browser WINDOW (showing its active tab) — single tabs aren't separate.
 const BROWSER_TITLE = /[-—–]\s*(google chrome|brave|microsoft\s*edge|opera( gx)?|vivaldi|mozilla firefox|firefox|yandex|chromium|arc)\s*$/i;
 
-const TABS: { id: Tab; icon: string; label: string; empty: string }[] = [
-  { id: "apps", icon: "🎮", label: "Игри и приложения", empty: "Няма отворени прозорци на игри или програми." },
-  { id: "browser", icon: "🌐", label: "Браузър", empty: "Няма отворен браузър (Chrome, Brave, Edge, Firefox…)." },
-  { id: "screens", icon: "🖥", label: "Цял екран", empty: "Не са намерени екрани." },
-];
+const LAST_KEY = "screenPicker:last";
+
+function SourceCard({
+  src,
+  selected,
+  onSelect,
+  onStart,
+  big,
+}: {
+  src: DesktopScreenSource;
+  selected: boolean;
+  onSelect: () => void;
+  onStart: () => void;
+  big?: boolean;
+}) {
+  return (
+    <button
+      className={`screen-picker-item${selected ? " selected" : ""}${big ? " big" : ""}`}
+      onClick={onSelect}
+      onDoubleClick={onStart}
+      title={src.name}
+    >
+      <img src={src.thumbnail} alt="" />
+      <span>
+        {src.icon && <img className="screen-picker-icon" src={src.icon} alt="" />}
+        {src.name}
+      </span>
+    </button>
+  );
+}
 
 function PickerDialog() {
   useEscapeKey(() => closeScreenPicker(null));
   const [sources, setSources] = useState<DesktopScreenSource[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("apps");
+  const [showWindows, setShowWindows] = useState(false);
   const audio = true; // streams always carry sound
 
   const groups = useMemo(() => {
     const list = sources ?? [];
     const windows = list.filter((s) => !s.isScreen);
     return {
+      screens: list.filter((s) => s.isScreen).map((s, i, all) => ({ ...s, name: all.length > 1 ? `Екран ${i + 1}` : "Целият екран" })),
       apps: windows.filter((s) => !BROWSER_TITLE.test(s.name)),
       browser: windows.filter((s) => BROWSER_TITLE.test(s.name)),
-      screens: list.filter((s) => s.isScreen).map((s, i, all) => ({ ...s, name: all.length > 1 ? `Екран ${i + 1}` : "Целият екран" })),
-    } satisfies Record<Tab, DesktopScreenSource[]>;
+    };
   }, [sources]);
 
   useEffect(() => {
@@ -44,12 +74,18 @@ function PickerDialog() {
       .then((list) => {
         if (cancelled) return;
         setSources(list);
-        // Start where there is something: games/apps first, else browser, else whole screen.
-        const windows = list.filter((s) => !s.isScreen);
-        const apps = windows.filter((s) => !BROWSER_TITLE.test(s.name));
-        const first: Tab = apps.length ? "apps" : windows.length ? "browser" : "screens";
-        setTab(first);
-        setSelected((first === "apps" ? apps[0] : first === "browser" ? windows[0] : list.find((s) => s.isScreen))?.id ?? null);
+        // Same thing as last time if it is still there, otherwise the (first) whole screen.
+        let last: string | null = null;
+        try {
+          last = localStorage.getItem(LAST_KEY);
+        } catch {
+          /* ignore */
+        }
+        const again = last ? list.find((s) => s.id === last) : undefined;
+        const pick = again ?? list.find((s) => s.isScreen) ?? list[0];
+        setSelected(pick?.id ?? null);
+        if (pick && !pick.isScreen) setShowWindows(true);
+        if (!list.some((s) => s.isScreen)) setShowWindows(true);
       })
       .catch(() => {
         if (!cancelled) setSources([]);
@@ -59,8 +95,30 @@ function PickerDialog() {
     };
   }, []);
 
-  const shown = groups[tab];
-  const current = TABS.find((t) => t.id === tab)!;
+  function start(id: string | null) {
+    if (!id) return;
+    try {
+      localStorage.setItem(LAST_KEY, id);
+    } catch {
+      /* ignore */
+    }
+    closeScreenPicker({ id, audio });
+  }
+
+  const chosen = sources?.find((s) => s.id === selected);
+  const windowChosen = !!chosen && !chosen.isScreen;
+  const windowCount = groups.apps.length + groups.browser.length;
+
+  const card = (src: DesktopScreenSource, big?: boolean) => (
+    <SourceCard
+      key={src.id}
+      src={src}
+      big={big}
+      selected={selected === src.id}
+      onSelect={() => setSelected(src.id)}
+      onStart={() => start(src.id)}
+    />
+  );
 
   return (
     <div className="modal-overlay" onClick={() => closeScreenPicker(null)}>
@@ -70,56 +128,52 @@ function PickerDialog() {
         </button>
         <h1 className="modal-title">Какво да стриймваш?</h1>
 
-        <div className="screen-picker-tabs" role="tablist">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              role="tab"
-              aria-selected={tab === t.id}
-              className={`screen-picker-tab${tab === t.id ? " on" : ""}`}
-              onClick={() => setTab(t.id)}
-            >
-              <span className="screen-picker-tab-icon">{t.icon}</span>
-              {t.label}
-              {sources && <span className="screen-picker-tab-count">{groups[t.id].length}</span>}
-            </button>
-          ))}
-        </div>
-
         <div className="screen-picker-body">
           {sources === null && <p className="modal-subtitle">Зареждане…</p>}
-          {sources !== null && shown.length === 0 && <p className="modal-subtitle">{current.empty}</p>}
-          {shown.length > 0 && (
-            <div className="screen-picker-grid">
-              {shown.map((src) => (
-                <button
-                  key={src.id}
-                  className={`screen-picker-item${selected === src.id ? " selected" : ""}`}
-                  onClick={() => setSelected(src.id)}
-                  onDoubleClick={() => closeScreenPicker({ id: src.id, audio })}
-                  title={src.name}
-                >
-                  <img src={src.thumbnail} alt="" />
-                  <span>
-                    {src.icon && <img className="screen-picker-icon" src={src.icon} alt="" />}
-                    {src.name}
-                  </span>
-                </button>
-              ))}
-            </div>
+          {sources !== null && sources.length === 0 && <p className="modal-subtitle">Не са намерени екрани или прозорци.</p>}
+
+          {groups.screens.length > 0 && (
+            <>
+              <div className="screen-picker-section">
+                🖥 Цял екран <span className="screen-picker-badge">препоръчано за игри</span>
+              </div>
+              <div className="screen-picker-grid screens">{groups.screens.map((s) => card(s, true))}</div>
+            </>
+          )}
+
+          {windowCount > 0 && !showWindows && (
+            <button className="screen-picker-more" onClick={() => setShowWindows(true)}>
+              Само един прозорец ({windowCount}) ▾
+            </button>
+          )}
+
+          {showWindows && groups.apps.length > 0 && (
+            <>
+              <div className="screen-picker-section">🎮 Програми и игри (само прозорецът)</div>
+              <div className="screen-picker-grid">{groups.apps.map((s) => card(s))}</div>
+            </>
+          )}
+          {showWindows && groups.browser.length > 0 && (
+            <>
+              <div className="screen-picker-section">🌐 Браузър</div>
+              <div className="screen-picker-grid">{groups.browser.map((s) => card(s))}</div>
+            </>
           )}
         </div>
 
+        {windowChosen && !BROWSER_TITLE.test(chosen.name) && groups.screens.length > 0 && (
+          <div className="screen-picker-warning">
+            ⚠ За игра е по-добре <b>Цял екран</b>: стриймът на отделен прозорец слага жълта рамка и може да накъса играта.{" "}
+            <a onClick={() => setSelected(groups.screens[0].id)}>Избери Цял екран</a>
+          </div>
+        )}
+
         <div className="screen-picker-footer">
           <span className="screen-picker-hint">
-            {tab === "apps" ? "Само прозорецът на играта/програмата — другите не виждат останалото. " : ""}
+            {windowChosen ? "Другите виждат само този прозорец. " : chosen ? "Другите виждат целия екран. " : ""}
             Звукът се споделя винаги.
           </span>
-          <button
-            className="modal-join-button screen-picker-go"
-            disabled={!selected}
-            onClick={() => selected && closeScreenPicker({ id: selected, audio })}
-          >
+          <button className="modal-join-button screen-picker-go" disabled={!selected} onClick={() => start(selected)}>
             <span className="hud-live-dot" /> Започни стрийм
           </button>
         </div>
