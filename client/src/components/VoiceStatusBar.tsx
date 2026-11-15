@@ -2,6 +2,7 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore, type ConnectionQuality } from "../store/voiceStore";
 import { tr } from "../i18n";
+import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 
 const QUALITY_COLOR: Record<ConnectionQuality, string> = {
   good: "#23a559",
@@ -38,6 +39,8 @@ export default function VoiceStatusBar() {
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const conversations = useDmStore((s) => s.conversations);
+  const isScreenSharing = useVoiceStore((s) => s.isScreenSharing);
+  const { toggleScreenShare } = useVoiceChannel();
 
   if (!activeVoiceChannelId) return null;
 
@@ -53,10 +56,21 @@ export default function VoiceStatusBar() {
 
   return (
     <div className="voice-status-bar">
-      <div className="voice-status-bar-text">
-        <div className="voice-status-bar-title">{tr("Свързан с гласа", "Voice Connected")}</div>
-        <div className="voice-status-bar-subtitle">{label}</div>
+      <div className="voice-status-bar-row">
+        <div className="voice-status-bar-text">
+          <div className="voice-status-bar-title">{tr("Свързан с гласа", "Voice Connected")}</div>
+          <div className="voice-status-bar-subtitle">{label}</div>
+        </div>
       </div>
+      <button
+        className={`voice-stream-toggle ${isScreenSharing ? "on" : ""}`}
+        onClick={() => toggleScreenShare()}
+      >
+        <span className="hud-live-dot" />
+        {isScreenSharing
+          ? tr("Цъкни тук, за да спреш стрийма", "Click here to stop streaming")
+          : tr("Цъкни тук, за да пуснеш стрийм", "Click here to start stream")}
+      </button>
     </div>
   );
 }

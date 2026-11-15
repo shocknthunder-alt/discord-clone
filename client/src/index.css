@@ -1290,9 +1290,19 @@ button {
   filter: brightness(1.15);
 }
 
+/* Someone is live: the button glows and pulses red (watching or not). */
+.participant-watch {
+  animation: participant-live-pulse 1.4s ease-in-out infinite;
+}
+
 .participant-watch.watching {
-  background: var(--c-h2);
-  color: var(--t-2);
+  background: #e0262f;
+  color: #fff;
+}
+
+@keyframes participant-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.0); opacity: 1; }
+  50% { box-shadow: 0 0 8px 2px rgba(229, 72, 77, 0.85); opacity: 0.75; }
 }
 
 .screen-share-viewer {
@@ -1639,10 +1649,16 @@ button {
 
 .voice-status-bar {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 10px;
   background: var(--c-backdrop);
+}
+
+.voice-status-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .voice-status-bar-text {
@@ -3304,3 +3320,18 @@ input[type="range"] {
 .music-video-empty { position: absolute; inset: 30px 0 0 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; color: #bbb; font-size: 13px; line-height: 1.5; }
 .music-mini-control.on { color: var(--accent); }
 .music-video-box iframe { border: 0; display: block; width: 100% !important; height: 100% !important; }
+
+/* Wide "Click here to start / stop streaming" button under the voice connection info. */
+.voice-stream-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(224, 38, 47, 0.55);
+  background: rgba(224, 38, 47, 0.12); color: var(--t-1); font-size: 12.5px; font-weight: 700; cursor: pointer;
+  transition: background 0.15s;
+}
+.voice-stream-toggle:hover { background: rgba(224, 38, 47, 0.28); }
+.voice-stream-toggle.on {
+  background: #e0262f; color: #fff; border-color: #e0262f;
+  animation: participant-live-pulse 1.4s ease-in-out infinite;
+}
+.voice-stream-toggle.on .hud-live-dot { background: #fff; box-shadow: none; animation: liveBlink 1.4s ease-in-out infinite; }
+.reduce-motion .participant-watch, .reduce-motion .voice-stream-toggle.on { animation: none; }
