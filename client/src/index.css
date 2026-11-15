@@ -1085,13 +1085,40 @@ button {
 
 .music-add-form input {
   flex: 1;
-  padding: 6px 8px;
-  border-radius: 4px;
-  border: none;
-  background: var(--c-backdrop);
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  /* Clearly a box to type in — it used to blend into the panel. */
+  border: 1px solid rgba(var(--accent-rgb), 0.65);
+  background: rgba(var(--accent-rgb), 0.1);
   color: var(--t-1);
   font-size: 12px;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
+
+.music-add-form input::placeholder {
+  color: var(--t-2);
+  opacity: 1;
+}
+
+/* Empty and not in use: a slow glow that says "type here". */
+.music-add-form input:placeholder-shown:not(:focus) {
+  animation: music-input-hint 2.4s ease-in-out infinite;
+}
+
+.music-add-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--c-backdrop);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.3);
+}
+
+@keyframes music-input-hint {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--accent-rgb), 0); }
+  50% { box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.35); }
+}
+
+.reduce-motion .music-add-form input { animation: none; }
 
 .music-add-form button {
   padding: 6px 12px;

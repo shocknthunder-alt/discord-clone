@@ -246,7 +246,8 @@ export default function MusicMiniPlayer() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={tr("Име на песен или изпълнител…", "Song or artist name…")}
+              placeholder={tr("🔎 Напиши песен тук…", "🔎 Type a song here…")}
+              title={tr("Напиши име на песен или изпълнител (или постави YouTube линк) и натисни Enter", "Type a song or artist name (or paste a YouTube link) and press Enter")}
             />
             <button type="submit" disabled={!input.trim() || searching}>
               {searching ? "…" : tr("Пусни", "Play")}
