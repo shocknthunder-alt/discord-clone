@@ -31,6 +31,7 @@ import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { useMentionStore } from "../store/mentionStore";
+import { useStickerStore } from "../store/stickerStore";
 import { isMutedHere, useMuteStore } from "../store/muteStore";
 import { useChatStore } from "../store/chatStore";
 import ActivityReporter from "../components/ActivityReporter";
@@ -128,6 +129,10 @@ export default function AppShell() {
           useChatStore.getState().setJumpTarget({ channelId: p.textChannelId, messageId: p.messageId, rootId: p.rootId });
         });
       }
+    });
+
+    socket.on(SocketEvents.StickersChanged, ({ serverId }: { serverId: string }) => {
+      if (useServerStore.getState().activeServerId === serverId) void useStickerStore.getState().load(serverId);
     });
 
     // 🎮 What someone is playing changed.
@@ -273,6 +278,7 @@ export default function AppShell() {
     fetchCustomEmojis(activeServerId).then(useServerStore.getState().setCustomEmojis).catch(console.error);
 
     void useMembersStore.getState().load(activeServerId).catch(console.error);
+    void useStickerStore.getState().load(activeServerId);
 
     const socket = getSocket();
     socket?.emit(SocketEvents.ServerJoin, { serverId: activeServerId });

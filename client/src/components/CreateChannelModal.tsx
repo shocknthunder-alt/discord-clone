@@ -14,7 +14,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
   useEscapeKey(onClose);
   const { addTextChannel, addVoiceChannel } = useServerStore();
   const [name, setName] = useState("");
-  const [trivia, setTrivia] = useState(false);
+  const [kind, setKind] = useState<"text" | "trivia" | "forum">("text");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +24,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
     setError(null);
     try {
       if (type === "text") {
-        addTextChannel(await createTextChannel(serverId, name.trim(), trivia ? "trivia" : "text"));
+        addTextChannel(await createTextChannel(serverId, name.trim(), kind));
       } else {
         addVoiceChannel(await createVoiceChannel(serverId, name.trim()));
       }
@@ -59,10 +59,20 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
         />
 
         {type === "text" && (
-          <label className="modal-checkbox-label">
-            <input type="checkbox" checked={trivia} onChange={(e) => setTrivia(e.target.checked)} />
-            🎲 {tr("Тривия канал (ботът за тривия отговаря тук)", "Trivia channel (Trivia Bot answers here)")}
-          </label>
+          <div className="channel-kind-options">
+            <label className="modal-checkbox-label">
+              <input type="radio" name="channel-kind" checked={kind === "text"} onChange={() => setKind("text")} />
+              # {tr("Обикновен чат", "Normal chat")}
+            </label>
+            <label className="modal-checkbox-label">
+              <input type="radio" name="channel-kind" checked={kind === "forum"} onChange={() => setKind("forum")} />
+              🗂️ {tr("Форум — теми, всяка със свои отговори (LFG, билдове, идеи…)", "Forum — topics, each with its own replies (LFG, builds, ideas…)")}
+            </label>
+            <label className="modal-checkbox-label">
+              <input type="radio" name="channel-kind" checked={kind === "trivia"} onChange={() => setKind("trivia")} />
+              🎲 {tr("Тривия канал (ботът за тривия отговаря тук)", "Trivia channel (Trivia Bot answers here)")}
+            </label>
+          </div>
         )}
 
         {error && <div className="modal-error">{error}</div>}

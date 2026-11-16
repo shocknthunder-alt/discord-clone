@@ -8,6 +8,7 @@ import { getSocket } from "../socket/socket";
 import VoiceRecorder from "./VoiceRecorder";
 import ChatTextarea from "./ChatTextarea";
 import GifPicker from "./GifPicker";
+import StickerPicker from "./StickerPicker";
 import { PollCreateModal } from "./Polls";
 import { useServerStore } from "../store/serverStore";
 
@@ -167,6 +168,17 @@ export default function MessageInput({
             📊
           </button>
         )}
+        <StickerPicker
+          onPick={(url) =>
+            getSocket()?.emit(SocketEvents.MessageSend, {
+              textChannelId: channelId,
+              content: "",
+              imageUrl: url,
+              replyToId,
+              alsoSendToChannel: replyToId ? alsoSendToChannel : undefined,
+            })
+          }
+        />
         <GifPicker
           onPick={(gif) =>
             getSocket()?.emit(SocketEvents.MessageSend, {

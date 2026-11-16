@@ -1,4 +1,4 @@
-import type { GifDTO, LinkPreviewDTO, MessageDTO } from "@discord-clone/shared";
+import type { ForumPostDTO, GifDTO, LinkPreviewDTO, MessageDTO, StickerDTO } from "@discord-clone/shared";
 import { http } from "./http";
 
 const previewCache = new Map<string, Promise<LinkPreviewDTO | null>>();
@@ -36,4 +36,24 @@ export function searchGifs(q: string, offset = 0) {
 
 export function fetchPins(channelId: string) {
   return http.get<{ messages: MessageDTO[] }>(`/api/text-channels/${channelId}/pins`).then((r) => r.data.messages);
+}
+
+export function fetchForumPosts(channelId: string) {
+  return http.get<{ posts: ForumPostDTO[] }>(`/api/text-channels/${channelId}/forum`).then((r) => r.data.posts);
+}
+
+export function fetchThread(messageId: string) {
+  return http.get<{ root: MessageDTO; replies: MessageDTO[] }>(`/api/messages/${messageId}/thread`).then((r) => r.data);
+}
+
+export function fetchStickers(serverId: string) {
+  return http.get<{ stickers: StickerDTO[] }>(`/api/servers/${serverId}/stickers`).then((r) => r.data.stickers);
+}
+
+export function createSticker(serverId: string, name: string, imageUrl: string) {
+  return http.post<{ sticker: StickerDTO }>(`/api/servers/${serverId}/stickers`, { name, imageUrl }).then((r) => r.data.sticker);
+}
+
+export function deleteSticker(serverId: string, stickerId: string) {
+  return http.delete(`/api/servers/${serverId}/stickers/${stickerId}`);
 }

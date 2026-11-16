@@ -794,3 +794,247 @@
 .mute-menu .member-menu-info {
   font-size: 11.5px;
 }
+
+/* 🗂️ Forum channel */
+.chat-main-column.forum {
+  overflow: hidden;
+}
+.forum-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px 8px;
+}
+.forum-search {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--c-line);
+  background: var(--c-h1);
+  color: var(--t-1);
+}
+.forum-new {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+.forum-composer {
+  margin: 0 16px 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(var(--accent-rgb), 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.forum-title-input {
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--c-line);
+  background: var(--c-h1);
+  color: var(--t-1);
+  font-size: 1.05em;
+  font-weight: 700;
+}
+.forum-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.forum-empty {
+  color: var(--t-3);
+  text-align: center;
+  padding: 32px 0;
+}
+.forum-card {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(var(--line-rgb), 0.22);
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--t-1);
+  cursor: pointer;
+}
+.forum-card:hover {
+  border-color: rgba(var(--accent-rgb), 0.7);
+}
+.forum-card.open {
+  border-color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.12);
+}
+.forum-card-body {
+  flex: 1;
+  min-width: 0;
+}
+.forum-card-title {
+  font-weight: 750;
+  font-size: 1.05em;
+  overflow-wrap: anywhere;
+}
+.forum-card-preview {
+  color: var(--t-2);
+  font-size: 13.5px;
+  margin-top: 3px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+.forum-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--t-3);
+}
+.forum-card-author {
+  font-weight: 600;
+  color: var(--t-2);
+}
+.forum-card-time {
+  margin-left: auto;
+}
+.forum-card-thumb {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+.thread-panel.forum-thread {
+  width: min(520px, 50%);
+}
+.channel-kind-options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 🏷️ Stickers */
+.chat-sticker {
+  display: block;
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+  margin: 4px 0;
+}
+.sticker-toggle-button {
+  background: none;
+  border: none;
+  font-size: 17px;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.sticker-toggle-button:hover,
+.sticker-toggle-button.on {
+  background: var(--c-line);
+}
+.sticker-popover {
+  position: absolute;
+  right: 16px;
+  bottom: calc(100% - 16px);
+  width: 380px;
+  max-width: calc(100% - 32px);
+  max-height: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--c-panel);
+  border: 1px solid var(--c-line);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  z-index: 60;
+  padding: 10px;
+}
+.sticker-popover-title {
+  font-weight: 700;
+}
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  overflow-y: auto;
+  min-height: 60px;
+}
+.sticker-grid .gif-empty {
+  grid-column: 1 / -1;
+}
+.sticker-cell {
+  position: relative;
+}
+.sticker-item {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+}
+.sticker-item:hover {
+  border-color: var(--accent);
+}
+.sticker-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.sticker-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: none;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  background: #da373c;
+  color: #fff;
+  cursor: pointer;
+}
+.sticker-cell:hover .sticker-delete {
+  display: block;
+}
+.sticker-add {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sticker-add .gif-search {
+  margin: 0;
+}
+.sticker-add .status-actions button {
+  flex: 1;
+  padding: 7px;
+  border: none;
+  border-radius: 6px;
+  background: var(--c-h3);
+  color: var(--t-1);
+  cursor: pointer;
+}
+.sticker-add .status-actions button.primary {
+  background: var(--accent);
+  color: #fff;
+}
+.sticker-add-button {
+  padding: 7px;
+  border: 1px dashed rgba(var(--accent-rgb), 0.7);
+  border-radius: 8px;
+  background: none;
+  color: var(--t-1);
+  cursor: pointer;
+}

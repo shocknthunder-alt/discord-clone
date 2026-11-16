@@ -199,7 +199,7 @@ export async function updateMe(req: Request, res: Response) {
   let statusData: { customStatus: string | null; customStatusUntil: Date | null } | null = null;
   if (customStatus !== undefined) {
     if (customStatus !== null && typeof customStatus !== "string") return res.status(400).json({ error: "customStatus must be a string or null" });
-    const text = typeof customStatus === "string" ? customStatus.replace(/s+/g, " ").trim().slice(0, 80) : "";
+    const text = typeof customStatus === "string" ? customStatus.replace(/\s+/g, " ").trim().slice(0, 80) : "";
     const hours = Math.max(0, Math.min(Number(customStatusHours) || 0, 24 * 30));
     statusData = { customStatus: text || null, customStatusUntil: text && hours ? new Date(Date.now() + hours * 3600_000) : null };
   }

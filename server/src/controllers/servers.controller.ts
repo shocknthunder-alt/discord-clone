@@ -164,3 +164,36 @@ export async function createCustomEmoji(req: Request, res: Response) {
   });
   res.status(201).json({ emoji });
 }
+
+// ── Stickers ──
+const stickerSelect = { id: true, name: true, imageUrl: true, uploaderId: true } as const;
+
+export async function listStickers(req: Request, res: Response) {
+  const { serverId } = req.params;
+  if (!(await requireMember(req.userId!, serverId))) return res.status(403).json({ error: "Not a member of this server" });
+  const stickers = await prisma.sticker.findMany({ where: { serverId }, orderBy: { createdAt: "asc" }, select: stickerSelect });
+  res.json({ stickers });
+}
+
+export async function createSticker(req: Request, res: Response) {
+  const { serverId } = req.params;
+  const { name, imageUrl } = req.body ?? {};
+  if (!(await can(req.userId!, serverId, Perm.ADD_EMOJIS))) return res.status(403).json({ error: "Нямаш право да добавяш стикери." });
+  const clean = typeof name === "string" ? name.replace(/\s+/g, " ").trim().slice(0, 32) : "";
+  if (!clean) return res.status(400).json({ error: "Дай име на стикера." });
+  if (typeof imageUrl !== "string" || !/^https:\/\//.test(imageUrl) || imageUrl.length > 2000) return res.status(400).json({ error: "A valid image is required" });
+  if ((await prisma.sticker.count({ where: { serverId } })) >= 200) return res.status(400).json({ error: "Максимум 200 стикера на сървър." });
+  const sticker = await prisma.sticker.create({ data: { serverId, name: clean, imageUrl, uploaderId: req.userId! }, select: stickerSelect });
+  (req.app.get("io") as IOServer | undefined)?.to(`server:${serverId}`).emit(SocketEvents.StickersChanged, { serverId });
+  res.status(201).json({ sticker });
+}
+
+export async function deleteSticker(req: Request, res: Response) {
+  const { serverId, stickerId } = req.params;
+  const sticker = await prisma.sticker.findUnique({ where: { id: stickerId } });
+  if (!sticker || sticker.serverId !== serverId) return res.status(404).json({ error: "Not found" });
+  if (sticker.uploaderId !== req.userId && !(await can(req.userId!, serverId, Perm.MANAGE_MESSAGES))) return res.status(403).json({ error: "Нямаш право." });
+  await prisma.sticker.delete({ where: { id: stickerId } });
+  (req.app.get("io") as IOServer | undefined)?.to(`server:${serverId}`).emit(SocketEvents.StickersChanged, { serverId });
+  res.json({ ok: true });
+}

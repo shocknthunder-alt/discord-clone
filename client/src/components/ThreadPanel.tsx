@@ -1,4 +1,6 @@
 import MessageText from "./MessageText";
+import { splitTopic } from "../utils/forum";
+import ChatImage from "./ChatImage";
 import { formatTime } from "../utils/appPrefs";
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import { useState } from "react";
@@ -12,6 +14,8 @@ interface Props {
   root: MessageDTO;
   replies: MessageDTO[];
   onClose: () => void;
+  /** Forum topic: wider panel, title header, no "also send to channel". */
+  forum?: boolean;
 }
 
 function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: boolean }) {
@@ -82,21 +86,19 @@ function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: bool
       )}
 
       {message.imageUrl && (
-        <a href={message.imageUrl} target="_blank" rel="noreferrer">
-          <img className="message-image" src={message.imageUrl} alt="" />
-        </a>
+        <ChatImage url={message.imageUrl} />
       )}
     </div>
   );
 }
 
-export default function ThreadPanel({ channelId, root, replies, onClose }: Props) {
+export default function ThreadPanel({ channelId, root, replies, onClose, forum = false }: Props) {
   const currentUserId = useAuthStore((s) => s.user?.id);
 
   return (
-    <div className="thread-panel" data-drop-zone>
+    <div className={`thread-panel ${forum ? "forum-thread" : ""}`} data-drop-zone>
       <div className="thread-panel-header">
-        <span>{tr("Нишка", "Thread")}</span>
+        <span>{forum ? `🗂️ ${splitTopic(root.content).title}` : tr("Нишка", "Thread")}</span>
         <button className="thread-panel-close" onClick={onClose} aria-label={tr("Затвори нишката", "Close thread")}>
           ✕
         </button>
@@ -114,7 +116,7 @@ export default function ThreadPanel({ channelId, root, replies, onClose }: Props
         ))}
       </div>
 
-      <MessageInput channelId={channelId} replyToId={root.id} showSendToChannelOption placeholder={tr("Отговор…", "Reply…")} autoFocus />
+      <MessageInput channelId={channelId} replyToId={root.id} showSendToChannelOption={!forum} placeholder={tr("Отговор…", "Reply…")} autoFocus />
     </div>
   );
 }

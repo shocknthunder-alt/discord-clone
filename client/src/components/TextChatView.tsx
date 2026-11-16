@@ -21,6 +21,7 @@ import MessageInput from "./MessageInput";
 import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
 import PinsPanel from "./PinsPanel";
+import ForumView from "./ForumView";
 import { isMutedHere, useMuteStore } from "../store/muteStore";
 import EditedTag from "./EditHistory";
 import { PollCard } from "./Polls";
@@ -298,6 +299,7 @@ export default function TextChatView({ channelId }: Props) {
   const [flashId, setFlashId] = useState<string | null>(null);
   useEffect(() => {
     if (!jumpTarget || jumpTarget.channelId !== channelId) return;
+    if (useServerStore.getState().textChannels.find((c) => c.id === channelId)?.type === "forum") return; // ForumView handles it
     const loaded = (messagesByChannel[channelId] ?? []).some((m) => m.id === jumpTarget.messageId);
     if (!loaded) {
       fetchMessages(channelId, undefined, jumpTarget.messageId)
@@ -367,7 +369,7 @@ export default function TextChatView({ channelId }: Props) {
   return (
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
-        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : "#"} {channel?.name ?? ""}</span>
+        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : channel?.type === "forum" ? "🗂️" : "#"} {channel?.name ?? ""}</span>
         <button
           className={`server-settings-button pins-toggle ${showPins ? "on" : ""}`}
           onClick={() => setShowPins((v) => !v)}
@@ -394,6 +396,9 @@ export default function TextChatView({ channelId }: Props) {
 
       {showPins && <PinsPanel channelId={channelId} onClose={() => setShowPins(false)} />}
 
+      {channel?.type === "forum" ? (
+        <ForumView channelId={channelId} />
+      ) : (
       <div className="chat-body">
         <div className="chat-main-column">
           <div
@@ -454,6 +459,8 @@ export default function TextChatView({ channelId }: Props) {
           />
         )}
       </div>
+
+      )}
 
       {showChannelSettings && channel && (
         <ChannelSettingsModal kind="text" channel={channel} onClose={() => setShowChannelSettings(false)} />

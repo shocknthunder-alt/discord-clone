@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listEdits, listMessages, listPins, searchMessages } from "../controllers/messages.controller.js";
+import { getThread, listEdits, listForumPosts, listMessages, listPins, searchMessages } from "../controllers/messages.controller.js";
 import { requireAuth } from "../middleware/auth.js";
 
 export const messagesRouter = Router();
@@ -9,3 +9,5 @@ messagesRouter.get("/text-channels/:channelId/messages", listMessages);
 messagesRouter.get("/text-channels/:channelId/pins", listPins);
 messagesRouter.get("/servers/:serverId/search", searchMessages);
 messagesRouter.get("/messages/:messageId/edits", listEdits);
+messagesRouter.get("/messages/:messageId/thread", getThread);
+messagesRouter.get("/text-channels/:channelId/forum", listForumPosts);

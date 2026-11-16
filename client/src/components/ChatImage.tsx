@@ -11,6 +11,7 @@ export default function ChatImage({ url: raw }: { url: string }) {
   const att = parseAttachment(raw);
   if (att.kind === "voice") return <VoiceMessage url={att.url} durationMs={att.durationMs} peaks={att.peaks} />;
   if (att.kind === "clip") return <ChatVideo url={att.url} />;
+  if (att.kind === "sticker") return <img className="chat-sticker" src={att.url} alt="sticker" loading="lazy" draggable={false} />;
   return <ImageAttachment url={att.url} />;
 }
 

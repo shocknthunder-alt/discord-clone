@@ -10,7 +10,8 @@ import { tr } from "../i18n";
 export type Attachment =
   | { kind: "image"; url: string }
   | { kind: "voice"; url: string; durationMs: number; peaks: number[] }
-  | { kind: "clip"; url: string; durationMs: number };
+  | { kind: "clip"; url: string; durationMs: number }
+  | { kind: "sticker"; url: string };
 
 const PEAK_DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
 
@@ -28,6 +29,7 @@ export function parseAttachment(raw: string): Attachment {
     const peaks = [...voice[2]].map((c) => Math.max(PEAK_DIGITS.indexOf(c), 0) / 35);
     return { kind: "voice", url, durationMs: Number(voice[1]), peaks };
   }
+  if (frag === "sticker") return { kind: "sticker", url };
   const clip = /^clip=(\d+)$/.exec(frag);
   if (clip) return { kind: "clip", url, durationMs: Number(clip[1]) };
   return { kind: "image", url: raw };
@@ -45,6 +47,7 @@ export function attachmentLabel(raw: string | null | undefined): string {
   const a = parseAttachment(raw);
   if (a.kind === "voice") return tr("🎤 гласово съобщение", "🎤 voice message");
   if (a.kind === "clip") return tr("🎬 клип", "🎬 clip");
+  if (a.kind === "sticker") return tr("🏷️ стикер", "🏷️ sticker");
   return tr("📷 изображение", "📷 image");
 }
 

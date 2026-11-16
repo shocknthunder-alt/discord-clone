@@ -34,8 +34,8 @@ export interface TextChannelDTO {
   backgroundUrl: string | null;
   serverId: string;
   position: number;
-  /** "trivia" channels are handled by the Trivia Bot. */
-  type: "text" | "trivia";
+  /** "trivia" channels are handled by the Trivia Bot; "forum" = a list of topics, each its own thread. */
+  type: "text" | "trivia" | "forum";
   /** Newest message by a person (not the trivia bot), for unread markers. Missing on old servers. */
   lastMessageAt?: string | null;
 }
@@ -162,6 +162,21 @@ export interface MentionPayload {
   authorAvatarUrl: string | null;
   content: string;
   everyone: boolean;
+}
+
+/** A topic in a forum channel: the opening message + how busy it is. */
+export interface ForumPostDTO {
+  message: MessageDTO;
+  replyCount: number;
+  lastActivityAt: string;
+}
+
+/** A server sticker (sent as imageUrl + "#sticker"). */
+export interface StickerDTO {
+  id: string;
+  name: string;
+  imageUrl: string;
+  uploaderId: string | null;
 }
 
 /** A link preview card (GET /api/unfurl?url=). */

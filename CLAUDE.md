@@ -118,6 +118,12 @@ Owner pronouns unknown: use they/them.
     `Polls.tsx`; results hidden until you vote), **custom status** (`User.customStatus/Until`, PATCH /api/auth/me
     `customStatus` + `customStatusHours`; set by clicking yourself in the member list), **🔕 mutes** (client-only
     `muteStore`; right-click a text channel / server icon; direct @mentions still come through).
+  - **🗂️ Forum channels** (`TextChannel.type = "forum"`): `ForumView` (topics = thread roots, content
+    `# Title\nbody`; `GET /api/text-channels/:id/forum`, `GET /api/messages/:id/thread`), replies in `ThreadPanel forum`.
+  - **🏷️ Stickers** (`Sticker` table, `/api/servers/:id/stickers`, `stickers:changed`; sent as `imageUrl#sticker`,
+    `StickerPicker`; add = ADD_EMOJIS perm, delete = uploader or MANAGE_MESSAGES).
+  - Gotcha: `node - <<'EOF'` edit scripts LOSE backslashes in this shell (`/\s+/` became `/s+/`) —
+    put such scripts in a .cjs file in the scratchpad, or use the Edit tool.
 
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264

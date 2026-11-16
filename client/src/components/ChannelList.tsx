@@ -362,7 +362,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                   }}
                 >
                   <span className="channel-item-name">
-                    {channel.type === "trivia" ? "🎲" : "#"} {channel.name}
+                    {channel.type === "trivia" ? "🎲" : channel.type === "forum" ? "🗂️" : "#"} {channel.name}
                     {isMutedHere(mutes, activeServerId, channel.id) && <span className="muted-icon" title={tr("Заглушен", "Muted")}> 🔕</span>}
                   </span>
                   {!!mentionCounts[channel.id] && channel.id !== activeTextChannelId && (

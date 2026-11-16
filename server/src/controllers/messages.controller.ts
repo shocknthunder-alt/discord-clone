@@ -187,3 +187,54 @@ export async function listEdits(req: Request, res: Response) {
   const edits = await prisma.messageEdit.findMany({ where: { messageId: message.id }, orderBy: { createdAt: "desc" }, take: 50 });
   res.json({ edits: edits.map((e) => ({ content: e.content, replacedAt: e.createdAt.toISOString() })) });
 }
+
+const fullInclude = {
+  author: { select: { username: true, avatarUrl: true } },
+  replyTo: { include: { author: { select: { username: true } } } },
+  reactions: { orderBy: { createdAt: "asc" as const } },
+  poll: { include: { votes: true } },
+};
+
+async function channelForMember(userId: string, channelId: string) {
+  const textChannel = await prisma.textChannel.findUnique({ where: { id: channelId } });
+  if (!textChannel) return null;
+  const membership = await prisma.membership.findUnique({ where: { userId_serverId: { userId, serverId: textChannel.serverId } } });
+  return membership ? textChannel : null;
+}
+
+/** Forum channel: its topics (thread openers), most recently active first. */
+export async function listForumPosts(req: Request, res: Response) {
+  const channel = await channelForMember(req.userId!, req.params.channelId);
+  if (!channel) return res.status(403).json({ error: "Not a member of this server" });
+  const roots = await prisma.message.findMany({
+    where: { textChannelId: channel.id, replyToId: null },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    include: { ...fullInclude, _count: { select: { replies: true } } },
+  });
+  const last = roots.length
+    ? await prisma.message.groupBy({
+        by: ["replyToId"],
+        where: { replyToId: { in: roots.map((r) => r.id) } },
+        _max: { createdAt: true },
+      })
+    : [];
+  const lastOf = new Map(last.map((l) => [l.replyToId, l._max.createdAt]));
+  const posts = roots
+    .map((r) => {
+      const lastReply = lastOf.get(r.id);
+      const lastActivityAt = lastReply && lastReply > r.createdAt ? lastReply : r.createdAt;
+      return { message: messageDto(r), replyCount: r._count.replies, lastActivityAt: lastActivityAt.toISOString() };
+    })
+    .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
+  res.json({ posts });
+}
+
+/** A whole thread: the opening message and every reply (oldest first). */
+export async function getThread(req: Request, res: Response) {
+  const root = await prisma.message.findUnique({ where: { id: req.params.messageId }, include: fullInclude });
+  if (!root) return res.status(404).json({ error: "Message not found" });
+  if (!(await channelForMember(req.userId!, root.textChannelId))) return res.status(403).json({ error: "Not a member of this server" });
+  const replies = await prisma.message.findMany({ where: { replyToId: root.id }, orderBy: { createdAt: "asc" }, take: 1000, include: fullInclude });
+  res.json({ root: messageDto(root), replies: replies.map(messageDto) });
+}

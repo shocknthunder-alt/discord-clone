@@ -54,6 +54,8 @@ export const SocketEvents = {
   SoundboardPlay: "soundboard:play",
   /** server → voice channel: play this clip now (stops whatever clip was playing). */
   SoundboardPlayed: "soundboard:played",
+  /** server → server room: { serverId } the sticker list changed, refetch. */
+  StickersChanged: "stickers:changed",
   /** server → server room: the soundboard list changed, refetch. */
   SoundboardChanged: "soundboard:changed",
 

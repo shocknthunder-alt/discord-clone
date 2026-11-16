@@ -9,7 +9,7 @@ export function fetchChannels(serverId: string) {
     .then((r) => r.data);
 }
 
-export function createTextChannel(serverId: string, name: string, type: "text" | "trivia" = "text") {
+export function createTextChannel(serverId: string, name: string, type: "text" | "trivia" | "forum" = "text") {
   return http
     .post<{ textChannel: TextChannelDTO }>(`/api/servers/${serverId}/text-channels`, { name, type })
     .then((r) => r.data.textChannel);

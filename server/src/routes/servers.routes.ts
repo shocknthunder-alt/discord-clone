@@ -1,6 +1,9 @@
 import { Router } from "express";
 import {
   createCustomEmoji,
+  createSticker,
+  deleteSticker,
+  listStickers,
   createServer,
   getFeaturedInvite,
   getServer,
@@ -31,6 +34,9 @@ serversRouter.post("/join", joinServer);
 serversRouter.get("/featured-invite", getFeaturedInvite);
 serversRouter.get("/:serverId/emojis", listCustomEmojis);
 serversRouter.post("/:serverId/emojis", createCustomEmoji);
+serversRouter.get("/:serverId/stickers", listStickers);
+serversRouter.post("/:serverId/stickers", createSticker);
+serversRouter.delete("/:serverId/stickers/:stickerId", deleteSticker);
 serversRouter.get("/:serverId/sounds", listSounds);
 serversRouter.post("/:serverId/sounds", createSound);
 serversRouter.patch("/:serverId/sounds/:soundId", updateSound);

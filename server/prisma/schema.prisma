@@ -87,6 +87,7 @@ model Server {
 
   memberships   Membership[]
   customEmojis  CustomEmoji[]
+  stickers      Sticker[]
   soundboardSounds SoundboardSound[]
   events        ServerEvent[]
   roles         Role[]
@@ -208,6 +209,20 @@ model VoiceChannel {
   position      Int     @default(0)
 
   server Server @relation(fields: [serverId], references: [id])
+}
+
+/// Server stickers: bigger pictures sent on their own (imageUrl + "#sticker").
+model Sticker {
+  id         String   @id @default(cuid())
+  serverId   String
+  name       String
+  imageUrl   String
+  uploaderId String?
+  createdAt  DateTime @default(now())
+
+  server Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+
+  @@index([serverId])
 }
 
 model CustomEmoji {
