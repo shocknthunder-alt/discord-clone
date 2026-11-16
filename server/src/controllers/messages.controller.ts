@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db.js";
 import { groupReactions } from "../sockets/chat.gateway.js";
+import { pollDto } from "../polls.js";
 
 type MessageRow = Awaited<ReturnType<typeof findRows>>[number];
 // Only used to derive MessageRow's shape.
@@ -10,6 +11,7 @@ function findRows() {
       author: { select: { username: true, avatarUrl: true } },
       replyTo: { include: { author: { select: { username: true } } } },
       reactions: true,
+      poll: { include: { votes: true } },
     },
   });
 }
@@ -26,6 +28,7 @@ export function messageDto(m: MessageRow) {
     createdAt: m.createdAt,
     editedAt: m.editedAt,
     pinnedAt: m.pinnedAt,
+    poll: m.poll ? pollDto(m.poll) : null,
     reactions: groupReactions(m.reactions),
     replyTo: m.replyTo
       ? {
@@ -55,6 +58,7 @@ export async function listPins(req: Request, res: Response) {
       author: { select: { username: true, avatarUrl: true } },
       replyTo: { include: { author: { select: { username: true } } } },
       reactions: { orderBy: { createdAt: "asc" } },
+      poll: { include: { votes: true } },
     },
   });
   const pinnerIds = [...new Set(rows.map((r) => r.pinnedById).filter((x): x is string => !!x))];
@@ -88,6 +92,7 @@ export async function listMessages(req: Request, res: Response) {
     author: { select: { username: true, avatarUrl: true } },
     replyTo: { include: { author: { select: { username: true } } } },
     reactions: { orderBy: { createdAt: "asc" as const } },
+    poll: { include: { votes: true } },
   };
   if (around) {
     const target = await prisma.message.findUnique({ where: { id: around } });
@@ -119,6 +124,7 @@ export async function listMessages(req: Request, res: Response) {
       author: { select: { username: true, avatarUrl: true } },
       replyTo: { include: { author: { select: { username: true } } } },
       reactions: { orderBy: { createdAt: "asc" } },
+      poll: { include: { votes: true } },
     },
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
@@ -168,4 +174,16 @@ export async function searchMessages(req: Request, res: Response) {
       replyToId: m.replyToId,
     })),
   });
+}
+
+/** Earlier versions of an edited message, newest first. */
+export async function listEdits(req: Request, res: Response) {
+  const message = await prisma.message.findUnique({ where: { id: req.params.messageId }, include: { textChannel: { select: { serverId: true } } } });
+  if (!message) return res.status(404).json({ error: "Message not found" });
+  const membership = await prisma.membership.findUnique({
+    where: { userId_serverId: { userId: req.userId!, serverId: message.textChannel.serverId } },
+  });
+  if (!membership) return res.status(403).json({ error: "Not a member of this server" });
+  const edits = await prisma.messageEdit.findMany({ where: { messageId: message.id }, orderBy: { createdAt: "desc" }, take: 50 });
+  res.json({ edits: edits.map((e) => ({ content: e.content, replacedAt: e.createdAt.toISOString() })) });
 }

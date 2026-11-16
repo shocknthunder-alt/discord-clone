@@ -195,10 +195,15 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
       const existing = await prisma.message.findUnique({ where: { id: messageId } });
       if (!existing || existing.authorId !== userId) return;
 
-      const message = await prisma.message.update({
-        where: { id: messageId },
-        data: { content: trimmedContent, editedAt: new Date() },
-      });
+      if (existing.content === trimmedContent) return;
+      // Keep the version being replaced (edit history).
+      const [, message] = await prisma.$transaction([
+        prisma.messageEdit.create({ data: { messageId, content: existing.content } }),
+        prisma.message.update({
+          where: { id: messageId },
+          data: { content: trimmedContent, editedAt: new Date() },
+        }),
+      ]);
 
       io.to(`channel:${message.textChannelId}`).emit(SocketEvents.MessageUpdated, {
         id: message.id,

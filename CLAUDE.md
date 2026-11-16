@@ -113,6 +113,11 @@ Owner pronouns unknown: use they/them.
     exe list + Steam/Epic/Xbox/GOG/EA/Ubisoft/Riot library folder names) → `onActivity` → `ActivityReporter`
     → `presence:activity` → server memory map (`server/src/presence/activity.ts`, cleared on disconnect) →
     `presence:activity-updated`; `MemberDTO.activity`; shown in member list + 🎮 in voice lists. Pref `shareActivity`.
+  - **Edit history** (`MessageEdit`, saved on every edit; `GET /api/messages/:id/edits`; "(редактирано)" opens it),
+    **📊 polls** (`Poll`/`PollVote`, `server/src/polls.ts`, `poll:create` / `poll:vote` {close} → `poll:updated`;
+    `Polls.tsx`; results hidden until you vote), **custom status** (`User.customStatus/Until`, PATCH /api/auth/me
+    `customStatus` + `customStatusHours`; set by clicking yourself in the member list), **🔕 mutes** (client-only
+    `muteStore`; right-click a text channel / server icon; direct @mentions still come through).
 
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264

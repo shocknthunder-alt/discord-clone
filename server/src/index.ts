@@ -17,6 +17,7 @@ import { broadcastPresence, registerChatGateway } from "./sockets/chat.gateway.j
 import { registerDmGateway } from "./sockets/dm.gateway.js";
 import { registerMusicGateway } from "./sockets/music.gateway.js";
 import { setActivity } from "./presence/activity.js";
+import { registerPolls } from "./polls.js";
 import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
@@ -58,6 +59,7 @@ io.on("connection", (socket) => {
   registerVoiceGateway(io, socket);
   registerDmGateway(io, socket);
   registerMusicGateway(io, socket);
+  registerPolls(io, socket);
 
   void broadcastPresence(io, userId, "online");
 

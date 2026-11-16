@@ -128,7 +128,7 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
               </div>
             ) : (
               <div className="toolbar-menu">
-                {isOwn && message.content && (
+                {isOwn && message.content && !message.poll && (
                   <button
                     onClick={() => {
                       setPopover(null);

@@ -4,6 +4,7 @@ import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
 import { can, ensureDefaultRole, memberContext, outranks } from "../permissions.js";
 import { getActivity } from "../presence/activity.js";
+import { activeStatus } from "../utils/customStatus.js";
 import { resetLink, signResetToken } from "../utils/passwordReset.js";
 
 function io(req: Request): IOServer | undefined {
@@ -31,7 +32,7 @@ export async function listMembers(req: Request, res: Response) {
   await ensureDefaultRole(serverId);
   const [server, memberships, roles] = await Promise.all([
     prisma.server.findUnique({ where: { id: serverId }, select: { ownerId: true } }),
-    prisma.membership.findMany({ where: { serverId }, include: { user: { select: { username: true, avatarUrl: true, email: true } } } }),
+    prisma.membership.findMany({ where: { serverId }, include: { user: { select: { username: true, avatarUrl: true, email: true, customStatus: true, customStatusUntil: true } } } }),
     prisma.role.findMany({ where: { serverId }, orderBy: { position: "desc" } }),
   ]);
   const body: MembersResponse = {
@@ -47,6 +48,7 @@ export async function listMembers(req: Request, res: Response) {
         online: isOnline(io(req), m.userId),
         joinedAt: m.joinedAt.toISOString(),
         activity: getActivity(m.userId),
+        customStatus: activeStatus(m.user),
       })),
     roles: roles.map(roleDto),
     myPermissions: me.permissions,

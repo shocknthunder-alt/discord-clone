@@ -22,6 +22,12 @@ export const SocketEvents = {
   MessagePin: "message:pin",
   /** server → channel room: MessagePinnedPayload. */
   MessagePinned: "message:pinned",
+  /** client → server: { textChannelId, question, options: string[], multi, hours (0 = no end) }. */
+  PollCreate: "poll:create",
+  /** client → server: { pollId, option } (toggles your vote). */
+  PollVote: "poll:vote",
+  /** server → channel room: PollUpdatedPayload. */
+  PollUpdated: "poll:updated",
   /** server → user room: MentionPayload (someone @mentioned you). */
   MentionNew: "mention:new",
   /** client → server: { activity: { name } | null } — what I'm playing (desktop app). */

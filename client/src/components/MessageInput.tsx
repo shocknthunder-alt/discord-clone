@@ -8,6 +8,8 @@ import { getSocket } from "../socket/socket";
 import VoiceRecorder from "./VoiceRecorder";
 import ChatTextarea from "./ChatTextarea";
 import GifPicker from "./GifPicker";
+import { PollCreateModal } from "./Polls";
+import { useServerStore } from "../store/serverStore";
 
 interface Props {
   channelId: string;
@@ -42,6 +44,8 @@ export default function MessageInput({
   const [uploading, setUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [alsoSendToChannel, setAlsoSendToChannel] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
+  const canPoll = useServerStore((s) => !replyToId && s.textChannels.find((c) => c.id === channelId)?.type !== "trivia");
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isTypingRef = useRef(false);
 
@@ -158,6 +162,11 @@ export default function MessageInput({
             placeholder ?? (isCloudinaryConfigured() ? tr("Съобщение… (@ за споменаване, Shift+Enter нов ред)", "Message… (@ to mention, Shift+Enter new line)") : tr("Съобщение…", "Message…"))
           }
         />
+        {canPoll && (
+          <button type="button" className="poll-toggle-button" onClick={() => setPollOpen(true)} title={tr("Нова анкета", "New poll")}>
+            📊
+          </button>
+        )}
         <GifPicker
           onPick={(gif) =>
             getSocket()?.emit(SocketEvents.MessageSend, {
@@ -184,6 +193,8 @@ export default function MessageInput({
           {uploading ? tr("Качване…", "Uploading…") : tr("Прати", "Send")}
         </button>
       </form>
+
+      {pollOpen && <PollCreateModal textChannelId={channelId} onClose={() => setPollOpen(false)} />}
 
       {showSendToChannelOption && (
         <label className="also-send-checkbox">

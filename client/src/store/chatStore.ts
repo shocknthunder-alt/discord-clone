@@ -1,4 +1,4 @@
-import type { MessageDTO, ReactionDTO } from "@discord-clone/shared";
+import type { MessageDTO, ReactionDTO, PollDTO } from "@discord-clone/shared";
 import { create } from "zustand";
 
 interface ChatState {
@@ -10,6 +10,7 @@ interface ChatState {
   removeMessage: (channelId: string, messageId: string) => void;
   setReactions: (channelId: string, messageId: string, reactions: ReactionDTO[]) => void;
   setPinned: (channelId: string, messageId: string, pinnedAt: string | null) => void;
+  setPoll: (channelId: string, messageId: string, poll: PollDTO) => void;
   setTyping: (channelId: string, userId: string, isTyping: boolean) => void;
   // Set by the search modal; TextChatView scrolls to / flashes it once the message is loaded.
   jumpTarget: { channelId: string; messageId: string; rootId: string | null } | null;
@@ -65,6 +66,13 @@ export const useChatStore = create<ChatState>((set) => ({
       messagesByChannel: {
         ...s.messagesByChannel,
         [channelId]: (s.messagesByChannel[channelId] ?? []).map((m) => (m.id === messageId ? { ...m, pinnedAt } : m)),
+      },
+    })),
+  setPoll: (channelId, messageId, poll) =>
+    set((s) => ({
+      messagesByChannel: {
+        ...s.messagesByChannel,
+        [channelId]: (s.messagesByChannel[channelId] ?? []).map((m) => (m.id === messageId ? { ...m, poll } : m)),
       },
     })),
   setTyping: (channelId, userId, isTyping) =>

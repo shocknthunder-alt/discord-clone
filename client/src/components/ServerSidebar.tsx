@@ -3,6 +3,8 @@ import { useDmStore } from "../store/dmStore";
 import { isRunning, todaysEvent, upcomingOf, useEventsStore } from "../store/eventsStore";
 import { useServerStore } from "../store/serverStore";
 import { serverMentionCount, useMentionStore } from "../store/mentionStore";
+import { isServerMuted, useMuteStore } from "../store/muteStore";
+import MuteMenu from "./MuteMenu";
 import { useReorderable } from "../utils/useReorderable";
 import CreateServerModal from "./CreateServerModal";
 import DraggableIcon from "./DraggableIcon";
@@ -20,6 +22,8 @@ export default function ServerSidebar() {
 
   const events = useEventsStore((s) => s.events);
   const mentions = useMentionStore();
+  const mutes = useMuteStore();
+  const [muteMenu, setMuteMenu] = useState<{ id: string; name: string; x: number; y: number } | null>(null);
   useNow(60_000);
 
   const totalUnread = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
@@ -53,7 +57,11 @@ export default function ServerSidebar() {
         return (
           <div key={server.id} className="server-icon-wrap">
             <button
-              className={`server-icon ${view === "servers" && server.id === activeServerId ? "active" : ""}`}
+              className={`server-icon ${view === "servers" && server.id === activeServerId ? "active" : ""} ${isServerMuted(mutes, server.id) ? "muted" : ""}`}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                setMuteMenu({ id: server.id, name: server.name, x: e.clientX, y: e.clientY });
+              }}
               title={today ? `${server.name} — ${live ? tr("тече събитие", "event running") : tr("събитие днес", "event today")}: ${today.title}` : server.name}
               onClick={() => {
                 setView("servers");
@@ -99,6 +107,9 @@ export default function ServerSidebar() {
         </div>
       )}
 
+      {muteMenu && (
+        <MuteMenu kind="server" id={muteMenu.id} name={muteMenu.name} x={muteMenu.x} y={muteMenu.y} onClose={() => setMuteMenu(null)} />
+      )}
       {mode === "create" && <CreateServerModal onClose={() => setMode("none")} />}
       {mode === "join" && <JoinServerModal onClose={() => setMode("none")} />}
     </div>

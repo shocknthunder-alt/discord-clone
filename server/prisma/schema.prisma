@@ -14,6 +14,10 @@ model User {
   passwordHash String
   avatarUrl    String?
   createdAt    DateTime @default(now())
+  /// Custom status under the name ("🍕 връщам се след 10 мин"); null = none.
+  customStatus      String?
+  /// When the custom status disappears by itself (null = never).
+  customStatusUntil DateTime?
 
   memberships          Membership[]
   messages             Message[]
@@ -25,6 +29,7 @@ model User {
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
   oauthIdentities      OAuthIdentity[]
+  pollVotes            PollVote[]
 }
 
 /// "Влез с Google / Microsoft": which outside account belongs to which user.
@@ -138,8 +143,48 @@ model Message {
   replyTo     Message?    @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies     Message[]   @relation("MessageReplies")
   reactions   MessageReaction[]
+  edits       MessageEdit[]
+  poll        Poll?
 
   @@index([textChannelId, pinnedAt])
+}
+
+/// Earlier versions of an edited message (the text BEFORE each edit).
+model MessageEdit {
+  id        String   @id @default(cuid())
+  messageId String
+  content   String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+}
+
+/// 📊 A poll attached to a channel message.
+model Poll {
+  id        String    @id @default(cuid())
+  messageId String    @unique
+  question  String
+  options   String[]
+  multi     Boolean   @default(false)
+  endsAt    DateTime?
+
+  message Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  votes   PollVote[]
+}
+
+model PollVote {
+  id        String   @id @default(cuid())
+  pollId    String
+  userId    String
+  option    Int
+  createdAt DateTime @default(now())
+
+  poll Poll @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pollId, userId, option])
 }
 
 model MessageReaction {

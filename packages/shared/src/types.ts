@@ -3,6 +3,9 @@ export interface UserDTO {
   username: string;
   email: string;
   avatarUrl: string | null;
+  /** Custom status (null/absent = none or expired). */
+  customStatus?: string | null;
+  customStatusUntil?: string | null;
 }
 
 export interface ServerDTO {
@@ -109,6 +112,33 @@ export interface MessageDTO {
   pinnedAt?: string | null;
   /** Only in the pins list. */
   pinnedByUsername?: string | null;
+  /** 📊 When this message is a poll. */
+  poll?: PollDTO | null;
+}
+
+/** 📊 A poll; votes[i] = ids of the people who picked option i. */
+export interface PollDTO {
+  id: string;
+  question: string;
+  options: string[];
+  multi: boolean;
+  /** null = never closes. */
+  endsAt: string | null;
+  votes: string[][];
+}
+
+/** server → channel room: poll:updated. */
+export interface PollUpdatedPayload {
+  messageId: string;
+  textChannelId: string;
+  poll: PollDTO;
+}
+
+/** An earlier version of an edited message (GET /api/messages/:id/edits). */
+export interface MessageEditDTO {
+  content: string;
+  /** When this version was replaced. */
+  replacedAt: string;
 }
 
 /** server → message:pinned (to the channel room). */

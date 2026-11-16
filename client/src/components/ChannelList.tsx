@@ -11,6 +11,8 @@ import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { isChannelUnread, useUnreadStore } from "../store/unreadStore";
 import { useMentionStore } from "../store/mentionStore";
+import { isMutedHere, useMuteStore } from "../store/muteStore";
+import MuteMenu from "./MuteMenu";
 import { useAppPrefs } from "../utils/appPrefs";
 import { useMembersStore } from "../store/membersStore";
 import { resetAllPositions } from "../utils/floatingPositions";
@@ -155,6 +157,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const unreadSeen = useUnreadStore((s) => s.seen);
   const unread = { latest: unreadLatest, seen: unreadSeen };
   const mentionCounts = useMentionStore((s) => s.counts);
+  const mutes = useMuteStore();
+  const [muteMenu, setMuteMenu] = useState<{ id: string; name: string; x: number; y: number } | null>(null);
   const selfWatching = useWatchStore((s) => s.watching.has(SELF_STREAM_KEY));
   const localScreenStream = useVoiceStore((s) => s.localScreenStream);
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
@@ -345,14 +349,22 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 <div
                   key={channel.id}
                   {...dragProps("text", channel.id)}
-                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${unreadMarkers && isChannelUnread(unread, channel.id) ? "unread" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMuteMenu({ id: channel.id, name: channel.name, x: e.clientX, y: e.clientY });
+                  }}
+                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${isMutedHere(mutes, activeServerId, channel.id) ? "muted" : unreadMarkers && isChannelUnread(unread, channel.id) ? "unread" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
                   title={unreadMarkers && isChannelUnread(unread, channel.id) ? tr("Има непрочетени съобщения", "Unread messages") : undefined}
                   onClick={() => {
                     setActiveTextChannel(channel.id);
                     onSelectText();
                   }}
                 >
-                  <span className="channel-item-name">{channel.type === "trivia" ? "🎲" : "#"} {channel.name}</span>
+                  <span className="channel-item-name">
+                    {channel.type === "trivia" ? "🎲" : "#"} {channel.name}
+                    {isMutedHere(mutes, activeServerId, channel.id) && <span className="muted-icon" title={tr("Заглушен", "Muted")}> 🔕</span>}
+                  </span>
                   {!!mentionCounts[channel.id] && channel.id !== activeTextChannelId && (
                     <span className="mention-badge" title={tr("Споменаха те тук", "You were mentioned here")}>
                       @{mentionCounts[channel.id]}
@@ -505,6 +517,29 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
           y={channelContextMenu.y}
           onClose={() => setChannelContextMenu(null)}
           onCreate={setCreateChannelType}
+        />
+      )}
+
+      {muteMenu && (
+        <MuteMenu
+          kind="channel"
+          id={muteMenu.id}
+          name={muteMenu.name}
+          x={muteMenu.x}
+          y={muteMenu.y}
+          onClose={() => setMuteMenu(null)}
+          extra={
+            isOwner ? (
+              <button
+                onClick={() => {
+                  setMuteMenu(null);
+                  setCreateChannelType("text");
+                }}
+              >
+                ＋ {tr("Създай текстов канал", "Create text channel")}
+              </button>
+            ) : undefined
+          }
         />
       )}
 

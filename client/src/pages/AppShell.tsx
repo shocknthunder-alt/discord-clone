@@ -1,4 +1,4 @@
-import { SocketEvents, type MentionPayload, type UserActivity, type ServerDTO, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, hasMention, type MentionPayload, type UserActivity, type ServerDTO, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
@@ -31,6 +31,7 @@ import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useUnreadStore } from "../store/unreadStore";
 import { useMentionStore } from "../store/mentionStore";
+import { isMutedHere, useMuteStore } from "../store/muteStore";
 import { useChatStore } from "../store/chatStore";
 import ActivityReporter from "../components/ActivityReporter";
 import { getAppPrefs } from "../utils/appPrefs";
@@ -113,6 +114,9 @@ export default function AppShell() {
     socket.on(SocketEvents.MentionNew, (p: MentionPayload) => {
       const viewing = viewingRef.current === p.textChannelId && document.hasFocus();
       if (viewing) return;
+      // @everyone/@here in a muted channel/server stays quiet; a direct @mention still comes through.
+      const direct = hasMention(p.content, useAuthStore.getState().user?.username ?? "");
+      if (!direct && isMutedHere(useMuteStore.getState(), p.serverId, p.textChannelId)) return;
       useMentionStore.getState().add(p.serverId, p.textChannelId);
       playMentionSound();
       if (getAppPrefs().mentionAlerts) {

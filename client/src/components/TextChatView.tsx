@@ -1,6 +1,6 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
 import { attachmentLabel } from "../utils/attachments";
-import { Perm, SocketEvents, hasPerm, mentionsUser, type MessageDTO, type MessagePinnedPayload } from "@discord-clone/shared";
+import { Perm, SocketEvents, hasPerm, mentionsUser, type MessageDTO, type MessagePinnedPayload, type PollUpdatedPayload } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
 import MessageText from "./MessageText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +21,9 @@ import MessageInput from "./MessageInput";
 import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
 import PinsPanel from "./PinsPanel";
+import { isMutedHere, useMuteStore } from "../store/muteStore";
+import EditedTag from "./EditHistory";
+import { PollCard } from "./Polls";
 import UserContextMenu from "./UserContextMenu";
 import { tr } from "../i18n";
 
@@ -91,7 +94,7 @@ function MessageRow({
         {message.authorUsername}
       </span>
       <span className="timestamp">{formatTime(message.createdAt)}</span>
-      {message.editedAt && <span className="edited-tag">({tr("редактирано", "edited")})</span>}
+      {message.editedAt && <EditedTag messageId={message.id} current={message.content} editedAt={message.editedAt} />}
       {message.pinnedAt && (
         <span className="pinned-tag" title={tr("Закачено в канала", "Pinned")}>
           📌
@@ -118,7 +121,9 @@ function MessageRow({
           <button onClick={cancelEdit}>{tr("Отказ", "Cancel")}</button>
         </div>
       ) : (
-        message.content && (
+        message.poll ? (
+          <PollCard poll={message.poll} authorId={message.authorId} />
+        ) : message.content && (
           <>
             <MessageText text={message.content} onMentionClick={onMentionClick} />
           </>
@@ -164,7 +169,7 @@ function MessageRow({
 }
 
 export default function TextChatView({ channelId }: Props) {
-  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setReactions, setTyping, setPinned } =
+  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setReactions, setTyping, setPinned, setPoll } =
     useChatStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { textChannels, servers, activeServerId } = useServerStore();
@@ -213,7 +218,7 @@ export default function TextChatView({ channelId }: Props) {
     function onMessage(message: MessageDTO) {
       if (message.textChannelId === channelId) {
         addMessage(message);
-        if (message.authorId !== useAuthStore.getState().user?.id) {
+        if (message.authorId !== useAuthStore.getState().user?.id && !isMutedHere(useMuteStore.getState(), useServerStore.getState().activeServerId, channelId)) {
           notifyDesktop(message.authorUsername, message.content || attachmentLabel(message.imageUrl), message.authorAvatarUrl);
         }
       }
@@ -256,6 +261,11 @@ export default function TextChatView({ channelId }: Props) {
       if (p.textChannelId === channelId) setPinned(channelId, p.id, p.pinnedAt);
     }
 
+    function onPoll(p: PollUpdatedPayload) {
+      if (p.textChannelId === channelId) setPoll(channelId, p.messageId, p.poll);
+    }
+
+    socket?.on(SocketEvents.PollUpdated, onPoll);
     socket?.on(SocketEvents.MessagePinned, onPinned);
     socket?.on(SocketEvents.MessageReactionsUpdated, onReactions);
     socket?.on(SocketEvents.MessageNew, onMessage);
@@ -264,6 +274,7 @@ export default function TextChatView({ channelId }: Props) {
     socket?.on(SocketEvents.MessageDeleted, onDeleted);
 
     return () => {
+      socket?.off(SocketEvents.PollUpdated, onPoll);
       socket?.off(SocketEvents.MessagePinned, onPinned);
       socket?.off(SocketEvents.MessageReactionsUpdated, onReactions);
       socket?.off(SocketEvents.MessageNew, onMessage);

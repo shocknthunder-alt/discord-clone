@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { startConversationWith } from "../api/dm.api";
 import { apiError, kickMember, setMemberRole } from "../api/members.api";
-import { memberResetLink } from "../api/auth.api";
+import { memberResetLink, updateProfile } from "../api/auth.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useDmStore } from "../store/dmStore";
@@ -114,6 +114,7 @@ function MemberRow({ m, voice, offline, onClick }: { m: MemberDTO; voice?: strin
         <span className="member-name" style={color ? { color } : undefined}>
           {m.username} {m.isOwner && <span title={tr("Собственик", "Owner")}>👑</span>}
         </span>
+        {m.customStatus && <span className="member-sub member-status-text">{m.customStatus}</span>}
         {m.activity && m.online && (
           <span className="member-sub member-activity" title={`${tr("Играе", "Playing")} ${m.activity.name} — ${tr("от", "since")} ${new Date(m.activity.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}>
             🎮 {tr("Играе", "Playing")} <b>{m.activity.name}</b>
@@ -218,6 +219,7 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
         <span>{member.isOwner ? tr("👑 Собственик", "👑 Owner") : role?.name ?? ""}</span>
       </div>
       {!isMe && <button onClick={() => void message()}>💬 {tr("Съобщение", "Message")}</button>}
+      {isMe && <StatusEditor current={member.customStatus ?? ""} onDone={onClose} />}
       {canRole && (
         <label className="member-menu-row">
           {tr("Ранг", "Rank")}
@@ -261,5 +263,74 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
       {error && <div className="member-menu-error">{error}</div>}
     </div>,
     document.body,
+  );
+}
+
+const STATUS_PRESETS = ["🎮 Играя", "🍕 Ям", "📚 Уча", "💼 На работа", "😴 Спя", "🚗 На път", "🔇 Не ме закачайте"];
+
+/** "Задай статус" in your own member menu: text under your name, optionally disappearing. */
+function StatusEditor({ current, onDone }: { current: string; onDone: () => void }) {
+  const [text, setText] = useState(current);
+  const [hours, setHours] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save(value: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const user = await updateProfile({ customStatus: value.trim() || null, customStatusHours: hours });
+      const auth = useAuthStore.getState();
+      if (auth.user) auth.setUser({ ...auth.user, ...user });
+      onDone();
+    } catch (err) {
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="status-editor">
+      <div className="member-menu-label">{tr("Статус под името", "Status under your name")}</div>
+      <input
+        className="status-input"
+        value={text}
+        maxLength={80}
+        autoFocus
+        placeholder={tr("напр. 🍕 връщам се след 10 мин", "e.g. 🍕 back in 10 min")}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void save(text);
+        }}
+      />
+      <div className="status-presets">
+        {STATUS_PRESETS.map((p) => (
+          <button key={p} type="button" onClick={() => setText(p)}>
+            {p}
+          </button>
+        ))}
+      </div>
+      <label className="member-menu-row">
+        {tr("Изчезва", "Clears")}
+        <select value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+          <option value={0}>{tr("никога", "never")}</option>
+          <option value={0.5}>{tr("след 30 мин", "in 30 min")}</option>
+          <option value={1}>{tr("след 1 ч", "in 1 h")}</option>
+          <option value={4}>{tr("след 4 ч", "in 4 h")}</option>
+          <option value={24}>{tr("след 24 ч", "in 24 h")}</option>
+        </select>
+      </label>
+      <div className="status-actions">
+        <button className="primary" disabled={busy} onClick={() => void save(text)}>
+          {tr("Запази", "Save")}
+        </button>
+        {current && (
+          <button disabled={busy} onClick={() => void save("")}>
+            {tr("Махни статуса", "Clear status")}
+          </button>
+        )}
+      </div>
+      {error && <div className="member-menu-error">{error}</div>}
+    </div>
   );
 }
