@@ -45,6 +45,10 @@ function toGif(g: GiphyItem): GifDTO | null {
   };
 }
 
+// GIPHY's free key allows 100 calls an hour: the same search / "trending" page is reused for 10 min.
+const GIF_CACHE_MS = 10 * 60_000;
+const gifCache = new Map<string, { at: number; body: { gifs: GifDTO[]; nextOffset: number | null } }>();
+
 mediaRouter.get("/gifs/status", (_req, res) => {
   res.json({ enabled: !!env.GIPHY_API_KEY });
 });
@@ -58,6 +62,9 @@ mediaRouter.get("/gifs/search", async (req, res) => {
     params.set("q", q);
     params.set("lang", /[а-я]/i.test(q) ? "bg" : "en");
   }
+  const cacheKey = `${q.toLowerCase()}|${offset}`;
+  const hit = gifCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < GIF_CACHE_MS) return res.json(hit.body);
   try {
     const r = await fetch(`https://api.giphy.com/v1/gifs/${q ? "search" : "trending"}?${params}`, { signal: AbortSignal.timeout(8000) });
     if (!r.ok) return res.status(502).json({ error: `GIPHY ${r.status}` });
@@ -65,8 +72,14 @@ mediaRouter.get("/gifs/search", async (req, res) => {
     const gifs = (j.data ?? []).map(toGif).filter((g): g is GifDTO => !!g);
     const p = j.pagination ?? {};
     const next = (p.offset ?? offset) + (p.count ?? gifs.length);
+    const body = { gifs, nextOffset: p.total_count && next < p.total_count && next <= 400 ? next : null };
+    gifCache.set(cacheKey, { at: Date.now(), body });
+    if (gifCache.size > 300) {
+      const oldest = gifCache.keys().next().value;
+      if (oldest !== undefined) gifCache.delete(oldest);
+    }
     res.set("Cache-Control", "private, max-age=300");
-    res.json({ gifs, nextOffset: p.total_count && next < p.total_count && next <= 400 ? next : null });
+    res.json(body);
   } catch (err) {
     console.error("gif search", err);
     res.status(502).json({ error: "GIF search failed" });
