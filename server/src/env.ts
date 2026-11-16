@@ -30,6 +30,8 @@ const envSchema = z.object({
   // sends the sign-in's ID token and the server checks its signature).
   GOOGLE_CLIENT_ID: z.string().optional(),
   MICROSOFT_CLIENT_ID: z.string().optional(),
+  // Optional: GIF search in the chat (free key at developers.giphy.com). Unset = no GIF button.
+  GIPHY_API_KEY: z.string().optional(),
 });
 
 export const env = envSchema.parse(trimmedEnv);

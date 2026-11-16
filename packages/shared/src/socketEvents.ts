@@ -18,6 +18,16 @@ export const SocketEvents = {
   TypingStop: "typing:stop",
   TypingUpdate: "typing:update",
   PresenceUpdate: "presence:update",
+  /** client → server: { messageId, pinned } (any member). */
+  MessagePin: "message:pin",
+  /** server → channel room: MessagePinnedPayload. */
+  MessagePinned: "message:pinned",
+  /** server → user room: MentionPayload (someone @mentioned you). */
+  MentionNew: "mention:new",
+  /** client → server: { activity: { name } | null } — what I'm playing (desktop app). */
+  PresenceActivity: "presence:activity",
+  /** server → server rooms: { userId, activity: UserActivity | null }. */
+  PresenceActivityUpdated: "presence:activity-updated",
 
   // voice signaling
   VoiceJoin: "voice:join",

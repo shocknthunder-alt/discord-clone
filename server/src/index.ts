@@ -9,12 +9,14 @@ import { channelsRouter } from "./routes/channels.routes.js";
 import { dmRouter } from "./routes/dm.routes.js";
 import { eventsRouter } from "./routes/events.routes.js";
 import { startEventScheduler } from "./events/scheduler.js";
+import { mediaRouter } from "./routes/media.routes.js";
 import { messagesRouter } from "./routes/messages.routes.js";
 import { musicRouter } from "./routes/music.routes.js";
 import { serversRouter } from "./routes/servers.routes.js";
 import { broadcastPresence, registerChatGateway } from "./sockets/chat.gateway.js";
 import { registerDmGateway } from "./sockets/dm.gateway.js";
 import { registerMusicGateway } from "./sockets/music.gateway.js";
+import { setActivity } from "./presence/activity.js";
 import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
@@ -29,6 +31,7 @@ app.use("/api/servers", serversRouter);
 app.use("/api/dms", dmRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/music", musicRouter);
+app.use("/api/media", mediaRouter);
 app.use("/api", channelsRouter);
 app.use("/api", messagesRouter);
 
@@ -61,7 +64,10 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     handleVoiceDisconnect(io, socket);
     // Still connected from another device/tab → still online.
-    if ((io.sockets.adapter.rooms.get(`user:${userId}`)?.size ?? 0) === 0) void broadcastPresence(io, userId, "offline");
+    if ((io.sockets.adapter.rooms.get(`user:${userId}`)?.size ?? 0) === 0) {
+      void broadcastPresence(io, userId, "offline");
+      void setActivity(io, userId, null).catch(() => {});
+    }
   });
 });
 

@@ -96,6 +96,24 @@ Owner pronouns unknown: use they/them.
     foreground window covers its display without a title bar (koffi) and our window isn't focused;
     fed by `DesktopOverlayFeed` via `overlay-update`. Settings → Глас → Овърлей в игрите.
 
+- **Chat upgrades** (2026-11-16):
+  - **Formatting** `client/src/utils/markdown.tsx` (own parser: **b** *i* __u__ ~~s~~ `code` ```block```
+    ||spoiler|| > quote # heading -# small, \ escapes, <link> = no preview) via `MessageText.tsx` in
+    channel/thread/DM views. Message box is `ChatTextarea` (Enter sends, Shift+Enter new line, @-suggestions).
+  - **@mentions** `packages/shared/src/mentions.ts` (whole-name match, names may contain spaces; @everyone/@here).
+    Server `notifyMentions` in chat.gateway → `mention:new` to `user:<id>` rooms; client `mentionStore`
+    (red @N on channel + server icon, cleared when viewed), ding `playMentionSound`, notification click jumps.
+  - **📌 Pins**: `Message.pinnedAt/pinnedById` (migration 20261116120000), `message:pin` (any member, max 50
+    per channel) → `message:pinned`; `GET /api/text-channels/:id/pins`; `PinsPanel` from the 📌 header button.
+  - **Link previews**: `GET /api/media/unfurl?url=` (`server/src/utils/unfurl.ts`: public IPs only, 6 s,
+    512 KB, 6 h cache; YouTube via oEmbed) → `LinkPreviews.tsx` (YouTube plays inline). Pref `linkPreviews`.
+  - **GIFs**: Tenor API died 2026-06-30 → GIPHY via `/api/media/gifs/*`; needs Render env `GIPHY_API_KEY`
+    (button hidden without it). GIF is sent as `imageUrl`.
+  - **🎮 What I'm playing**: desktop 1.9.0 `activity.js` (koffi K32EnumProcesses + exe paths every 15 s; known
+    exe list + Steam/Epic/Xbox/GOG/EA/Ubisoft/Riot library folder names) → `onActivity` → `ActivityReporter`
+    → `presence:activity` → server memory map (`server/src/presence/activity.ts`, cleared on disconnect) →
+    `presence:activity-updated`; `MemberDTO.activity`; shown in member list + 🎮 in voice lists. Pref `shareActivity`.
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

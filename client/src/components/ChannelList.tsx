@@ -10,6 +10,7 @@ import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { isChannelUnread, useUnreadStore } from "../store/unreadStore";
+import { useMentionStore } from "../store/mentionStore";
 import { useAppPrefs } from "../utils/appPrefs";
 import { useMembersStore } from "../store/membersStore";
 import { resetAllPositions } from "../utils/floatingPositions";
@@ -62,6 +63,17 @@ function userDragProps(userId: string | null | undefined, canMove: boolean) {
   };
 }
 
+/** 🎮 next to someone in a voice channel who is playing something (desktop app). */
+function PlayingIcon({ userId }: { userId: string | undefined }) {
+  const name = useMembersStore((s) => (userId ? s.members.find((m) => m.userId === userId)?.activity?.name : undefined));
+  if (!name) return null;
+  return (
+    <span className="participant-playing" title={`${tr("Играе", "Playing")} ${name}`}>
+      🎮
+    </span>
+  );
+}
+
 function ParticipantRow({
   peer,
   onContextMenu,
@@ -91,6 +103,7 @@ function ParticipantRow({
         {peer.isScreenSharing && <LiveIcon size={11} />}{" "}
         {peer.username || tr("свързва се…", "connecting…")}
       </span>
+      <PlayingIcon userId={peer.userId} />
       {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
         <span className="voice-status-icons"> {voiceStatusIcons(peer.isMuted, peer.isDeafened)}</span>
       )}
@@ -123,6 +136,7 @@ function OccupantRow({ occupant, canMove }: { occupant: VoicePeerInfo; canMove: 
         {occupant.isScreenSharing && <LiveIcon size={11} />}{" "}
         {occupant.username}
       </span>
+      <PlayingIcon userId={occupant.userId} />
       {voiceStatusIcons(occupant.isMuted, occupant.isDeafened) && (
         <span className="voice-status-icons"> {voiceStatusIcons(occupant.isMuted, occupant.isDeafened)}</span>
       )}
@@ -140,6 +154,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const unreadLatest = useUnreadStore((s) => s.latest);
   const unreadSeen = useUnreadStore((s) => s.seen);
   const unread = { latest: unreadLatest, seen: unreadSeen };
+  const mentionCounts = useMentionStore((s) => s.counts);
   const selfWatching = useWatchStore((s) => s.watching.has(SELF_STREAM_KEY));
   const localScreenStream = useVoiceStore((s) => s.localScreenStream);
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
@@ -338,6 +353,11 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                   }}
                 >
                   <span className="channel-item-name">{channel.type === "trivia" ? "🎲" : "#"} {channel.name}</span>
+                  {!!mentionCounts[channel.id] && channel.id !== activeTextChannelId && (
+                    <span className="mention-badge" title={tr("Споменаха те тук", "You were mentioned here")}>
+                      @{mentionCounts[channel.id]}
+                    </span>
+                  )}
                   {isOwner && (
                     <button
                       className="channel-item-settings"
@@ -417,6 +437,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                             {isScreenSharing && <LiveIcon size={11} />}{" "}
                             {currentUsername}
                           </span>
+                          <PlayingIcon userId={currentUserId} />
                           {voiceStatusIcons(isMuted, isDeafened) && (
                             <span className="voice-status-icons"> {voiceStatusIcons(isMuted, isDeafened)}</span>
                           )}

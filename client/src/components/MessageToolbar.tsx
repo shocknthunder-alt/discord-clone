@@ -13,7 +13,7 @@ const PICKER_WIDTH = 350;
 const PICKER_HEIGHT = 380;
 const PICKER_FOOTER_HEIGHT = 48;
 const MENU_WIDTH = 210;
-const MENU_HEIGHT = 120;
+const MENU_HEIGHT = 160;
 const QUICK_REACTIONS = ["✅", "👀", "🙌"];
 
 interface Props {
@@ -148,6 +148,14 @@ export default function MessageToolbar({ message, isOwn, onReply, onEdit }: Prop
                     {tr("Копирай текста", "Copy message")}
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    setPopover(null);
+                    getSocket()?.emit(SocketEvents.MessagePin, { messageId: message.id, pinned: !message.pinnedAt });
+                  }}
+                >
+                  📌 {message.pinnedAt ? tr("Откачи", "Unpin message") : tr("Закачи в канала", "Pin message")}
+                </button>
                 {(isOwn || canDeleteAny) && (
                   <button className="danger" onClick={handleDelete}>
                     {tr("Изтрий…", "Delete message…")}

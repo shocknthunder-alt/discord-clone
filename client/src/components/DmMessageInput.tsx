@@ -6,6 +6,8 @@ import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudina
 import { getSocket } from "../socket/socket";
 import { tr } from "../i18n";
 import VoiceRecorder from "./VoiceRecorder";
+import ChatTextarea from "./ChatTextarea";
+import GifPicker from "./GifPicker";
 
 interface Props {
   conversationId: string;
@@ -36,8 +38,8 @@ export default function DmMessageInput({ conversationId }: Props) {
     socket?.emit(SocketEvents.DmTypingStop, { conversationId });
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setValue(e.target.value);
+  function handleChange(next: string) {
+    setValue(next);
     const socket = getSocket();
     if (!socket) return;
 
@@ -50,7 +52,7 @@ export default function DmMessageInput({ conversationId }: Props) {
     typingTimeout.current = setTimeout(stopTyping, TYPING_IDLE_MS);
   }
 
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
     if (!item) return;
     const file = item.getAsFile();
@@ -69,8 +71,9 @@ export default function DmMessageInput({ conversationId }: Props) {
     setShowEmojiPicker(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (uploading) return;
     if (!value.trim() && !pendingImage) return;
 
     const socket = getSocket();
@@ -122,12 +125,14 @@ export default function DmMessageInput({ conversationId }: Props) {
         >
           🙂
         </button>
-        <input
+        <ChatTextarea
           value={value}
           onChange={handleChange}
+          onSubmit={() => void handleSubmit()}
           onPaste={handlePaste}
           placeholder={isCloudinaryConfigured() ? tr("Съобщение… (постави или провлачи снимка/GIF)", "Message… (paste or drop a picture/GIF)") : tr("Съобщение…", "Message…")}
         />
+        <GifPicker onPick={(gif) => getSocket()?.emit(SocketEvents.DmSend, { conversationId, content: "", imageUrl: gif.url })} />
         <VoiceRecorder
           send={(attachment) => getSocket()?.emit(SocketEvents.DmSend, { conversationId, content: "", imageUrl: attachment })}
         />

@@ -6,6 +6,8 @@ import { tr } from "../i18n";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { getSocket } from "../socket/socket";
 import VoiceRecorder from "./VoiceRecorder";
+import ChatTextarea from "./ChatTextarea";
+import GifPicker from "./GifPicker";
 
 interface Props {
   channelId: string;
@@ -50,8 +52,8 @@ export default function MessageInput({
     socket?.emit(SocketEvents.TypingStop, { textChannelId: channelId });
   }
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setValue(e.target.value);
+  function handleChange(next: string) {
+    setValue(next);
     const socket = getSocket();
     if (!socket) return;
 
@@ -64,7 +66,7 @@ export default function MessageInput({
     typingTimeout.current = setTimeout(stopTyping, TYPING_IDLE_MS);
   }
 
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+  function handlePaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
     const item = Array.from(e.clipboardData.items).find((i) => i.type.startsWith("image/"));
     if (!item) return;
 
@@ -85,8 +87,9 @@ export default function MessageInput({
     setShowEmojiPicker(false);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
+    if (uploading) return;
     if (!value.trim() && !pendingImage) return;
 
     const socket = getSocket();
@@ -144,13 +147,26 @@ export default function MessageInput({
         >
           🙂
         </button>
-        <input
+        <ChatTextarea
           value={value}
           onChange={handleChange}
+          onSubmit={() => void handleSubmit()}
           onPaste={handlePaste}
           autoFocus={autoFocus}
+          mentions
           placeholder={
-            placeholder ?? (isCloudinaryConfigured() ? tr("Съобщение… (постави или провлачи снимка/GIF)", "Message… (paste or drop a picture/GIF)") : tr("Съобщение…", "Message…"))
+            placeholder ?? (isCloudinaryConfigured() ? tr("Съобщение… (@ за споменаване, Shift+Enter нов ред)", "Message… (@ to mention, Shift+Enter new line)") : tr("Съобщение…", "Message…"))
+          }
+        />
+        <GifPicker
+          onPick={(gif) =>
+            getSocket()?.emit(SocketEvents.MessageSend, {
+              textChannelId: channelId,
+              content: "",
+              imageUrl: gif.url,
+              replyToId,
+              alsoSendToChannel: replyToId ? alsoSendToChannel : undefined,
+            })
           }
         />
         <VoiceRecorder

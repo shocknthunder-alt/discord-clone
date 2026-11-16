@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDmStore } from "../store/dmStore";
 import { isRunning, todaysEvent, upcomingOf, useEventsStore } from "../store/eventsStore";
 import { useServerStore } from "../store/serverStore";
+import { serverMentionCount, useMentionStore } from "../store/mentionStore";
 import { useReorderable } from "../utils/useReorderable";
 import CreateServerModal from "./CreateServerModal";
 import DraggableIcon from "./DraggableIcon";
@@ -18,6 +19,7 @@ export default function ServerSidebar() {
   const { order, moveItem } = useReorderable("sidebarActions", DEFAULT_SIDEBAR_ACTION_ORDER);
 
   const events = useEventsStore((s) => s.events);
+  const mentions = useMentionStore();
   useNow(60_000);
 
   const totalUnread = Object.values(unreadCounts).reduce((sum, n) => sum + n, 0);
@@ -47,6 +49,7 @@ export default function ServerSidebar() {
       {servers.map((server) => {
         const today = todaysEvent(upcomingOf(events, server.id));
         const live = today ? isRunning(today) : false;
+        const mentionCount = serverMentionCount(mentions, server.id);
         return (
           <div key={server.id} className="server-icon-wrap">
             <button
@@ -60,6 +63,11 @@ export default function ServerSidebar() {
               {server.iconUrl ? <img src={server.iconUrl} alt="" /> : server.name.slice(0, 2).toUpperCase()}
             </button>
             {today && <span className={`server-event-dot ${live ? "live" : ""}`}>📅</span>}
+            {mentionCount > 0 && (
+              <span className="server-icon-badge" title={tr("Споменаха те", "You were mentioned")}>
+                @{mentionCount > 99 ? "99+" : mentionCount}
+              </span>
+            )}
           </div>
         );
       })}

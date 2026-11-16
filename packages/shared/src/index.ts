@@ -3,3 +3,4 @@ export * from "./socketEvents.js";
 export * from "./youtube.js";
 export * from "./events.js";
 export * from "./permissions.js";
+export * from "./mentions.js";

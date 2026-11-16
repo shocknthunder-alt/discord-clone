@@ -35,6 +35,12 @@ export interface AppPrefs {
   overlayCorner: "tl" | "tr" | "bl" | "br";
   /** Overlay also pops up new chat messages. */
   overlayMessages: boolean;
+  /** Preview cards (title, picture, YouTube player) under links in messages. */
+  linkPreviews: boolean;
+  /** Desktop app: tell the others which game I'm playing ("🎮 играе …"). */
+  shareActivity: boolean;
+  /** Sound + notification when someone @mentions me. */
+  mentionAlerts: boolean;
 }
 
 const KEY = "appPrefs";
@@ -55,6 +61,9 @@ const DEFAULTS: AppPrefs = {
   gameOverlay: true,
   overlayCorner: "tl",
   overlayMessages: true,
+  linkPreviews: true,
+  shareActivity: true,
+  mentionAlerts: true,
 };
 
 function load(): AppPrefs {
@@ -121,7 +130,7 @@ export function formatDateTime(iso: string): string {
  * Desktop notification for something that arrived while the user wasn't looking. Silent no-op
  * when the setting is off, permission wasn't granted, or the window is in focus.
  */
-export function notifyDesktop(title: string, body: string, icon?: string | null) {
+export function notifyDesktop(title: string, body: string, icon?: string | null, onClick?: () => void) {
   if (!getAppPrefs().desktopNotifications) return;
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   if (document.hasFocus()) return;
@@ -129,6 +138,7 @@ export function notifyDesktop(title: string, body: string, icon?: string | null)
     const n = new Notification(title, { body: body.slice(0, 200), ...(icon ? { icon } : {}) });
     n.onclick = () => {
       window.focus();
+      onClick?.();
       n.close();
     };
   } catch {

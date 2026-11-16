@@ -105,6 +105,64 @@ export interface MessageDTO {
   editedAt: string | null;
   replyTo: ReplyPreview | null;
   reactions: ReactionDTO[];
+  /** 📌 When it was pinned (null/absent = not pinned; older servers don't send it). */
+  pinnedAt?: string | null;
+  /** Only in the pins list. */
+  pinnedByUsername?: string | null;
+}
+
+/** server → message:pinned (to the channel room). */
+export interface MessagePinnedPayload {
+  id: string;
+  textChannelId: string;
+  pinnedAt: string | null;
+  byUsername: string;
+}
+
+/** server → the mentioned person's user room: someone @mentioned you (or @everyone). */
+export interface MentionPayload {
+  serverId: string;
+  textChannelId: string;
+  channelName: string;
+  messageId: string;
+  /** Thread root when the mention is a thread reply. */
+  rootId: string | null;
+  authorId: string;
+  authorUsername: string;
+  authorAvatarUrl: string | null;
+  content: string;
+  everyone: boolean;
+}
+
+/** A link preview card (GET /api/unfurl?url=). */
+export interface LinkPreviewDTO {
+  url: string;
+  siteName: string | null;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  /** true = a big picture under the text (og/twitter "summary_large_image"); false = a thumbnail. */
+  largeImage: boolean;
+  themeColor: string | null;
+}
+
+/** One GIF from the GIF search (GET /api/gifs/search). */
+export interface GifDTO {
+  id: string;
+  title: string;
+  /** Small animated preview for the picker grid. */
+  preview: string;
+  /** What gets sent to the chat. */
+  url: string;
+  width: number;
+  height: number;
+}
+
+/** "Какво играе" — detected by the desktop app. */
+export interface UserActivity {
+  name: string;
+  /** ms since epoch. */
+  since: number;
 }
 
 export interface VoicePeerInfo {

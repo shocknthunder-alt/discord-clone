@@ -1,8 +1,9 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
 import { attachmentLabel } from "../utils/attachments";
-import { Perm, SocketEvents, hasPerm, type MessageDTO } from "@discord-clone/shared";
-import ChatImage, { LinkedImages } from "./ChatImage";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Perm, SocketEvents, hasPerm, mentionsUser, type MessageDTO, type MessagePinnedPayload } from "@discord-clone/shared";
+import ChatImage from "./ChatImage";
+import MessageText from "./MessageText";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { useSearchStore } from "../store/searchStore";
 import { useMemberColor, useMembersStore } from "../store/membersStore";
@@ -14,12 +15,12 @@ import { useDmStore } from "../store/dmStore";
 import { useIgnoredUsersStore } from "../store/ignoredUsersStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
-import { linkifyText } from "../utils/linkify";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import EmojiGlyph from "./EmojiGlyph";
 import MessageInput from "./MessageInput";
 import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
+import PinsPanel from "./PinsPanel";
 import UserContextMenu from "./UserContextMenu";
 import { tr } from "../i18n";
 
@@ -43,9 +44,11 @@ function MessageRow({
   replyAuthors,
   onOpenThread,
   onAuthorClick,
+  onMentionClick,
   highlighted = false,
 }: {
   highlighted?: boolean;
+  onMentionClick?: (name: string, e: React.MouseEvent) => void;
   message: MessageDTO;
   isOwn: boolean;
   currentUserId: string | undefined;
@@ -65,6 +68,8 @@ function MessageRow({
   }
 
   const authorColor = useMemberColor(message.authorId);
+  const myName = useAuthStore((s) => s.user?.username);
+  const mentioned = !isOwn && mentionsUser(message.content, myName);
 
   function cancelEdit() {
     setDraft(message.content);
@@ -72,7 +77,7 @@ function MessageRow({
   }
 
   return (
-    <div className={`message-row ${highlighted ? "jump-highlight" : ""}`} id={`msg-${message.id}`}>
+    <div className={`message-row ${highlighted ? "jump-highlight" : ""} ${mentioned ? "mentioned" : ""}`} id={`msg-${message.id}`}>
       <div className="message-main">
       {!editing && (
         <MessageToolbar
@@ -87,14 +92,24 @@ function MessageRow({
       </span>
       <span className="timestamp">{formatTime(message.createdAt)}</span>
       {message.editedAt && <span className="edited-tag">({tr("редактирано", "edited")})</span>}
+      {message.pinnedAt && (
+        <span className="pinned-tag" title={tr("Закачено в канала", "Pinned")}>
+          📌
+        </span>
+      )}
 
       {editing ? (
         <div className="message-edit-form">
-          <input
+          <textarea
+            className="message-edit-textarea"
+            rows={Math.min(8, draft.split("\n").length)}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") saveEdit();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                saveEdit();
+              }
               if (e.key === "Escape") cancelEdit();
             }}
             autoFocus
@@ -105,8 +120,7 @@ function MessageRow({
       ) : (
         message.content && (
           <>
-            <div className="message-text">{linkifyText(message.content)}</div>
-            <LinkedImages text={message.content} />
+            <MessageText text={message.content} onMentionClick={onMentionClick} />
           </>
         )
       )}
@@ -150,7 +164,7 @@ function MessageRow({
 }
 
 export default function TextChatView({ channelId }: Props) {
-  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setReactions, setTyping } =
+  const { messagesByChannel, typingByChannel, setMessages, addMessage, updateMessage, removeMessage, setReactions, setTyping, setPinned } =
     useChatStore();
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { textChannels, servers, activeServerId } = useServerStore();
@@ -159,6 +173,7 @@ export default function TextChatView({ channelId }: Props) {
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
   const bottomRef = useRef<HTMLDivElement>(null);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [showPins, setShowPins] = useState(false);
   const [openThreadRootId, setOpenThreadRootId] = useState<string | null>(null);
   const [userMenu, setUserMenu] = useState<{ userId: string; username: string; x: number; y: number } | null>(null);
 
@@ -233,6 +248,15 @@ export default function TextChatView({ channelId }: Props) {
       if (textChannelId === channelId) setReactions(channelId, id, reactions);
     }
 
+    function onPinned(p: MessagePinnedPayload & { error?: string }) {
+      if (p.error) {
+        window.alert(p.error);
+        return;
+      }
+      if (p.textChannelId === channelId) setPinned(channelId, p.id, p.pinnedAt);
+    }
+
+    socket?.on(SocketEvents.MessagePinned, onPinned);
     socket?.on(SocketEvents.MessageReactionsUpdated, onReactions);
     socket?.on(SocketEvents.MessageNew, onMessage);
     socket?.on(SocketEvents.TypingUpdate, onTyping);
@@ -240,6 +264,7 @@ export default function TextChatView({ channelId }: Props) {
     socket?.on(SocketEvents.MessageDeleted, onDeleted);
 
     return () => {
+      socket?.off(SocketEvents.MessagePinned, onPinned);
       socket?.off(SocketEvents.MessageReactionsUpdated, onReactions);
       socket?.off(SocketEvents.MessageNew, onMessage);
       socket?.off(SocketEvents.TypingUpdate, onTyping);
@@ -251,6 +276,7 @@ export default function TextChatView({ channelId }: Props) {
 
   useEffect(() => {
     setOpenThreadRootId(null);
+    setShowPins(false);
   }, [channelId]);
 
   // "Jump to message" from search: once the target is in the loaded list, scroll to it,
@@ -293,6 +319,15 @@ export default function TextChatView({ channelId }: Props) {
     setOpenThreadRootId(message?.replyTo?.id ?? messageId);
   }
 
+  const handleMentionClick = useCallback(
+    (name: string, e: React.MouseEvent) => {
+      const m = useMembersStore.getState().members.find((x) => x.username.toLowerCase() === name.toLowerCase());
+      if (!m || m.userId === currentUserId) return;
+      setUserMenu({ userId: m.userId, username: m.username, x: e.clientX, y: e.clientY });
+    },
+    [currentUserId],
+  );
+
   function handleAuthorClick(e: React.MouseEvent, message: MessageDTO) {
     if (message.authorId === currentUserId) return;
     setUserMenu({ userId: message.authorId, username: message.authorUsername, x: e.clientX, y: e.clientY });
@@ -322,6 +357,13 @@ export default function TextChatView({ channelId }: Props) {
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
         <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : "#"} {channel?.name ?? ""}</span>
+        <button
+          className={`server-settings-button pins-toggle ${showPins ? "on" : ""}`}
+          onClick={() => setShowPins((v) => !v)}
+          title={tr("Закачени съобщения", "Pinned messages")}
+        >
+          📌
+        </button>
         <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title={tr("Търси в съобщенията (Ctrl+K)", "Search messages (Ctrl+K)")}>
           🔍
         </button>
@@ -338,6 +380,8 @@ export default function TextChatView({ channelId }: Props) {
           </button>
         )}
       </div>
+
+      {showPins && <PinsPanel channelId={channelId} onClose={() => setShowPins(false)} />}
 
       <div className="chat-body">
         <div className="chat-main-column">
@@ -372,6 +416,7 @@ export default function TextChatView({ channelId }: Props) {
                   replyAuthors={replyAuthors}
                   onOpenThread={handleOpenThread}
                   onAuthorClick={handleAuthorClick}
+                  onMentionClick={handleMentionClick}
                   highlighted={flashId === message.id}
                 />
               );

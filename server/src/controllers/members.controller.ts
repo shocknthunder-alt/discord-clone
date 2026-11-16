@@ -3,6 +3,7 @@ import { ALL_PERMS, Perm, SocketEvents, hasPerm, type MembersResponse, type Role
 import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
 import { can, ensureDefaultRole, memberContext, outranks } from "../permissions.js";
+import { getActivity } from "../presence/activity.js";
 import { resetLink, signResetToken } from "../utils/passwordReset.js";
 
 function io(req: Request): IOServer | undefined {
@@ -45,6 +46,7 @@ export async function listMembers(req: Request, res: Response) {
         isOwner: m.role === "OWNER" || server?.ownerId === m.userId,
         online: isOnline(io(req), m.userId),
         joinedAt: m.joinedAt.toISOString(),
+        activity: getActivity(m.userId),
       })),
     roles: roles.map(roleDto),
     myPermissions: me.permissions,

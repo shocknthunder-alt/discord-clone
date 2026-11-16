@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
+import { SocketEvents, type MentionPayload, type MessageDTO } from "@discord-clone/shared";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useVoiceStore, type RemotePeer } from "../store/voiceStore";
@@ -73,9 +73,14 @@ function Feed({ update }: { update: (state: unknown) => void }) {
     };
     const onMsg = (m: MessageDTO) => push(m);
     const onDm = (m: Parameters<typeof push>[0]) => push(m);
+    // @mentions from any channel (MessageNew only covers the open one).
+    const onMention = (p: MentionPayload) =>
+      push({ id: p.messageId, authorId: p.authorId, authorUsername: `@ ${p.authorUsername} · #${p.channelName}`, authorAvatarUrl: p.authorAvatarUrl, content: p.content });
+    socket?.on(SocketEvents.MentionNew, onMention);
     socket?.on(SocketEvents.MessageNew, onMsg);
     socket?.on(SocketEvents.DmNew, onDm);
     return () => {
+      socket?.off(SocketEvents.MentionNew, onMention);
       socket?.off(SocketEvents.MessageNew, onMsg);
       socket?.off(SocketEvents.DmNew, onDm);
     };

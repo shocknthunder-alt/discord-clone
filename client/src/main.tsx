@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
+import "./components/chatExtras.css";
 import { applyTheme, getStoredThemeId } from "./theme/themes";
 import { initAppPrefs } from "./utils/appPrefs";
 import { preventStrayFileDrops } from "./hooks/useImageDrop";

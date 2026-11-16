@@ -1,10 +1,9 @@
-import { LinkedImages } from "./ChatImage";
+import MessageText from "./MessageText";
 import { formatTime } from "../utils/appPrefs";
 import { SocketEvents, type MessageDTO } from "@discord-clone/shared";
 import { useState } from "react";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
-import { linkifyText } from "../utils/linkify";
 import MessageInput from "./MessageInput";
 import { tr } from "../i18n";
 
@@ -57,11 +56,16 @@ function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: bool
 
       {editing ? (
         <div className="message-edit-form">
-          <input
+          <textarea
+            className="message-edit-textarea"
+            rows={Math.min(8, draft.split("\n").length)}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") saveEdit();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                saveEdit();
+              }
               if (e.key === "Escape") cancelEdit();
             }}
             autoFocus
@@ -72,8 +76,7 @@ function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: bool
       ) : (
         message.content && (
           <>
-            <div>{linkifyText(message.content)}</div>
-            <LinkedImages text={message.content} />
+            <MessageText text={message.content} />
           </>
         )
       )}

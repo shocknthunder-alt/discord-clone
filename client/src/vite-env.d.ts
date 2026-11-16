@@ -32,6 +32,8 @@ interface Window {
     getSystemIdleSeconds?(): Promise<number>;
     /** Desktop 1.8.0+: in-game overlay (who's talking + messages), see DesktopOverlayFeed. */
     overlay?: { update(state: unknown): void };
+    /** Desktop 1.9.0+: cb({ name }) when the detected game changes (null = none). Returns an unsubscribe. */
+    onActivity?(cb: (activity: { name: string } | null) => void): () => void;
   };
 }
 

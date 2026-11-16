@@ -114,6 +114,11 @@ function MemberRow({ m, voice, offline, onClick }: { m: MemberDTO; voice?: strin
         <span className="member-name" style={color ? { color } : undefined}>
           {m.username} {m.isOwner && <span title={tr("Собственик", "Owner")}>👑</span>}
         </span>
+        {m.activity && m.online && (
+          <span className="member-sub member-activity" title={`${tr("Играе", "Playing")} ${m.activity.name} — ${tr("от", "since")} ${new Date(m.activity.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}>
+            🎮 {tr("Играе", "Playing")} <b>{m.activity.name}</b>
+          </span>
+        )}
         {voice && <span className="member-sub">🔊 {voice}</span>}
       </span>
     </button>

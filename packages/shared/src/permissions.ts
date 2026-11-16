@@ -77,6 +77,8 @@ export interface MemberDTO {
   isOwner: boolean;
   online: boolean;
   joinedAt: string;
+  /** What they're playing right now (desktop app); absent on older servers. */
+  activity?: { name: string; since: number } | null;
 }
 
 export interface MembersResponse {

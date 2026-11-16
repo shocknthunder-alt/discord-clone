@@ -14,6 +14,55 @@ function findRows() {
   });
 }
 
+export function messageDto(m: MessageRow) {
+  return {
+    id: m.id,
+    content: m.content,
+    imageUrl: m.imageUrl,
+    textChannelId: m.textChannelId,
+    authorId: m.authorId,
+    authorUsername: m.author.username,
+    authorAvatarUrl: m.author.avatarUrl,
+    createdAt: m.createdAt,
+    editedAt: m.editedAt,
+    pinnedAt: m.pinnedAt,
+    reactions: groupReactions(m.reactions),
+    replyTo: m.replyTo
+      ? {
+          id: m.replyTo.id,
+          authorUsername: m.replyTo.author.username,
+          content: m.replyTo.content,
+          imageUrl: m.replyTo.imageUrl,
+        }
+      : null,
+  };
+}
+
+/** 📌 The pinned messages of a channel, newest pin first. */
+export async function listPins(req: Request, res: Response) {
+  const { channelId } = req.params;
+  const textChannel = await prisma.textChannel.findUnique({ where: { id: channelId } });
+  if (!textChannel) return res.status(404).json({ error: "Channel not found" });
+  const membership = await prisma.membership.findUnique({
+    where: { userId_serverId: { userId: req.userId!, serverId: textChannel.serverId } },
+  });
+  if (!membership) return res.status(403).json({ error: "Not a member of this server" });
+  const rows = await prisma.message.findMany({
+    where: { textChannelId: channelId, pinnedAt: { not: null } },
+    orderBy: { pinnedAt: "desc" },
+    take: 100,
+    include: {
+      author: { select: { username: true, avatarUrl: true } },
+      replyTo: { include: { author: { select: { username: true } } } },
+      reactions: { orderBy: { createdAt: "asc" } },
+    },
+  });
+  const pinnerIds = [...new Set(rows.map((r) => r.pinnedById).filter((x): x is string => !!x))];
+  const pinners = pinnerIds.length ? await prisma.user.findMany({ where: { id: { in: pinnerIds } }, select: { id: true, username: true } }) : [];
+  const nameOf = new Map(pinners.map((p) => [p.id, p.username]));
+  res.json({ messages: rows.map((m) => ({ ...messageDto(m), pinnedByUsername: m.pinnedById ? (nameOf.get(m.pinnedById) ?? null) : null })) });
+}
+
 export async function listMessages(req: Request, res: Response) {
   const { channelId } = req.params;
   const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
@@ -75,26 +124,7 @@ export async function listMessages(req: Request, res: Response) {
   });
 
   res.json({
-    messages: messages.reverse().map((m) => ({
-      id: m.id,
-      content: m.content,
-      imageUrl: m.imageUrl,
-      textChannelId: m.textChannelId,
-      authorId: m.authorId,
-      authorUsername: m.author.username,
-      authorAvatarUrl: m.author.avatarUrl,
-      createdAt: m.createdAt,
-      editedAt: m.editedAt,
-      reactions: groupReactions(m.reactions),
-      replyTo: m.replyTo
-        ? {
-            id: m.replyTo.id,
-            authorUsername: m.replyTo.author.username,
-            content: m.replyTo.content,
-            imageUrl: m.replyTo.imageUrl,
-          }
-        : null,
-    })),
+    messages: messages.reverse().map(messageDto),
   });
 }
 

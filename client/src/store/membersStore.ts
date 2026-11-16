@@ -12,6 +12,7 @@ interface MembersState {
   panelOpen: boolean;
   load: (serverId: string) => Promise<void>;
   setOnline: (userId: string, online: boolean) => void;
+  setActivity: (userId: string, activity: MemberDTO["activity"]) => void;
   togglePanel: () => void;
 }
 
@@ -32,7 +33,11 @@ export const useMembersStore = create<MembersState>((set, get) => ({
     set({ serverId, members: r.members, roles: r.roles, myPermissions: r.myPermissions, myRank: r.myRank });
   },
   setOnline: (userId, online) =>
-    set((s) => ({ members: s.members.map((m) => (m.userId === userId && m.online !== online ? { ...m, online } : m)) })),
+    set((s) => ({
+      members: s.members.map((m) => (m.userId === userId && m.online !== online ? { ...m, online, ...(online ? {} : { activity: null }) } : m)),
+    })),
+  setActivity: (userId, activity) =>
+    set((s) => ({ members: s.members.map((m) => (m.userId === userId ? { ...m, activity } : m)) })),
   togglePanel: () =>
     set((s) => {
       localStorage.setItem("membersPanelOpen", String(!s.panelOpen));

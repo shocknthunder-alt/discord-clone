@@ -1,13 +1,25 @@
-const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+import { visibleText } from "./markdown";
+
+const URL_REGEX = /(https?:\/\/[^\s<>]+)/g;
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|avif|bmp)$/i;
 /** Hosts that serve images without an extension in the path. */
 const IMAGE_HOSTS = new Set(["pbs.twimg.com"]);
 
+/** Is this a direct link to a picture? */
+export function isImageLink(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return IMAGE_EXT.test(url.pathname) || (IMAGE_HOSTS.has(url.hostname) && /^(png|jpe?g|gif|webp)$/i.test(url.searchParams.get("format") ?? ""));
+  } catch {
+    return false;
+  }
+}
+
 /** Links in a message that point straight at an image (shown inline under the text). */
 export function imageLinksIn(text: string): string[] {
   const out: string[] = [];
-  for (const raw of text.match(URL_REGEX) ?? []) {
+  for (const raw of visibleText(text).match(URL_REGEX) ?? []) {
     try {
       const url = new URL(raw.replace(/[)\].,!?]+$/, ""));
       const isImage =

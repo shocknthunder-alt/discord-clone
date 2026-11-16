@@ -4,6 +4,7 @@ const { startGlobalKeys, stopGlobalKeys } = require("./globalKeys");
 const appAudio = require("./appAudio");
 const remoteControl = require("./remoteControl");
 const overlay = require("./overlay");
+const activity = require("./activity");
 const { autoUpdater } = require("electron-updater");
 
 // The app is a thin native shell around the live website, so every client update reaches the
@@ -151,6 +152,7 @@ app.whenReady().then(async () => {
   });
 
   overlay.init(win, ipcMain);
+  activity.start(win, ipcMain);
 
   startGlobalKeys((code, down) => {
     if (!win.isDestroyed()) win.webContents.send("global-key", code, down);
@@ -249,6 +251,7 @@ let quitting = false;
 app.on("before-quit", () => {
   quitting = true;
   overlay.destroy();
+  activity.stop();
 });
 
 app.on("second-instance", () => {

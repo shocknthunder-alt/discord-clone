@@ -1,4 +1,4 @@
-import { SocketEvents, type ServerDTO, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
+import { SocketEvents, type MentionPayload, type UserActivity, type ServerDTO, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
@@ -30,6 +30,11 @@ import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useUnreadStore } from "../store/unreadStore";
+import { useMentionStore } from "../store/mentionStore";
+import { useChatStore } from "../store/chatStore";
+import ActivityReporter from "../components/ActivityReporter";
+import { getAppPrefs } from "../utils/appPrefs";
+import { playMentionSound } from "../utils/voiceSounds";
 import { scheduleEventsReload, useEventsStore } from "../store/eventsStore";
 import { useEventReminders } from "../hooks/useEventReminders";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -53,6 +58,8 @@ export default function AppShell() {
   const { joinVoiceChannel, leaveVoiceChannel, toggleMute, toggleDeafen } = useVoiceChannel();
 
   useEventReminders();
+  // The text channel on screen (socket handlers read it to skip mentions you're looking at).
+  const viewingRef = useRef<string | null>(null);
 
   // Socket handlers are registered once; these refs always point at the current functions.
   const leaveRef = useRef(leaveVoiceChannel);
@@ -100,6 +107,28 @@ export default function AppShell() {
 
     socket.on(SocketEvents.ChannelActivity, (p: ChannelActivityPayload) => {
       useUnreadStore.getState().activity(p.textChannelId, p.createdAt, p.authorId === useAuthStore.getState().user?.id);
+    });
+
+    // @mentions: red number on the channel/server until I open it, plus a ding + notification.
+    socket.on(SocketEvents.MentionNew, (p: MentionPayload) => {
+      const viewing = viewingRef.current === p.textChannelId && document.hasFocus();
+      if (viewing) return;
+      useMentionStore.getState().add(p.serverId, p.textChannelId);
+      playMentionSound();
+      if (getAppPrefs().mentionAlerts) {
+        notifyDesktop(`@ ${p.authorUsername} в #${p.channelName}`, p.content, p.authorAvatarUrl, () => {
+          useDmStore.getState().setView("servers");
+          if (useServerStore.getState().activeServerId !== p.serverId) useServerStore.getState().setActiveServer(p.serverId);
+          useServerStore.getState().setActiveTextChannel(p.textChannelId);
+          setViewMode("text");
+          useChatStore.getState().setJumpTarget({ channelId: p.textChannelId, messageId: p.messageId, rootId: p.rootId });
+        });
+      }
+    });
+
+    // 🎮 What someone is playing changed.
+    socket.on(SocketEvents.PresenceActivityUpdated, ({ userId, activity }: { userId: string; activity: UserActivity | null }) => {
+      useMembersStore.getState().setActivity(userId, activity);
     });
 
     // Soundboard: someone in my voice channel pressed a clip — play it (stops the previous one).
@@ -222,9 +251,13 @@ export default function AppShell() {
 
   // …and whatever channel is on screen counts as read (also as new messages land in it).
   const viewingChannelId = view !== "dms" && !(viewMode === "voice" && activeVoiceChannelId) ? activeTextChannelId : null;
+  viewingRef.current = viewingChannelId;
   const viewingLatest = useUnreadStore((s) => (viewingChannelId ? s.latest[viewingChannelId] : undefined));
   useEffect(() => {
-    if (viewingChannelId) useUnreadStore.getState().markRead(viewingChannelId);
+    if (viewingChannelId) {
+      useUnreadStore.getState().markRead(viewingChannelId);
+      useMentionStore.getState().clear(viewingChannelId);
+    }
   }, [viewingChannelId, viewingLatest]);
 
   useEffect(() => {
@@ -257,6 +290,7 @@ export default function AppShell() {
       <AfkWatcher join={joinVoiceChannel} leave={leaveVoiceChannel} deafen={toggleDeafen} />
       <MusicVideoWindow />
       <DesktopOverlayFeed />
+      <ActivityReporter />
       <EventBoardModal onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <SearchModal />
       <LiveBanner />

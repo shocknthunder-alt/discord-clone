@@ -25,6 +25,13 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
   getSystemIdleSeconds: () => ipcRenderer.invoke("system-idle"),
   /** Desktop 1.8.0+: in-game overlay — who is in the call / talking, new messages. */
   overlay: { update: (state) => ipcRenderer.send("overlay-update", state) },
+  /** Desktop 1.9.0+: cb({ name } | null) when the detected game changes ("Какво играе"). Returns an unsubscribe. */
+  onActivity(cb) {
+    const handler = (_event, activity) => cb(activity);
+    ipcRenderer.on("activity", handler);
+    ipcRenderer.send("activity-query");
+    return () => ipcRenderer.removeListener("activity", handler);
+  },
   /** Desktop 1.6.0+: cb(version) once a new app version has been downloaded. Returns an unsubscribe. */
   onUpdateReady(cb) {
     const handler = (_event, version) => cb(version);

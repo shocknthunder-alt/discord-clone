@@ -250,6 +250,9 @@ interface Draft {
   gameOverlay: boolean;
   overlayCorner: "tl" | "tr" | "bl" | "br";
   overlayMessages: boolean;
+  linkPreviews: boolean;
+  shareActivity: boolean;
+  mentionAlerts: boolean;
 }
 
 /** The values as they are applied right now. */
@@ -294,6 +297,9 @@ function readCurrent(): Draft {
     gameOverlay: p.gameOverlay,
     overlayCorner: p.overlayCorner,
     overlayMessages: p.overlayMessages,
+    linkPreviews: p.linkPreviews,
+    shareActivity: p.shareActivity,
+    mentionAlerts: p.mentionAlerts,
   };
 }
 
@@ -467,6 +473,9 @@ export default function UserSettingsModal({ onClose }: Props) {
         gameOverlay: d.gameOverlay,
         overlayCorner: d.overlayCorner,
         overlayMessages: d.overlayMessages,
+        linkPreviews: d.linkPreviews,
+        shareActivity: d.shareActivity,
+        mentionAlerts: d.mentionAlerts,
       });
       const now = { ...d, username: d.username.trim() };
       setBase(now);
@@ -735,6 +744,23 @@ export default function UserSettingsModal({ onClose }: Props) {
                   </div>
                 </Card>
 
+                <Card
+                  title={t("🎮 Какво играя", "🎮 What I'm playing")}
+                  hint={t(
+                    "Десктоп приложението (1.9.0+) разпознава играта, която си пуснал (Steam, Epic, Xbox, Riot, Battle.net…), и до името ти пише „🎮 Играе …“.",
+                    "The desktop app (1.9.0+) recognises the game you're running (Steam, Epic, Xbox, Riot, Battle.net…) and shows \"🎮 Playing …\" next to your name.",
+                  )}
+                >
+                  {!window.shmirkaDesktop?.onActivity && (
+                    <p className="set-hint">{t("Нужно е десктоп приложението, версия 1.9.0 или по-нова.", "Needs the desktop app, version 1.9.0 or newer.")}</p>
+                  )}
+                  <Toggle
+                    label={t("Показвай на другите какво играя", "Show others what I'm playing")}
+                    checked={draft.shareActivity}
+                    onChange={(on) => edit({ shareActivity: on })}
+                  />
+                </Card>
+
                 <Card title={t("Обработка на звука", "Sound processing")} hint={t("Всичко е включено по подразбиране — изключи нещо, ако пречи на твоя микрофон.", "Everything is on by default — turn something off if it fights your microphone.")}>
                   <Toggle
                     label={t("AI шумопотискане", "AI noise suppression")}
@@ -957,6 +983,18 @@ export default function UserSettingsModal({ onClose }: Props) {
                 {notifPermission === "denied" && (
                   <p className="set-hint warn">{t("Браузърът блокира известията — разреши ги от иконата до адреса на сайта.", "The browser blocks notifications — allow them from the icon next to the site address.")}</p>
                 )}
+                <Toggle
+                  label={t("Звук при @споменаване", "Sound when @mentioned")}
+                  hint={t("Кратко „дин“ (и известие, ако са включени), когато някой напише @твоетоиме, @everyone или @here. Каналът и сървърът получават червено @число.", "A short ding (and a notification if they're on) when someone writes @yourname, @everyone or @here. The channel and server get a red @number.")}
+                  checked={draft.mentionAlerts}
+                  onChange={(on) => edit({ mentionAlerts: on })}
+                />
+                <Toggle
+                  label={t("Преглед на линковете", "Link previews")}
+                  hint={t("Под линковете в чата — заглавие, описание и снимка; YouTube се пуска направо в чата. Линк в <скоби> не получава преглед.", "Under links in chat — title, description and picture; YouTube plays right in the chat. A link in <brackets> gets no preview.")}
+                  checked={draft.linkPreviews}
+                  onChange={(on) => edit({ linkPreviews: on })}
+                />
                 <Toggle
                   label={t("Маркирай непрочетените канали", "Mark unread channels")}
                   hint={t("Текстов канал с нови съобщения, които не си видял, светва с удебелено име и черта отляво.", "A text channel with messages you haven't seen lights up with a bold name and a bar on the left.")}

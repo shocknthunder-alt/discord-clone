@@ -1,13 +1,13 @@
 import { formatTime } from "../utils/appPrefs";
 import { SocketEvents, type DirectMessageDTO } from "@discord-clone/shared";
-import ChatImage, { LinkedImages } from "./ChatImage";
+import ChatImage from "./ChatImage";
+import MessageText from "./MessageText";
 import { useEffect, useRef, useState } from "react";
 import { fetchDmMessages } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
 import { useDmStore } from "../store/dmStore";
 import { useVoiceStore } from "../store/voiceStore";
-import { linkifyText } from "../utils/linkify";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import DmMessageInput from "./DmMessageInput";
 import { tr } from "../i18n";
@@ -58,11 +58,16 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
 
       {editing ? (
         <div className="message-edit-form">
-          <input
+          <textarea
+            className="message-edit-textarea"
+            rows={Math.min(8, draft.split("\n").length)}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") saveEdit();
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                saveEdit();
+              }
               if (e.key === "Escape") cancelEdit();
             }}
             autoFocus
@@ -73,8 +78,7 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
       ) : (
         message.content && (
           <>
-            <div>{linkifyText(message.content)}</div>
-            <LinkedImages text={message.content} />
+            <MessageText text={message.content} dm />
           </>
         )
       )}

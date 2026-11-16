@@ -129,12 +129,17 @@ model Message {
   replyToId     String?
   createdAt     DateTime  @default(now())
   editedAt      DateTime?
+  // 📌 pinned (null = not pinned)
+  pinnedAt      DateTime?
+  pinnedById    String?
 
   textChannel TextChannel @relation(fields: [textChannelId], references: [id])
   author      User        @relation(fields: [authorId], references: [id])
   replyTo     Message?    @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies     Message[]   @relation("MessageReplies")
   reactions   MessageReaction[]
+
+  @@index([textChannelId, pinnedAt])
 }
 
 model MessageReaction {
