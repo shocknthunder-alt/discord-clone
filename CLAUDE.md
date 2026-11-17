@@ -125,6 +125,25 @@ Owner pronouns unknown: use they/them.
   - Gotcha: `node - <<'EOF'` edit scripts LOSE backslashes in this shell (`/\s+/` became `/s+/`) —
     put such scripts in a .cjs file in the scratchpad, or use the Edit tool.
 
+- **📱 Mobile** (2026-11-17):
+  - Phone layout below 760px (`store/mobileStore.ts`, `mobile.css`): `.app-shell.mobile.pane-nav|pane-content`,
+    ☰ `MobileNavButton` in chat headers, history entry so Back returns to the list, `MobileVoiceBar` replaces
+    the floating HUD, member list / threads full screen. No screen share on phones.
+  - PWA: `client/public/manifest.webmanifest`, `icons/`, `sw.js` (no caching, only push + notification click).
+  - Push (`server/src/push/push.ts`, `/api/push/*`, `PushSubscription`, `AppConfig` tables): Web Push with
+    VAPID keys auto-made and stored in AppConfig (own RFC 8291 encryption) + FCM v1 (Render env
+    `FCM_SERVICE_ACCOUNT`, optional). Sent for direct @mentions/@everyone, DMs, calls — only when none of the
+    user's sockets reports visible (`client:visibility`; sockets that never report count as visible).
+    Client `native/push.ts`, Settings → Известия → 📱. Tap → `/?go=ch:server:channel:msg:root` or `dm:<id>`.
+  - Android app `mobile/` (Capacitor 8, standalone package, NOT a workspace; loads the live site via
+    `server.url`): `ShmirkaNativePlugin` (info / startCall / stopCall / openExternal), `CallService`
+    foreground service (mic + media) while in voice. Client talks to it via `window.Capacitor` (`native/native.ts`).
+    `.github/workflows/android.yml` builds a signed `Shmirka.apk` onto the **"android" pre-release** (pre-release
+    so the desktop updater's `/releases/latest` is untouched). Secrets: `ANDROID_KEYSTORE_BASE64`,
+    `ANDROID_KEYSTORE_PASSWORD` (keystore kept on the owner's PC in `~/.shmirka-android/`, alias `shmirka` —
+    never lose it, or phones refuse updates), optional `GOOGLE_SERVICES_JSON`. New APK: bump versionCode/Name in
+    `mobile/android/app/build.gradle` + `LATEST_ANDROID_VERSION_CODE` in `native/native.ts`. Web changes need no new APK.
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),
