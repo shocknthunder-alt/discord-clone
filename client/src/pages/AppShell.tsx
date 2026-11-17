@@ -50,6 +50,10 @@ const HUD_RAIL_IDS = ["hud-network", "hud-mute", "hud-deafen", "hud-camera", "hu
 import { notifyDesktop } from "../utils/appPrefs";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 import { tr } from "../i18n";
+import MobileVoiceBar from "../components/MobileVoiceBar";
+import { useIsMobile, useMobileStore } from "../store/mobileStore";
+import { listenForPushTaps, reportVisibility, syncPush } from "../native/push";
+import { appPlugin, nativePlugin } from "../native/native";
 
 export default function AppShell() {
   const token = useAuthStore((s) => s.token);
@@ -94,6 +98,7 @@ export default function AppShell() {
     const socket = connectSocket(token);
 
     registerRemoteControl(socket);
+    const stopVisibility = reportVisibility(socket);
 
     socket.on(SocketEvents.PresenceUpdate, ({ userId, status }: { userId: string; status: string }) => {
       setUserOnline(userId, status === "online");
@@ -217,9 +222,57 @@ export default function AppShell() {
         rememberVoiceForRestart();
         leaveRef.current();
       }
+      stopVisibility();
       socket.disconnect();
     };
   }, [token, setUserOnline, setIncomingRing]);
+
+  // 📱 Push: keep this device signed up, and open whatever a tapped notification points at.
+  useEffect(() => {
+    if (!token) return;
+    void syncPush();
+    return listenForPushTaps((go) => {
+      const [kind, ...rest] = go.split(":");
+      if (kind === "dm" && rest[0]) {
+        useDmStore.getState().setView("dms");
+        useDmStore.getState().setActiveConversation(rest[0]);
+        useMobileStore.getState().showContent();
+      } else if (kind === "ch" && rest[0] && rest[1]) {
+        const [serverId, channelId, messageId, rootId] = rest;
+        useDmStore.getState().setView("servers");
+        if (useServerStore.getState().activeServerId !== serverId) useServerStore.getState().setActiveServer(serverId);
+        useServerStore.getState().setActiveTextChannel(channelId);
+        setViewMode("text");
+        useMobileStore.getState().showContent();
+        if (messageId) useChatStore.getState().setJumpTarget({ channelId, messageId, rootId: rootId || null });
+      }
+    });
+  }, [token]);
+
+  // 📱 Android app: a foreground service keeps the call alive with the screen off / app in the background.
+  const voiceChannelName = useServerStore((s) => s.voiceChannels.find((v) => v.id === activeVoiceChannelId)?.name);
+  useEffect(() => {
+    const native = nativePlugin();
+    if (!native) return;
+    if (activeVoiceChannelId) void native.startCall({ title: "ШмиркаТа", text: `🔊 ${voiceChannelName ?? tr("В гласов канал", "In a voice channel")}` }).catch(() => {});
+    else void native.stopCall().catch(() => {});
+  }, [activeVoiceChannelId, voiceChannelName]);
+  useEffect(() => () => void nativePlugin()?.stopCall().catch(() => {}), []);
+
+  // 📱 Android Back button: chat → channel list → (in a call: to the background, the call keeps going) → exit.
+  useEffect(() => {
+    const app = appPlugin();
+    if (!app) return;
+    const l = app.addListener("backButton", () => {
+      if (useMobileStore.getState().pane === "content" && isMobileLayoutNow()) {
+        useMobileStore.getState().showNav();
+        return;
+      }
+      if (useVoiceStore.getState().activeVoiceChannelId && app.minimizeApp) void app.minimizeApp();
+      else void app.exitApp();
+    });
+    return () => void l.then((x) => x.remove());
+  }, []);
 
   // Restarted for an update while in a call → straight back into the same channel (same
   // mute/deafen), instead of everyone having to click it again. Declared AFTER the socket effect
@@ -288,12 +341,32 @@ export default function AppShell() {
   // The voice buttons' own column (FloatingVoiceHud places them over it) — while in a call and at
   // least one button still sits in it (everything dragged elsewhere → no empty column).
   useLayoutLockStore((s) => s.locked); // re-check after someone moved buttons (they unlock/lock to do it)
-  const railShown = !!activeVoiceChannelId && HUD_RAIL_IDS.some((id) => !hasSavedPosition(id));
+  const mobile = useIsMobile();
+  const pane = useMobileStore((s) => s.pane);
+  const showContent = useMobileStore((s) => s.showContent);
+  const railShown = !mobile && !!activeVoiceChannelId && HUD_RAIL_IDS.some((id) => !hasSavedPosition(id));
+
+  // Phones: opening a conversation goes to its screen.
+  const prevConversation = useRef(activeConversationId);
+  useEffect(() => {
+    if (activeConversationId && activeConversationId !== prevConversation.current) showContent();
+    prevConversation.current = activeConversationId;
+  }, [activeConversationId, showContent]);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${mobile ? `mobile pane-${pane}${activeVoiceChannelId ? " in-voice" : ""}` : ""}`}>
       <VoiceAudioBridge />
-      <FloatingVoiceHud />
+      {mobile ? (
+        <MobileVoiceBar
+          onOpenVoice={() => {
+            useDmStore.getState().setView("servers");
+            setViewMode("voice");
+            showContent();
+          }}
+        />
+      ) : (
+        <FloatingVoiceHud />
+      )}
       <IncomingCallToast />
       <EventToasts onJoinVoice={(s, v) => void joinEventVoice(s, v)} />
       <RemoteControlPrompt />
@@ -314,7 +387,16 @@ export default function AppShell() {
         </>
       ) : (
         <>
-          <ChannelList onSelectVoice={() => setViewMode("voice")} onSelectText={() => setViewMode("text")} />
+          <ChannelList
+            onSelectVoice={() => {
+              setViewMode("voice");
+              showContent();
+            }}
+            onSelectText={() => {
+              setViewMode("text");
+              showContent();
+            }}
+          />
           {railShown && <div className="voice-rail" />}
           {viewMode === "voice" && activeVoiceChannelId ? (
             <VoiceChannelPanel />
@@ -328,4 +410,8 @@ export default function AppShell() {
       )}
     </div>
   );
+}
+
+function isMobileLayoutNow() {
+  return window.matchMedia("(max-width: 760px)").matches;
 }

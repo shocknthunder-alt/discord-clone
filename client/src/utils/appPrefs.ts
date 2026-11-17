@@ -142,6 +142,11 @@ export function notifyDesktop(title: string, body: string, icon?: string | null,
       n.close();
     };
   } catch {
+    // Android Chrome only allows notifications from the service worker.
+    void navigator.serviceWorker
+      ?.getRegistration()
+      .then((reg) => reg?.showNotification(title, { body: body.slice(0, 200), icon: icon ?? "/icons/icon-192.png" }))
+      .catch(() => {});
     // some browsers only allow notifications from a service worker — best effort
   }
 }

@@ -32,6 +32,9 @@ const envSchema = z.object({
   MICROSOFT_CLIENT_ID: z.string().optional(),
   // Optional: GIF search in the chat (free key at developers.giphy.com). Unset = no GIF button.
   GIPHY_API_KEY: z.string().optional(),
+  // Optional: push notifications for the Android app — the Firebase service account JSON (as is, or
+  // base64). Web Push (browser / installed site) needs nothing: its keys are made automatically.
+  FCM_SERVICE_ACCOUNT: z.string().optional(),
 });
 
 export const env = envSchema.parse(trimmedEnv);

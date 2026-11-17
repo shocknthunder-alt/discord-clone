@@ -1,4 +1,5 @@
 import VoiceChannelIcon from "./VoiceChannelIcon";
+import MobileNavButton from "./MobileNavButton";
 import { SocketEvents } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { startConversationWith } from "../api/dm.api";
@@ -239,6 +240,7 @@ export default function VoiceChannelPanel() {
   return (
     <div className="main-content">
       <div className="chat-header">
+        <MobileNavButton />
         <VoiceChannelIcon size={20} /> {channel?.name ?? ""}
       </div>
       <div

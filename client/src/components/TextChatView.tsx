@@ -1,4 +1,5 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
+import MobileNavButton from "./MobileNavButton";
 import { attachmentLabel } from "../utils/attachments";
 import { Perm, SocketEvents, hasPerm, mentionsUser, type MessageDTO, type MessagePinnedPayload, type PollUpdatedPayload } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
@@ -369,6 +370,7 @@ export default function TextChatView({ channelId }: Props) {
   return (
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
+        <MobileNavButton />
         <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : channel?.type === "forum" ? "🗂️" : "#"} {channel?.name ?? ""}</span>
         <button
           className={`server-settings-button pins-toggle ${showPins ? "on" : ""}`}

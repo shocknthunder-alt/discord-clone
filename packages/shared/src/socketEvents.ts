@@ -34,6 +34,8 @@ export const SocketEvents = {
   PresenceActivity: "presence:activity",
   /** server → server rooms: { userId, activity: UserActivity | null }. */
   PresenceActivityUpdated: "presence:activity-updated",
+  /** client → server: { visible: boolean } — is this app on screen? (no push while one is) */
+  ClientVisibility: "client:visibility",
 
   // voice signaling
   VoiceJoin: "voice:join",

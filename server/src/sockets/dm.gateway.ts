@@ -1,4 +1,5 @@
 import { SocketEvents } from "@discord-clone/shared";
+import { pushText, pushToUsers } from "../push/push.js";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "../db.js";
 
@@ -57,6 +58,12 @@ export function registerDmGateway(io: IOServer, socket: Socket) {
       // room so an unread indicator can show up even while they're elsewhere in the app.
       const recipientId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
       io.to(`user:${recipientId}`).emit(SocketEvents.DmUnread, { conversationId });
+      void pushToUsers(io, [recipientId], {
+        title: message.author.username,
+        body: pushText(message.content || (message.imageUrl ? "📎" : "")),
+        url: `/?go=${encodeURIComponent(`dm:${conversationId}`)}`,
+        tag: `dm-${conversationId}`,
+      });
     },
   );
 
@@ -113,6 +120,12 @@ export function registerDmGateway(io: IOServer, socket: Socket) {
       callerUserId: userId,
       callerUsername: caller.username,
       voiceRoomId: `dm:${conversationId}`,
+    });
+    void pushToUsers(io, [calleeId], {
+      title: `📞 ${caller.username}`,
+      body: "Обажда ти се",
+      url: `/?go=${encodeURIComponent(`dm:${conversationId}`)}`,
+      tag: `call-${conversationId}`,
     });
   });
 }

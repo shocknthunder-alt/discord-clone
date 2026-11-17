@@ -11,6 +11,7 @@ import {
   type OAuthResult,
 } from "../api/oauth.api";
 import PasswordInput from "./PasswordInput";
+import { isNativeApp, openExternal } from "../native/native";
 import { useLang, useT } from "../i18n";
 
 /**
@@ -86,7 +87,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
   const [link, setLink] = useState<Extract<OAuthResult, { kind: "needsPassword" }> | null>(null);
   const [linkPassword, setLinkPassword] = useState("");
   const googleRef = useRef<HTMLDivElement>(null);
-  const desktop = !!window.shmirkaDesktop;
+  const desktop = !!window.shmirkaDesktop || isNativeApp();
   const onSignedInRef = useRef(onSignedIn);
   onSignedInRef.current = onSignedIn;
 
@@ -157,7 +158,7 @@ export default function OAuthButtons({ onSignedIn }: { onSignedIn: (r: { user: i
     const code = randomCode();
     setError(null);
     setBusy("desktop");
-    window.open(`${window.location.origin}/desktop-login?code=${code}`, "_blank"); // → system browser
+    openExternal(`${window.location.origin}/desktop-login?code=${code}`); // → system browser
     const started = Date.now();
     if (pollRef.current) window.clearInterval(pollRef.current);
     pollRef.current = window.setInterval(async () => {

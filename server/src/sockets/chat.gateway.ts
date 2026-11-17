@@ -4,6 +4,7 @@ import { prisma } from "../db.js";
 import { can } from "../permissions.js";
 import { handleTriviaMessage } from "../trivia/bot.js";
 import { setActivity } from "../presence/activity.js";
+import { pushText, pushToUsers } from "../push/push.js";
 
 const MAX_PINS = 50;
 
@@ -37,6 +38,21 @@ async function notifyMentions(
     everyone,
   };
   io.to(targets.map((t) => `user:${t.userId}`)).emit(SocketEvents.MentionNew, payload);
+
+  // Phones / closed apps: a push (direct @name and @everyone — not @here, that one means "who's on").
+  const pushTargets = targets.filter((t) => hasMention(message.content, t.user.username) || /(^|\s)@everyone\b/i.test(message.content));
+  if (pushTargets.length) {
+    void pushToUsers(
+      io,
+      pushTargets.map((t) => t.userId),
+      {
+        title: `@ ${author.username} в #${channel.name}`,
+        body: pushText(message.content),
+        url: `/?go=${encodeURIComponent(["ch", channel.serverId, channel.id, message.id, message.replyToId ?? ""].join(":"))}`,
+        tag: `ch-${channel.id}`,
+      },
+    );
+  }
 }
 
 export function groupReactions(rows: { emoji: string; userId: string }[]) {

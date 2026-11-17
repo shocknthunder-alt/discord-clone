@@ -30,6 +30,30 @@ model User {
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
   oauthIdentities      OAuthIdentity[]
   pollVotes            PollVote[]
+  pushSubscriptions    PushSubscription[]
+}
+
+/// A phone/browser that wants push notifications (@mentions, DMs) while the app isn't open.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  /// "web" = Web Push (browser / installed PWA), "fcm" = the Android app (Firebase token).
+  kind      String
+  /// Web Push endpoint URL, or the FCM registration token.
+  endpoint  String   @unique
+  p256dh    String?
+  auth      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Small server-generated settings that must survive restarts (e.g. the Web Push VAPID key pair).
+model AppConfig {
+  key   String @id
+  value String
 }
 
 /// "Влез с Google / Microsoft": which outside account belongs to which user.

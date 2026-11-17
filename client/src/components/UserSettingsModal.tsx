@@ -29,6 +29,8 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useAppPrefs } from "../utils/appPrefs";
 import AccountSettings from "./AccountSettings";
+import PushSettings from "./PushSettings";
+import { forgetPushOnLogout } from "../native/push";
 import "./settings.css";
 import { setLang, tr, useLang, useT } from "../i18n";
 
@@ -563,6 +565,7 @@ export default function UserSettingsModal({ onClose }: Props) {
             className="set-nav-item danger"
             onClick={() => {
               applyTheme(base.themeId);
+              void forgetPushOnLogout(useAuthStore.getState().token);
               logout();
               onClose();
             }}
@@ -983,6 +986,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                 {notifPermission === "denied" && (
                   <p className="set-hint warn">{t("Браузърът блокира известията — разреши ги от иконата до адреса на сайта.", "The browser blocks notifications — allow them from the icon next to the site address.")}</p>
                 )}
+                <PushSettings />
                 <Toggle
                   label={t("Звук при @споменаване", "Sound when @mentioned")}
                   hint={t("Кратко „дин“ (и известие, ако са включени), когато някой напише @твоетоиме, @everyone или @here. Каналът и сървърът получават червено @число.", "A short ding (and a notification if they're on) when someone writes @yourname, @everyone or @here. The channel and server get a red @number.")}

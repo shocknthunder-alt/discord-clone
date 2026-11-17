@@ -18,6 +18,9 @@ import { registerDmGateway } from "./sockets/dm.gateway.js";
 import { registerMusicGateway } from "./sockets/music.gateway.js";
 import { setActivity } from "./presence/activity.js";
 import { registerPolls } from "./polls.js";
+import { SocketEvents } from "@discord-clone/shared";
+import { forgetSocket, setSocketVisible } from "./push/push.js";
+import { pushRouter } from "./routes/push.routes.js";
 import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
@@ -33,6 +36,7 @@ app.use("/api/dms", dmRouter);
 app.use("/api/events", eventsRouter);
 app.use("/api/music", musicRouter);
 app.use("/api/media", mediaRouter);
+app.use("/api/push", pushRouter);
 app.use("/api", channelsRouter);
 app.use("/api", messagesRouter);
 
@@ -61,9 +65,14 @@ io.on("connection", (socket) => {
   registerMusicGateway(io, socket);
   registerPolls(io, socket);
 
+  socket.on(SocketEvents.ClientVisibility, (p: { visible?: unknown }) => {
+    setSocketVisible(socket.id, p?.visible !== false);
+  });
+
   void broadcastPresence(io, userId, "online");
 
   socket.on("disconnect", () => {
+    forgetSocket(socket.id);
     handleVoiceDisconnect(io, socket);
     // Still connected from another device/tab → still online.
     if ((io.sockets.adapter.rooms.get(`user:${userId}`)?.size ?? 0) === 0) {

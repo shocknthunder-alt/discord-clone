@@ -1,4 +1,5 @@
 import { formatTime } from "../utils/appPrefs";
+import MobileNavButton from "./MobileNavButton";
 import { SocketEvents, type DirectMessageDTO } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
 import MessageText from "./MessageText";
@@ -180,6 +181,7 @@ export default function DmChatView({ conversationId }: Props) {
   return (
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
+        <MobileNavButton />
         <span className="chat-header-title">@ {conversation?.otherUser.username ?? ""}</span>
         <button className="server-settings-button" onClick={handleCallToggle} title={tr("Обади се", "Call")}>
           {inThisCall ? "📞 Hang up" : "📞 Call"}
