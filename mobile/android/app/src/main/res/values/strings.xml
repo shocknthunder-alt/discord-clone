@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ШмиркаТа</string>
+    <string name="title_activity_main">ШмиркаТа</string>
+    <string name="package_name">com.shmirka.app</string>
+    <string name="custom_url_scheme">com.shmirka.app</string>
+</resources>

@@ -1,0 +1,20 @@
+{
+  "appId": "com.shmirka.app",
+  "appName": "ШмиркаТа",
+  "webDir": "www",
+  "server": {
+    "url": "https://shmirka.vercel.app",
+    "cleartext": false,
+    "androidScheme": "https",
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#1c1812",
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": ["badge", "sound", "alert"]
+    }
+  }
+}

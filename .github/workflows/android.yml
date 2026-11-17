@@ -1,0 +1,92 @@
+# Builds the Android app (mobile/, a Capacitor shell around https://shmirka.vercel.app) and puts
+# Shmirka.apk on the "android" GitHub release (a PRE-release, so /releases/latest — which the
+# desktop app's auto-updater reads — stays the desktop one).
+#
+# Repo secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD  — required (same key for every version!)
+#   GOOGLE_SERVICES_JSON                                — optional, enables push notifications (Firebase)
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Capacitor
+        run: npm ci
+
+      - name: Sync the Android project
+        run: npx cap sync android
+
+      - name: Firebase config (push notifications)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "push notifications: on"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON secret not set — the APK has no push notifications"
+          fi
+
+      - name: Signing key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS_B64" ] || [ -z "$KS_PASSWORD" ]; then
+            echo "::error::Add the ANDROID_KEYSTORE_BASE64 and ANDROID_KEYSTORE_PASSWORD repo secrets"
+            exit 1
+          fi
+          printf '%s' "$KS_B64" | base64 -d > "$RUNNER_TEMP/shmirka.jks"
+          {
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/shmirka.jks"
+            echo "ANDROID_KEYSTORE_PASSWORD=$KS_PASSWORD"
+            echo "ANDROID_KEY_ALIAS=shmirka"
+            echo "ANDROID_KEY_PASSWORD=$KS_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build the APK
+        working-directory: mobile/android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/Shmirka.apk"
+
+      - name: Publish to the "android" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view android >/dev/null 2>&1; then
+            gh release create android --prerelease --target "$GITHUB_SHA" --title "ШмиркаТа за Android" \
+              --notes "Изтегли **Shmirka.apk** на телефона и го отвори (разреши инсталиране от браузъра, ако попита). Новите версии се качват тук автоматично."
+          fi
+          gh release upload android "$RUNNER_TEMP/Shmirka.apk" --clobber

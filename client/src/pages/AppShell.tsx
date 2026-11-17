@@ -254,8 +254,15 @@ export default function AppShell() {
   useEffect(() => {
     const native = nativePlugin();
     if (!native) return;
-    if (activeVoiceChannelId) void native.startCall({ title: "ШмиркаТа", text: `🔊 ${voiceChannelName ?? tr("В гласов канал", "In a voice channel")}` }).catch(() => {});
-    else void native.stopCall().catch(() => {});
+    if (!activeVoiceChannelId) {
+      void native.stopCall().catch(() => {});
+      return;
+    }
+    const start = () => void native.startCall({ title: "ШмиркаТа", text: `🔊 ${voiceChannelName ?? tr("В гласов канал", "In a voice channel")}` }).catch(() => {});
+    start();
+    // The mic permission prompt may still have been open the first time (no service without it).
+    const retry = window.setTimeout(start, 8000);
+    return () => window.clearTimeout(retry);
   }, [activeVoiceChannelId, voiceChannelName]);
   useEffect(() => () => void nativePlugin()?.stopCall().catch(() => {}), []);
 
