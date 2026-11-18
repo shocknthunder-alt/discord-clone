@@ -3131,6 +3131,10 @@ input[type="range"] {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 .desktop-app-banner .update-now { text-decoration: none; white-space: nowrap; }
+.app-banner-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.app-banner-sub { font-size: 12.5px; font-weight: 500; opacity: 0.92; }
+.app-banner-link { color: #fff; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
+.app-banner-link:hover { opacity: 0.85; }
 
 .update-now {
   border: none;
