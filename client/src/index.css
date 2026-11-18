@@ -994,6 +994,101 @@ button {
   cursor: default;
 }
 
+/* Now playing: cover + song (big) / artist, then big controls, then the time bar. */
+.music-now {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px 4px;
+}
+
+.music-now-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: var(--c-panel);
+}
+
+.music-now-cover-empty {
+  border: none;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.music-now-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.music-now-song,
+.music-now-artist,
+.music-now-idle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.music-now-song {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t-1);
+}
+
+.music-now-artist {
+  font-size: 12px;
+  color: var(--t-2);
+}
+
+.music-now-idle {
+  font-size: 13px;
+  color: var(--t-3);
+}
+
+.music-mini-collapse {
+  background: none;
+  border: none;
+  color: var(--t-2);
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 4px;
+}
+
+.music-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 10px 2px;
+}
+
+.music-controls .music-mini-control {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+  border-radius: 50%;
+}
+
+.music-controls .music-mini-control.music-mini-play {
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.music-controls .music-mini-control.music-mini-play:hover:not(:disabled) {
+  filter: brightness(1.15);
+}
+
 .music-mini-expanded {
   padding: 0 10px 10px;
 }
@@ -1023,9 +1118,9 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 6px;
+  padding: 5px 6px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .music-queue-item.active {
@@ -1065,6 +1160,8 @@ button {
   color: var(--t-3);
   cursor: pointer;
   flex-shrink: 0;
+  font-size: 15px;
+  padding: 2px 5px;
 }
 
 .music-queue-item button:hover {
@@ -1078,10 +1175,10 @@ button {
 .music-progress {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--t-3);
+  gap: 6px;
+  padding: 4px 10px 8px;
+  font-size: 12px;
+  color: var(--t-2);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1101,7 +1198,7 @@ button {
   border: none;
   padding: 0 2px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 16px;
   color: inherit;
   flex-shrink: 0;
 }

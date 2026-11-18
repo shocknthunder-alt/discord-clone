@@ -137,6 +137,8 @@ export default function MusicMiniPlayer() {
   const currentItem =
     musicState && musicState.currentIndex < musicState.queue.length ? musicState.queue[musicState.currentIndex] : null;
 
+  const { song: nowSong, artist: nowArtist } = currentItem ? splitTitle(currentItem.title) : { song: "", artist: null };
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     unlockMusicAudio();
@@ -171,17 +173,30 @@ export default function MusicMiniPlayer() {
 
   return (
     <div className="music-mini">
-      <div className="music-mini-row">
-        <button
-          className="music-mini-toggle"
-          onClick={toggleExpanded}
-          title={expanded ? tr("Свий плейъра", "Collapse the player") : tr("Разгъни плейъра", "Expand the player")}
-        >
-          🎵
-        </button>
-        <div className="music-mini-title" title={currentItem?.title ?? ""}>
-          {currentItem ? currentItem.title : tr("Не свири музика", "No music playing")}
+      <div className="music-now">
+        {currentItem?.thumbnailUrl ? (
+          <img className="music-now-cover" src={currentItem.thumbnailUrl} alt="" onClick={toggleExpanded} />
+        ) : (
+          <button className="music-now-cover music-now-cover-empty" onClick={toggleExpanded} title={expanded ? tr("Свий плейъра", "Collapse the player") : tr("Разгъни плейъра", "Expand the player")}>
+            🎵
+          </button>
+        )}
+        <div className="music-now-text" title={currentItem?.title ?? ""}>
+          {currentItem ? (
+            <>
+              <span className="music-now-song">{nowSong}</span>
+              {nowArtist && <span className="music-now-artist">{nowArtist}</span>}
+            </>
+          ) : (
+            <span className="music-now-idle">{tr("Не свири музика", "No music playing")}</span>
+          )}
         </div>
+        <button className="music-mini-collapse" onClick={toggleExpanded} title={expanded ? tr("Свий плейъра", "Collapse the player") : tr("Разгъни плейъра", "Expand the player")} aria-label={expanded ? tr("Свий плейъра", "Collapse the player") : tr("Разгъни плейъра", "Expand the player")}>
+          {expanded ? "▾" : "▸"}
+        </button>
+      </div>
+
+      <div className="music-controls">
         <button
           className={`music-mini-control ${videoOpen ? "on" : ""}`}
           onClick={() => {
@@ -206,7 +221,7 @@ export default function MusicMiniPlayer() {
           {muted ? "🔇" : "🔊"}
         </button>
         <button
-          className="music-mini-control"
+          className="music-mini-control music-mini-play"
           onClick={() => {
             unlockMusicAudio();
             if (musicState?.isPlaying) pauseMusic();
@@ -227,14 +242,6 @@ export default function MusicMiniPlayer() {
           title={tr("Следваща", "Skip")}
         >
           ⏭
-        </button>
-        <button
-          className="music-mini-control music-mini-collapse"
-          onClick={toggleExpanded}
-          title={expanded ? tr("Свий плейъра", "Collapse the player") : tr("Разгъни плейъра", "Expand the player")}
-          aria-label={expanded ? tr("Свий плейъра", "Collapse the player") : tr("Разгъни плейъра", "Expand the player")}
-        >
-          {expanded ? "▾" : "▸"}
         </button>
       </div>
 
