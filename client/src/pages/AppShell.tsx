@@ -56,7 +56,8 @@ import { listenForPushTaps, reportVisibility, syncPush } from "../native/push";
 import { appPlugin, nativePlugin } from "../native/native";
 import { startHotkeys } from "../hotkeys/hotkeys";
 import { runHotkey, type HotkeyContext } from "../hotkeys/hotkeyActions";
-import HotkeyToast from "../hotkeys/HotkeyToast";
+import HotkeyToast, { showHotkeyToast } from "../hotkeys/HotkeyToast";
+import { joinPendingInvite } from "../utils/invite";
 
 export default function AppShell() {
   const token = useAuthStore((s) => s.token);
@@ -332,7 +333,13 @@ export default function AppShell() {
   }, [token]);
 
   useEffect(() => {
-    fetchServers().then(setServers).catch(console.error);
+    fetchServers()
+      .then(setServers)
+      .catch(console.error)
+      // Came in through an invite link: join that server and open it.
+      .then(() => joinPendingInvite())
+      .then((name) => name && showHotkeyToast(`🎉 ${tr("Влезе в", "Joined")} ${name}`))
+      .catch(() => window.alert(tr("Линкът за покана не е валиден — помоли за нов.", "That invite link isn't valid — ask for a new one.")));
     void useEventsStore.getState().reload().catch(console.error);
     // Safety net for missed pushes (and for repeating events moving to their next date).
     const id = setInterval(() => scheduleEventsReload(), 5 * 60_000);

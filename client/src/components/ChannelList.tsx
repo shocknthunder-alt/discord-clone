@@ -28,6 +28,7 @@ import MusicMiniPlayer from "./MusicMiniPlayer";
 import PeerConnectionBadge from "./PeerConnectionBadge";
 import ServerSettingsModal from "./ServerSettingsModal";
 import UserBar from "./UserBar";
+import { inviteLink } from "../utils/invite";
 import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
@@ -143,6 +144,26 @@ function OccupantRow({ occupant, canMove }: { occupant: VoicePeerInfo; canMove: 
         <span className="voice-status-icons"> {voiceStatusIcons(occupant.isMuted, occupant.isDeafened)}</span>
       )}
     </div>
+  );
+}
+
+/** "Покани приятел": copies https://…/invite/<code> (opening it logs in / registers and joins). */
+function InviteRow({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  async function copy() {
+    const link = inviteLink(code);
+    try {
+      await navigator.clipboard.writeText(link);
+    } catch {
+      window.prompt(tr("Копирай линка:", "Copy the link:"), link);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <button className="invite-row" onClick={() => void copy()} title={inviteLink(code)}>
+      {copied ? tr("✓ Линкът е копиран — прати го на приятел", "✓ Link copied — send it to a friend") : tr("🔗 Покани приятел (копирай линк)", "🔗 Invite a friend (copy link)")}
+    </button>
   );
 }
 
@@ -337,9 +358,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 </button>
               )}
             </div>
-            <div style={{ padding: "0 16px", fontSize: 12, color: "var(--t-3)" }}>
-              {tr("Код за покана", "Invite code")}: {activeServer.inviteCode}
-            </div>
+            <InviteRow code={activeServer.inviteCode} />
 
             <EventsSection />
 

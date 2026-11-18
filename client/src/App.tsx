@@ -12,6 +12,7 @@ import DesktopUpdateBanner from "./components/DesktopUpdateBanner";
 import ScreenSourcePicker from "./components/ScreenSourcePicker";
 import ThemeFlames from "./components/ThemeFlames";
 import { useLang } from "./i18n";
+import { captureInviteFromUrl } from "./utils/invite";
 
 /**
  * Login, register and the app share ONE route element, so a logged-in person pressing Back (mouse
@@ -24,9 +25,12 @@ function Root() {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const onAuthPage = pathname === "/login" || pathname === "/register";
+  // /invite/<code>: remember it, then log in / register (or straight into the app) — AppShell joins.
+  const inviting = captureInviteFromUrl(pathname);
   useEffect(() => {
-    if (token && onAuthPage) navigate("/", { replace: true });
-  }, [token, onAuthPage, navigate]);
+    if (token && (onAuthPage || inviting)) navigate("/", { replace: true });
+  }, [token, onAuthPage, inviting, navigate]);
+  if (inviting && !token) return <Navigate to="/register" replace />;
 
   if (token) return <AppShell />;
   if (pathname === "/register") return <RegisterPage />;

@@ -1,10 +1,11 @@
-import { useState } from "react";
-import { joinServer } from "../api/servers.api";
+import { useEffect, useState } from "react";
+import { fetchFeaturedInvite, joinServer } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { tr } from "../i18n";
 
-// Pre-filled so friends only have to press the button.
+// Pre-filled so friends only have to press the button: the main server's CURRENT code from the
+// server (this hardcoded one is only the fallback while that loads / if it fails).
 const DEFAULT_INVITE_CODE = "cmw6c0h3z0004123k7n8dqxww";
 
 interface Props {
@@ -23,6 +24,11 @@ export default function JoinServerModal({ onClose }: Props) {
   const [input, setInput] = useState(DEFAULT_INVITE_CODE);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    fetchFeaturedInvite()
+      .then((f) => setInput((cur) => (cur === DEFAULT_INVITE_CODE ? f.inviteCode : cur)))
+      .catch(() => {});
+  }, []);
 
   async function handleJoin() {
     const code = extractInviteCode(input);
@@ -32,7 +38,7 @@ export default function JoinServerModal({ onClose }: Props) {
     setLoading(true);
     try {
       const server = await joinServer(code);
-      addServer(server);
+      if (!useServerStore.getState().servers.some((s) => s.id === server.id)) addServer(server);
       setActiveServer(server.id);
       onClose();
     } catch {
