@@ -113,6 +113,8 @@ export const SocketEvents = {
   MusicAddTracks: "music:add-tracks",
   /** { voiceChannelId, itemId, toIndex } — drag a queued song to another place (not the playing one). */
   MusicMove: "music:move",
+  /** { voiceChannelId, itemId } — play this queued song now (the current one is dropped, like a skip). */
+  MusicPlayItem: "music:play-item",
 
   // Remote control of a streamer's PC (desktop app only). Client→server events carry
   // { toUserId, ... }; the server relays them to that person (same voice channel only) as the

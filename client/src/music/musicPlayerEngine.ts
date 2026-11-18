@@ -149,8 +149,18 @@ function stopAudio() {
   audio.load();
 }
 
-function applySubsonic(item: { id: string; streamUrl?: string }, state: { positionSeconds: number; isPlaying: boolean; updatedAt: number }) {
+function applySubsonic(
+  item: { id: string; streamUrl?: string },
+  state: { positionSeconds: number; isPlaying: boolean; updatedAt: number },
+  jumped: boolean,
+) {
   const expected = extrapolatedPosition(state);
+  if (audioItemId === item.id && jumped && state.isPlaying) {
+    // Someone moved the position slider: a fresh stream from the new spot, right away.
+    audioCorrections = 0;
+    loadAudioAt(item, expected);
+    return;
+  }
   if (audioItemId !== item.id) {
     audioCorrections = 0;
     audioErrors = 0;
@@ -169,7 +179,17 @@ function applySubsonic(item: { id: string; streamUrl?: string }, state: { positi
   else playAudio();
 }
 
-function applyState() {
+type SyncState = { queue: { id: string }[]; currentIndex: number; positionSeconds: number; isPlaying: boolean; updatedAt: number };
+
+/** The same song, but the shared position moved by more than drift would (a seek). */
+function isJump(state: SyncState, prev: SyncState | null | undefined): boolean {
+  if (!prev) return false;
+  const id = state.queue[state.currentIndex]?.id;
+  if (!id || prev.queue[prev.currentIndex]?.id !== id) return false;
+  return Math.abs(extrapolatedPosition(state) - extrapolatedPosition(prev)) > RESYNC_THRESHOLD_SECONDS;
+}
+
+function applyState(prev?: SyncState | null) {
   const state = useMusicStore.getState().state;
   if (!state) {
     // Left the channel: silence everything.
@@ -187,7 +207,7 @@ function applyState() {
       loadedItemId = null;
       player.pauseVideo();
     }
-    applySubsonic(currentItem, state);
+    applySubsonic(currentItem, state, isJump(state, prev));
     return;
   }
   stopAudio();
@@ -212,6 +232,7 @@ function applyState() {
     return;
   }
 
+  if (isJump(state, prev)) player.seekTo(Math.max(0, expected), true);
   if (state.isPlaying) player.playVideo();
   else player.pauseVideo();
 }
@@ -278,7 +299,7 @@ export function initMusicPlayerEngine(): Promise<void> {
   });
 
   useMusicStore.subscribe((state, prevState) => {
-    if (state.state !== prevState.state) applyState();
+    if (state.state !== prevState.state) applyState(prevState.state);
   });
 
   // Network latency and position-extrapolation both drift over a long playback that a
@@ -335,6 +356,20 @@ export function setMusicVolume(next: number) {
   volume = next;
   if (ready) player?.setVolume(next);
   if (audio) audio.volume = Math.min(Math.max(next / 100, 0), 1);
+}
+
+/** Length of the current song in seconds (0 = not known yet). */
+export function getMusicDuration(): number {
+  const state = useMusicStore.getState().state;
+  const item = state?.queue[state.currentIndex];
+  if (!item) return 0;
+  if (item.source === "subsonic") return item.durationSeconds ?? 0;
+  if (!player || !ready || loadedItemId !== item.id) return 0;
+  try {
+    return player.getDuration() || 0;
+  } catch {
+    return 0;
+  }
 }
 
 export function getMusicCurrentTime(): number {

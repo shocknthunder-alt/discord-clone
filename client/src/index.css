@@ -1071,6 +1071,45 @@ button {
   color: #e5484d;
 }
 
+.music-queue-item button.music-queue-play:hover {
+  color: var(--accent, #4ade80);
+}
+
+.music-progress {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--t-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.music-progress input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.music-progress input[type="range"]:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.music-progress-jump {
+  background: none;
+  border: none;
+  padding: 0 2px;
+  cursor: pointer;
+  font-size: 12px;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.music-progress-jump:hover {
+  filter: brightness(1.4);
+}
+
 .music-add-error {
   margin: 10px 0 0;
   font-size: 11px;

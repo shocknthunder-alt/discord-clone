@@ -347,6 +347,34 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     },
   );
 
+  // "Play now" on a waiting song: it jumps right after the current one, then the current one is
+  // dropped like a skip — the songs that were between them stay in the list, in order.
+  socket.on(
+    SocketEvents.MusicPlayItem,
+    ({ voiceChannelId, itemId }: { voiceChannelId: string; itemId: string }) => {
+      const state = musicStates.get(voiceChannelId);
+      if (!state) return;
+      const from = state.queue.findIndex((i) => i.id === itemId);
+      if (from === -1) return;
+      if (from === state.currentIndex) {
+        // Already the current one: start it over.
+        state.positionSeconds = 0;
+        state.isPlaying = true;
+        state.updatedAt = Date.now();
+        broadcastState(io, voiceChannelId, state);
+        return;
+      }
+      if (from < state.currentIndex) return;
+      const [item] = state.queue.splice(from, 1);
+      state.queue.splice(state.currentIndex + 1, 0, item);
+      dropPlayed(state);
+      state.positionSeconds = 0;
+      state.isPlaying = true;
+      state.updatedAt = Date.now();
+      broadcastState(io, voiceChannelId, state);
+    },
+  );
+
   socket.on(SocketEvents.MusicPlay, ({ voiceChannelId }: { voiceChannelId: string }) => {
     const state = musicStates.get(voiceChannelId);
     if (!state || state.currentIndex >= state.queue.length) return;
@@ -398,8 +426,9 @@ export function registerMusicGateway(io: IOServer, socket: Socket) {
     SocketEvents.MusicSeek,
     ({ voiceChannelId, positionSeconds }: { voiceChannelId: string; positionSeconds: number }) => {
       const state = musicStates.get(voiceChannelId);
-      if (!state || typeof positionSeconds !== "number") return;
-      state.positionSeconds = Math.max(0, positionSeconds);
+      if (!state || typeof positionSeconds !== "number" || !Number.isFinite(positionSeconds)) return;
+      if (state.currentIndex >= state.queue.length) return;
+      state.positionSeconds = Math.max(0, Math.min(positionSeconds, 24 * 3600));
       state.updatedAt = Date.now();
       broadcastState(io, voiceChannelId, state);
     },

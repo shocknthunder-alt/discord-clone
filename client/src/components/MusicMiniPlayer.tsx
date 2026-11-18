@@ -9,6 +9,7 @@ import { getSocket } from "../socket/socket";
 import { SocketEvents } from "@discord-clone/shared";
 import { tr } from "../i18n";
 import { useMusicVideoStore } from "./MusicVideoWindow";
+import MusicProgress from "./MusicProgress";
 
 /** New listeners start quiet — music under a voice call should never drown the voices. */
 const MUSIC_DEFAULT_VOLUME = 10;
@@ -30,6 +31,11 @@ function splitTitle(title: string): { song: string; artist: string | null } {
   const at = title.indexOf(" — ");
   if (at <= 0) return { song: title, artist: null };
   return { song: title.slice(at + 3), artist: title.slice(0, at) };
+}
+
+function playItemNow(itemId: string) {
+  const voiceChannelId = useVoiceStore.getState().activeVoiceChannelId;
+  if (voiceChannelId) getSocket()?.emit(SocketEvents.MusicPlayItem, { voiceChannelId, itemId });
 }
 
 function moveMusic(itemId: string, toIndex: number) {
@@ -232,6 +238,8 @@ export default function MusicMiniPlayer() {
         </button>
       </div>
 
+      {currentItem && <MusicProgress />}
+
       {audioLocked && (
         <button className="music-enable-sound" onClick={unlockMusicAudio}>
           🔇 {tr("Цъкни, за да пуснеш звука", "Click to enable sound")}
@@ -318,6 +326,19 @@ export default function MusicMiniPlayer() {
                         {artist ? `${artist} · ` : ""}{tr("от", "by")} {item.addedByUsername}
                       </span>
                     </div>
+                    {movable && (
+                      <button
+                        className="music-queue-play"
+                        onClick={() => {
+                          unlockMusicAudio();
+                          playItemNow(item.id);
+                        }}
+                        aria-label={tr("Пусни сега", "Play now")}
+                        title={tr("Пусни тази песен сега (за всички)", "Play this song now (for everyone)")}
+                      >
+                        ▶
+                      </button>
+                    )}
                     <button onClick={() => removeMusic(item.id)} aria-label={tr("Махни", "Remove")} title={tr("Махни от списъка", "Remove from the list")}>
                       ✕
                     </button>

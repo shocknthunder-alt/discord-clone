@@ -47,6 +47,7 @@ export namespace YT {
     loadVideoById(videoId: string, startSeconds?: number): void;
     cueVideoById(videoId: string, startSeconds?: number): void;
     getCurrentTime(): number;
+    getDuration(): number;
     getPlayerState(): number;
     setVolume(volume: number): void;
     mute(): void;
