@@ -3,6 +3,8 @@ import { tr } from "../i18n";
 import { isCloudinaryConfigured, uploadMediaToCloudinary } from "../api/cloudinary";
 import { getPreferredMicDeviceId } from "../webrtc/devicePrefs";
 import { encodePeaks, formatDuration } from "../utils/attachments";
+import { useHotkeyTarget } from "../hotkeys/hotkeys";
+import { showHotkeyToast } from "../hotkeys/HotkeyToast";
 
 const MAX_MS = 120_000;
 const BARS = 48;
@@ -49,6 +51,31 @@ export default function VoiceRecorder({ send }: { send: (imageUrl: string) => vo
   } | null>(null);
 
   useEffect(() => () => stop(false), []);
+
+  // ⌨️ Hotkey: first press starts recording, the next one sends; "discard" throws it away.
+  const usable = isCloudinaryConfigured() && typeof MediaRecorder !== "undefined";
+  useHotkeyTarget(
+    "voice-message",
+    () => {
+      if (state === "idle") {
+        showHotkeyToast(tr("🎤 Записвам… (същият клавиш праща)", "🎤 Recording… (same key sends)"));
+        void start();
+      } else if (state === "recording") {
+        showHotkeyToast(tr("➤ Пратено", "➤ Sent"));
+        stop(true);
+      }
+    },
+    usable,
+  );
+  useHotkeyTarget(
+    "voice-message-cancel",
+    () => {
+      if (state !== "recording") return;
+      showHotkeyToast(tr("✕ Гласовото съобщение е отказано", "✕ Voice message discarded"));
+      stop(false);
+    },
+    usable,
+  );
 
   useEffect(() => {
     if (!error) return;

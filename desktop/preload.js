@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld("shmirkaDesktop", {
   isDesktop: true,
   /** Stream pop-outs (window.open "shmirka-stream-*") open as app windows (1.5.2+). */
   popOutWindows: true,
+  /** 1.10.0+: onGlobalKey also reports the extra mouse buttons ("Mouse3" / "Mouse4" / "Mouse5"). */
+  mouseButtons: true,
   // Global (system-wide) key events: cb(code, down). Returns an unsubscribe function.
   /** Screens + windows with thumbnails: [{ id, name, isScreen, thumbnail, icon }]. */
   getScreenSources: () => ipcRenderer.invoke("screen-sources"),

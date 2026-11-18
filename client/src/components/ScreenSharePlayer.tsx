@@ -3,6 +3,7 @@ import { canPopOutWindows, closePopout, popOutStream, usePopoutStore } from "../
 import { cancelControl, requestControl, sendControlInput, useControlStore } from "../webrtc/remoteControl";
 import { tr } from "../i18n";
 import { ClipBuffer, clipsSupported } from "../webrtc/clipBuffer";
+import { useHotkeyTarget } from "../hotkeys/hotkeys";
 import { useAppPrefs } from "../utils/appPrefs";
 import ClipDialog from "./ClipDialog";
 
@@ -54,6 +55,7 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
       if (clipBuf.current === b) clipBuf.current = null;
     };
   }, [stream, clipEnabled]);
+  useHotkeyTarget("clip", () => void makeClip(), clipEnabled);
   async function makeClip() {
     const b = clipBuf.current;
     if (!b || clipping) return;

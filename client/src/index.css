@@ -3498,3 +3498,58 @@ input[type="range"] {
 }
 .voice-stream-toggle.on .hud-live-dot { background: #fff; box-shadow: none; animation: liveBlink 1.4s ease-in-out infinite; }
 .reduce-motion .participant-watch, .reduce-motion .voice-stream-toggle.on { animation: none; }
+
+/* ⌨️ Hotkeys (Settings → Клавиши) */
+.hk-settings { display: flex; flex-direction: column; gap: 14px; }
+.hk-list { display: flex; flex-direction: column; gap: 4px; }
+.hk-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); }
+.hk-row:last-child { border-bottom: none; }
+.hk-label { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 14px; color: var(--t-1); }
+.hk-sub { font-size: 11px; color: var(--t-3); }
+.hk-combo {
+  min-width: 150px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--c-panel);
+  background: var(--c-backdrop);
+  color: var(--t-1);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+}
+.hk-combo:hover:not(:disabled) { border-color: var(--accent); }
+.hk-combo.empty { color: var(--t-3); font-weight: 400; }
+.hk-combo.listening { border-color: var(--accent); color: var(--accent); animation: hk-pulse 1s ease-in-out infinite; }
+@keyframes hk-pulse { 50% { opacity: 0.55; } }
+.hk-global { display: flex; align-items: center; gap: 3px; font-size: 14px; cursor: pointer; width: 44px; flex-shrink: 0; }
+.hk-global-spacer { width: 44px; flex-shrink: 0; }
+.hk-clear, .hk-clear-spacer { width: 28px; flex-shrink: 0; }
+.hk-clear { background: none; border: none; color: var(--t-3); cursor: pointer; font-size: 14px; }
+.hk-clear:hover:not(:disabled) { color: #e5484d; }
+.hk-clear:disabled { opacity: 0.3; cursor: default; }
+.hk-add select { flex: 1; min-width: 0; padding: 6px; border-radius: 6px; background: var(--c-backdrop); color: var(--t-1); border: 1px solid var(--c-panel); }
+.hk-message { margin: 0; padding: 8px 10px; border-radius: 6px; background: rgba(250, 204, 21, 0.1); color: #facc15; font-size: 13px; }
+.hk-warn { color: #facc15; }
+
+.hotkey-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  z-index: 3000;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(15, 12, 8, 0.92);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+  max-width: 80vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: hotkey-toast-in 0.15s ease-out;
+}
+@keyframes hotkey-toast-in { from { opacity: 0; transform: translate(-50%, 6px); } }

@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import HotkeySettings from "../hotkeys/HotkeySettings";
+import { describeCode, mouseCode } from "../hotkeys/hotkeys";
+import { isMobileLayout } from "../store/mobileStore";
 import { updateProfile } from "../api/auth.api";
 import { isCloudinaryConfigured, uploadImageToCloudinary } from "../api/cloudinary";
 import { useAuthStore } from "../store/authStore";
@@ -38,6 +41,7 @@ import { setLang, tr, useLang, useT } from "../i18n";
 // PTT to (modifiers, function keys, mouse-adjacent keys like CapsLock); falls back to the
 // raw code for anything else rather than guessing at every possible layout.
 function describeKeyCode(code: string): string {
+  if (/^Moused$/.test(code)) return describeCode(code);
   const known: Record<string, string> = {
     ControlLeft: tr("Ляв Ctrl", "Left Ctrl"),
     ControlRight: tr("Десен Ctrl", "Right Ctrl"),
@@ -53,7 +57,7 @@ function describeKeyCode(code: string): string {
   return known[code] ?? code.replace(/^Key/, "").replace(/^Digit/, "");
 }
 
-type Section = "profile" | "account" | "voice" | "stream" | "chat" | "notifications" | "appearance" | "accessibility";
+type Section = "profile" | "account" | "voice" | "stream" | "chat" | "notifications" | "hotkeys" | "appearance" | "accessibility";
 
 // Built at render time so the labels follow the interface language.
 function titles(): Record<Section, string> {
@@ -64,6 +68,7 @@ function titles(): Record<Section, string> {
     stream: tr("Стрийм", "Streaming"),
     chat: tr("Чат", "Chat"),
     notifications: tr("Известия", "Notifications"),
+    hotkeys: tr("Клавиши", "Hotkeys"),
     appearance: tr("Външен вид и език", "Appearance & language"),
     accessibility: tr("Достъпност", "Accessibility"),
   };
@@ -86,6 +91,8 @@ function nav(): { group: string; items: { id: Section; icon: string; label: stri
         { id: "stream", icon: "📺", label: t.stream },
         { id: "chat", icon: "💬", label: t.chat },
         { id: "notifications", icon: "🔔", label: t.notifications },
+        // Phones have no keyboard to bind.
+        ...(isMobileLayout() ? [] : [{ id: "hotkeys" as const, icon: "⌨️", label: t.hotkeys }]),
         { id: "appearance", icon: "🎨", label: t.appearance },
         { id: "accessibility", icon: "♿", label: t.accessibility },
       ],
@@ -392,13 +399,26 @@ export default function UserSettingsModal({ onClose }: Props) {
 
   function startBindingPushToTalkKey() {
     setListeningForKey(true);
+    const done = (code: string) => {
+      edit({ pttKey: code });
+      setListeningForKey(false);
+      window.removeEventListener("keydown", onKeyDown, true);
+      window.removeEventListener("mousedown", onMouseDown, true);
+    };
     function onKeyDown(e: KeyboardEvent) {
       e.preventDefault();
-      edit({ pttKey: e.code });
-      setListeningForKey(false);
-      window.removeEventListener("keydown", onKeyDown);
+      e.stopPropagation();
+      done(e.code);
     }
-    window.addEventListener("keydown", onKeyDown);
+    // The side mouse buttons (and the middle one) work as push-to-talk too.
+    function onMouseDown(e: MouseEvent) {
+      const code = mouseCode(e.button);
+      if (!code) return;
+      e.preventDefault();
+      done(code);
+    }
+    window.addEventListener("keydown", onKeyDown, true);
+    window.addEventListener("mousedown", onMouseDown, true);
   }
 
   async function handleAvatarPick(e: React.ChangeEvent<HTMLInputElement>) {
@@ -680,7 +700,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                       <span>
                         {t("Клавиш:", "Key:")}{" "}
                         <strong>
-                          {listeningForKey ? t("Натисни клавиш…", "Press a key…") : draft.pttKey ? describeKeyCode(draft.pttKey) : t("не е избран", "not set")}
+                          {listeningForKey ? t("Натисни клавиш или страничен бутон на мишката…", "Press a key or a side mouse button…") : draft.pttKey ? describeKeyCode(draft.pttKey) : t("не е избран", "not set")}
                         </strong>
                       </span>
                       <button type="button" className="set-button" onClick={startBindingPushToTalkKey} disabled={listeningForKey}>
@@ -1066,6 +1086,10 @@ export default function UserSettingsModal({ onClose }: Props) {
                 </div>
               </Card>
               </>
+            )}
+
+            {section === "hotkeys" && (
+              <HotkeySettings pttKey={draft.pttKey} pttActive={draft.micMode === "push-to-talk"} onPttKey={(code) => edit({ pttKey: code })} />
             )}
 
             {section === "accessibility" && (

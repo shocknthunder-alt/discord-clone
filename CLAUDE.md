@@ -144,6 +144,17 @@ Owner pronouns unknown: use they/them.
     never lose it, or phones refuse updates), optional `GOOGLE_SERVICES_JSON`. New APK: bump versionCode/Name in
     `mobile/android/app/build.gradle` + `LATEST_ANDROID_VERSION_CODE` in `native/native.ts`. Web changes need no new APK.
 
+- **⌨️ Hotkeys** (2026-11-18, Settings → Клавиши, hidden on phones): `client/src/hotkeys/hotkeys.ts` (actions +
+  defaults, `useHotkeyStore` in localStorage `hotkeysV1` = only overrides + per-channel rows, combo strings
+  `Ctrl+Alt+Shift+Meta+<KeyboardEvent.code|Mouse3|Mouse4|Mouse5>`, `startHotkeys` listener), `hotkeyActions.ts`
+  (what each does, started in AppShell), `HotkeySettings.tsx`, `HotkeyToast.tsx`. Component-owned actions
+  (voice message record/send, clip, music volume/mute/type box, open settings) register via
+  `useHotkeyTarget(name, fn)` — newest mounted wins. Desktop global keys run only when `!document.hasFocus()`
+  (no double fire) and only for 🌐 actions. Plain keys are refused (need Ctrl/Alt/Shift) except F-keys, Numpad,
+  mouse buttons; inside text boxes arrow/Backspace combos without Alt stay with the text box. Ctrl+K is now
+  just the default of the "search" action. Push-to-talk accepts mouse buttons too. Desktop **1.10.0**
+  `globalKeys.js` also forwards uiohook mouse buttons 3–5 as `Mouse3..5` (preload flag `mouseButtons`).
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

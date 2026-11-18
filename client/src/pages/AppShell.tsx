@@ -54,6 +54,9 @@ import MobileVoiceBar from "../components/MobileVoiceBar";
 import { useIsMobile, useMobileStore } from "../store/mobileStore";
 import { listenForPushTaps, reportVisibility, syncPush } from "../native/push";
 import { appPlugin, nativePlugin } from "../native/native";
+import { startHotkeys } from "../hotkeys/hotkeys";
+import { runHotkey, type HotkeyContext } from "../hotkeys/hotkeyActions";
+import HotkeyToast from "../hotkeys/HotkeyToast";
 
 export default function AppShell() {
   const token = useAuthStore((s) => s.token);
@@ -61,7 +64,31 @@ export default function AppShell() {
   const activeVoiceChannelId = useVoiceStore((s) => s.activeVoiceChannelId);
   const { view, activeConversationId, setIncomingRing } = useDmStore();
   const [viewMode, setViewMode] = useState<"text" | "voice">("text");
-  const { joinVoiceChannel, leaveVoiceChannel, toggleMute, toggleDeafen } = useVoiceChannel();
+  const voiceControls = useVoiceChannel();
+  const { joinVoiceChannel, leaveVoiceChannel, toggleMute, toggleDeafen } = voiceControls;
+
+  // ⌨️ Hotkeys (Settings → Клавиши). The ref always holds the current functions.
+  const hotkeyCtx = useRef<HotkeyContext | null>(null);
+  hotkeyCtx.current = {
+    toggleMute: voiceControls.toggleMute,
+    toggleDeafen: voiceControls.toggleDeafen,
+    toggleCamera: voiceControls.toggleCamera,
+    toggleScreenShare: voiceControls.toggleScreenShare,
+    leaveVoiceChannel: voiceControls.leaveVoiceChannel,
+    joinVoiceChannel: voiceControls.joinVoiceChannel,
+    playMusic: voiceControls.playMusic,
+    pauseMusic: voiceControls.pauseMusic,
+    skipMusic: voiceControls.skipMusic,
+    seekMusic: voiceControls.seekMusic,
+    setViewMode: (m) => setViewMode(m),
+  };
+  useEffect(
+    () =>
+      startHotkeys((t) => {
+        if (hotkeyCtx.current) runHotkey(hotkeyCtx.current, t);
+      }),
+    [],
+  );
 
   useEventReminders();
   // The text channel on screen (socket handlers read it to skip mentions you're looking at).
@@ -363,6 +390,7 @@ export default function AppShell() {
   return (
     <div className={`app-shell ${mobile ? `mobile pane-${pane}${activeVoiceChannelId ? " in-voice" : ""}` : ""}`}>
       <VoiceAudioBridge />
+      <HotkeyToast />
       {mobile ? (
         <MobileVoiceBar
           onOpenVoice={() => {

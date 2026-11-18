@@ -11,6 +11,9 @@ import { tr } from "../i18n";
 import { useMusicVideoStore } from "./MusicVideoWindow";
 import MusicProgress from "./MusicProgress";
 import { bestSongMatch } from "../music/songMatch";
+import { useHotkeyTarget } from "../hotkeys/hotkeys";
+import { showHotkeyToast } from "../hotkeys/HotkeyToast";
+import { useRef } from "react";
 
 /** New listeners start quiet — music under a voice call should never drown the voices. */
 const MUSIC_DEFAULT_VOLUME = 10;
@@ -86,6 +89,23 @@ export default function MusicMiniPlayer() {
   useEffect(() => {
     initMusicPlayerEngine();
   }, []);
+
+  // ⌨️ Hotkeys for the parts that live here (volume, personal mute, the song box).
+  const inputRef = useRef<HTMLInputElement>(null);
+  useHotkeyTarget("music-volume", (delta) => {
+    const next = Math.min(100, Math.max(0, volume + (delta ?? 0)));
+    setVolume(next);
+    showHotkeyToast(`🎵 ${tr("Музика", "Music")}: ${next}`);
+  });
+  useHotkeyTarget("music-mute", () => {
+    setMuted(!muted);
+    setMusicLocallyMuted(!muted);
+    showHotkeyToast(!muted ? tr("🔇 Музиката е заглушена (за теб)", "🔇 Music muted (for you)") : tr("🔊 Музиката пак се чува", "🔊 Music back on"));
+  });
+  useHotkeyTarget("music-type", () => {
+    if (!expanded) toggleExpanded();
+    setTimeout(() => inputRef.current?.focus(), 0);
+  });
 
   // 🎧 yogurthub search — only when the server has it set up.
   const [subsonic, setSubsonic] = useState(false);
@@ -263,6 +283,7 @@ export default function MusicMiniPlayer() {
 
           <form className="music-add-form" onSubmit={(e) => void handleAdd(e)}>
             <input
+              ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={tr("🔎 Напиши песен тук…", "🔎 Type a song here…")}

@@ -5,6 +5,8 @@ declare const __BUILD_ID__: string;
 interface Window {
   /** Present only inside the Electron desktop app (see desktop/preload.js). */
   shmirkaDesktop?: {
+    /** 1.10.0+: global key events include the extra mouse buttons. */
+    mouseButtons?: boolean;
     isDesktop: true;
     /** System-wide key events (works while a game has focus). Returns an unsubscribe function. */
     getScreenSources(): Promise<DesktopScreenSource[]>;

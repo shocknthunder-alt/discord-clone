@@ -2,10 +2,12 @@ import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import UserSettingsModal from "./UserSettingsModal";
 import { tr } from "../i18n";
+import { useHotkeyTarget } from "../hotkeys/hotkeys";
 
 export default function UserBar() {
   const user = useAuthStore((s) => s.user);
   const [showSettings, setShowSettings] = useState(false);
+  useHotkeyTarget("open-settings", () => setShowSettings((v) => !v));
 
   if (!user) return null;
 

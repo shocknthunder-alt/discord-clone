@@ -43,6 +43,13 @@ function startGlobalKeys(send) {
   };
   uIOhook.on("keydown", forward(true));
   uIOhook.on("keyup", forward(false));
+  // 1.10.0+: the extra mouse buttons too (middle / back / forward), as "Mouse3" / "Mouse4" / "Mouse5" —
+  // usable for push-to-talk and hotkeys while a game has focus. Left/right clicks are never sent.
+  const mouse = (down) => (e) => {
+    if (e.button >= 3 && e.button <= 5) send(`Mouse${e.button}`, down);
+  };
+  uIOhook.on("mousedown", mouse(true));
+  uIOhook.on("mouseup", mouse(false));
   uIOhook.start();
 }
 

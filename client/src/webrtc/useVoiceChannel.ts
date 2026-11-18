@@ -105,6 +105,13 @@ function applyMicTransmitState() {
 let pttKeydownHandler: ((e: KeyboardEvent) => void) | null = null;
 let pttKeyupHandler: ((e: KeyboardEvent) => void) | null = null;
 let pttGlobalUnsubscribe: (() => void) | null = null;
+let pttMouseDown: ((e: MouseEvent) => void) | null = null;
+let pttMouseUp: ((e: MouseEvent) => void) | null = null;
+
+/** Extra mouse buttons as push-to-talk "keys" (same names the desktop app sends). */
+function pttMouseCode(button: number): string | null {
+  return button === 1 ? "Mouse3" : button === 3 ? "Mouse4" : button === 4 ? "Mouse5" : null;
+}
 
 // Shared by the window key events (browser + focused desktop app) and the desktop app's
 // system-wide key events (game in the foreground). Duplicates are harmless: both are no-ops
@@ -122,6 +129,22 @@ function attachPushToTalkListeners() {
   pttKeyupHandler = (e: KeyboardEvent) => handlePushToTalkKey(e.code, false);
   window.addEventListener("keydown", pttKeydownHandler);
   window.addEventListener("keyup", pttKeyupHandler);
+  pttMouseDown = (e: MouseEvent) => {
+    const code = pttMouseCode(e.button);
+    if (code && code === useVoiceStore.getState().pushToTalkKey) {
+      e.preventDefault();
+      handlePushToTalkKey(code, true);
+    }
+  };
+  pttMouseUp = (e: MouseEvent) => {
+    const code = pttMouseCode(e.button);
+    if (code && code === useVoiceStore.getState().pushToTalkKey) {
+      e.preventDefault(); // the Back button would otherwise navigate
+      handlePushToTalkKey(code, false);
+    }
+  };
+  window.addEventListener("mousedown", pttMouseDown);
+  window.addEventListener("mouseup", pttMouseUp);
   pttGlobalUnsubscribe = window.shmirkaDesktop?.onGlobalKey(handlePushToTalkKey) ?? null;
 }
 
@@ -129,6 +152,10 @@ function detachPushToTalkListeners() {
   if (pttKeydownHandler) window.removeEventListener("keydown", pttKeydownHandler);
   if (pttKeyupHandler) window.removeEventListener("keyup", pttKeyupHandler);
   pttGlobalUnsubscribe?.();
+  if (pttMouseDown) window.removeEventListener("mousedown", pttMouseDown);
+  if (pttMouseUp) window.removeEventListener("mouseup", pttMouseUp);
+  pttMouseDown = null;
+  pttMouseUp = null;
   pttKeydownHandler = null;
   pttKeyupHandler = null;
   pttGlobalUnsubscribe = null;

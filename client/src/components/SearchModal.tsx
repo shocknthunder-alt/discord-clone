@@ -37,17 +37,7 @@ export default function SearchModal() {
 
   useEscapeKey(() => open && setOpen(false));
 
-  // Ctrl/Cmd+K opens the search from anywhere.
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        useSearchStore.getState().setOpen(true);
-      }
-    }
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  // Ctrl+K (or whatever is set in Settings → Клавиши) opens it — see hotkeys/hotkeyActions.ts.
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 30);
