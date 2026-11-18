@@ -10,6 +10,7 @@ import { SocketEvents } from "@discord-clone/shared";
 import { tr } from "../i18n";
 import { useMusicVideoStore } from "./MusicVideoWindow";
 import MusicProgress from "./MusicProgress";
+import { bestSongMatch } from "../music/songMatch";
 
 /** New listeners start quiet — music under a voice call should never drown the voices. */
 const MUSIC_DEFAULT_VOLUME = 10;
@@ -160,7 +161,10 @@ export default function MusicMiniPlayer() {
     setSearching(true);
     try {
       const { songs } = await searchSubsonic(text);
-      if (songs.length > 0) addSubsonicToQueue([songs[0]]);
+      // Only a result that really has every typed word — yogurthub's search is loose and used to
+      // play a different song by the same artist.
+      const match = bestSongMatch(text, songs);
+      if (match) addSubsonicToQueue([match]);
       else addMusic(text); // not on yogurthub → YouTube search
       setInput("");
     } catch {
