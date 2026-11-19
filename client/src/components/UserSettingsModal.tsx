@@ -262,6 +262,15 @@ interface Draft {
   linkPreviews: boolean;
   shareActivity: boolean;
   mentionAlerts: boolean;
+  selfJoinSound: boolean;
+  notifySound: boolean;
+}
+
+/** Plays the "Trr" once so the toggle can be heard. */
+function previewTrr() {
+  const a = new Audio("/sounds/trr.mp3");
+  a.volume = 0.25;
+  a.play().catch(() => {});
 }
 
 /** The values as they are applied right now. */
@@ -309,6 +318,8 @@ function readCurrent(): Draft {
     linkPreviews: p.linkPreviews,
     shareActivity: p.shareActivity,
     mentionAlerts: p.mentionAlerts,
+    selfJoinSound: p.selfJoinSound,
+    notifySound: p.notifySound,
   };
 }
 
@@ -498,6 +509,8 @@ export default function UserSettingsModal({ onClose }: Props) {
         linkPreviews: d.linkPreviews,
         shareActivity: d.shareActivity,
         mentionAlerts: d.mentionAlerts,
+        selfJoinSound: d.selfJoinSound,
+        notifySound: d.notifySound,
       });
       const now = { ...d, username: d.username.trim() };
       setBase(now);
@@ -1009,9 +1022,18 @@ export default function UserSettingsModal({ onClose }: Props) {
                 <PushSettings />
                 <Toggle
                   label={t("Звук при @споменаване", "Sound when @mentioned")}
-                  hint={t("Кратко „дин“ (и известие, ако са включени), когато някой напише @твоетоиме, @everyone или @here. Каналът и сървърът получават червено @число.", "A short ding (and a notification if they're on) when someone writes @yourname, @everyone or @here. The channel and server get a red @number.")}
+                  hint={t("„Trr“ (и известие, ако са включени), когато някой напише @твоетоиме, @everyone или @here. Каналът и сървърът получават червено @число.", "A “Trr” (and a notification if they're on) when someone writes @yourname, @everyone or @here. The channel and server get a red @number.")}
                   checked={draft.mentionAlerts}
                   onChange={(on) => edit({ mentionAlerts: on })}
+                />
+                <Toggle
+                  label={t("Звук при съобщение и известие", "Sound for messages and notifications")}
+                  hint={t("„Trr“ за ново лично съобщение, съобщение в отворения канал, докато гледаш другаде, и известия за събития. Изключи го, за да спре всичко (и @споменаванията).", "A “Trr” for a new DM, a message in the open channel while you're looking elsewhere, and event notifications. Turn it off to silence all of it (@mentions too).")}
+                  checked={draft.notifySound}
+                  onChange={(on) => {
+                    edit({ notifySound: on });
+                    if (on) previewTrr();
+                  }}
                 />
                 <Toggle
                   label={t("Преглед на линковете", "Link previews")}
@@ -1049,6 +1071,15 @@ export default function UserSettingsModal({ onClose }: Props) {
                   hint={t("Кратък звук, когато някой влезе при теб.", "A short sound when someone joins you.")}
                   checked={draft.joinSound}
                   onChange={(on) => edit({ joinSound: on })}
+                />
+                <Toggle
+                  label={t("Звук, когато ти влезеш в гласов канал", "Sound when you join a voice channel")}
+                  hint={t("„Trr“, щом се свържеш с канала.", "A “Trr” as soon as you connect to the channel.")}
+                  checked={draft.selfJoinSound}
+                  onChange={(on) => {
+                    edit({ selfJoinSound: on });
+                    if (on) previewTrr();
+                  }}
                 />
               </Card>
             )}

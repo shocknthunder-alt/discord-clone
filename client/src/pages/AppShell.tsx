@@ -36,7 +36,7 @@ import { isMutedHere, useMuteStore } from "../store/muteStore";
 import { useChatStore } from "../store/chatStore";
 import ActivityReporter from "../components/ActivityReporter";
 import { getAppPrefs } from "../utils/appPrefs";
-import { playMentionSound } from "../utils/voiceSounds";
+import { playMentionSound, playNotifySound } from "../utils/voiceSounds";
 import { scheduleEventsReload, useEventsStore } from "../store/eventsStore";
 import { useEventReminders } from "../hooks/useEventReminders";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
@@ -219,6 +219,7 @@ export default function AppShell() {
         voiceChannelId: null,
         serverId: p.serverId,
       });
+      playNotifySound();
       notifyDesktop(`📅 ${tr("Ново събитие", "New event")}: ${p.title}`, text);
     });
     // After a reconnect (e.g. the server restarted) the list may have changed while we were away.
@@ -232,6 +233,7 @@ export default function AppShell() {
       const dmState = useDmStore.getState();
       const isActivelyViewing = dmState.view === "dms" && dmState.activeConversationId === conversationId;
       if (!isActivelyViewing) dmState.incrementUnread(conversationId);
+      if (!isActivelyViewing || !document.hasFocus()) playNotifySound();
       if (!isActivelyViewing || !document.hasFocus()) notifyDesktop("ШмиркаТа", tr("Ново лично съобщение", "New direct message"));
     });
 

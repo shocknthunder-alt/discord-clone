@@ -1,4 +1,5 @@
 import { formatTime, notifyDesktop } from "../utils/appPrefs";
+import { playNotifySound } from "../utils/voiceSounds";
 import MobileNavButton from "./MobileNavButton";
 import { attachmentLabel } from "../utils/attachments";
 import { Perm, SocketEvents, hasPerm, mentionsUser, type MessageDTO, type MessagePinnedPayload, type PollUpdatedPayload } from "@discord-clone/shared";
@@ -221,6 +222,7 @@ export default function TextChatView({ channelId }: Props) {
       if (message.textChannelId === channelId) {
         addMessage(message);
         if (message.authorId !== useAuthStore.getState().user?.id && !isMutedHere(useMuteStore.getState(), useServerStore.getState().activeServerId, channelId)) {
+          if (!document.hasFocus()) playNotifySound();
           notifyDesktop(message.authorUsername, message.content || attachmentLabel(message.imageUrl), message.authorAvatarUrl);
         }
       }

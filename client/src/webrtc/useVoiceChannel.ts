@@ -31,7 +31,7 @@ import {
 } from "./devicePrefs";
 import { startMicProcessing, type MicProcessingHandle } from "./micProcessing";
 import { SfuMediaManager } from "./SfuMediaManager";
-import { playVoiceJoinSound } from "../utils/voiceSounds";
+import { playSelfJoinSound, playVoiceJoinSound } from "../utils/voiceSounds";
 import { unlockMusicAudio } from "../music/musicPlayerEngine";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 
@@ -387,6 +387,7 @@ export function useVoiceChannel() {
     }
     store.setLocalStream(localStream);
     store.setActiveVoiceChannel(voiceChannelId);
+    playSelfJoinSound();
     useWatchStore.getState().clear(); // a fresh call watches nothing until you click Watch
 
     // Our own highpass + noise gate, layered on top of the browser's native

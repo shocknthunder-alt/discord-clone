@@ -41,6 +41,10 @@ export interface AppPrefs {
   shareActivity: boolean;
   /** Sound + notification when someone @mentions me. */
   mentionAlerts: boolean;
+  /** "Trr" when I join a voice channel. */
+  selfJoinSound: boolean;
+  /** "Trr" for new messages, DMs and notifications. */
+  notifySound: boolean;
 }
 
 const KEY = "appPrefs";
@@ -64,6 +68,8 @@ const DEFAULTS: AppPrefs = {
   linkPreviews: true,
   shareActivity: true,
   mentionAlerts: true,
+  selfJoinSound: true,
+  notifySound: true,
 };
 
 function load(): AppPrefs {
