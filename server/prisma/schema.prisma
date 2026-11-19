@@ -101,6 +101,8 @@ model Server {
   id         String   @id @default(cuid())
   name       String
   iconUrl    String?
+  /// Picture at the top of the channel list (Server Settings → Общи → Банер).
+  bannerUrl  String?
   ownerId    String
   owner      User     @relation("ServerOwner", fields: [ownerId], references: [id])
   inviteCode String   @unique @default(cuid())

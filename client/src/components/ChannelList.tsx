@@ -330,9 +330,20 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
       <div className="channel-sidebar-scroll" onDragEnd={() => setUserDropId(null)}>
         {activeServer && (
           <>
-            <div className="channel-sidebar-header">
-              {activeServer.iconUrl && <img className="server-header-icon" src={activeServer.iconUrl} alt="" />}
-              <h2>{activeServer.name}</h2>
+            <div className={`channel-sidebar-header ${activeServer.bannerUrl ? "has-banner" : ""}`}>
+              {activeServer.bannerUrl ? (
+                // The banner usually has the name in it — the text name is kept for screen readers only.
+                <>
+                  <img className="server-header-banner" src={activeServer.bannerUrl} alt={activeServer.name} title={activeServer.name} draggable={false} />
+                  <h2 className="visually-hidden">{activeServer.name}</h2>
+                </>
+              ) : (
+                <>
+                  {activeServer.iconUrl && <img className="server-header-icon" src={activeServer.iconUrl} alt="" />}
+                  <h2>{activeServer.name}</h2>
+                </>
+              )}
+              <div className="server-header-buttons">
               {!locked && (
                 <button
                   className="server-settings-button"
@@ -352,6 +363,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                   ⚙️
                 </button>
               )}
+              </div>
             </div>
             <InviteRow code={activeServer.inviteCode} />
 

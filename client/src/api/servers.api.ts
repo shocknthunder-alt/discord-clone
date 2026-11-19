@@ -20,7 +20,7 @@ export function joinServer(inviteCode: string) {
 
 export function updateServer(
   serverId: string,
-  data: { name?: string; iconUrl?: string | null; afkChannelId?: string | null; afkTimeoutMin?: number },
+  data: { name?: string; iconUrl?: string | null; bannerUrl?: string | null; afkChannelId?: string | null; afkTimeoutMin?: number },
 ) {
   return http.patch<{ server: ServerDTO }>(`/api/servers/${serverId}`, data).then((r) => r.data.server);
 }

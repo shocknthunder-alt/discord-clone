@@ -12,6 +12,8 @@ export interface ServerDTO {
   id: string;
   name: string;
   iconUrl: string | null;
+  /** Picture at the top of the channel list (absent on older servers). */
+  bannerUrl?: string | null;
   ownerId: string;
   inviteCode: string;
   /** AFK voice channel (null/absent = none). Older servers' rows may not have these yet. */

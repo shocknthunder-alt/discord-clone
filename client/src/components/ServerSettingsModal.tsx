@@ -69,6 +69,9 @@ function GeneralTab({ server, onClose }: Props) {
   const [afkTimeoutMin, setAfkTimeoutMin] = useState<number>(server.afkTimeoutMin ?? 20);
   const [name, setName] = useState(server.name);
   const [iconUrl, setIconUrl] = useState(server.iconUrl);
+  const [bannerUrl, setBannerUrl] = useState(server.bannerUrl ?? null);
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,6 +91,21 @@ function GeneralTab({ server, onClose }: Props) {
     }
   }
 
+  async function handleBannerPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setBannerUploading(true);
+    setError(null);
+    try {
+      setBannerUrl(await uploadImageToCloudinary(file));
+    } catch {
+      setError(tr("Качването на банера не успя.", "Banner upload failed."));
+    } finally {
+      setBannerUploading(false);
+    }
+  }
+
   async function handleSave() {
     if (!name.trim()) return;
     setSaving(true);
@@ -99,7 +117,7 @@ function GeneralTab({ server, onClose }: Props) {
         addVoiceChannel(vc);
         afkId = vc.id;
       }
-      const updated = await updateServer(server.id, { name: name.trim(), iconUrl, afkChannelId: afkId, afkTimeoutMin });
+      const updated = await updateServer(server.id, { name: name.trim(), iconUrl, bannerUrl, afkChannelId: afkId, afkTimeoutMin });
       updateServerInList(updated);
       onClose();
     } catch (err) {
@@ -126,6 +144,27 @@ function GeneralTab({ server, onClose }: Props) {
         {tr("Име на сървъра", "Server name")}
       </label>
       <input id="server-name-input" className="modal-input" value={name} onChange={(e) => setName(e.target.value)} />
+      <label className="modal-label" style={{ marginTop: 14 }}>
+        {tr("🖼️ Банер (горе в списъка с канали)", "🖼️ Banner (top of the channel list)")}
+      </label>
+      {bannerUrl ? (
+        <img className="server-banner-preview" src={bannerUrl} alt="" />
+      ) : (
+        <p className="modal-subtitle" style={{ margin: "4px 0 8px" }}>
+          {tr("Няма банер — горе се вижда името. Най-добре е широка снимка (около 16:9), поне 600 px.", "No banner — the name is shown. A wide picture works best (about 16:9), at least 600 px.")}
+        </p>
+      )}
+      <div className="server-banner-actions">
+        <button type="button" onClick={() => bannerInputRef.current?.click()} disabled={bannerUploading || !isCloudinaryConfigured()}>
+          {bannerUploading ? tr("Качване…", "Uploading…") : bannerUrl ? tr("Смени банера", "Change banner") : tr("Качи банер", "Upload banner")}
+        </button>
+        {bannerUrl && (
+          <button type="button" onClick={() => setBannerUrl(null)}>
+            {tr("Махни банера", "Remove banner")}
+          </button>
+        )}
+        <input ref={bannerInputRef} type="file" accept="image/*" hidden onChange={handleBannerPick} />
+      </div>
       <label className="modal-label" htmlFor="afk-channel-select" style={{ marginTop: 14 }}>
         {tr("💤 AFK канал", "💤 AFK channel")}
       </label>
@@ -159,7 +198,7 @@ function GeneralTab({ server, onClose }: Props) {
         </>
       )}
       {error && <div className="modal-error">{error}</div>}
-      <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || !name.trim()}>
+      <button className="modal-create-button" onClick={handleSave} disabled={saving || uploading || bannerUploading || !name.trim()}>
         {saving ? tr("Запазване…", "Saving…") : tr("Запази", "Save")}
       </button>
     </>

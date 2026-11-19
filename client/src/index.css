@@ -3571,3 +3571,61 @@ input[type="range"] {
   cursor: pointer;
 }
 .invite-row:hover { border-color: var(--accent); color: var(--t-1); }
+
+/* 🖼️ Server banner at the top of the channel list (Server Settings → Общи → Банер) */
+.channel-sidebar-header.has-banner {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  border-bottom: none;
+}
+.server-header-banner {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 190px; /* phones: the list is full width */
+  object-fit: cover;
+  user-select: none;
+  /* melts into the panel underneath */
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent);
+}
+.server-header-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.channel-sidebar-header.has-banner .server-header-buttons {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  gap: 4px;
+}
+.channel-sidebar-header.has-banner .server-settings-button {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+}
+.channel-sidebar-header.has-banner .server-settings-button:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+.visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.server-banner-preview {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 8px;
+  margin: 4px 0 8px;
+}
+.server-banner-actions {
+  display: flex;
+  gap: 8px;
+}
