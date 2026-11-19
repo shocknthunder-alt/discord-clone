@@ -24,7 +24,7 @@ import VoiceAudioBridge from "../components/VoiceAudioBridge";
 import VoiceChannelPanel from "../components/VoiceChannelPanel";
 import WelcomeScreen from "../components/WelcomeScreen";
 import { connectSocket, getSocket } from "../socket/socket";
-import { useAuthStore } from "../store/authStore";
+import { getAuthToken, useAuthStore } from "../store/authStore";
 import type { IncomingRing } from "../store/dmStore";
 import { useDmStore } from "../store/dmStore";
 import { useServerStore } from "../store/serverStore";
@@ -123,7 +123,11 @@ export default function AppShell() {
 
   useEffect(() => {
     if (!token) return;
-    const socket = connectSocket(token);
+    const socket = connectSocket(getAuthToken() ?? token);
+    // The login expired while the app was closed/asleep: back to the login page.
+    socket.on("connect_error", (err: Error) => {
+      if (err.message === "Invalid or expired token" || err.message === "User not found") useAuthStore.getState().logout();
+    });
 
     registerRemoteControl(socket);
     const stopVisibility = reportVisibility(socket);

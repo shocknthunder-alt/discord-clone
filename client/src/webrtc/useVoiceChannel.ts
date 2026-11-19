@@ -6,7 +6,7 @@ import { useCallback, useMemo } from "react";
 import { connectMediaSocket, disconnectMediaSocket } from "../socket/mediaSocket";
 import { getSocket } from "../socket/socket";
 import { tr } from "../i18n";
-import { useAuthStore } from "../store/authStore";
+import { getAuthToken, useAuthStore } from "../store/authStore";
 import { useMusicStore } from "../store/musicStore";
 import { useVoiceStore, type RemoteStreamStats } from "../store/voiceStore";
 import {
@@ -344,7 +344,7 @@ export function useVoiceChannel() {
 
   const joinVoiceChannel = useCallback(async (voiceChannelId: string) => {
     const socket = getSocket();
-    const token = useAuthStore.getState().token;
+    const token = getAuthToken();
     if (!socket || !token) return;
 
     // Joining is the click that satisfies the browser's autoplay policy — unlock the shared

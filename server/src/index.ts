@@ -25,7 +25,7 @@ import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
 
 const app = express();
-app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true }));
+app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true, exposedHeaders: ["X-Refreshed-Token"] }));
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
