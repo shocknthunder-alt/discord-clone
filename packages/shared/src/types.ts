@@ -36,8 +36,11 @@ export interface TextChannelDTO {
   backgroundUrl: string | null;
   serverId: string;
   position: number;
-  /** "trivia" channels are handled by the Trivia Bot; "forum" = a list of topics, each its own thread. */
-  type: "text" | "trivia" | "forum";
+  /**
+   * "trivia" channels are handled by the Trivia Bot; "forum" = a list of topics, each its own thread;
+   * "draw" = the 🎨 draw-and-guess game.
+   */
+  type: "text" | "trivia" | "forum" | "draw";
   /** Newest message by a person (not the trivia bot), for unread markers. Missing on old servers. */
   lastMessageAt?: string | null;
 }

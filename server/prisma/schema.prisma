@@ -25,6 +25,7 @@ model User {
   ownedServers         Server[]         @relation("ServerOwner")
   directMessages       DirectMessage[]
   triviaScores         TriviaScore[]
+  drawScores           DrawScore[]
   eventRsvps           EventRsvp[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
@@ -287,6 +288,20 @@ model TriviaScore {
   userId   String
   points   Int    @default(0)
   correct  Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId])
+}
+
+// 🎨 "Рисувай и познай" totals per server.
+model DrawScore {
+  id       String @id @default(cuid())
+  serverId String
+  userId   String
+  points   Int    @default(0)
+  wins     Int    @default(0)
+  games    Int    @default(0)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

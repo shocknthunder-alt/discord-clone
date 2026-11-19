@@ -24,6 +24,7 @@ import MessageToolbar from "./MessageToolbar";
 import ThreadPanel from "./ThreadPanel";
 import PinsPanel from "./PinsPanel";
 import ForumView from "./ForumView";
+import DrawGameView from "./draw/DrawGameView";
 import { isMutedHere, useMuteStore } from "../store/muteStore";
 import EditedTag from "./EditHistory";
 import { PollCard } from "./Polls";
@@ -373,14 +374,16 @@ export default function TextChatView({ channelId }: Props) {
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
         <MobileNavButton />
-        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : channel?.type === "forum" ? "🗂️" : "#"} {channel?.name ?? ""}</span>
-        <button
-          className={`server-settings-button pins-toggle ${showPins ? "on" : ""}`}
-          onClick={() => setShowPins((v) => !v)}
-          title={tr("Закачени съобщения", "Pinned messages")}
-        >
-          📌
-        </button>
+        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : channel?.type === "forum" ? "🗂️" : channel?.type === "draw" ? "🎨" : "#"} {channel?.name ?? ""}</span>
+        {channel?.type !== "draw" && (
+          <button
+            className={`server-settings-button pins-toggle ${showPins ? "on" : ""}`}
+            onClick={() => setShowPins((v) => !v)}
+            title={tr("Закачени съобщения", "Pinned messages")}
+          >
+            📌
+          </button>
+        )}
         <button className="server-settings-button" onClick={() => useSearchStore.getState().setOpen(true)} title={tr("Търси в съобщенията (Ctrl+K)", "Search messages (Ctrl+K)")}>
           🔍
         </button>
@@ -400,7 +403,9 @@ export default function TextChatView({ channelId }: Props) {
 
       {showPins && <PinsPanel channelId={channelId} onClose={() => setShowPins(false)} />}
 
-      {channel?.type === "forum" ? (
+      {channel?.type === "draw" ? (
+        <DrawGameView channelId={channelId} />
+      ) : channel?.type === "forum" ? (
         <ForumView channelId={channelId} />
       ) : (
       <div className="chat-body">

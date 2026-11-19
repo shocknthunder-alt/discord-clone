@@ -127,6 +127,23 @@ export const SocketEvents = {
   ControlInputIn: "control:input-in",
   ControlStop: "control:stop", // either side ends it: { reason? }
   ControlStopped: "control:stopped",
+
+  // 🎨 "Рисувай и познай" (channels with type "draw"); see draw.ts for the payloads.
+  DrawWatch: "draw:watch", // client → server: { channelId } (the channel is on screen)
+  DrawUnwatch: "draw:unwatch", // { channelId }
+  DrawJoin: "draw:join", // become a player
+  DrawLeave: "draw:leave",
+  DrawStart: "draw:start", // { channelId, rounds, seconds }
+  DrawStop: "draw:stop",
+  DrawPick: "draw:pick", // drawer: { channelId, index }
+  DrawOps: "draw:ops", // drawer → server → others: { channelId, ops: DrawOp[] }
+  DrawUndo: "draw:undo",
+  DrawClear: "draw:clear",
+  DrawGuess: "draw:guess", // { channelId, text }
+  DrawTop: "draw:top", // { channelId } + ack(DrawTopRow[])
+  DrawState: "draw:state", // server → one socket: DrawStateDTO (personalised)
+  DrawCanvas: "draw:canvas", // server → room: { channelId, ops } (whole picture, after undo/clear/late join)
+  DrawChat: "draw:chat", // server → socket: DrawChatLine
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

@@ -1,0 +1,193 @@
+/* 🎨 "Рисувай и познай" */
+.draw-game {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  color: var(--t-1);
+}
+
+.draw-top {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--c-panel);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  min-height: 56px;
+}
+.draw-round { font-size: 14px; color: var(--t-2); }
+.draw-round b { color: var(--t-1); font-size: 17px; }
+.draw-word { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; }
+.draw-word-wait { color: var(--t-2); font-style: italic; }
+.draw-word-len { font-size: 12px; color: var(--t-3); font-variant-numeric: tabular-nums; }
+.draw-word-boxes { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+.draw-letter {
+  width: 22px; height: 30px; display: inline-flex; align-items: flex-end; justify-content: center;
+  border-bottom: 3px solid var(--t-2); font-size: 20px; font-weight: 800; text-transform: uppercase; line-height: 1;
+}
+.draw-letter.hidden { border-bottom-color: var(--t-3); }
+.draw-word-boxes.known .draw-letter { border-bottom-color: #3ba55d; color: #3ba55d; }
+.draw-word-gap { width: 14px; }
+.draw-timer {
+  justify-self: end;
+  width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: conic-gradient(var(--accent) var(--left), rgba(255, 255, 255, 0.1) 0);
+  font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums;
+}
+.draw-timer span {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--c-panel); display: flex; align-items: center; justify-content: center;
+}
+.draw-timer.hurry { background: conic-gradient(#e0262f var(--left), rgba(255, 255, 255, 0.1) 0); animation: drawHurry 1s ease-in-out infinite; }
+@keyframes drawHurry { 50% { transform: scale(1.08); } }
+
+.draw-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 280px;
+  gap: 10px;
+}
+
+.draw-players, .draw-chat {
+  min-height: 0;
+  border-radius: 12px;
+  background: var(--c-panel);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.draw-players { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.draw-player {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+}
+.draw-player.drawing { border-color: var(--accent); background: rgba(var(--accent-rgb), 0.14); }
+.draw-player.guessed { background: rgba(59, 165, 93, 0.18); }
+.draw-player.away { opacity: 0.45; }
+.draw-player-rank { font-size: 11px; color: var(--t-3); width: 20px; }
+.draw-player-avatar {
+  width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex: 0 0 30px;
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; background: var(--c-h3, #333);
+}
+.draw-player-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.draw-player-text b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draw-player-text b small { color: var(--t-3); font-weight: 400; }
+.draw-player-text > small { font-size: 11.5px; color: var(--t-3); font-variant-numeric: tabular-nums; }
+.draw-player-flag { font-size: 15px; }
+.draw-empty { padding: 10px; color: var(--t-3); font-size: 13px; }
+
+.draw-stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.draw-canvas-wrap {
+  position: relative;
+  width: 100%;
+  max-height: 100%;
+  aspect-ratio: 4 / 3;
+  max-width: calc((100vh - 290px) * 4 / 3);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  background: #fff;
+}
+.draw-canvas { width: 100%; height: 100%; display: block; touch-action: none; }
+.draw-canvas.can-draw { cursor: crosshair; }
+.draw-canvas.can-draw.tool-fill { cursor: cell; }
+
+.draw-overlay {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(10, 10, 16, 0.72); backdrop-filter: blur(2px);
+}
+.draw-overlay.soft { background: rgba(10, 10, 16, 0.55); }
+.draw-card {
+  max-width: 420px; width: 100%; padding: 18px 20px; border-radius: 14px; text-align: center;
+  background: var(--c-panel); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column; gap: 12px; max-height: 100%; overflow-y: auto;
+}
+.draw-card.wide { max-width: 520px; }
+.draw-card h2, .draw-card h3 { margin: 0; }
+.draw-muted { color: var(--t-3); font-size: 13px; margin: 0; }
+.draw-choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.draw-choices button {
+  padding: 10px 18px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(var(--accent-rgb), 0.22);
+  color: var(--t-1); font-size: 16px; font-weight: 700; cursor: pointer;
+}
+.draw-choices button:hover { background: var(--accent); color: #fff; }
+.draw-reveal-label { color: var(--t-3); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.draw-reveal-word { font-size: 30px; font-weight: 900; color: #3ba55d; }
+.draw-gains { display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+.draw-gains b { color: #3ba55d; }
+.draw-lobby-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; }
+.draw-lobby-row label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--t-2); }
+.draw-lobby-row select {
+  padding: 5px 8px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.14); background: var(--c-input, rgba(0, 0, 0, 0.3)); color: var(--t-1);
+}
+.draw-btn {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06);
+  color: var(--t-1); font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.draw-btn.primary { background: var(--accent); border-color: transparent; color: #fff; }
+.draw-btn:disabled { opacity: 0.5; cursor: default; }
+.draw-top-list { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 13.5px; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.2); }
+.draw-podium { display: flex; justify-content: center; align-items: flex-end; gap: 10px; }
+.draw-podium-place {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 12px; border-radius: 10px; min-width: 96px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.draw-podium-place.p1 { order: 2; padding-top: 22px; background: rgba(240, 178, 50, 0.18); }
+.draw-podium-place.p2 { order: 1; }
+.draw-podium-place.p3 { order: 3; }
+.draw-medal { font-size: 30px; }
+.draw-podium-place small { color: var(--t-3); }
+
+.draw-tools {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; padding: 8px 10px; border-radius: 12px;
+  background: var(--c-panel); border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.draw-colors { display: grid; grid-template-columns: repeat(9, 22px); gap: 4px; }
+.draw-color { width: 22px; height: 22px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.15); cursor: pointer; padding: 0; }
+.draw-color.on { border-color: #fff; box-shadow: 0 0 0 2px var(--accent); transform: scale(1.1); }
+.draw-sizes, .draw-tool-buttons { display: flex; gap: 4px; }
+.draw-size, .draw-tool-buttons button {
+  width: 38px; height: 38px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.05);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--t-1); font-size: 17px; padding: 0;
+}
+.draw-size span { display: block; border-radius: 50%; background: var(--t-1); }
+.draw-size.on, .draw-tool-buttons button.on { background: rgba(var(--accent-rgb), 0.35); border-color: var(--accent); }
+.draw-stop {
+  align-self: center; padding: 5px 12px; border-radius: 8px; border: 1px solid rgba(240, 71, 71, 0.35); background: none; color: #f07a7a;
+  font-size: 12.5px; cursor: pointer;
+}
+
+.draw-chat { display: flex; flex-direction: column; overflow: hidden; }
+.draw-chat-lines { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; font-size: 13.5px; }
+.draw-line { word-break: break-word; line-height: 1.35; }
+.draw-line b { color: var(--t-2); }
+.draw-line.system { color: var(--t-3); font-style: italic; font-size: 12.5px; }
+.draw-line.correct { color: #3ba55d; font-weight: 700; }
+.draw-line.close { color: #f0a35a; font-weight: 600; }
+.draw-chat-input { padding: 8px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.draw-chat-input input {
+  width: 100%; box-sizing: border-box; padding: 9px 11px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--c-input, rgba(0, 0, 0, 0.3)); color: var(--t-1); font-size: 14px;
+}
+.draw-chat-input input:focus { outline: none; border-color: var(--accent); }
+
+@media (max-width: 1100px) {
+  .draw-main { grid-template-columns: 160px minmax(0, 1fr) 220px; }
+  .draw-top { grid-template-columns: 140px 1fr 70px; }
+}
+@media (max-width: 760px) {
+  .draw-game { padding: 6px; gap: 6px; overflow-y: auto; }
+  .draw-top { grid-template-columns: auto 1fr auto; padding: 6px 8px; }
+  .draw-letter { width: 16px; height: 24px; font-size: 15px; }
+  .draw-main { display: flex; flex-direction: column; }
+  .draw-players { flex-direction: row; overflow-x: auto; overflow-y: hidden; flex: 0 0 auto; }
+  .draw-player { flex: 0 0 auto; }
+  .draw-player-rank { display: none; }
+  .draw-canvas-wrap { max-width: none; }
+  .draw-colors { grid-template-columns: repeat(9, 26px); }
+  .draw-color { width: 26px; height: 26px; }
+  .draw-chat { flex: 0 0 240px; }
+}

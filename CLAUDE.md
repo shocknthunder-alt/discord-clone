@@ -158,6 +158,14 @@ Owner pronouns unknown: use they/them.
   just the default of the "search" action. Push-to-talk accepts mouse buttons too. Desktop **1.10.0**
   `globalKeys.js` also forwards uiohook mouse buttons 3–5 as `Mouse3..5` (preload flag `mouseButtons`).
 
+- **🎨 Рисувай и познай** (2026-11-20, channel type="draw"; migration 20261120120000 adds a "рисувай и
+  познай" channel to every server + `DrawScore`): server `server/src/draw/game.ts` (all in memory, per
+  channel: lobby → choosing 15 s → drawing N s with letter hints → reveal 6 s, every player draws once per
+  round → over; guess points 50–150 + 25 first, drawer +30 per guesser; those who know the word chat only
+  among themselves), words `draw/words.ts` (~390 BG). Socket `draw:*` (`packages/shared/src/draw.ts`):
+  ops on a fixed 800×600 canvas (line chunks + flood fill, undo by stroke id), personalised `draw:state`.
+  Client `components/draw/DrawGameView.tsx` + `drawCanvas.ts`; TextChatView renders it for draw channels.
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

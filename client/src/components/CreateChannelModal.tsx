@@ -14,7 +14,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
   useEscapeKey(onClose);
   const { addTextChannel, addVoiceChannel } = useServerStore();
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"text" | "trivia" | "forum">("text");
+  const [kind, setKind] = useState<"text" | "trivia" | "forum" | "draw">("text");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +71,10 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
             <label className="modal-checkbox-label">
               <input type="radio" name="channel-kind" checked={kind === "trivia"} onChange={() => setKind("trivia")} />
               🎲 {tr("Тривия канал (ботът за тривия отговаря тук)", "Trivia channel (Trivia Bot answers here)")}
+            </label>
+            <label className="modal-checkbox-label">
+              <input type="radio" name="channel-kind" checked={kind === "draw"} onChange={() => setKind("draw")} />
+              🎨 {tr("Рисувай и познай (игра)", "Draw & guess (game)")}
             </label>
           </div>
         )}
