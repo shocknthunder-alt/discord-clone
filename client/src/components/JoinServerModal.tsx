@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { fetchFeaturedInvite, joinServer } from "../api/servers.api";
+import { fetchFeaturedInvite } from "../api/servers.api";
 import { useServerStore } from "../store/serverStore";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { joinErrorText, joinWithRetry } from "../utils/invite";
 import { tr } from "../i18n";
 
 // Pre-filled so friends only have to press the button: the main server's CURRENT code from the
@@ -25,9 +26,18 @@ export default function JoinServerModal({ onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   useEffect(() => {
-    fetchFeaturedInvite()
-      .then((f) => setInput((cur) => (cur === DEFAULT_INVITE_CODE ? f.inviteCode : cur)))
-      .catch(() => {});
+    // Retried: right after a restart the server takes a while to answer.
+    let stop = false;
+    const load = (attempt: number) =>
+      fetchFeaturedInvite()
+        .then((f) => !stop && setInput((cur) => (cur === DEFAULT_INVITE_CODE ? f.inviteCode : cur)))
+        .catch(() => {
+          if (!stop && attempt < 6) setTimeout(() => load(attempt + 1), 5000);
+        });
+    void load(0);
+    return () => {
+      stop = true;
+    };
   }, []);
 
   async function handleJoin() {
@@ -37,12 +47,13 @@ export default function JoinServerModal({ onClose }: Props) {
     setError(null);
     setLoading(true);
     try {
-      const server = await joinServer(code);
+      // The server may be waking up / restarting (Render): retried for ~20 s before giving up.
+      const server = await joinWithRetry(code, () => setError(tr("Сървърът се събужда… опитвам пак.", "The server is waking up… trying again.")));
       if (!useServerStore.getState().servers.some((s) => s.id === server.id)) addServer(server);
       setActiveServer(server.id);
       onClose();
-    } catch {
-      setError(tr("Невалидна покана — провери кода и опитай пак.", "Invalid invite — check the code and try again."));
+    } catch (err) {
+      setError(joinErrorText(err));
     } finally {
       setLoading(false);
     }
