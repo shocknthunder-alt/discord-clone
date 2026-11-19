@@ -192,6 +192,26 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
     }
     const existingPeers = Array.from(roster.values());
 
+    // One voice channel per person: another connection of theirs (a second window, the phone, an
+    // app left open for hours) still sitting in a different channel is taken out of it, and that
+    // client is told to hang up (VoiceMoved null = leave quietly; old clients handle it too).
+    for (const [otherChannelId, otherRoster] of Array.from(voiceRosters.entries())) {
+      if (otherChannelId === voiceChannelId) continue;
+      let removed = false;
+      for (const [otherSocketId, peer] of Array.from(otherRoster.entries())) {
+        if (peer.userId !== userId || otherSocketId === socket.id) continue;
+        removed = true;
+        otherRoster.delete(otherSocketId);
+        socketVoiceChannel.delete(otherSocketId);
+        io.in(otherSocketId).socketsLeave(roomName(otherChannelId));
+        io.to(roomName(otherChannelId)).emit(SocketEvents.VoicePeerLeft, { userId, socketId: otherSocketId });
+        io.to(otherSocketId).emit(SocketEvents.VoiceMoved, { voiceChannelId: null, byUsername: username } satisfies VoiceMovedPayload);
+      }
+      if (!removed) continue;
+      if (otherRoster.size === 0) voiceRosters.delete(otherChannelId);
+      void broadcastOccupants(io, otherChannelId);
+    }
+
     const self: VoicePeerInfo = {
       userId,
       username,
