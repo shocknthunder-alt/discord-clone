@@ -453,7 +453,7 @@ export default function AppShell() {
           ) : (
             <WelcomeScreen />
           )}
-          {activeServerId && <MemberListPanel />}
+          {activeServerId && <MemberListPanel onJoinVoice={(id) => void joinEventVoice(activeServerId, id)} />}
         </>
       )}
     </div>

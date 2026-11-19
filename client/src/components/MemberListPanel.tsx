@@ -1,5 +1,5 @@
 import { Perm, SocketEvents, hasPerm, type MemberDTO } from "@discord-clone/shared";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { startConversationWith } from "../api/dm.api";
 import { apiError, kickMember, setMemberRole } from "../api/members.api";
@@ -26,7 +26,7 @@ function useVoiceWhereabouts() {
 }
 
 /** Right-hand member list: online people grouped by rank, then offline. */
-export default function MemberListPanel() {
+export default function MemberListPanel({ onJoinVoice }: { onJoinVoice?: (voiceChannelId: string) => void }) {
   const members = useMembersStore((s) => s.members);
   const roles = useMembersStore((s) => s.roles);
   const open = useMembersStore((s) => s.panelOpen);
@@ -97,7 +97,17 @@ export default function MemberListPanel() {
           </>
         )}
       </div>
-      {menu && <MemberMenu member={menu.member} x={menu.x} y={menu.y} voiceChannelId={where.get(menu.member.userId)?.id ?? null} onClose={() => setMenu(null)} />}
+      {menu && (
+        <MemberMenu
+          key={menu.member.userId}
+          member={members.find((m) => m.userId === menu.member.userId) ?? menu.member}
+          x={menu.x}
+          y={menu.y}
+          voiceChannelId={where.get(menu.member.userId)?.id ?? null}
+          onClose={() => setMenu(null)}
+          onJoinVoice={onJoinVoice}
+        />
+      )}
     </aside>
   );
 }
@@ -127,7 +137,21 @@ function MemberRow({ m, voice, offline, onClick }: { m: MemberDTO; voice?: strin
   );
 }
 
-function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberDTO; x: number; y: number; voiceChannelId: string | null; onClose: () => void }) {
+function MemberMenu({
+  member,
+  x,
+  y,
+  voiceChannelId,
+  onClose,
+  onJoinVoice,
+}: {
+  member: MemberDTO;
+  x: number;
+  y: number;
+  voiceChannelId: string | null;
+  onClose: () => void;
+  onJoinVoice?: (voiceChannelId: string) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const me = useAuthStore((s) => s.user?.id);
   const { roles, myPermissions, myRank, serverId } = useMembersStore();
@@ -211,60 +235,221 @@ function MemberMenu({ member, x, y, voiceChannelId, onClose }: { member: MemberD
     }
   }
 
-  const left = Math.min(x, window.innerWidth - 250);
-  const top = Math.min(y, window.innerHeight - 320);
+  // Quick message straight from the card (Enter sends, the DM opens only if you ask for it).
+  const [draft, setDraft] = useState("");
+  const [sent, setSent] = useState(false);
+  async function quickSend() {
+    const text = draft.trim();
+    if (!text) return;
+    setError(null);
+    try {
+      const c = await startConversationWith(member.userId);
+      useDmStore.getState().upsertConversation(c);
+      getSocket()?.emit(SocketEvents.DmSend, { conversationId: c.id, content: text });
+      setDraft("");
+      setSent(true);
+    } catch (err) {
+      setError(apiError(err, tr("Не успях.", "That didn't work.")));
+    }
+  }
+
+  const [editingStatus, setEditingStatus] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const myVoice = useVoiceStore((s) => s.activeVoiceChannelId);
+  const voiceName = voiceChannels.find((v) => v.id === voiceChannelId)?.name;
+  const [moveTo, setMoveTo] = useState("");
+  const showModeration = canRole || canMove || canKick || canResetLink;
+
+  // Keep the whole card on screen: measure it after it renders and nudge it in.
+  const [pos, setPos] = useState<{ left: number; top: number }>({ left: x, top: y });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const { width, height } = el.getBoundingClientRect();
+    // Opened from the right-hand list → show it to the left of the click (Discord-style).
+    const wanted = x > window.innerWidth / 2 ? x - width - 12 : x + 12;
+    const left = Math.max(8, Math.min(wanted, window.innerWidth - width - 8));
+    const top = Math.max(8, Math.min(y - 40, window.innerHeight - height - 8));
+    setPos((p) => (p.left === left && p.top === top ? p : { left, top }));
+  }, [x, y, editingStatus, showModeration, error, resetInfo, sent]);
+
+  const accent = role?.color ?? (member.isOwner ? "#f0b232" : null);
   return createPortal(
-    <div ref={ref} className="member-menu" style={{ left, top }}>
-      <div className="member-menu-head">
-        <strong style={role?.color ? { color: role.color } : undefined}>{member.username}</strong>
-        <span>{member.isOwner ? tr("👑 Собственик", "👑 Owner") : role?.name ?? ""}</span>
+    <div ref={ref} className="member-menu profile-card" style={{ left: pos.left, top: pos.top, ["--card-accent" as string]: accent ?? "var(--accent)" }}>
+      <div className="profile-banner" />
+      <div className="profile-top">
+        <span className="profile-avatar-wrap">
+          {member.avatarUrl ? <img className="profile-avatar" src={member.avatarUrl} alt="" /> : <span className="profile-avatar placeholder">{member.username.slice(0, 2).toUpperCase()}</span>}
+          <span className={`profile-status ${member.online ? "on" : ""}`} title={member.online ? tr("Онлайн", "Online") : tr("Офлайн", "Offline")} />
+        </span>
+        <button className="profile-close" onClick={onClose} aria-label={tr("Затвори", "Close")}>
+          ✕
+        </button>
       </div>
-      {!isMe && <button onClick={() => void message()}>💬 {tr("Съобщение", "Message")}</button>}
-      {isMe && <StatusEditor current={member.customStatus ?? ""} onDone={onClose} />}
-      {canRole && (
-        <label className="member-menu-row">
-          {tr("Ранг", "Rank")}
-          <select value={member.roleId ?? ""} disabled={busy} onChange={(e) => void changeRole(e.target.value)}>
-            {roles
-              .filter((r) => r.position < myRank || r.id === member.roleId)
-              .map((r) => (
-                <option key={r.id} value={r.isDefault ? "" : r.id}>
-                  {r.name}
-                </option>
-              ))}
-          </select>
-        </label>
-      )}
-      {canMove && (
-        <>
-          <div className="member-menu-label">{tr("Премести в", "Move to")}</div>
-          {voiceChannels
-            .filter((v) => v.id !== voiceChannelId)
-            .map((v) => (
-              <button key={v.id} onClick={() => move(v.id)}>
-                🔊 {v.name}
-              </button>
-            ))}
-          <button className="danger" onClick={() => move(null)}>
-            ⛔ {tr("Изключи от гласа", "Disconnect from voice")}
+
+      <div className="profile-body">
+        <div className="profile-name-row">
+          <strong className="profile-name" style={accent ? { color: accent } : undefined}>
+            {member.username}
+          </strong>
+          <button
+            className="profile-copy"
+            title={tr("Копирай името", "Copy the name")}
+            onClick={() => {
+              void navigator.clipboard?.writeText(member.username).then(() => setCopied(true));
+            }}
+          >
+            {copied ? "✓" : "⧉"}
           </button>
-        </>
-      )}
-      {canResetLink && (
-        <button onClick={() => void makeResetLink()} title={tr("Забравил си е паролата? Пусни му линка в лично съобщение.", "Forgot their password? Send them the link in a direct message.")}>
-          🔑 {tr("Линк за нова парола", "New-password link")}
-        </button>
-      )}
-      {resetInfo && <div className="member-menu-info">{resetInfo}</div>}
-      {canKick && (
-        <button className="danger" onClick={() => void kick()}>
-          🚪 {tr("Изгони от сървъра", "Kick from the server")}
-        </button>
-      )}
-      {error && <div className="member-menu-error">{error}</div>}
+        </div>
+        <span className="profile-rank" style={accent ? { borderColor: accent } : undefined}>
+          <span className="profile-rank-dot" style={accent ? { background: accent } : undefined} />
+          {member.isOwner ? tr("👑 Собственик", "👑 Owner") : role?.name ?? tr("Член", "Member")}
+          {isMe && <span className="profile-you"> · {tr("ти", "you")}</span>}
+        </span>
+
+        {member.customStatus && !editingStatus && <div className="profile-custom-status">💬 {member.customStatus}</div>}
+
+        {(member.online && member.activity) || voiceName ? (
+          <div className="profile-section">
+            <div className="profile-section-title">{tr("В момента", "Right now")}</div>
+            {member.online && member.activity && (
+              <div className="profile-now">
+                <GameIcon userId={member.userId} className="profile-game-icon" />
+                <span className="profile-now-text">
+                  <b>{member.activity.name}</b>
+                  <small>
+                    {tr("играе от", "playing for")} {elapsed(member.activity.since)}
+                  </small>
+                </span>
+              </div>
+            )}
+            {voiceName && (
+              <div className="profile-now">
+                <span className="profile-now-icon">🔊</span>
+                <span className="profile-now-text">
+                  <b>{voiceName}</b>
+                  <small>{tr("в гласов канал", "in a voice channel")}</small>
+                </span>
+                {voiceChannelId && voiceChannelId !== myVoice && onJoinVoice && (
+                  <button
+                    className="profile-join"
+                    onClick={() => {
+                      onJoinVoice(voiceChannelId);
+                      onClose();
+                    }}
+                  >
+                    {tr("Влез", "Join")}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        <div className="profile-meta">
+          {tr("В сървъра от", "Member since")} {new Date(member.joinedAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}
+        </div>
+
+        {!isMe && (
+          <div className="profile-message">
+            <input
+              value={draft}
+              maxLength={2000}
+              placeholder={sent ? tr("✓ Изпратено — още нещо?", "✓ Sent — anything else?") : `${tr("Съобщение до", "Message")} @${member.username}`}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setSent(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void quickSend();
+              }}
+            />
+            <button title={tr("Отвори разговора", "Open the conversation")} onClick={() => void message()}>
+              💬
+            </button>
+          </div>
+        )}
+
+        {isMe &&
+          (editingStatus ? (
+            <StatusEditor current={member.customStatus ?? ""} onDone={onClose} />
+          ) : (
+            <button className="profile-action" onClick={() => setEditingStatus(true)}>
+              😀 {member.customStatus ? tr("Смени статуса", "Change status") : tr("Задай статус", "Set a status")}
+            </button>
+          ))}
+
+        {showModeration && (
+          <div className="profile-section profile-mod">
+            <div className="profile-section-title">🛡️ {tr("Управление", "Manage")}</div>
+            {canRole && (
+              <label className="member-menu-row">
+                {tr("Ранг", "Rank")}
+                <select value={member.roleId ?? ""} disabled={busy} onChange={(e) => void changeRole(e.target.value)}>
+                  {roles
+                    .filter((r) => r.position < myRank || r.id === member.roleId)
+                    .map((r) => (
+                      <option key={r.id} value={r.isDefault ? "" : r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            )}
+            {canMove && (
+              <div className="member-menu-row">
+                {tr("Премести", "Move")}
+                <select
+                  value={moveTo}
+                  onChange={(e) => {
+                    setMoveTo(e.target.value);
+                    if (e.target.value) move(e.target.value);
+                  }}
+                >
+                  <option value="">{tr("— избери канал —", "— pick a channel —")}</option>
+                  {voiceChannels
+                    .filter((v) => v.id !== voiceChannelId)
+                    .map((v) => (
+                      <option key={v.id} value={v.id}>
+                        🔊 {v.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+            {canMove && (
+              <button className="profile-action danger" onClick={() => move(null)}>
+                ⛔ {tr("Изключи от гласа", "Disconnect from voice")}
+              </button>
+            )}
+            {canResetLink && (
+              <button className="profile-action" onClick={() => void makeResetLink()} title={tr("Забравил си е паролата? Пусни му линка в лично съобщение.", "Forgot their password? Send them the link in a direct message.")}>
+                🔑 {tr("Линк за нова парола", "New-password link")}
+              </button>
+            )}
+            {resetInfo && <div className="member-menu-info">{resetInfo}</div>}
+            {canKick && (
+              <button className="profile-action danger" onClick={() => void kick()}>
+                🚪 {tr("Изгони от сървъра", "Kick from the server")}
+              </button>
+            )}
+          </div>
+        )}
+        {error && <div className="member-menu-error">{error}</div>}
+      </div>
     </div>,
     document.body,
   );
+}
+
+/** "1 ч 20 мин" since a timestamp. */
+function elapsed(since: number) {
+  const min = Math.max(1, Math.round((Date.now() - since) / 60000));
+  if (min < 60) return tr(`${min} мин`, `${min} min`);
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? tr(`${h} ч ${m} мин`, `${h} h ${m} min`) : tr(`${h} ч`, `${h} h`);
 }
 
 const STATUS_PRESETS = ["🎮 Играя", "🍕 Ям", "📚 Уча", "💼 На работа", "😴 Спя", "🚗 На път", "🔇 Не ме закачайте"];
