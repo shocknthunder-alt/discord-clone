@@ -16,6 +16,7 @@ import { stopWatchingStream, useVoiceChannel, watchStream } from "../webrtc/useV
 import { useSpeakingDetection } from "../webrtc/useSpeakingDetection";
 import { LiveIcon } from "./HudIcons";
 import StreamFrame from "./StreamFrame";
+import GameIcon from "./GameIcon";
 import { useMovableTile } from "../hooks/useMovableTile";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { closePopout, usePopoutStore } from "../webrtc/streamPopouts";
@@ -121,7 +122,10 @@ function PeerTile({
       ) : (
         <TileAvatar avatarUrl={peer.avatarUrl} name={peer.username} speaking={speaking} />
       )}
-      <div>{peer.username || tr("свързва се…", "connecting…")}</div>
+      <div className="tile-name">
+        {peer.username || tr("свързва се…", "connecting…")}
+        <GameIcon userId={peer.userId} className="tile-game-icon" />
+      </div>
       <div>{voiceStatusIcons(peer.isMuted, peer.isDeafened) || "🎤"}</div>
       <PeerConnectionBadge quality={peer.connectionQuality} rttMs={peer.rttMs} />
       {peer.isScreenSharing && (
@@ -311,7 +315,10 @@ export default function VoiceChannelPanel() {
             ) : (
               <TileAvatar avatarUrl={currentUser?.avatarUrl ?? null} name={currentUsername} speaking={selfSpeaking} />
             )}
-            <div>{currentUsername}</div>
+            <div className="tile-name">
+              {currentUsername}
+              <GameIcon userId={currentUser?.id} className="tile-game-icon" />
+            </div>
             <div>{voiceStatusIcons(isMuted, isDeafened) || "🎤"}</div>
             {isScreenSharing && (
               <div className="screen-share-badge self">

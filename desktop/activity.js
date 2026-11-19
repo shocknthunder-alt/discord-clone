@@ -133,7 +133,7 @@ function gameFromPath(p) {
   return null;
 }
 
-/** The game being played now, or null. */
+/** The game being played now ({ name, exe }), or null. */
 function detect(prev) {
   const n = native();
   if (!n) return null;
@@ -142,13 +142,14 @@ function detect(prev) {
   if (!n.EnumProcesses(pids, pids.byteLength, needed)) return null;
   const count = Math.min(pids.length, Math.floor(needed[0] / 4));
   const alive = new Set();
-  const found = new Map(); // pid → game
+  const found = new Map(); // pid → { name, exe }
   for (let i = 0; i < count; i++) {
     const pid = pids[i];
     if (!pid) continue;
     alive.add(pid);
-    const game = gameFromPath(exePath(n, pid));
-    if (game) found.set(pid, game);
+    const exe = exePath(n, pid);
+    const game = gameFromPath(exe);
+    if (game) found.set(pid, { name: game, exe });
   }
   for (const pid of pathCache.keys()) if (!alive.has(pid)) pathCache.delete(pid);
   if (!found.size) return null;
@@ -163,30 +164,49 @@ function detect(prev) {
   } catch {
     /* ignore */
   }
-  const names = [...found.values()];
-  if (prev && names.includes(prev)) return prev;
-  return names[0];
+  const games = [...found.values()];
+  return (prev && games.find((g) => g.name === prev)) || games[0];
+}
+
+// The game's own icon, taken from its .exe (32×32 PNG as a data: URL, a few KB). Per game name.
+const iconCache = new Map(); // name → data URL | null
+async function iconFor(game) {
+  if (iconCache.has(game.name)) return iconCache.get(game.name);
+  let url = null;
+  try {
+    const { app } = require("electron");
+    const img = await app.getFileIcon(game.exe, { size: "large" });
+    if (!img.isEmpty()) {
+      const png = img.resize({ width: 32, height: 32, quality: "best" }).toPNG();
+      if (png.length < 12_000) url = `data:image/png;base64,${png.toString("base64")}`;
+    }
+  } catch (err) {
+    console.warn("activity: no icon", err && err.message);
+  }
+  iconCache.set(game.name, url);
+  return url;
 }
 
 let timer = null;
-let current = null; // { name, since } | null
+let current = null; // { name, icon, since } | null
 
 function start(win, ipcMain) {
   const send = () => {
-    if (!win.isDestroyed()) win.webContents.send("activity", current ? { name: current.name } : null);
+    if (!win.isDestroyed()) win.webContents.send("activity", current ? { name: current.name, icon: current.icon } : null);
   };
   ipcMain.on("activity-query", (event) => {
     if (event.sender === win.webContents) send();
   });
-  const tick = () => {
-    let name = null;
+  const tick = async () => {
+    let game = null;
     try {
-      name = detect(current && current.name);
+      game = detect(current && current.name);
     } catch (err) {
       console.warn("activity: detect failed", err && err.message);
     }
-    if ((name || null) === (current ? current.name : null)) return;
-    current = name ? { name, since: Date.now() } : null;
+    if ((game ? game.name : null) === (current ? current.name : null)) return;
+    const icon = game ? await iconFor(game) : null;
+    current = game ? { name: game.name, icon, since: Date.now() } : null;
     send();
   };
   setTimeout(tick, 3000);

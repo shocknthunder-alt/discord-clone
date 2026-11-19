@@ -497,6 +497,42 @@
   margin-left: 2px;
   cursor: default;
 }
+/* The game's own icon (from its .exe) — 🎮 when there is none */
+.game-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.game-icon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 3px;
+}
+.game-icon.participant-playing {
+  margin-left: 4px;
+}
+.game-icon.member-game-icon img {
+  width: 14px;
+  height: 14px;
+}
+.tile-name {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.game-icon.tile-game-icon {
+  font-size: 15px;
+}
+.game-icon.tile-game-icon img {
+  width: 20px;
+  height: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+}
 
 /* ✏️ Edit history */
 .edited-tag-button {

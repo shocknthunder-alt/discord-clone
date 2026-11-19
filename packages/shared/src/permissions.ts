@@ -78,7 +78,7 @@ export interface MemberDTO {
   online: boolean;
   joinedAt: string;
   /** What they're playing right now (desktop app); absent on older servers. */
-  activity?: { name: string; since: number } | null;
+  activity?: { name: string; since: number; icon?: string | null } | null;
   /** Custom status under the name (already null when expired). */
   customStatus?: string | null;
 }

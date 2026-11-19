@@ -208,6 +208,8 @@ export interface UserActivity {
   name: string;
   /** ms since epoch. */
   since: number;
+  /** The game's icon from its .exe (data:image/png, 32×32; desktop 1.11.0+), else absent. */
+  icon?: string | null;
 }
 
 export interface VoicePeerInfo {

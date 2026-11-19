@@ -11,6 +11,7 @@ import { rankOf, roleOf, useMembersStore } from "../store/membersStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { tr } from "../i18n";
+import GameIcon from "./GameIcon";
 import "./members.css";
 
 /** userId → the voice channel they are in (this server only). */
@@ -117,7 +118,7 @@ function MemberRow({ m, voice, offline, onClick }: { m: MemberDTO; voice?: strin
         {m.customStatus && <span className="member-sub member-status-text">{m.customStatus}</span>}
         {m.activity && m.online && (
           <span className="member-sub member-activity" title={`${tr("Играе", "Playing")} ${m.activity.name} — ${tr("от", "since")} ${new Date(m.activity.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`}>
-            🎮 {tr("Играе", "Playing")} <b>{m.activity.name}</b>
+            <GameIcon userId={m.userId} className="member-game-icon" /> {tr("Играе", "Playing")} <b>{m.activity.name}</b>
           </span>
         )}
         {voice && <span className="member-sub">🔊 {voice}</span>}

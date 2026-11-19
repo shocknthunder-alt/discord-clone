@@ -23,6 +23,7 @@ import ChannelContextMenu from "./ChannelContextMenu";
 import ChannelSettingsModal from "./ChannelSettingsModal";
 import CreateChannelModal from "./CreateChannelModal";
 import EventsSection from "./EventsSection";
+import GameIcon from "./GameIcon";
 import { LiveIcon } from "./HudIcons";
 import MusicMiniPlayer from "./MusicMiniPlayer";
 import PeerConnectionBadge from "./PeerConnectionBadge";
@@ -66,15 +67,9 @@ function userDragProps(userId: string | null | undefined, canMove: boolean) {
   };
 }
 
-/** 🎮 next to someone in a voice channel who is playing something (desktop app). */
+/** The game icon (or 🎮) next to someone in a voice channel who is playing something (desktop app). */
 function PlayingIcon({ userId }: { userId: string | undefined }) {
-  const name = useMembersStore((s) => (userId ? s.members.find((m) => m.userId === userId)?.activity?.name : undefined));
-  if (!name) return null;
-  return (
-    <span className="participant-playing" title={`${tr("Играе", "Playing")} ${name}`}>
-      🎮
-    </span>
-  );
+  return <GameIcon userId={userId} className="participant-playing" />;
 }
 
 function ParticipantRow({

@@ -318,7 +318,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
   // 🎮 What I'm playing (from the desktop app). At most 10 changes per 10 s per connection.
   let activityWindow = 0;
   let activityCount = 0;
-  socket.on(SocketEvents.PresenceActivity, (p: { activity?: { name?: unknown } | null }) => {
+  socket.on(SocketEvents.PresenceActivity, (p: { activity?: { name?: unknown; icon?: unknown } | null }) => {
     const now = Date.now();
     if (now - activityWindow > 10_000) {
       activityWindow = now;
@@ -326,7 +326,7 @@ export function registerChatGateway(io: IOServer, socket: Socket) {
     }
     if (++activityCount > 10) return;
     const name = p && p.activity && typeof p.activity.name === "string" ? p.activity.name : null;
-    void setActivity(io, userId, name).catch((err) => console.error("activity", err));
+    void setActivity(io, userId, name, p?.activity?.icon).catch((err) => console.error("activity", err));
   });
 
   socket.on(SocketEvents.TypingStart, ({ textChannelId }: { textChannelId: string }) => {

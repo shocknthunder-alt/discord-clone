@@ -113,6 +113,9 @@ Owner pronouns unknown: use they/them.
     exe list + Steam/Epic/Xbox/GOG/EA/Ubisoft/Riot library folder names) → `onActivity` → `ActivityReporter`
     → `presence:activity` → server memory map (`server/src/presence/activity.ts`, cleared on disconnect) →
     `presence:activity-updated`; `MemberDTO.activity`; shown in member list + 🎮 in voice lists. Pref `shareActivity`.
+    Desktop **1.11.0** also sends the game's icon (`app.getFileIcon(exe)` → 32×32 PNG data URL, `activity.icon`,
+    server accepts only `data:image/png;base64` ≤ 16 KB); `GameIcon.tsx` shows it (🎮 fallback) in the channel
+    list, member list and voice tiles.
   - **Edit history** (`MessageEdit`, saved on every edit; `GET /api/messages/:id/edits`; "(редактирано)" opens it),
     **📊 polls** (`Poll`/`PollVote`, `server/src/polls.ts`, `poll:create` / `poll:vote` {close} → `poll:updated`;
     `Polls.tsx`; results hidden until you vote), **custom status** (`User.customStatus/Until`, PATCH /api/auth/me
