@@ -33,6 +33,7 @@ import { inviteLink } from "../utils/invite";
 import VoiceChannelIcon from "./VoiceChannelIcon";
 import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
+import ProfileCard from "./ProfileCard";
 import { shareLabel, tr } from "../i18n";
 
 
@@ -123,9 +124,14 @@ function ParticipantRow({
   );
 }
 
-function OccupantRow({ occupant, canMove }: { occupant: VoicePeerInfo; canMove: boolean }) {
+function OccupantRow({ occupant, canMove, onOpen }: { occupant: VoicePeerInfo; canMove: boolean; onOpen: (e: React.MouseEvent, userId: string) => void }) {
   return (
-    <div className="participant-row" {...userDragProps(occupant.userId, canMove)}>
+    <div
+      className="participant-row clickable"
+      {...userDragProps(occupant.userId, canMove)}
+      onClick={(e) => onOpen(e, occupant.userId)}
+      onContextMenu={(e) => onOpen(e, occupant.userId)}
+    >
       <ParticipantAvatar avatarUrl={occupant.avatarUrl} name={occupant.username} speaking={false} />
       <span
         className={occupant.isScreenSharing ? "participant-name streaming" : "participant-name"}
@@ -184,6 +190,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const currentUsername = useAuthStore((s) => s.user?.username) ?? tr("Ти", "You");
   const [showServerSettings, setShowServerSettings] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ socketId: string; x: number; y: number } | null>(null);
+  const [userCard, setUserCard] = useState<{ userId: string; x: number; y: number } | null>(null);
+  const cardMember = useMembersStore((s) => (userCard ? s.members.find((m) => m.userId === userCard.userId) : undefined));
   const [channelContextMenu, setChannelContextMenu] = useState<{ type: "text" | "voice"; x: number; y: number } | null>(
     null,
   );
@@ -296,7 +304,16 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   function handlePeerContextMenu(e: React.MouseEvent, peer: RemotePeer) {
     e.preventDefault();
     if (!peer.userId) return;
+    setUserCard(null);
     setContextMenu({ socketId: peer.socketId, x: e.clientX, y: e.clientY });
+  }
+
+  /** Someone in another voice channel (or me): their profile card, no call sound controls. */
+  function openUserCard(e: React.MouseEvent, userId: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu(null);
+    setUserCard({ userId, x: e.clientX, y: e.clientY });
   }
 
   function handleSectionContextMenu(e: React.MouseEvent, type: "text" | "voice") {
@@ -311,10 +328,6 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     setActiveConversation(conversation.id);
     setView("dms");
     return conversation;
-  }
-
-  async function handleMessage(userId: string) {
-    await goToDm(userId);
   }
 
   async function handleCall(userId: string) {
@@ -469,7 +482,11 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                               canMove={canMove}
                             />
                           ))}
-                        <div className="participant-row self">
+                        <div
+                          className="participant-row self clickable"
+                          onClick={(e) => currentUserId && openUserCard(e, currentUserId)}
+                          onContextMenu={(e) => currentUserId && openUserCard(e, currentUserId)}
+                        >
                           <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
                           <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
                             {isScreenSharing && <LiveIcon size={11} />}{" "}
@@ -498,7 +515,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                     {!isActive && occupants && occupants.length > 0 && (
                       <div className="voice-participant-list">
                         {occupants.map((occupant) => (
-                          <OccupantRow key={occupant.socketId} occupant={occupant} canMove={canMove} />
+                          <OccupantRow key={occupant.socketId} occupant={occupant} canMove={canMove} onOpen={openUserCard} />
                         ))}
                       </div>
                     )}
@@ -531,8 +548,19 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
-          onMessage={handleMessage}
           onCall={handleCall}
+          onJoinVoice={(id) => void handleVoiceClick(id)}
+        />
+      )}
+      {userCard && cardMember && (
+        <ProfileCard
+          key={userCard.userId}
+          member={cardMember}
+          x={userCard.x}
+          y={userCard.y}
+          onClose={() => setUserCard(null)}
+          onCall={(userId) => void handleCall(userId)}
+          onJoinVoice={(id) => void handleVoiceClick(id)}
         />
       )}
 

@@ -229,10 +229,6 @@ export default function VoiceChannelPanel() {
     return conversation;
   }
 
-  async function handleMessage(userId: string) {
-    await goToDm(userId);
-  }
-
   async function handleCall(userId: string) {
     const conversation = await goToDm(userId);
     const voiceRoomId = `dm:${conversation.id}`;
@@ -336,7 +332,6 @@ export default function VoiceChannelPanel() {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
-          onMessage={handleMessage}
           onCall={handleCall}
         />
       )}

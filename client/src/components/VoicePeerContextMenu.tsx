@@ -1,84 +1,44 @@
-import { useEffect, useRef } from "react";
+import type { MemberDTO } from "@discord-clone/shared";
 import { useVoiceStore } from "../store/voiceStore";
-import { tr } from "../i18n";
+import { useMembersStore } from "../store/membersStore";
+import ProfileCard from "./ProfileCard";
 
 interface Props {
   socketId: string;
   x: number;
   y: number;
   onClose: () => void;
-  onMessage: (userId: string, username: string) => void;
   onCall: (userId: string, username: string) => void;
+  onJoinVoice?: (voiceChannelId: string) => void;
 }
 
-export default function VoicePeerContextMenu({ socketId, x, y, onClose, onMessage, onCall }: Props) {
-  // Read the peer live from the store (not a snapshot passed in at open time) so the
-  // Mute/Unmute label and volume slider stay in sync with clicks made while this menu
-  // is still open, instead of freezing at whatever state it had when it opened.
+/** Clicking someone in a voice channel / call: their profile card plus volume & mute-for-me. */
+export default function VoicePeerContextMenu({ socketId, x, y, onClose, onCall, onJoinVoice }: Props) {
   const peer = useVoiceStore((s) => s.peers.get(socketId));
-  const { setPeerLocalVolume, setPeerLocalMuted } = useVoiceStore();
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
-    }
-    function handleEscape(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
-
+  const member = useMembersStore((s) => (peer ? s.members.find((m) => m.userId === peer.userId) : undefined));
   if (!peer) return null;
 
+  // Not in this server's member list (e.g. a private call): a minimal profile from the call itself.
+  const shown: MemberDTO = member ?? {
+    userId: peer.userId,
+    username: peer.username,
+    avatarUrl: peer.avatarUrl,
+    roleId: null,
+    isOwner: false,
+    online: true,
+    joinedAt: "",
+  };
+
   return (
-    <div className="context-menu" ref={ref} style={{ top: y, left: x }} onClick={(e) => e.stopPropagation()}>
-      <div className="context-menu-header">{peer.username}</div>
-
-      <div className="context-menu-volume">
-        <span>{tr("Сила", "Volume")}: {peer.localVolume}%</span>
-        <input
-          type="range"
-          min={0}
-          max={200}
-          value={peer.localVolume}
-          onChange={(e) => setPeerLocalVolume(peer.socketId, Number(e.target.value))}
-        />
-      </div>
-
-      <button
-        className="context-menu-item"
-        onClick={() => {
-          setPeerLocalMuted(peer.socketId, !peer.localMuted);
-        }}
-      >
-        {peer.localMuted ? tr("Включи го за мен", "Unmute for me") : tr("Заглуши го за мен", "Mute for me")}
-      </button>
-
-      <button
-        className="context-menu-item"
-        onClick={() => {
-          onMessage(peer.userId, peer.username);
-          onClose();
-        }}
-      >
-        {tr("Съобщение до", "Message")} {peer.username}
-      </button>
-
-      <button
-        className="context-menu-item"
-        onClick={() => {
-          onCall(peer.userId, peer.username);
-          onClose();
-        }}
-      >
-        {tr("Обади се на", "Call")} {peer.username}
-      </button>
-    </div>
+    <ProfileCard
+      key={peer.userId}
+      member={shown}
+      x={x}
+      y={y}
+      onClose={onClose}
+      peerSocketId={socketId}
+      onCall={(userId) => onCall(userId, peer.username)}
+      onJoinVoice={onJoinVoice}
+    />
   );
 }
