@@ -167,6 +167,13 @@ Owner pronouns unknown: use they/them.
   ops on a fixed 800×600 canvas (line chunks + flood fill, undo by stroke id), personalised `draw:state`.
   Client `components/draw/DrawGameView.tsx` + `drawCanvas.ts`; TextChatView renders it for draw channels.
 
+- **🧪 E2E tests** (2026-11-21, `e2e/`, standalone package like `mobile/`, NOT a workspace): `npm run e2e` (or in `e2e/`:`npm test [-- tests/05] [-- -g name]`, `npm run report`). `run.mjs` starts a throw-away
+  `embedded-postgres` (UTF-8!) → `prisma migrate deploy` → server/media/Vite on 4610/4710/5610 with their own JWT_SECRET,
+  cwd `e2e/` so `server/.env` (PRODUCTION DB) is never loaded, plus a canary-user check in the local DB. Playwright with
+  fake mic/camera; voice tests read real WebRTC inbound bytes. Plan + coverage + bugs found: `e2e/TEST_PLAN.md`.
+  Contexts from `openAs()` must get permissions explicitly (newContext ignores `use`); voice channel locators need
+  a case-sensitive regex ("General" also matches "# general").
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

@@ -1,0 +1,15 @@
+{
+  "name": "shmirka-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests: a local Postgres + server + media server + client, driven by Playwright. Never touches production.",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:headed": "node run.mjs --headed",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "embedded-postgres": "^17.5.0-beta.15"
+  }
+}

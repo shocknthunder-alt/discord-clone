@@ -12,3 +12,10 @@ desktop/dist/
 
 
 desktop/client-dist/
+
+# e2e test run output
+e2e/.pgdata/
+e2e/logs/
+e2e/results/
+e2e/report/
+e2e/explore/
