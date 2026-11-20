@@ -13,7 +13,7 @@ import { prisma } from "../db.js";
 import { DRAW_WORDS } from "./words.js";
 
 /**
- * 🎨 "Рисувай и познай": one player draws a word, the others type guesses. Everything lives in
+ * 🎨 Paint Wars (draw & guess): one player draws a word, the others type guesses. Everything lives in
  * memory (a Render restart ends the game); only the totals are saved (DrawScore).
  *
  * Flow: lobby → (choosing → drawing → reveal) for every player, `rounds` times → over → lobby.

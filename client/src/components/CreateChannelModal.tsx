@@ -74,7 +74,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
             </label>
             <label className="modal-checkbox-label">
               <input type="radio" name="channel-kind" checked={kind === "draw"} onChange={() => setKind("draw")} />
-              🎨 {tr("Рисувай и познай (игра)", "Draw & guess (game)")}
+              🎨 {tr("Paint Wars (игра: рисувай и познай)", "Paint Wars (draw & guess game)")}
             </label>
           </div>
         )}

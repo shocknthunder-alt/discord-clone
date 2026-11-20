@@ -16,7 +16,7 @@ const SIZES = [3, 7, 14, 28];
 
 type Tool = "pen" | "eraser" | "fill";
 
-/** 🎨 "Рисувай и познай" — the game screen of a "draw" channel. */
+/** 🎨 Paint Wars — the game screen of a "draw" channel. */
 export default function DrawGameView({ channelId }: { channelId: string }) {
   const me = useAuthStore((s) => s.user?.id);
   const [state, setState] = useState<DrawStateDTO | null>(null);
@@ -227,7 +227,7 @@ export default function DrawGameView({ channelId }: { channelId: string }) {
               {tr("Рунд", "Round")} <b>{state.round}</b>/{state.rounds}
             </>
           ) : (
-            <>🎨 {tr("Рисувай и познай", "Draw & guess")}</>
+            <>🎨 Paint Wars</>
           )}
         </div>
         <div className="draw-word">
@@ -487,7 +487,7 @@ function Overlay({
           </div>
         ) : (
           <>
-            <h2>🎨 {tr("Рисувай и познай", "Draw & guess")}</h2>
+            <h2>🎨 Paint Wars</h2>
             <p className="draw-muted">
               {tr(
                 "Един рисува, останалите пишат догадки. Колкото по-бързо познаеш, толкова повече точки. Рисуващият печели за всеки, който познае.",
