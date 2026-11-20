@@ -120,11 +120,15 @@ export async function joinServer(req: Request, res: Response) {
     return res.status(404).json({ error: "Invalid invite code" });
   }
 
-  const membership = await prisma.membership.upsert({
-    where: { userId_serverId: { userId: req.userId!, serverId: server.id } },
-    update: {},
-    create: { userId: req.userId!, serverId: server.id, role: "MEMBER" },
-  });
+  const where = { userId_serverId: { userId: req.userId!, serverId: server.id } };
+  // Two joins at the same moment (a retry while the first was still running, two tabs) both miss in
+  // the upsert's lookup and both try to insert: the loser gets P2002 — it's a member anyway.
+  const membership = await prisma.membership
+    .upsert({ where, update: {}, create: { userId: req.userId!, serverId: server.id, role: "MEMBER" } })
+    .catch(async (err: { code?: string }) => {
+      if (err?.code !== "P2002") throw err;
+      return prisma.membership.findUniqueOrThrow({ where });
+    });
 
   (req.app.get("io") as IOServer | undefined)?.to(`server:${server.id}`).emit(SocketEvents.MembersChanged, { serverId: server.id });
   res.status(201).json({ server, membership });

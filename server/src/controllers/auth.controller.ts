@@ -79,16 +79,16 @@ export async function me(req: Request, res: Response) {
 // password stands in for being logged in, so this intentionally doesn't require a session.
 export async function changePassword(req: Request, res: Response) {
   const { currentPassword, newPassword } = req.body ?? {};
-  const email: string | undefined = req.body?.email?.trim().toLowerCase();
 
-  if (!email || !currentPassword || !newPassword) {
+  if (!req.body?.email || !currentPassword || !newPassword) {
     return res.status(400).json({ error: "email, currentPassword and newPassword are required" });
   }
   if (typeof newPassword !== "string" || newPassword.length < 6) {
     return res.status(400).json({ error: "newPassword must be at least 6 characters" });
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  // The form says "e-mail or username" (like the login form) — look it up the same way.
+  const user = await findByLogin(req.body.email);
   if (!user) {
     return res.status(404).json({ error: "User not found" });
   }

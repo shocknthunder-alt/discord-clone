@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { hasPerm, type MemberDTO, type RoleDTO } from "@discord-clone/shared";
 import { fetchMembers } from "../api/members.api";
+import { isMobileLayout } from "./mobileStore";
 
 /** Members, ranks and your own permissions for the server that is open. */
 interface MembersState {
@@ -24,7 +25,9 @@ export const useMembersStore = create<MembersState>((set, get) => ({
   roles: [],
   myPermissions: 0,
   myRank: 0,
-  panelOpen: localStorage.getItem("membersPanelOpen") !== "false",
+  // On a phone the list is a full-screen layer over the chat (👥 opens it) — it must start closed there,
+  // or a first-time phone user sees only the member list and no message box. (Found by the e2e tests.)
+  panelOpen: !isMobileLayout() && localStorage.getItem("membersPanelOpen") !== "false",
   load: async (serverId) => {
     const seq = ++loadSeq;
     if (get().serverId !== serverId) set({ serverId, members: [], roles: [], myPermissions: 0, myRank: 0 });
@@ -40,7 +43,8 @@ export const useMembersStore = create<MembersState>((set, get) => ({
     set((s) => ({ members: s.members.map((m) => (m.userId === userId ? { ...m, activity } : m)) })),
   togglePanel: () =>
     set((s) => {
-      localStorage.setItem("membersPanelOpen", String(!s.panelOpen));
+      // The phone toggle is a temporary overlay: keep the desktop choice as it was.
+      if (!isMobileLayout()) localStorage.setItem("membersPanelOpen", String(!s.panelOpen));
       return { panelOpen: !s.panelOpen };
     }),
 }));

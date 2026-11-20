@@ -67,6 +67,10 @@ export class SfuMediaManager {
   /** Users whose screen share this viewer is watching (consumed). */
   private watchedScreens = new Set<string>();
   private screenPayloads = new Map<string, NewProducerPayload>(); // producerId -> payload
+  /** Producers announced while join() was still setting up (no recv transport yet) — consumed as
+   *  soon as it exists. Before, they were dropped: someone who unmuted / turned the camera on / went
+   *  live in that second stayed silent or black for you until one of you re-joined. (e2e tests.) */
+  private earlyProducers = new Map<string, NewProducerPayload>();
 
   private statsInterval: ReturnType<typeof setInterval> | null = null;
   private knownUserIds = new Set<string>();
@@ -105,6 +109,7 @@ export class SfuMediaManager {
     this.consumers.clear();
     this.producerMeta.clear();
     for (const s of this.remoteAudioStreams.values()) s.getTracks().forEach((t) => s.removeTrack(t));
+    this.earlyProducers.clear();
 
     const { rtpCapabilities, producers } = await request<{
       rtpCapabilities: MsTypes.RtpCapabilities;
@@ -117,7 +122,10 @@ export class SfuMediaManager {
     await this.createSendTransport();
     await this.createRecvTransport();
 
-    for (const producer of producers) {
+    const listed = new Set(producers.map((p) => p.producerId));
+    const early = [...this.earlyProducers.values()].filter((p) => !listed.has(p.producerId));
+    this.earlyProducers.clear();
+    for (const producer of [...producers, ...early]) {
       this.knownUserIds.add(producer.userId);
       // One bad entry (previously: any rejection here, awaited in-loop with no catch,
       // aborted the whole join() — a single stale/invalid producer silently prevented
@@ -165,6 +173,10 @@ export class SfuMediaManager {
   private handleNewProducer = (payload: NewProducerPayload) => {
     this.knownUserIds.add(payload.userId);
     if (this.deferScreen(payload)) return;
+    if (!this.device || !this.recvTransport) {
+      this.earlyProducers.set(payload.producerId, payload);
+      return;
+    }
     // Was previously fire-and-forget (`void`) with no catch — any failure here (a rejected
     // ack, a canConsume() mismatch, a transport in a bad state) vanished as a silent
     // unhandled rejection, which is exactly indistinguishable from "it just didn't arrive"
@@ -237,6 +249,7 @@ export class SfuMediaManager {
       });
       return;
     }
+    if (this.consumers.has(producerId)) return; // already consuming it (listed + announced)
 
     const { id, kind, rtpParameters } = await this.request<{
       id: string;
@@ -294,6 +307,7 @@ export class SfuMediaManager {
   }
 
   private handleProducerClosed = ({ producerId }: { producerId: string }) => {
+    this.earlyProducers.delete(producerId);
     const parked = this.screenPayloads.get(producerId);
     this.screenPayloads.delete(producerId);
     if (parked) {

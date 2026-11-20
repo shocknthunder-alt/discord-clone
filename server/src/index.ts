@@ -24,7 +24,9 @@ import { forgetSocket, setSocketVisible } from "./push/push.js";
 import { pushRouter } from "./routes/push.routes.js";
 import { socketAuthMiddleware } from "./sockets/socketAuth.js";
 import { handleVoiceDisconnect, registerVoiceGateway } from "./sockets/voice.gateway.js";
+import { installAsyncErrorHandling } from "./utils/asyncErrors.js";
 
+installAsyncErrorHandling();
 const app = express();
 app.use(cors({ origin: env.CLIENT_ORIGIN, credentials: true, exposedHeaders: ["X-Refreshed-Token"] }));
 app.use(express.json());

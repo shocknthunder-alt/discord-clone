@@ -23,7 +23,8 @@ export function PollCard({ poll, authorId }: { poll: PollDTO; authorId: string }
   const me = useAuthStore((s) => s.user?.id);
   const members = useMembersStore((s) => s.members);
   const now = useNow(30_000);
-  const closed = !!poll.endsAt && Date.parse(poll.endsAt) <= now;
+  // `now` ticks every 30 s; a poll ended by hand must look ended right away (the server says so).
+  const closed = !!poll.closed || (!!poll.endsAt && Date.parse(poll.endsAt) <= Math.max(now, Date.now()));
   const voters = new Set(poll.votes.flat());
   const total = poll.votes.reduce((n, v) => n + v.length, 0);
   const max = Math.max(0, ...poll.votes.map((v) => v.length));

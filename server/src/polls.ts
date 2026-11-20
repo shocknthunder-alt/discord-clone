@@ -8,7 +8,7 @@ import { can } from "./permissions.js";
 export function pollDto(p: { id: string; question: string; options: string[]; multi: boolean; endsAt: Date | null; votes: { userId: string; option: number }[] }): PollDTO {
   const votes: string[][] = p.options.map(() => []);
   for (const v of p.votes) if (votes[v.option]) votes[v.option].push(v.userId);
-  return { id: p.id, question: p.question, options: p.options, multi: p.multi, endsAt: p.endsAt?.toISOString() ?? null, votes };
+  return { id: p.id, question: p.question, options: p.options, multi: p.multi, endsAt: p.endsAt?.toISOString() ?? null, closed: !!p.endsAt && p.endsAt <= new Date(), votes };
 }
 
 function clean(s: unknown, max: number): string {

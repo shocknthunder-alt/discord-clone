@@ -129,6 +129,9 @@ export interface PollDTO {
   multi: boolean;
   /** null = never closes. */
   endsAt: string | null;
+  /** Already over when the server sent it (ended by hand, or its time passed) — no need to trust the
+   *  client's clock for that. Optional: older servers don't send it. */
+  closed?: boolean;
   votes: string[][];
 }
 
