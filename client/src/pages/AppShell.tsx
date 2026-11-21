@@ -1,6 +1,7 @@
 import { SocketEvents, hasMention, type MentionPayload, type UserActivity, type ServerDTO, type ChannelActivityPayload, type EventCreatedPayload, type VoiceMovedPayload, type SoundboardPlayedPayload, type VoicePeerInfo } from "@discord-clone/shared";
 import { useEffect, useRef, useState } from "react";
 import { fetchChannels } from "../api/channels.api";
+import { fetchMe } from "../api/auth.api";
 import { fetchCustomEmojis, fetchServers } from "../api/servers.api";
 import ChannelList from "../components/ChannelList";
 import AfkWatcher from "../components/AfkWatcher";
@@ -90,6 +91,18 @@ export default function AppShell() {
       }),
     [],
   );
+
+  // The saved user is from the last login — refresh it, so what was changed on another device
+  // (🖼️ my pictures, ✍️ my text, status …) shows here too.
+  useEffect(() => {
+    if (!token) return;
+    fetchMe()
+      .then(({ user }) => {
+        const auth = useAuthStore.getState();
+        if (auth.user && auth.user.id === user.id) auth.setUser({ ...auth.user, ...user });
+      })
+      .catch(() => {});
+  }, [token]);
 
   useEventReminders();
   // The text channel on screen (socket handlers read it to skip mentions you're looking at).

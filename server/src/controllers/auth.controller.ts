@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { Server as IOServer } from "socket.io";
-import { cleanTextStyle } from "@discord-clone/shared";
+import { cleanPersonalLooks, cleanTextStyle } from "@discord-clone/shared";
 import { activeStatus } from "../utils/customStatus.js";
 import { notifyMembersChanged } from "./members.controller.js";
 import type { Request, Response } from "express";
@@ -17,6 +17,7 @@ function toUserDTO(user: {
   customStatus?: string | null;
   customStatusUntil?: Date | null;
   textStyle?: string | null;
+  personalLooks?: string | null;
 }) {
   const status = activeStatus(user);
   return {
@@ -27,6 +28,7 @@ function toUserDTO(user: {
     customStatus: status,
     customStatusUntil: status && user.customStatusUntil ? user.customStatusUntil.toISOString() : null,
     textStyle: cleanTextStyle(user.textStyle),
+    personalLooks: cleanPersonalLooks(user.personalLooks),
   };
 }
 
@@ -203,7 +205,14 @@ function escapeHtml(s: string) {
 }
 
 export async function updateMe(req: Request, res: Response) {
-  const { username, avatarUrl, customStatus, customStatusHours, textStyle } = req.body ?? {};
+  const { username, avatarUrl, customStatus, customStatusHours, textStyle, personalLooks } = req.body ?? {};
+
+  // "Моите картинки" — only for me, so nobody else is told.
+  let looksData: { personalLooks: string | null } | null = null;
+  if (personalLooks !== undefined) {
+    const clean = personalLooks === null ? null : cleanPersonalLooks(personalLooks);
+    looksData = { personalLooks: clean ? JSON.stringify(clean) : null };
+  }
 
   // "Моят текст": an object (cleaned — only a #rrggbb colour, bold, italic, a known font) or null.
   let styleData: { textStyle: string | null } | null = null;
@@ -242,6 +251,7 @@ export async function updateMe(req: Request, res: Response) {
       ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       ...(statusData ?? {}),
       ...(styleData ?? {}),
+      ...(looksData ?? {}),
     },
   });
 

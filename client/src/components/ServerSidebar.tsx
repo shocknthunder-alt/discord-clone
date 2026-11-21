@@ -11,6 +11,7 @@ import DraggableIcon from "./DraggableIcon";
 import { useNow } from "./eventUtils";
 import JoinServerModal from "./JoinServerModal";
 import { tr } from "../i18n";
+import { iconFor, useServerIconOverrides } from "../utils/personalLooks";
 
 const DEFAULT_SIDEBAR_ACTION_ORDER = ["create", "join"];
 
@@ -23,6 +24,7 @@ export default function ServerSidebar() {
   const events = useEventsStore((s) => s.events);
   const mentions = useMentionStore();
   const mutes = useMuteStore();
+  const iconOverrides = useServerIconOverrides();
   const [muteMenu, setMuteMenu] = useState<{ id: string; name: string; x: number; y: number } | null>(null);
   useNow(60_000);
 
@@ -68,7 +70,7 @@ export default function ServerSidebar() {
                 setActiveServer(server.id);
               }}
             >
-              {server.iconUrl ? <img src={server.iconUrl} alt="" /> : server.name.slice(0, 2).toUpperCase()}
+              {iconFor(iconOverrides, server.id, server.iconUrl) ? <img src={iconFor(iconOverrides, server.id, server.iconUrl)!} alt="" /> : server.name.slice(0, 2).toUpperCase()}
             </button>
             {today && <span className={`server-event-dot ${live ? "live" : ""}`}>📅</span>}
             {mentionCount > 0 && (

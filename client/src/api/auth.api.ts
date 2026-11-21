@@ -1,4 +1,4 @@
-import type { TextStyle, UserDTO } from "@discord-clone/shared";
+import type { PersonalLooks, TextStyle, UserDTO } from "@discord-clone/shared";
 import { http } from "./http";
 
 interface AuthResponse {
@@ -24,6 +24,7 @@ export function updateProfile(data: {
   customStatus?: string | null;
   customStatusHours?: number;
   textStyle?: TextStyle | null;
+  personalLooks?: PersonalLooks | null;
 }) {
   return http.patch<{ user: UserDTO }>("/api/auth/me", data).then((r) => r.data.user);
 }

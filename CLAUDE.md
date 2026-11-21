@@ -181,6 +181,14 @@ Owner pronouns unknown: use they/them.
   (B/I/U/S, code, spoiler, quote, heading, 🎨) + Ctrl+B/I/U/E, Ctrl+Shift+X. Owner names: `AuthorName` (gold shimmer
   `.owner-name` + 👑 + "собственик" tag in chat) in chat/threads/member list/profile card/voice list.
 
+- **🖼️ My pictures + 🖱️ cursors** (2026-11-21): `User.personalLooks` (JSON, migration 20261121180000) = own server
+  icon / banner / channel backgrounds only that person sees (missing = server's, URL = mine, "" = hidden); shared
+  `cleanPersonalLooks` (https only), PATCH /api/auth/me `personalLooks`; client `utils/personalLooks.ts` hooks
+  (`useServerIcon/Banner`, `useChannelBackground`, `setPersonalLook`) + `MyLooksCard` (Settings → Външен вид). AppShell
+  now calls `fetchMe()` on start so account changes from other devices show up. Cursors: `client/src/cursors/`
+  (11 hand-drawn SVG skins: arrow + pointer, colour, size 24–64, localStorage `cursorSkinV1`, `CursorCard`); a PostCSS
+  step in `vite.config.ts` rewrites every `cursor: pointer|default` to `var(--cur-pointer|--cur-default, …)`.
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

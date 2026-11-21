@@ -32,6 +32,7 @@ import EditedTag from "./EditHistory";
 import { PollCard } from "./Polls";
 import UserContextMenu from "./UserContextMenu";
 import { tr } from "../i18n";
+import { useChannelBackground } from "../utils/personalLooks";
 
 interface Props {
   channelId: string;
@@ -187,6 +188,7 @@ export default function TextChatView({ channelId }: Props) {
   const [userMenu, setUserMenu] = useState<{ userId: string; username: string; x: number; y: number } | null>(null);
 
   const channel = textChannels.find((c) => c.id === channelId);
+  const background = useChannelBackground(channel?.id, channel?.backgroundUrl);
   const activeServer = servers.find((s) => s.id === activeServerId);
   const isOwner = useMembersStore((s) => hasPerm(s.myPermissions, Perm.MANAGE_CHANNELS)) || activeServer?.ownerId === currentUserId;
   const membersPanelOpen = useMembersStore((s) => s.panelOpen);
@@ -413,9 +415,9 @@ export default function TextChatView({ channelId }: Props) {
           <div
             className="message-list"
             style={
-              channel?.backgroundUrl
+              background
                 ? {
-                    backgroundImage: `linear-gradient(rgba(20,21,23,0.35), rgba(20,21,23,0.55)), url(${channel.backgroundUrl})`,
+                    backgroundImage: `linear-gradient(rgba(20,21,23,0.35), rgba(20,21,23,0.55)), url(${background})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                   }

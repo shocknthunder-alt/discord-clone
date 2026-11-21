@@ -33,6 +33,8 @@ import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useAppPrefs } from "../utils/appPrefs";
 import AccountSettings from "./AccountSettings";
 import MyTextStyleCard from "./MyTextStyleCard";
+import MyLooksCard from "./MyLooksCard";
+import CursorCard from "../cursors/CursorCard";
 import PushSettings from "./PushSettings";
 import { forgetPushOnLogout } from "../native/push";
 import "./settings.css";
@@ -1118,6 +1120,8 @@ export default function UserSettingsModal({ onClose }: Props) {
                   ))}
                 </div>
               </Card>
+              <CursorCard />
+              <MyLooksCard />
               </>
             )}
 

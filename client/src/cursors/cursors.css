@@ -1,0 +1,92 @@
+/* 🖱️ Custom cursor (cursorStore.ts). The arrow is set on <html> and inherited; our own
+   `cursor: pointer|default` rules were turned into var(--cur-…) at build time (vite.config.ts).
+   The rules below cover what the browser itself styles (links, form controls) — :where() keeps
+   them at zero specificity so any rule of ours (grab, crosshair, not-allowed …) still wins. */
+html.custom-cursor {
+  cursor: var(--cur-default);
+}
+:where(html.custom-cursor) :where(a[href], summary, select, button:not(:disabled), [role="button"], input[type="checkbox"], input[type="radio"], input[type="range"], input[type="color"], input[type="file"], input[type="button"], input[type="submit"]) {
+  cursor: var(--cur-pointer);
+}
+:where(html.custom-cursor) :where(textarea, [contenteditable="true"], [contenteditable=""], input:not([type]), input[type="text"], input[type="search"], input[type="email"], input[type="password"], input[type="number"], input[type="url"], input[type="tel"]) {
+  cursor: text;
+}
+
+/* Settings → Външен вид → Курсор */
+.cursor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+}
+.cursor-skin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 6px 8px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--t-2, #b9bbbe);
+  font-size: 12px;
+}
+.cursor-skin:hover { background: rgba(255, 255, 255, 0.08); color: var(--t-1, #fff); }
+.cursor-skin.selected { border-color: var(--accent, #5865f2); background: rgba(var(--accent-rgb, 88, 101, 242), 0.14); color: var(--t-1, #fff); }
+.cursor-skin-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 46px;
+}
+.cursor-skin-art img { width: 40px; height: 40px; }
+.cursor-skin-art .system-arrow { font-size: 28px; line-height: 1; }
+.cursor-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.cursor-row-label { min-width: 74px; font-size: 13px; color: var(--t-2, #b9bbbe); }
+.cursor-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.cursor-swatch.on { border-color: var(--t-1, #fff); box-shadow: 0 0 0 2px var(--accent, #5865f2); }
+.cursor-swatch input[type="color"] { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; }
+.cursor-sizes { display: flex; gap: 6px; }
+.cursor-sizes button {
+  min-width: 44px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--t-1, #fff);
+  font-size: 12px;
+}
+.cursor-sizes button.on { background: var(--accent, #5865f2); border-color: transparent; color: #fff; }
+.cursor-test {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  color: var(--t-2, #b9bbbe);
+}
+.cursor-test-big { display: flex; gap: 10px; align-items: center; }
+.cursor-test-big img { width: 64px; height: 64px; }

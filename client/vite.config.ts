@@ -15,8 +15,23 @@ function versionFile(): Plugin {
   };
 }
 
+// 🖱️ Custom cursors (client/src/cursors): every `cursor: pointer` / `cursor: default` in our CSS becomes
+// var(--cur-pointer, pointer) / var(--cur-default, default), so a chosen cursor skin reaches all of them
+// and nothing changes while no skin is set (the variables are then undefined → the fallback).
+const cursorVars = {
+  postcssPlugin: "cursor-skin-vars",
+  Declaration: {
+    cursor(decl: { value: string }) {
+      const v = decl.value.trim();
+      if (v === "pointer") decl.value = "var(--cur-pointer, pointer)";
+      else if (v === "default") decl.value = "var(--cur-default, default)";
+    },
+  },
+};
+
 export default defineConfig({
   plugins: [react(), versionFile()],
+  css: { postcss: { plugins: [cursorVars] } },
   define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
   server: {
     port: 5173,

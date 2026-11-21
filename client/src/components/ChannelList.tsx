@@ -35,6 +35,7 @@ import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import ProfileCard from "./ProfileCard";
 import { shareLabel, tr } from "../i18n";
+import { useServerBanner, useServerIcon } from "../utils/personalLooks";
 import AuthorName from "./AuthorName";
 
 
@@ -205,6 +206,8 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
   const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const activeServer = servers.find((s) => s.id === activeServerId);
+  const headerBanner = useServerBanner(activeServer?.id, activeServer?.bannerUrl);
+  const headerIcon = useServerIcon(activeServer?.id, activeServer?.iconUrl);
   const myPerms = useMembersStore((s) => (s.serverId === activeServerId ? s.myPermissions : 0));
   const reallyOwner = activeServer?.ownerId === currentUserId;
   // "isOwner" here means "may manage channels" (a rank permission since ranks exist).
@@ -344,16 +347,16 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
       <div className="channel-sidebar-scroll" onDragEnd={() => setUserDropId(null)}>
         {activeServer && (
           <>
-            <div className={`channel-sidebar-header ${activeServer.bannerUrl ? "has-banner" : ""}`}>
-              {activeServer.bannerUrl ? (
+            <div className={`channel-sidebar-header ${headerBanner ? "has-banner" : ""}`}>
+              {headerBanner ? (
                 // The banner usually has the name in it — the text name is kept for screen readers only.
                 <>
-                  <img className="server-header-banner" src={activeServer.bannerUrl} alt={activeServer.name} title={activeServer.name} draggable={false} />
+                  <img className="server-header-banner" src={headerBanner} alt={activeServer.name} title={activeServer.name} draggable={false} />
                   <h2 className="visually-hidden">{activeServer.name}</h2>
                 </>
               ) : (
                 <>
-                  {activeServer.iconUrl && <img className="server-header-icon" src={activeServer.iconUrl} alt="" />}
+                  {headerIcon && <img className="server-header-icon" src={headerIcon} alt="" />}
                   <h2>{activeServer.name}</h2>
                 </>
               )}

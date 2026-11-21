@@ -8,6 +8,8 @@ export interface UserDTO {
   customStatusUntil?: string | null;
   /** How my messages look (Settings → Чат → Моят текст); absent on older servers. */
   textStyle?: import("./textStyle.js").TextStyle | null;
+  /** My own icon / banner / channel backgrounds that only I see; absent on older servers. */
+  personalLooks?: import("./personalLooks.js").PersonalLooks | null;
 }
 
 export interface ServerDTO {

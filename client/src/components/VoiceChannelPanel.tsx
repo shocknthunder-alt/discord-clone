@@ -21,6 +21,7 @@ import { useMovableTile } from "../hooks/useMovableTile";
 import { SELF_STREAM_KEY, useWatchStore } from "../store/watchStore";
 import { closePopout, usePopoutStore } from "../webrtc/streamPopouts";
 import { shareLabel, tr } from "../i18n";
+import { useChannelBackground } from "../utils/personalLooks";
 
 function TileAvatar({ avatarUrl, name, speaking }: { avatarUrl: string | null; name: string; speaking: boolean }) {
   const className = `voice-tile-avatar ${speaking ? "speaking" : ""}`;
@@ -159,6 +160,7 @@ export default function VoiceChannelPanel() {
   const selfSpeaking = useSpeakingDetection(localStream, !isMuted);
   const voiceChannels = useServerStore((s) => s.voiceChannels);
   const channel = voiceChannels.find((c) => c.id === activeVoiceChannelId);
+  const background = useChannelBackground(channel?.id, channel?.backgroundUrl);
   const currentUser = useAuthStore((s) => s.user);
   const currentUsername = currentUser?.username ?? "You";
   const { joinVoiceChannel, leaveVoiceChannel } = useVoiceChannel();
@@ -246,9 +248,9 @@ export default function VoiceChannelPanel() {
       <div
         className={`voice-panel ${n > 0 ? "has-streams" : ""}`}
         style={
-          channel?.backgroundUrl
+          background
             ? {
-                backgroundImage: `linear-gradient(rgba(20,21,23,0.45), rgba(20,21,23,0.6)), url(${channel.backgroundUrl})`,
+                backgroundImage: `linear-gradient(rgba(20,21,23,0.45), rgba(20,21,23,0.6)), url(${background})`,
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }

@@ -9,8 +9,11 @@ import { initAppPrefs } from "./utils/appPrefs";
 import { preventStrayFileDrops } from "./hooks/useImageDrop";
 import { registerServiceWorker } from "./native/push";
 import { captureInstallPrompt } from "./native/install";
+import { startCursor } from "./cursors/cursorStore";
+import "./cursors/cursors.css";
 
 applyTheme(getStoredThemeId());
+startCursor();
 initAppPrefs();
 preventStrayFileDrops();
 registerServiceWorker();

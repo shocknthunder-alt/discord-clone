@@ -20,6 +20,8 @@ model User {
   customStatusUntil DateTime?
   /// "Моят текст": JSON {color,bold,italic,font} — how this person's messages look; null = normal.
   textStyle         String?
+  /// "Моите картинки": JSON {servers:{id:{icon,banner}}, channels:{id:url}} only this person sees.
+  personalLooks     String?
 
   memberships          Membership[]
   messages             Message[]
