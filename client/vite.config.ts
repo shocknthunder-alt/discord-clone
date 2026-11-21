@@ -32,7 +32,7 @@ const cursorVars = {
 export default defineConfig({
   plugins: [react(), versionFile()],
   css: { postcss: { plugins: [cursorVars] } },
-  define: { __BUILD_ID__: JSON.stringify(BUILD_ID) },
+  define: { __BUILD_ID__: JSON.stringify(BUILD_ID), __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   server: {
     port: 5173,
   },

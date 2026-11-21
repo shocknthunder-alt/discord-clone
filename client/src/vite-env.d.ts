@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 
 declare const __BUILD_ID__: string;
+/** When this site version was built (ISO). */
+declare const __BUILD_TIME__: string;
 
 interface Window {
   /** Present only inside the Electron desktop app (see desktop/preload.js). */

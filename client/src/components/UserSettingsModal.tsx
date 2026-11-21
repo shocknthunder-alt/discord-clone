@@ -34,6 +34,7 @@ import { useAppPrefs } from "../utils/appPrefs";
 import AccountSettings from "./AccountSettings";
 import MyTextStyleCard from "./MyTextStyleCard";
 import MyLooksCard from "./MyLooksCard";
+import AppVersion from "./AppVersion";
 import CursorCard from "../cursors/CursorCard";
 import PushSettings from "./PushSettings";
 import { forgetPushOnLogout } from "../native/push";
@@ -597,6 +598,7 @@ export default function UserSettingsModal({ onClose }: Props) {
             </div>
           ))}
           <div className="set-nav-spacer" />
+          <AppVersion />
           <button
             className="set-nav-item danger"
             onClick={() => {

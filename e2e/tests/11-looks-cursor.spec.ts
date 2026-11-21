@@ -69,6 +69,10 @@ test.describe("🖼️ моите картинки и 🖱️ курсори", (
     const a = await openAs(browser, ana);
     await a.page.locator(".user-bar-settings-button").click();
     await a.page.locator(".set-nav-item", { hasText: "Външен вид" }).click();
+    // Версията над „Изход“: в браузъра пише „Браузър“ + версията на сайта.
+    await expect(a.page.locator(".set-version")).toContainText("Браузър");
+    await expect(a.page.locator(".set-version")).toContainText(/Сайт \S+ · \d/);
+    await a.page.locator(".set-nav").screenshot({ path: "explore/settings-version.png" });
     const card = a.page.locator(".cursor-card");
     await card.scrollIntoViewIfNeeded();
     await card.screenshot({ path: "explore/cursor-card.png" });
