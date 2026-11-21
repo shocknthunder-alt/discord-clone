@@ -1093,16 +1093,69 @@ button {
   padding: 0 10px 10px;
 }
 
+/* Volume: small, grey, labelled "🔊 Сила … 33%" — looks like a setting, not like the song bar. */
 .music-mini-volume-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  font-size: 12px;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  font-size: 11px;
+  color: var(--t-2);
+  cursor: default;
 }
-
-.music-mini-volume-row input[type="range"] {
+.music-volume-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.music-volume-value {
+  flex-shrink: 0;
+  width: 32px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.music-volume {
+  -webkit-appearance: none;
+  appearance: none;
   flex: 1;
+  min-width: 0;
+  max-width: 130px;
+  height: 14px;
+  margin: 0 0 0 auto;
+  background: transparent;
+  cursor: pointer;
+}
+.music-volume::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(to right, color-mix(in srgb, currentColor 70%, transparent) var(--fill, 0%), color-mix(in srgb, currentColor 22%, transparent) var(--fill, 0%));
+}
+.music-volume::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.music-volume::-moz-range-track {
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+}
+.music-volume::-moz-range-progress {
+  height: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 70%, transparent);
+}
+.music-volume::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border: none;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .music-queue {
@@ -1172,39 +1225,98 @@ button {
   color: var(--accent, #4ade80);
 }
 
+/* The song bar: full width, thick, in the theme's accent colour, elapsed part filled. Clearly not the
+   volume (small, grey, labelled — below). */
 .music-progress {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px 8px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px 8px;
   font-size: 12px;
   color: var(--t-2);
   font-variant-numeric: tabular-nums;
 }
 
-.music-progress input[type="range"] {
-  flex: 1;
-  min-width: 0;
+.music-seek {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 18px; /* hit area; the visible bar is the track */
+  margin: 0;
+  background: transparent;
   cursor: pointer;
 }
-
-.music-progress input[type="range"]:disabled {
+.music-seek::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--fill, 0%), rgba(var(--accent-rgb), 0.18) var(--fill, 0%));
+  transition: height 0.12s;
+}
+.music-seek:hover::-webkit-slider-runnable-track {
+  height: 10px;
+}
+.music-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.music-seek:hover::-webkit-slider-thumb {
+  margin-top: -3px;
+}
+.music-seek::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(var(--accent-rgb), 0.18);
+}
+.music-seek::-moz-range-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.music-seek::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid var(--accent);
+}
+.music-seek:disabled {
   cursor: default;
   opacity: 0.5;
+}
+
+.music-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.music-progress-time.end {
+  text-align: right;
+}
+.music-progress-jumps {
+  display: flex;
+  gap: 4px;
 }
 
 .music-progress-jump {
   background: none;
   border: none;
-  padding: 0 2px;
+  padding: 1px 6px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 11px;
   color: inherit;
   flex-shrink: 0;
 }
 
 .music-progress-jump:hover {
-  filter: brightness(1.4);
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--t-1, #fff);
 }
 
 .music-add-error {

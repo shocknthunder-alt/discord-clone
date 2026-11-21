@@ -300,10 +300,20 @@ export default function MusicMiniPlayer() {
           )}
           {showSubsonic && <SubsonicSearchModal onClose={() => setShowSubsonic(false)} />}
 
-          <div className="music-mini-volume-row">
-            <span>🔊</span>
-            <input type="range" min={0} max={100} value={volume} onChange={(e) => setVolume(Number(e.target.value))} />
-          </div>
+          <label className="music-mini-volume-row" title={tr("Сила на музиката — само за теб", "Music volume — only for you")}>
+            <span className="music-volume-label">{volume === 0 ? "🔇" : "🔊"} {tr("Сила", "Volume")}</span>
+            <input
+              className="music-volume"
+              type="range"
+              min={0}
+              max={100}
+              value={volume}
+              style={{ "--fill": `${volume}%` } as React.CSSProperties}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              aria-label={tr("Сила на музиката", "Music volume")}
+            />
+            <span className="music-volume-value">{volume}%</span>
+          </label>
 
           {musicState && musicState.queue.length > 0 && (
             <div className="music-queue">

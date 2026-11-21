@@ -58,19 +58,22 @@ export default function MusicProgress() {
     else seek(to);
   }
 
+  // How much of the song is behind us — painted into the bar's track (see .music-seek in index.css).
+  const pct = duration > 0 ? Math.min(100, (shown / duration) * 100) : 0;
+
+  // The song bar is the big, coloured, full-width one; the volume below is small and grey with a 🔊
+  // label — people used to grab the volume thinking it was the song.
   return (
     <div className="music-progress">
-      <button className="music-progress-jump" onClick={() => jump(-10)} title={tr("10 секунди назад", "Back 10 seconds")}>
-        ⏪
-      </button>
-      <span className="music-progress-time">{fmt(shown)}</span>
       <input
+        className="music-seek"
         type="range"
         min={0}
         max={duration > 0 ? Math.floor(duration) : 1}
         step={1}
         value={duration > 0 ? Math.floor(shown) : 0}
         disabled={duration <= 0}
+        style={{ "--fill": `${pct}%` } as React.CSSProperties}
         onChange={(e) => setDragValue(Number(e.target.value))}
         onPointerUp={commit}
         onKeyUp={commit}
@@ -78,10 +81,18 @@ export default function MusicProgress() {
         title={duration > 0 ? tr("Премести песента за всички", "Move the song for everyone") : tr("Дължината още не е известна", "Length not known yet")}
         aria-label={tr("Позиция в песента", "Song position")}
       />
-      <span className="music-progress-time">{duration > 0 ? fmt(duration) : "--:--"}</span>
-      <button className="music-progress-jump" onClick={() => jump(10)} title={tr("10 секунди напред", "Forward 10 seconds")}>
-        ⏩
-      </button>
+      <div className="music-progress-row">
+        <span className="music-progress-time">{fmt(shown)}</span>
+        <span className="music-progress-jumps">
+          <button className="music-progress-jump" onClick={() => jump(-10)} title={tr("10 секунди назад", "Back 10 seconds")}>
+            −10{tr("с", "s")}
+          </button>
+          <button className="music-progress-jump" onClick={() => jump(10)} title={tr("10 секунди напред", "Forward 10 seconds")}>
+            +10{tr("с", "s")}
+          </button>
+        </span>
+        <span className="music-progress-time end">{duration > 0 ? fmt(duration) : "--:--"}</span>
+      </div>
     </div>
   );
 }
