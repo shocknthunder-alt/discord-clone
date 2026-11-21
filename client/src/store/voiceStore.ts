@@ -52,6 +52,8 @@ interface VoiceState {
   activeVoiceChannelId: string | null;
   localStream: MediaStream | null;
   localScreenStream: MediaStream | null;
+  /** Our share is a whole monitor — watching it on that same monitor makes a hall of mirrors. */
+  localScreenIsMonitor: boolean;
   localCameraStream: MediaStream | null;
   isCameraOn: boolean;
   isMuted: boolean;
@@ -81,7 +83,7 @@ interface VoiceState {
 
   setActiveVoiceChannel: (id: string | null) => void;
   setLocalStream: (stream: MediaStream | null) => void;
-  setLocalScreenStream: (stream: MediaStream | null) => void;
+  setLocalScreenStream: (stream: MediaStream | null, isMonitor?: boolean) => void;
   setMuted: (muted: boolean) => void;
   setDeafened: (deafened: boolean) => void;
   setScreenSharing: (sharing: boolean) => void;
@@ -149,6 +151,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
   activeVoiceChannelId: null,
   localStream: null,
   localScreenStream: null,
+  localScreenIsMonitor: false,
   localCameraStream: null,
   isCameraOn: false,
   isMuted: false,
@@ -171,7 +174,7 @@ export const useVoiceStore = create<VoiceState>((set) => ({
 
   setActiveVoiceChannel: (id) => set({ activeVoiceChannelId: id }),
   setLocalStream: (stream) => set({ localStream: stream }),
-  setLocalScreenStream: (stream) => set({ localScreenStream: stream }),
+  setLocalScreenStream: (stream, isMonitor = false) => set({ localScreenStream: stream, localScreenIsMonitor: !!stream && isMonitor }),
   setMuted: (muted) => set({ isMuted: muted }),
   setDeafened: (deafened) => set({ isDeafened: deafened }),
   setScreenSharing: (sharing) => set({ isScreenSharing: sharing }),

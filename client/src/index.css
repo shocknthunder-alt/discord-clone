@@ -1595,6 +1595,39 @@ button {
   max-width: 100%;
 }
 
+.own-mirror-hidden {
+  width: min(560px, 100%);
+  aspect-ratio: 16 / 9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  box-sizing: border-box;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  color: var(--text-normal, #dbdee1);
+  font-size: 13px;
+}
+.own-mirror-hidden span {
+  opacity: 0.75;
+  max-width: 420px;
+}
+.own-mirror-icon {
+  font-size: 34px;
+}
+.own-mirror-hidden button {
+  margin-top: 4px;
+  padding: 6px 14px;
+  border: none;
+  border-radius: 4px;
+  background: var(--brand, #5865f2);
+  color: #fff;
+  cursor: pointer;
+}
+
 .stop-watching-button {
   position: absolute;
   top: 8px;

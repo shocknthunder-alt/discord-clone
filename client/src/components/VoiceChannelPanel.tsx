@@ -170,6 +170,11 @@ export default function VoiceChannelPanel() {
   const pruneWatching = useWatchStore((s) => s.prune);
 
   const localScreenStream = useVoiceStore((s) => s.localScreenStream);
+  const localScreenIsMonitor = useVoiceStore((s) => s.localScreenIsMonitor);
+  // Watching your own WHOLE screen on that screen = an endless picture-in-picture (every mouse move
+  // leaves a trail of copies). Hidden by default, like other apps do; "Покажи все пак" per share.
+  const [mirrorOkFor, setMirrorOkFor] = useState<MediaStream | null>(null);
+  const hideOwnMirror = localScreenIsMonitor && !!localScreenStream && mirrorOkFor !== localScreenStream;
 
   // Only the shares the viewer clicked Watch on are shown (and downloaded at all) — your own
   // too, as a muted preview. Several watched shares sit side by side.
@@ -277,11 +282,25 @@ export default function VoiceChannelPanel() {
             {watched.map((s) => (
               <StreamFrame key={s.key} caption={s.caption} onStop={() => stopWatchingStream(s.key)} maxVh={maxVh}>
                 <div className="screen-share-viewer">
-                  <ScreenSharePlayer
-                    stream={s.stream}
-                    preview={s.preview}
-                    popout={s.userId ? { key: s.key, nameKey: s.userId, title: s.caption } : undefined}
-                  />
+                  {s.key === SELF_STREAM_KEY && hideOwnMirror ? (
+                    <div className="own-mirror-hidden">
+                      <div className="own-mirror-icon">🪞</div>
+                      <b>{tr("Стриймваш целия си екран", "You're streaming your entire screen")}</b>
+                      <span>
+                        {tr(
+                          "Скрито, за да няма огледален ефект — картината се снима сама себе си и всяко движение на мишката оставя следи. Другите те виждат нормално.",
+                          "Hidden to avoid the mirror effect — the picture would film itself and every mouse move leaves trails. Others see you normally.",
+                        )}
+                      </span>
+                      <button onClick={() => setMirrorOkFor(s.stream)}>{tr("Покажи все пак", "Show anyway")}</button>
+                    </div>
+                  ) : (
+                    <ScreenSharePlayer
+                      stream={s.stream}
+                      preview={s.preview}
+                      popout={s.userId ? { key: s.key, nameKey: s.userId, title: s.caption } : undefined}
+                    />
+                  )}
                 </div>
               </StreamFrame>
             ))}

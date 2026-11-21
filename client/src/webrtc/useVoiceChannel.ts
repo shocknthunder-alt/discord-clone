@@ -824,10 +824,12 @@ export function useVoiceChannel() {
     const quality = useVoiceStore.getState().screenShareQuality;
     const mode = useVoiceStore.getState().screenShareMode;
     let desktopAudioMode: "native" | "loopback" | "none" | undefined;
+    let desktopIsScreen = false;
     // Desktop app: pick the screen/window ourselves (browsers show their own native picker).
     if (window.shmirkaDesktop) {
       const choice = await requestDesktopScreenSource();
       if (!choice) return; // cancelled
+      desktopIsScreen = choice.id.startsWith("screen:");
       desktopAudioMode = await window.shmirkaDesktop.selectScreenSource(choice.id, choice.audio);
     }
     let screenStream: MediaStream;
@@ -850,7 +852,7 @@ export function useVoiceChannel() {
       const appAudioTrack = await startNativeAppAudio();
       if (appAudioTrack) screenStream.addTrack(appAudioTrack);
     }
-    store.setLocalScreenStream(screenStream);
+    store.setLocalScreenStream(screenStream, desktopIsScreen || screenStream.getVideoTracks()[0]?.getSettings().displaySurface === "monitor");
     store.setScreenSharing(true);
     // Browsers only hand over audio if the picker option for it was ticked and the surface
     // supports it (a Chrome tab, or the entire screen on Windows) — never for a plain window,
