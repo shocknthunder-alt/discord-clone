@@ -37,9 +37,13 @@ export default function MuteMenu({
   useEffect(() => {
     const down = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && onClose();
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    setTimeout(() => window.addEventListener("mousedown", down), 0);
+    // The timer must be cancelled too: a re-render right after opening (onClose is a new function
+    // every time) used to leave a stale listener behind that closed the NEXT menu on its first
+    // mousedown — "Включи канала" never got its click. (Found by the e2e tests.)
+    const t = setTimeout(() => window.addEventListener("mousedown", down), 0);
     window.addEventListener("keydown", key);
     return () => {
+      clearTimeout(t);
       window.removeEventListener("mousedown", down);
       window.removeEventListener("keydown", key);
     };

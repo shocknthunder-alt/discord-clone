@@ -86,6 +86,72 @@ test.describe("Функции", () => {
     await closeAll(a.context, b.context);
   });
 
+  test("🎨 Paint Wars инструменти: молив, кофа, ↶ връщане, гума, изчисти всичко, ⏹ спри играта", async ({ browser }) => {
+    test.setTimeout(120_000);
+    const { a, b } = await pair(browser);
+    await createTextChannel(a.page, "paint wars", "draw");
+    for (const p of [a.page, b.page]) await openTextChannel(p, "paint wars");
+    for (const p of [a.page, b.page]) await p.getByRole("button", { name: /Включи се/ }).click();
+    await a.page.getByRole("button", { name: /Започни/ }).click();
+    const choicesA = a.page.locator(".draw-choices button");
+    const choicesB = b.page.locator(".draw-choices button");
+    await expect.poll(async () => (await choicesA.count()) + (await choicesB.count()), { timeout: 15_000 }).toBeGreaterThan(0);
+    const drawer = (await choicesA.count()) > 0 ? a.page : b.page;
+    const viewer = drawer === a.page ? b.page : a.page;
+    await drawer.locator(".draw-choices button").first().click();
+
+    const canvas = drawer.locator(".draw-canvas-wrap canvas").first();
+    const box = (await canvas.boundingBox())!;
+    const line = async (y: number) => {
+      await drawer.mouse.move(box.x + box.width * 0.15, box.y + box.height * y);
+      await drawer.mouse.down();
+      for (let i = 1; i <= 15; i++) await drawer.mouse.move(box.x + box.width * (0.15 + i * 0.04), box.y + box.height * y);
+      await drawer.mouse.up();
+    };
+
+    // Цвят + най-дебелата четка + линия.
+    await drawer.locator(".draw-colors button").nth(7).click(); // червено
+    await drawer.locator(".draw-sizes button").last().click();
+    await line(0.3);
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeGreaterThan(50);
+    const afterLine = await inkOnCanvas(viewer);
+
+    // ↶ Връщане (бутон) → чисто.
+    await drawer.getByTitle("Върни (Ctrl+Z)").click();
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeLessThan(afterLine / 4);
+
+    // Кофа в празното → почти целият лист оцветен.
+    await drawer.getByTitle("Кофа (запълни)").click();
+    await canvas.click({ position: { x: box.width * 0.5, y: box.height * 0.5 } });
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeGreaterThan(afterLine * 5);
+    // Ctrl+Z от клавиатурата връща кофата.
+    await drawer.keyboard.press("Control+z");
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeLessThan(afterLine / 4);
+
+    // Молив + линия, после гума върху нея.
+    await drawer.getByTitle("Молив").click();
+    await line(0.6);
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeGreaterThan(50);
+    const withLine = await inkOnCanvas(viewer);
+    await drawer.getByTitle("Гума").click();
+    await line(0.6);
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeLessThan(withLine);
+
+    // Изчисти всичко (с потвърждение).
+    await drawer.getByTitle("Молив").click();
+    await line(0.4);
+    drawer.once("dialog", (d) => d.accept());
+    await drawer.getByTitle("Изчисти всичко").click();
+    await expect.poll(() => inkOnCanvas(viewer), { timeout: 10_000 }).toBeLessThan(20);
+
+    // ⏹ Спри играта → обратно в лобито при двамата.
+    drawer.once("dialog", (d) => d.accept());
+    await drawer.locator(".draw-stop").click();
+    for (const p of [a.page, b.page]) await expect(p.getByRole("button", { name: /Започни|Излез от играта|Включи се/ }).first()).toBeVisible();
+    expectNoCrashes(a.page);
+    expectNoCrashes(b.page);
+    await closeAll(a.context, b.context);
+  });
   test("🎲 тривия: !trivia пуска въпрос от бота", async ({ browser }) => {
     const { a } = await pair(browser);
     await createTextChannel(a.page, "trivia", "trivia");
