@@ -96,7 +96,8 @@ async function toSong(s: RawSong): Promise<SubsonicSong> {
 export async function searchSubsonic(q: string): Promise<{ songs: SubsonicSong[]; albums: SubsonicAlbum[] }> {
   const r = await call<{ searchResult3?: { song?: RawSong[]; album?: RawAlbum[] } }>("search3", {
     query: q,
-    songCount: "25",
+    // 50: the studio original is often further down than its remixes / live takes.
+    songCount: "50",
     albumCount: "10",
     artistCount: "0",
   });

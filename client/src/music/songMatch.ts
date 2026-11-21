@@ -37,15 +37,40 @@ function words(text: string): string[] {
     .filter((w) => w.length >= 2);
 }
 
+// Words that mark "not the original studio recording". A version is only wanted when it's typed
+// ("… remix", "… live"); otherwise the plain studio track wins over remixes, live takes, mixes, covers.
+// Written as normalizeForMatch() leaves them (Cyrillic already turned into Latin: "ремикс" → "remiks").
+const VERSION_WORDS = new Set([
+  "remix", "remixes", "rmx", "remiks", "mix", "miks", "megamix", "mashup", "bootleg", "rework", "flip", "vip", "dub",
+  "live", "zivo", "concert", "koncert", "unplugged", "session", "sessions", "rehearsal", "tour",
+  "acoustic", "akustik", "akusticna", "cover", "kavar", "tribute", "karaoke", "instrumental", "instrumentalna",
+  "edit", "version", "ver", "demo", "extended", "club", "nightcore", "slowed", "sped", "reverb",
+  "lofi", "8d", "orchestral", "symphonic", "piano", "medley", "reprise", "intro", "skit", "interlude",
+]);
+// Near-originals: a radio edit / extended cut is still the studio recording — a smaller step back.
+const LIGHT_VERSION_WORDS = new Set(["edit", "extended"]);
+// Live albums whose name says so without the word "live" ("Alive 2007").
+const LIVE_ALBUM_WORDS = new Set(["alive", "mtv", "bbc", "wembley"]);
+// Albums that collect songs instead of being the record they came out on (small nudge only).
+const COMPILATION_WORDS = new Set(["hits", "best", "greatest", "collection", "anthology", "essential", "essentials", "compilation", "kolekcia"]);
+
+interface Candidate {
+  title: string;
+  artist: string;
+  album?: string;
+  durationSeconds?: number;
+}
+
 /** How well a song matches the typed words (0 = not every word found). Higher = better. */
-export function matchScore(query: string, song: { title: string; artist: string; album?: string }): number {
+export function matchScore(query: string, song: Candidate): number {
   const wanted = words(query);
   if (wanted.length === 0) return 0;
   const titleWords = words(song.title);
   const artistWords = words(song.artist);
   const albumWords = words(song.album ?? "");
   const all = [...titleWords, ...artistWords, ...albumWords];
-  let score = 0;
+  const typed = (w: string) => wanted.some((q) => q === w || (q.length >= 3 && w.startsWith(q)));
+  let score = 10; // room for the penalties below without hitting 0 (= "doesn't match")
   for (const w of wanted) {
     const exact = all.includes(w);
     // A word started but not finished ("tutur"). Not the other way round: "tuturutka" ≠ "tutu".
@@ -54,13 +79,24 @@ export function matchScore(query: string, song: { title: string; artist: string;
     score += exact ? 2 : 1;
     if (titleWords.includes(w) || titleWords.some((t) => w.length >= 3 && t.startsWith(w))) score += 1; // title words matter most
   }
-  // Fewer extra words in the title = closer to what was asked for.
-  score -= Math.max(0, titleWords.length - wanted.length) * 0.1;
-  return score;
+  // Title words nobody typed ("(Live at Wembley 1986)", "feat. X") = further from what was asked for.
+  // Counted against the TITLE only — before, the artist's words made "Song" and "Song (Remix)" tie.
+  score -= titleWords.filter((t) => !typed(t)).length * 0.4;
+  // Remix / live / cover / … that wasn't asked for: clearly behind the studio original.
+  const versionInTitle = new Set(titleWords.filter((t) => VERSION_WORDS.has(t) && !typed(t)));
+  for (const v of versionInTitle) score -= LIGHT_VERSION_WORDS.has(v) ? 1.5 : 4;
+  const versionInAlbum = new Set(albumWords.filter((t) => (VERSION_WORDS.has(t) || LIVE_ALBUM_WORDS.has(t)) && !LIGHT_VERSION_WORDS.has(t) && !typed(t)));
+  score -= versionInAlbum.size * 2; // "Live in Sofia", "Remixes"
+  if (albumWords.some((t) => COMPILATION_WORDS.has(t) && !typed(t))) score -= 0.5;
+  // DJ mixes / hour-long sets and 30-second snippets aren't "the song".
+  const d = song.durationSeconds ?? 0;
+  if (d > 9 * 60 && !typed("mix")) score -= 2;
+  if (d > 0 && d < 60) score -= 2;
+  return Math.max(0.01, score); // still a match (every word was found), just a poor one
 }
 
 /** The best result that matches every typed word, or null (→ search YouTube). */
-export function bestSongMatch<T extends { title: string; artist: string; album?: string }>(query: string, songs: T[]): T | null {
+export function bestSongMatch<T extends Candidate>(query: string, songs: T[]): T | null {
   let best: T | null = null;
   let bestScore = 0;
   for (const s of songs) {
@@ -71,4 +107,12 @@ export function bestSongMatch<T extends { title: string; artist: string; album?:
     }
   }
   return best;
+}
+
+/** All results, best match first (ties keep the server's order); ones that don't match every word go last. */
+export function rankSongs<T extends Candidate>(query: string, songs: T[]): T[] {
+  return songs
+    .map((s, i) => ({ s, i, sc: matchScore(query, s) }))
+    .sort((a, b) => b.sc - a.sc || a.i - b.i)
+    .map((x) => x.s);
 }

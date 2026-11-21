@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { addSubsonicToQueue, fetchSubsonicAlbum, searchSubsonic, type SubsonicAlbum, type SubsonicSong } from "../api/music.api";
 import { unlockMusicAudio } from "../music/musicPlayerEngine";
 import { tr } from "../i18n";
+import { rankSongs } from "../music/songMatch";
 
 function fmt(sec: number) {
   if (!sec) return "";
@@ -43,7 +44,8 @@ export default function SubsonicSearchModal({ onClose }: { onClose: () => void }
     try {
       const r = await searchSubsonic(query);
       if (seq !== searchSeq.current) return;
-      setSongs(r.songs);
+      // Studio originals first, then remixes / live / covers (same ranking as the quick search).
+      setSongs(rankSongs(query, r.songs));
       setAlbums(r.albums);
       if (r.songs.length === 0 && r.albums.length === 0) setError(tr("Нищо не намерих.", "Nothing found."));
     } catch {
