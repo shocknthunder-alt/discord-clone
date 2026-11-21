@@ -11,6 +11,8 @@ export interface SubsonicSong {
   album: string;
   durationSeconds: number;
   coverUrl: string | null;
+  /** Release year (the original is usually the earliest) — absent when the server doesn't know. */
+  year?: number | null;
 }
 export interface SubsonicAlbum {
   id: string;
@@ -65,6 +67,7 @@ interface RawSong {
   album?: string;
   duration?: number;
   coverArt?: string;
+  year?: number;
 }
 interface RawAlbum {
   id: string;
@@ -90,6 +93,7 @@ async function toSong(s: RawSong): Promise<SubsonicSong> {
     album: s.album ?? "",
     durationSeconds: Number(s.duration) || 0,
     coverUrl: await coverUrl(s.coverArt),
+    year: Number(s.year) || null,
   };
 }
 
