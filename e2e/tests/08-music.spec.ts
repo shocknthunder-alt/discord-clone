@@ -79,6 +79,16 @@ test.describe("🎵 Музика в гласовия канал (синхрон�
     for (const p of [a.page, b.page]) await expect(queue(p)).toHaveCount(3, { timeout: 20_000 });
     await expect(queue(a.page).nth(1)).toContainText(`от ${bob.username}`);
     await expect(queue(a.page).nth(0)).toHaveClass(/active/);
+    // 3 песни → виждат се 2, третата е под скрола (плеърът не расте нагоре).
+    const box = a.page.locator(".music-mini .music-queue");
+    await expect(box).toHaveClass(/scrolls/);
+    const fit = await box.evaluate((el) => {
+      const items = [...el.children] as HTMLElement[];
+      return { client: el.clientHeight, scroll: el.scrollHeight, two: items[1]!.offsetTop + items[1]!.offsetHeight };
+    });
+    expect(fit.scroll).toBeGreaterThan(fit.client);
+    expect(Math.abs(fit.client - fit.two)).toBeLessThanOrEqual(4);
+    await a.page.locator(".music-mini").screenshot({ path: "explore/music-queue-scroll.png" });
 
     // Пауза от Боб → спряно и при Ана; после Ана пуска.
     await playBtn(b.page).click();

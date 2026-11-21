@@ -1159,6 +1159,7 @@ button {
 }
 
 .music-queue {
+  position: relative; /* items' offsetTop is measured from here (2 songs visible, MusicMiniPlayer) */
   margin-top: 10px;
   max-height: 220px;
   overflow-y: auto;
@@ -1166,6 +1167,14 @@ button {
   flex-direction: column;
   gap: 4px;
 }
+.music-queue.scrolls {
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent, #5865f2) transparent;
+}
+.music-queue.scrolls::-webkit-scrollbar { width: 6px; }
+.music-queue.scrolls::-webkit-scrollbar-thumb { background: var(--accent, #5865f2); border-radius: 3px; }
+.music-queue.scrolls::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.06); border-radius: 3px; }
 
 .music-queue-item {
   display: flex;

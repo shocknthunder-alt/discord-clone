@@ -316,7 +316,22 @@ export default function MusicMiniPlayer() {
           </label>
 
           {musicState && musicState.queue.length > 0 && (
-            <div className="music-queue">
+            <div
+              className={`music-queue ${musicState.queue.length > 2 ? "scrolls" : ""}`}
+              // Only 2 songs fit; the rest scroll (the bar on the side) — a long queue used to push the
+              // player up over the voice channels. The song that's playing is scrolled to the top.
+              ref={(el) => {
+                if (!el) return;
+                const items = el.children as HTMLCollectionOf<HTMLElement>;
+                el.style.maxHeight = items.length > 2 ? `${items[1]!.offsetTop + items[1]!.offsetHeight + 2}px` : "";
+                const active = String(musicState.currentIndex);
+                if (el.dataset.active !== active) {
+                  el.dataset.active = active;
+                  const cur = items[musicState.currentIndex];
+                  if (cur) el.scrollTop = cur.offsetTop - (items[0]?.offsetTop ?? 0);
+                }
+              }}
+            >
               {musicState.queue.map((item, i) => {
                 const { song, artist } = splitTitle(item.title);
                 const movable = i > musicState.currentIndex;
