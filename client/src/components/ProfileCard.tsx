@@ -199,9 +199,15 @@ export default function ProfileCard({ member, x, y, onClose, onJoinVoice, peerSo
 
       <div className="profile-body">
         <div className="profile-name-row">
-          <strong className="profile-name" style={accent ? { color: accent } : undefined}>
-            {member.username}
-          </strong>
+          {member.isOwner ? (
+            <strong className="profile-name owner-name">
+              <span className="owner-name-text">{member.username}</span>
+            </strong>
+          ) : (
+            <strong className="profile-name" style={accent ? { color: accent } : undefined}>
+              {member.username}
+            </strong>
+          )}
           <button
             className="profile-copy"
             title={tr("Копирай името", "Copy the name")}

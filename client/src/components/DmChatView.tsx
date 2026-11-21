@@ -3,6 +3,7 @@ import MobileNavButton from "./MobileNavButton";
 import { SocketEvents, type DirectMessageDTO } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
 import MessageText from "./MessageText";
+import { textStyleCss, useAuthorTextStyle } from "../utils/textStyle";
 import { useEffect, useRef, useState } from "react";
 import { fetchDmMessages } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
@@ -19,6 +20,7 @@ interface Props {
 
 function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: boolean }) {
   const [editing, setEditing] = useState(false);
+  const textStyle = useAuthorTextStyle(message.authorId);
   const [draft, setDraft] = useState(message.content);
 
   function saveEdit() {
@@ -78,9 +80,9 @@ function DmMessageRow({ message, isOwn }: { message: DirectMessageDTO; isOwn: bo
         </div>
       ) : (
         message.content && (
-          <>
+          <span className="styled-text" style={textStyleCss(textStyle)}>
             <MessageText text={message.content} dm />
-          </>
+          </span>
         )
       )}
 

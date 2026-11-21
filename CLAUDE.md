@@ -174,6 +174,13 @@ Owner pronouns unknown: use they/them.
   Contexts from `openAs()` must get permissions explicitly (newContext ignores `use`); voice channel locators need
   a case-sensitive regex ("General" also matches "# general").
 
+- **✍️ Text style + 👑 owner look** (2026-11-21): `User.textStyle` (JSON, migration 20261121120000) = "Моят текст" in
+  Settings → Чат (`MyTextStyleCard`, saves at once: colour / bold / italic / font mono|serif|hand|round), cleaned by shared
+  `cleanTextStyle`, sent in `UserDTO` + `MemberDTO`; `useAuthorTextStyle` + `textStyleCss` wrap message text in
+  `.styled-text`. Inline colour syntax `{#rrggbb}text{/}` in `markdown.tsx`. `ChatTextarea` has the **Aa** format bar
+  (B/I/U/S, code, spoiler, quote, heading, 🎨) + Ctrl+B/I/U/E, Ctrl+Shift+X. Owner names: `AuthorName` (gold shimmer
+  `.owner-name` + 👑 + "собственик" tag in chat) in chat/threads/member list/profile card/voice list.
+
 ## Pending / ideas
 1. Hardware encoding (NVENC/AMF): measured on the owner's RTX 5060 Ti — Chromium hands only H.264
    **High** (64xxxx) to the GPU ("MediaFoundationVideoEncodeAccelerator (NVIDIA H.264 Encoder MFT)"),

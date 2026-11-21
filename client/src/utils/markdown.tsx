@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from "react";
+import { COLOR_CLOSE, COLOR_OPEN } from "@discord-clone/shared";
 
 /**
  * Discord-style message formatting:
  *   **bold**  *italic* / _italic_  __underline__  ~~strike~~  `code`  ```code block```
  *   ||spoiler||  > quote  # heading  -# small text  links (<link> = no preview)  @mentions
+ *   {#ff5c5c}coloured text{/}  (written by the 🎨 in the format bar)
  * A backslash escapes the next symbol (\*not italic\*).
  */
 
@@ -62,7 +64,7 @@ function inline(s: string, ctx: Ctx): ReactNode[] {
     const c = s[i];
     const prev = i > 0 ? s[i - 1] : "";
 
-    if (c === "\\" && i + 1 < s.length && /[\\*_~`|@<>#-]/.test(s[i + 1])) {
+    if (c === "\\" && i + 1 < s.length && /[\\*_~`|@<>#{-]/.test(s[i + 1])) {
       buf += s[i + 1];
       i += 2;
       continue;
@@ -79,6 +81,24 @@ function inline(s: string, ctx: Ctx): ReactNode[] {
         );
         i = j + 1;
         continue;
+      }
+    }
+
+    if (c === "{") {
+      const m = s.slice(i).match(COLOR_OPEN);
+      if (m) {
+        const start = i + m[0].length;
+        const end = s.indexOf(COLOR_CLOSE, start);
+        if (end > start) {
+          flush();
+          out.push(
+            <span key={key()} className="md-color" style={{ color: `#${m[1]}` }}>
+              {inline(s.slice(start, end), ctx)}
+            </span>,
+          );
+          i = end + COLOR_CLOSE.length;
+          continue;
+        }
       }
     }
 

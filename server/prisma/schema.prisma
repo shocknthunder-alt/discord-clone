@@ -18,6 +18,8 @@ model User {
   customStatus      String?
   /// When the custom status disappears by itself (null = never).
   customStatusUntil DateTime?
+  /// "Моят текст": JSON {color,bold,italic,font} — how this person's messages look; null = normal.
+  textStyle         String?
 
   memberships          Membership[]
   messages             Message[]

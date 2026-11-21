@@ -64,6 +64,11 @@ export function rankOf(m: MemberDTO, roles: RoleDTO[]): number {
   return m.isOwner ? 1e9 : (roleOf(m, roles)?.position ?? 0);
 }
 
+/** The server's owner gets their own look (gold, 👑) instead of a rank colour. */
+export function useIsOwner(userId: string | null | undefined): boolean {
+  return useMembersStore((s) => !!userId && !!s.members.find((x) => x.userId === userId)?.isOwner);
+}
+
 /** Username colour by rank, for chat and lists. */
 export function useMemberColor(userId: string): string | undefined {
   return useMembersStore((s) => {

@@ -6,6 +6,8 @@ export interface UserDTO {
   /** Custom status (null/absent = none or expired). */
   customStatus?: string | null;
   customStatusUntil?: string | null;
+  /** How my messages look (Settings → Чат → Моят текст); absent on older servers. */
+  textStyle?: import("./textStyle.js").TextStyle | null;
 }
 
 export interface ServerDTO {

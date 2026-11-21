@@ -8,7 +8,9 @@ import MessageText from "./MessageText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchMessages } from "../api/channels.api";
 import { useSearchStore } from "../store/searchStore";
-import { useMemberColor, useMembersStore } from "../store/membersStore";
+import { useMembersStore } from "../store/membersStore";
+import AuthorName from "./AuthorName";
+import { textStyleCss, useAuthorTextStyle } from "../utils/textStyle";
 import { startConversationWith } from "../api/dm.api";
 import { getSocket } from "../socket/socket";
 import { useAuthStore } from "../store/authStore";
@@ -74,7 +76,7 @@ function MessageRow({
     setEditing(false);
   }
 
-  const authorColor = useMemberColor(message.authorId);
+  const textStyle = useAuthorTextStyle(message.authorId);
   const myName = useAuthStore((s) => s.user?.username);
   const mentioned = !isOwn && mentionsUser(message.content, myName);
 
@@ -94,9 +96,7 @@ function MessageRow({
           onEdit={() => setEditing(true)}
         />
       )}
-      <span className="author" style={authorColor ? { color: authorColor } : undefined} onClick={(e) => onAuthorClick(e, message)}>
-        {message.authorUsername}
-      </span>
+      <AuthorName userId={message.authorId} name={message.authorUsername} onClick={(e) => onAuthorClick(e, message)} />
       <span className="timestamp">{formatTime(message.createdAt)}</span>
       {message.editedAt && <EditedTag messageId={message.id} current={message.content} editedAt={message.editedAt} />}
       {message.pinnedAt && (
@@ -128,9 +128,9 @@ function MessageRow({
         message.poll ? (
           <PollCard poll={message.poll} authorId={message.authorId} />
         ) : message.content && (
-          <>
+          <span className="styled-text" style={textStyleCss(textStyle)}>
             <MessageText text={message.content} onMentionClick={onMentionClick} />
-          </>
+          </span>
         )
       )}
 

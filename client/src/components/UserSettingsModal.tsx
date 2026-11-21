@@ -32,6 +32,7 @@ import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useAppPrefs } from "../utils/appPrefs";
 import AccountSettings from "./AccountSettings";
+import MyTextStyleCard from "./MyTextStyleCard";
 import PushSettings from "./PushSettings";
 import { forgetPushOnLogout } from "../native/push";
 import "./settings.css";
@@ -1000,6 +1001,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                     {t("Здрасти! Така ще изглеждат съобщенията в чата. 👋", "Hi! This is how chat messages will look. 👋")}
                   </div>
                 </Card>
+                <MyTextStyleCard />
                 <Card title={t("Час на съобщенията", "Message time")} hint={`${t("Пример", "Example")}: ${sampleClock}`}>
                   <Toggle label={t("24-часов формат", "24-hour clock")} checked={draft.clock24h} onChange={(on) => edit({ clock24h: on })} />
                   <Toggle label={t("Показвай секундите", "Show seconds")} checked={draft.showSeconds} onChange={(on) => edit({ showSeconds: on })} />

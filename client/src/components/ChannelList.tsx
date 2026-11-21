@@ -35,6 +35,7 @@ import VoiceStatusBar from "./VoiceStatusBar";
 import VoicePeerContextMenu from "./VoicePeerContextMenu";
 import ProfileCard from "./ProfileCard";
 import { shareLabel, tr } from "../i18n";
+import AuthorName from "./AuthorName";
 
 
 interface Props {
@@ -100,7 +101,7 @@ function ParticipantRow({
         title={peer.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${shareLabel(peer.screenShareLabel)}` : undefined}
       >
         {peer.isScreenSharing && <LiveIcon size={11} />}{" "}
-        {peer.username || tr("свързва се…", "connecting…")}
+        {peer.userId && peer.username && !peer.isScreenSharing ? <AuthorName userId={peer.userId} name={peer.username} className="" /> : peer.username || tr("свързва се…", "connecting…")}
       </span>
       <PlayingIcon userId={peer.userId} />
       {voiceStatusIcons(peer.isMuted, peer.isDeafened) && (
@@ -138,7 +139,7 @@ function OccupantRow({ occupant, canMove, onOpen }: { occupant: VoicePeerInfo; c
         title={occupant.isScreenSharing ? `${tr("Стриймва", "Sharing")} ${shareLabel(occupant.screenShareLabel)}` : undefined}
       >
         {occupant.isScreenSharing && <LiveIcon size={11} />}{" "}
-        {occupant.username}
+        {occupant.isScreenSharing ? occupant.username : <AuthorName userId={occupant.userId} name={occupant.username} className="" />}
       </span>
       <PlayingIcon userId={occupant.userId} />
       {voiceStatusIcons(occupant.isMuted, occupant.isDeafened) && (
@@ -490,7 +491,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                           <ParticipantAvatar avatarUrl={currentAvatarUrl} name={currentUsername} speaking={selfSpeaking} />
                           <span className={isScreenSharing ? "participant-name streaming" : "participant-name"}>
                             {isScreenSharing && <LiveIcon size={11} />}{" "}
-                            {currentUsername}
+                            {isScreenSharing ? currentUsername : <AuthorName userId={currentUserId} name={currentUsername} className="" />}
                           </span>
                           <PlayingIcon userId={currentUserId} />
                           {voiceStatusIcons(isMuted, isDeafened) && (

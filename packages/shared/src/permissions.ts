@@ -81,6 +81,8 @@ export interface MemberDTO {
   activity?: { name: string; since: number; icon?: string | null } | null;
   /** Custom status under the name (already null when expired). */
   customStatus?: string | null;
+  /** How their messages look (colour / bold / italic / font); absent on older servers. */
+  textStyle?: import("./textStyle.js").TextStyle | null;
 }
 
 export interface MembersResponse {

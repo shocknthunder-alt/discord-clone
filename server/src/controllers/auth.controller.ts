@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import type { Server as IOServer } from "socket.io";
+import { cleanTextStyle } from "@discord-clone/shared";
 import { activeStatus } from "../utils/customStatus.js";
 import { notifyMembersChanged } from "./members.controller.js";
 import type { Request, Response } from "express";
@@ -8,7 +9,15 @@ import { signToken } from "../utils/jwt.js";
 import { mailConfigured, sendMail } from "../utils/mailer.js";
 import { maskEmail, peekResetUserId, resetLink, signResetToken, verifyResetToken } from "../utils/passwordReset.js";
 
-function toUserDTO(user: { id: string; username: string; email: string; avatarUrl: string | null; customStatus?: string | null; customStatusUntil?: Date | null }) {
+function toUserDTO(user: {
+  id: string;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  customStatus?: string | null;
+  customStatusUntil?: Date | null;
+  textStyle?: string | null;
+}) {
   const status = activeStatus(user);
   return {
     id: user.id,
@@ -17,6 +26,7 @@ function toUserDTO(user: { id: string; username: string; email: string; avatarUr
     avatarUrl: user.avatarUrl,
     customStatus: status,
     customStatusUntil: status && user.customStatusUntil ? user.customStatusUntil.toISOString() : null,
+    textStyle: cleanTextStyle(user.textStyle),
   };
 }
 
@@ -193,7 +203,14 @@ function escapeHtml(s: string) {
 }
 
 export async function updateMe(req: Request, res: Response) {
-  const { username, avatarUrl, customStatus, customStatusHours } = req.body ?? {};
+  const { username, avatarUrl, customStatus, customStatusHours, textStyle } = req.body ?? {};
+
+  // "Моят текст": an object (cleaned — only a #rrggbb colour, bold, italic, a known font) or null.
+  let styleData: { textStyle: string | null } | null = null;
+  if (textStyle !== undefined) {
+    const clean = textStyle === null ? null : cleanTextStyle(textStyle);
+    styleData = { textStyle: clean ? JSON.stringify(clean) : null };
+  }
 
   // Custom status: text (≤ 80) or null/"" to clear; hours = when it disappears (0/absent = never).
   let statusData: { customStatus: string | null; customStatusUntil: Date | null } | null = null;
@@ -224,11 +241,12 @@ export async function updateMe(req: Request, res: Response) {
       ...(username !== undefined ? { username: username.trim() } : {}),
       ...(avatarUrl !== undefined ? { avatarUrl } : {}),
       ...(statusData ?? {}),
+      ...(styleData ?? {}),
     },
   });
 
-  // Others see name/avatar/status changes in the member lists right away.
-  if (statusData || username !== undefined || avatarUrl !== undefined) {
+  // Others see name/avatar/status/text-style changes in the member lists right away.
+  if (statusData || styleData || username !== undefined || avatarUrl !== undefined) {
     const io = req.app.get("io") as IOServer | undefined;
     const memberships = await prisma.membership.findMany({ where: { userId: user.id }, select: { serverId: true } });
     for (const m of memberships) notifyMembersChanged(io, m.serverId);

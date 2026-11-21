@@ -5,3 +5,4 @@ export * from "./events.js";
 export * from "./permissions.js";
 export * from "./mentions.js";
 export * from "./draw.js";
+export * from "./textStyle.js";

@@ -2,6 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useMembersStore, roleOf } from "../store/membersStore";
 import { tr } from "../i18n";
+import { TEXT_COLORS } from "../utils/textStyle";
 
 /**
  * The message box: grows with the text (Shift+Enter = new line, Enter = send) and, in servers,
@@ -101,7 +102,107 @@ export default function ChatTextarea({ value, onChange, onSubmit, onPaste, place
     });
   }
 
+  // ── Aa: formatting bar (bold / italic / … / colour) — wraps the selection, or the caret ──
+  const [fmtOpen, setFmtOpen] = useState(() => localStorage.getItem("formatBarOpen") === "1");
+  const [colorsOpen, setColorsOpen] = useState(false);
+  const [custom, setCustom] = useState(() => localStorage.getItem("formatCustomColor") ?? "#ff5c5c");
+
+  function toggleFmt() {
+    setFmtOpen((o) => {
+      localStorage.setItem("formatBarOpen", o ? "0" : "1");
+      return !o;
+    });
+    setColorsOpen(false);
+    requestAnimationFrame(() => ref.current?.focus());
+  }
+
+  // The selection to restore after a format button changed the text — applied right in the commit
+  // that shows the new value (a frame later could undo a selection the person already moved).
+  const pendingSel = useRef<[number, number] | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const p = pendingSel.current;
+    if (!el || !p) return;
+    pendingSel.current = null;
+    el.focus();
+    el.setSelectionRange(p[0], p[1]);
+  }, [value]);
+
+  function select(a: number, b: number) {
+    pendingSel.current = [a, b];
+  }
+
+  /** Put `before`/`after` around the selection — or take them off if they are already there. */
+  function wrap(before: string, after = before) {
+    const el = ref.current;
+    if (!el) return;
+    const s = el.selectionStart ?? value.length;
+    const e = el.selectionEnd ?? s;
+    if (value.slice(s - before.length, s) === before && value.slice(e, e + after.length) === after) {
+      onChange(value.slice(0, s - before.length) + value.slice(s, e) + value.slice(e + after.length));
+      select(s - before.length, e - before.length);
+      return;
+    }
+    onChange(value.slice(0, s) + before + value.slice(s, e) + after + value.slice(e));
+    select(s + before.length, e + before.length);
+  }
+
+  function code() {
+    const el = ref.current;
+    if (!el) return;
+    const multiline = value.slice(el.selectionStart, el.selectionEnd).includes("\n");
+    if (multiline) wrap("```\n", "\n```");
+    else wrap("`");
+  }
+
+  /** "> " in front of every selected line (or the current one); again = off. */
+  function quote() {
+    const el = ref.current;
+    if (!el) return;
+    const s = value.lastIndexOf("\n", (el.selectionStart ?? 0) - 1) + 1;
+    let e = value.indexOf("\n", el.selectionEnd ?? s);
+    if (e === -1) e = value.length;
+    const lines = value.slice(s, e).split("\n");
+    const quoted = lines.every((l) => l.startsWith("> "));
+    const next = lines.map((l) => (quoted ? l.slice(2) : `> ${l}`)).join("\n");
+    onChange(value.slice(0, s) + next + value.slice(e));
+    select(s, s + next.length);
+  }
+
+  /** "# " at the start of the current line (big text); again = off. */
+  function heading() {
+    const el = ref.current;
+    if (!el) return;
+    const caret = el.selectionStart ?? 0;
+    const s = value.lastIndexOf("\n", caret - 1) + 1;
+    const on = value.startsWith("# ", s);
+    onChange(on ? value.slice(0, s) + value.slice(s + 2) : value.slice(0, s) + "# " + value.slice(s));
+    select(caret + (on ? -2 : 2), (el.selectionEnd ?? caret) + (on ? -2 : 2));
+  }
+
+  function color(hex: string) {
+    wrap(`{${hex}}`, "{/}");
+    setColorsOpen(false);
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    // Ctrl+B / I / U, Ctrl+Shift+X = strike, Ctrl+E = code. Handled here so global hotkeys don't see them.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const k = e.key.toLowerCase();
+      const act =
+        !e.shiftKey && k === "b" ? () => wrap("**")
+        : !e.shiftKey && k === "i" ? () => wrap("*")
+        : !e.shiftKey && k === "u" ? () => wrap("__")
+        : !e.shiftKey && k === "e" ? code
+        : e.shiftKey && k === "x" ? () => wrap("~~")
+        : null;
+      if (act) {
+        e.preventDefault();
+        e.stopPropagation();
+        act();
+        return;
+      }
+    }
     if (suggestions.length) {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
@@ -152,6 +253,68 @@ export default function ChatTextarea({ value, onChange, onSubmit, onPaste, place
           ))}
         </div>
       )}
+      {fmtOpen && suggestions.length === 0 && (
+        <div className="format-bar" onMouseDown={(e) => e.preventDefault()}>
+          <button type="button" onClick={() => wrap("**")} title={tr("Удебелен (Ctrl+B)", "Bold (Ctrl+B)")}>
+            <b>B</b>
+          </button>
+          <button type="button" onClick={() => wrap("*")} title={tr("Курсив (Ctrl+I)", "Italic (Ctrl+I)")}>
+            <i>I</i>
+          </button>
+          <button type="button" onClick={() => wrap("__")} title={tr("Подчертан (Ctrl+U)", "Underline (Ctrl+U)")}>
+            <u>U</u>
+          </button>
+          <button type="button" onClick={() => wrap("~~")} title={tr("Зачеркнат (Ctrl+Shift+X)", "Strikethrough (Ctrl+Shift+X)")}>
+            <s>S</s>
+          </button>
+          <span className="format-sep" />
+          <button type="button" onClick={code} title={tr("Код (Ctrl+E)", "Code (Ctrl+E)")}>
+            {"</>"}
+          </button>
+          <button type="button" onClick={() => wrap("||")} title={tr("Спойлер — скрит, докато не цъкнат", "Spoiler — hidden until clicked")}>
+            👁️
+          </button>
+          <button type="button" onClick={quote} title={tr("Цитат", "Quote")}>
+            ❝
+          </button>
+          <button type="button" onClick={heading} title={tr("Голям текст (заглавие)", "Big text (heading)")}>
+            H
+          </button>
+          <span className="format-sep" />
+          <button type="button" className={colorsOpen ? "on" : ""} onClick={() => setColorsOpen((o) => !o)} title={tr("Цвят на избрания текст", "Colour of the selected text")}>
+            🎨
+          </button>
+          {colorsOpen && (
+            <span className="format-colors">
+              {TEXT_COLORS.map((c) => (
+                <button key={c} type="button" className="format-swatch" style={{ background: c }} onClick={() => color(c)} title={c} aria-label={c} />
+              ))}
+              <input
+                type="color"
+                value={custom}
+                onChange={(e) => {
+                  setCustom(e.target.value);
+                  localStorage.setItem("formatCustomColor", e.target.value);
+                }}
+                title={tr("Друг цвят", "Another colour")}
+              />
+              <button type="button" className="format-swatch custom" style={{ background: custom }} onClick={() => color(custom)} title={tr("Сложи този цвят", "Use this colour")}>
+                ✓
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+      <button
+        type="button"
+        className={`format-toggle ${fmtOpen ? "on" : ""}`}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={toggleFmt}
+        title={tr("Форматиране: удебелен, курсив, цвят…", "Formatting: bold, italic, colour…")}
+        aria-label={tr("Форматиране", "Formatting")}
+      >
+        Aa
+      </button>
       <textarea
         ref={ref}
         className="chat-textarea"

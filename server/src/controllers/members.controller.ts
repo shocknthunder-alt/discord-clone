@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { ALL_PERMS, Perm, SocketEvents, hasPerm, type MembersResponse, type RoleDTO } from "@discord-clone/shared";
+import { ALL_PERMS, Perm, SocketEvents, cleanTextStyle, hasPerm, type MembersResponse, type RoleDTO } from "@discord-clone/shared";
 import type { Server as IOServer } from "socket.io";
 import { prisma } from "../db.js";
 import { can, ensureDefaultRole, memberContext, outranks } from "../permissions.js";
@@ -32,7 +32,7 @@ export async function listMembers(req: Request, res: Response) {
   await ensureDefaultRole(serverId);
   const [server, memberships, roles] = await Promise.all([
     prisma.server.findUnique({ where: { id: serverId }, select: { ownerId: true } }),
-    prisma.membership.findMany({ where: { serverId }, include: { user: { select: { username: true, avatarUrl: true, email: true, customStatus: true, customStatusUntil: true } } } }),
+    prisma.membership.findMany({ where: { serverId }, include: { user: { select: { username: true, avatarUrl: true, email: true, customStatus: true, customStatusUntil: true, textStyle: true } } } }),
     prisma.role.findMany({ where: { serverId }, orderBy: { position: "desc" } }),
   ]);
   const body: MembersResponse = {
@@ -49,6 +49,7 @@ export async function listMembers(req: Request, res: Response) {
         joinedAt: m.joinedAt.toISOString(),
         activity: getActivity(m.userId),
         customStatus: activeStatus(m.user),
+        textStyle: cleanTextStyle(m.user.textStyle),
       })),
     roles: roles.map(roleDto),
     myPermissions: me.permissions,

@@ -1,4 +1,6 @@
 import MessageText from "./MessageText";
+import AuthorName from "./AuthorName";
+import { textStyleCss, useAuthorTextStyle } from "../utils/textStyle";
 import { splitTopic } from "../utils/forum";
 import ChatImage from "./ChatImage";
 import { formatTime } from "../utils/appPrefs";
@@ -41,7 +43,7 @@ function ThreadMessageRow({ message, isOwn }: { message: MessageDTO; isOwn: bool
 
   return (
     <div className="message-row">
-      <span className="author">{message.authorUsername}</span>
+      <AuthorName userId={message.authorId} name={message.authorUsername} />
       <span className="timestamp">{formatTime(message.createdAt)}</span>
       {message.editedAt && <span className="edited-tag">({tr("редактирано", "edited")})</span>}
 

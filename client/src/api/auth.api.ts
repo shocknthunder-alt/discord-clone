@@ -1,4 +1,4 @@
-import type { UserDTO } from "@discord-clone/shared";
+import type { TextStyle, UserDTO } from "@discord-clone/shared";
 import { http } from "./http";
 
 interface AuthResponse {
@@ -18,7 +18,13 @@ export function fetchMe() {
   return http.get<{ user: UserDTO }>("/api/auth/me").then((r) => r.data);
 }
 
-export function updateProfile(data: { username?: string; avatarUrl?: string | null; customStatus?: string | null; customStatusHours?: number }) {
+export function updateProfile(data: {
+  username?: string;
+  avatarUrl?: string | null;
+  customStatus?: string | null;
+  customStatusHours?: number;
+  textStyle?: TextStyle | null;
+}) {
   return http.patch<{ user: UserDTO }>("/api/auth/me", data).then((r) => r.data.user);
 }
 
