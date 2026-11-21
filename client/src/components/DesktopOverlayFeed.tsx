@@ -95,6 +95,7 @@ function Feed({ update }: { update: (state: unknown) => void }) {
     if (channelId && me) {
       people.push({ id: "me", name: me.username, avatar: me.avatarUrl ?? null, speaking: selfSpeaking, muted: isMuted, deafened: isDeafened, live: isSharing });
       for (const p of peers.values()) {
+        if (!p.userId) continue; // not in the roster (yet) — would show as a nameless "?"
         people.push({
           id: p.socketId,
           name: p.username,

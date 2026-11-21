@@ -568,6 +568,10 @@ export function useVoiceChannel() {
         // or — for a peer who joined the voice channel after this share already started —
         // never fire the "started" transition at all, leaving a share that's actually live
         // showing no indicator whatsoever.
+        // Only for people already in the roster: the server sends this to the whole room, the streamer
+        // included — upserting our OWN socket id made a nameless "?" person with LIVE (seen in the
+        // streamer's in-game overlay, so in the stream). The roster carries isScreenSharing anyway.
+        if (!useVoiceStore.getState().peers.has(socketId)) return;
         useVoiceStore.getState().upsertPeer({ socketId, screenShareLabel: label, isScreenSharing: true });
       },
     );
@@ -581,6 +585,7 @@ export function useVoiceChannel() {
 
     socket.on(SocketEvents.ScreenShareStopped, ({ socketId }: { socketId: string }) => {
       useVoiceStore.getState().setRemoteStreamStats(socketId, null);
+      if (!useVoiceStore.getState().peers.has(socketId)) return; // our own share (see ScreenShareStarted)
       useVoiceStore.getState().upsertPeer({
         socketId,
         screenStream: null,
