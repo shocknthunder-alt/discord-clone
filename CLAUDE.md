@@ -163,7 +163,7 @@ Owner pronouns unknown: use they/them.
   channel to every server. Game runs client-side: `components/blocks/engine.ts` (10×20 + 2 hidden rows, rotation
   kicks, 7-bag, hold, 3 next, ghost, 500 ms lock delay / 15 resets, T-spin 3-corner, combo, back-to-back, level per
   10 lines), `BlocksGameView.tsx` (canvas, keys ←→↓ ↑/X Z A Space C/Shift P, touch buttons on coarse pointers,
-  pauses on blur), `sounds.ts` (WebAudio). Server `server/src/blocks.ts`: GET `/api/text-channels/:id/blocks`
+  pauses on blur; well fits the window, corner drag handle = own height in localStorage `blocksWellHeight`, ⛶ full screen), `sounds.ts` (WebAudio). Server `server/src/blocks.ts`: GET `/api/text-channels/:id/blocks`
   (top 10 + mine), POST `.../blocks/score` (sanity ceiling only, friends app).
 
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a

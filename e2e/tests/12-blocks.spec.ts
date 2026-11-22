@@ -18,6 +18,24 @@ test.describe("🧱 Шметрис", () => {
     await openTextChannel(a.page, "шметрис");
     const overlay = a.page.locator(".blk-overlay");
     await expect(overlay).toContainText("Играй");
+
+    // Размер: влачене на ъгъла → по-голямо, остава след презареждане; двоен клик → пак по екрана.
+    const well = a.page.locator(".blk-well-wrap");
+    const h0 = (await well.boundingBox())!.height;
+    const handle = (await a.page.locator(".blk-resize-handle").boundingBox())!;
+    await a.page.mouse.move(handle.x + 10, handle.y + 10);
+    await a.page.mouse.down();
+    await a.page.mouse.move(handle.x + 10, handle.y - 150, { steps: 5 });
+    await a.page.mouse.up();
+    const h1 = (await well.boundingBox())!.height;
+    expect(h1).toBeLessThan(h0 - 100);
+    await a.page.reload();
+    await openServer(a.page, server.name);
+    await openTextChannel(a.page, "шметрис");
+    await expect(a.page.locator(".blk-overlay")).toContainText("Играй");
+    expect(Math.abs((await well.boundingBox())!.height - h1)).toBeLessThan(2);
+    await a.page.locator(".blk-resize-handle").dblclick();
+    expect(Math.abs((await well.boundingBox())!.height - h0)).toBeLessThan(2);
     await expect(a.page.locator(".blk-top")).toContainText("Още никой не е играл");
     await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-start.png" });
 

@@ -311,7 +311,8 @@ export class BlocksGame {
       points = Math.round(points);
       this.score += points;
       if (n > 0) {
-        for (const y of full) this.board.splice(y, 1);
+        // All full rows go at once (bottom-up, so earlier removals don't shift the later indices).
+        for (let i = full.length - 1; i >= 0; i--) this.board.splice(full[i]!, 1);
         while (this.board.length < ROWS) this.board.unshift(Array(COLS).fill(0));
         this.flash = { rows: full, ms: 220 };
         const before = this.level;

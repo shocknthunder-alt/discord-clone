@@ -98,8 +98,10 @@
 }
 .blk-well-wrap {
   position: relative;
-  height: min(calc(100vh - 150px), 640px);
+  /* Fits the window by default; the corner handle sets an exact height (inline style). */
+  height: max(320px, calc(100vh - 110px));
   aspect-ratio: 1 / 2;
+  flex-shrink: 0;
   border-radius: 10px;
   padding: 0;
   background: linear-gradient(180deg, rgba(12, 12, 18, 0.92), rgba(18, 16, 28, 0.92));
@@ -327,6 +329,43 @@
   cursor: pointer;
 }
 
+.blk-size-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Corner handle: drag to resize the well (like the stream). */
+.blk-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  opacity: 0.35;
+  background: linear-gradient(135deg, transparent 0 45%, rgba(255, 255, 255, 0.75) 45% 52%, transparent 52% 64%, rgba(255, 255, 255, 0.75) 64% 71%, transparent 71%);
+  transition: opacity 0.15s;
+  touch-action: none;
+}
+.blk-well-wrap:hover .blk-resize-handle,
+.blk-view.resizing .blk-resize-handle {
+  opacity: 1;
+}
+.blk-view.resizing,
+.blk-view.resizing * {
+  cursor: nwse-resize !important;
+}
+
+/* Full screen: the whole game view, well as tall as the screen. */
+.blk-view.blk-fullscreen {
+  align-items: center;
+}
+.blk-fullscreen .blk-well-wrap {
+  height: calc(100vh - 40px);
+}
+
 /* Touch buttons: only on touch screens. */
 .blk-touch {
   display: none;
@@ -353,7 +392,8 @@
   .blk-touch {
     display: grid;
   }
-  .blk-keys {
+  .blk-keys,
+  .blk-resize-handle {
     display: none;
   }
 }

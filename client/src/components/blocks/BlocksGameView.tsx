@@ -131,6 +131,10 @@ type Phase = "idle" | "playing" | "over";
 
 const fmt = (n: number) => n.toLocaleString("bg-BG");
 
+const SIZE_KEY = "blocksWellHeight";
+const MIN_H = 320;
+const MAX_H = 2400;
+
 export default function BlocksGameView({ channelId }: { channelId: string }) {
   const me = useAuthStore((s) => s.user);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -143,6 +147,12 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   const [sound, setSound] = useState(() => localStorage.getItem("blocksSound") !== "off");
   const [popups, setPopups] = useState<{ id: number; text: string; big?: boolean }[]>([]);
   const [result, setResult] = useState<{ score: number; lines: number; level: number; record: boolean; saved: boolean } | null>(null);
+  // Size of the well: null = fit the window; a number = the height the person dragged it to.
+  const [customH, setCustomH] = useState<number | null>(() => Number(localStorage.getItem(SIZE_KEY)) || null);
+  const [resizing, setResizing] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+  const viewRef = useRef<HTMLDivElement>(null);
+  const wellRef = useRef<HTMLDivElement>(null);
   const soundRef = useRef(sound);
   soundRef.current = sound;
   const popupId = useRef(0);
@@ -347,8 +357,54 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
 
   const myRank = me ? top.findIndex((r) => r.userId === me.id) : -1;
 
+  // Drag the corner handle to resize the well (like the stream); double-click = fit the window.
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const well = wellRef.current;
+    if (!well) return;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startH = well.getBoundingClientRect().height;
+    setResizing(true);
+    const move = (ev: PointerEvent) => {
+      // The well is centred (width grows on both sides) and twice as tall as wide → 4× the sideways travel.
+      // Whichever direction moved more wins, so it can shrink as well as grow.
+      const dy = ev.clientY - startY;
+      const dx = (ev.clientX - startX) * 4;
+      const grow = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+      setCustomH(Math.round(Math.min(MAX_H, Math.max(MIN_H, startH + grow))));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setResizing(false);
+      setCustomH((cur) => {
+        if (cur) localStorage.setItem(SIZE_KEY, String(cur));
+        return cur;
+      });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const resetSize = () => {
+    localStorage.removeItem(SIZE_KEY);
+    setCustomH(null);
+  };
+
+  useEffect(() => {
+    const onFs = () => setFullscreen(document.fullscreenElement === viewRef.current && !!viewRef.current);
+    document.addEventListener("fullscreenchange", onFs);
+    return () => document.removeEventListener("fullscreenchange", onFs);
+  }, []);
+  const toggleFullscreen = () => {
+    (document.activeElement as HTMLElement | null)?.blur?.(); // so Space drops a piece, not "clicks" this button again
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+    else void viewRef.current?.requestFullscreen().catch(() => {});
+  };
+
   return (
-    <div className="blk-view">
+    <div ref={viewRef} className={`blk-view ${fullscreen ? "blk-fullscreen" : ""} ${resizing ? "resizing" : ""}`}>
       <div className="blk-side blk-left">
         <div className="blk-box">
           <div className="blk-label">{tr("Запазен", "Hold")} <kbd>C</kbd></div>
@@ -381,7 +437,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       </div>
 
       <div className="blk-center">
-        <div className="blk-well-wrap">
+        <div ref={wellRef} className="blk-well-wrap" style={customH && !fullscreen ? { height: customH } : undefined}>
           <canvas ref={canvasRef} className="blk-well" />
           <div className="blk-popups">
             {popups.map((p) => (
@@ -459,6 +515,14 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
               </button>
             </div>
           )}
+          {!fullscreen && (
+            <div
+              className="blk-resize-handle"
+              onPointerDown={startResize}
+              onDoubleClick={resetSize}
+              title={tr("Влачи, за да смениш размера · двоен клик = по екрана", "Drag to resize · double-click = fit the window")}
+            />
+          )}
         </div>
 
         <div className="blk-touch">
@@ -532,6 +596,16 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         >
           {sound ? "🔊" : "🔇"} {tr("Звук", "Sound")}
         </button>
+        <div className="blk-size-buttons">
+          <button className="blk-sound blk-fs" onClick={toggleFullscreen} title={tr("Цял екран", "Full screen")}>
+            {fullscreen ? tr("🗗 Изход от цял екран", "🗗 Exit full screen") : tr("⛶ Цял екран", "⛶ Full screen")}
+          </button>
+          {customH && !fullscreen && (
+            <button className="blk-sound" onClick={resetSize} title={tr("Размер по екрана", "Fit the window")}>
+              ↺ {tr("Размер", "Size")}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
