@@ -30,6 +30,7 @@ model User {
   directMessages       DirectMessage[]
   triviaScores         TriviaScore[]
   drawScores           DrawScore[]
+  blockScores          BlockScore[]
   eventRsvps           EventRsvp[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
@@ -306,6 +307,23 @@ model DrawScore {
   points   Int    @default(0)
   wins     Int    @default(0)
   games    Int    @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId])
+}
+
+/// 🧱 Шметрис (channel type "blocks", solo falling-blocks game): each person's best per server.
+model BlockScore {
+  id         String   @id @default(cuid())
+  serverId   String
+  userId     String
+  best       Int      @default(0)
+  bestLines  Int      @default(0)
+  bestLevel  Int      @default(1)
+  games      Int      @default(0)
+  totalLines Int      @default(0)
+  updatedAt  DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

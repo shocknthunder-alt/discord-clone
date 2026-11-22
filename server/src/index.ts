@@ -19,6 +19,7 @@ import { registerDrawGateway } from "./draw/game.js";
 import { registerMusicGateway } from "./sockets/music.gateway.js";
 import { setActivity } from "./presence/activity.js";
 import { registerPolls } from "./polls.js";
+import { blocksRouter } from "./blocks.js";
 import { SocketEvents } from "@discord-clone/shared";
 import { forgetSocket, setSocketVisible } from "./push/push.js";
 import { pushRouter } from "./routes/push.routes.js";
@@ -42,6 +43,7 @@ app.use("/api/media", mediaRouter);
 app.use("/api/push", pushRouter);
 app.use("/api", channelsRouter);
 app.use("/api", messagesRouter);
+app.use("/api", blocksRouter);
 
 app.use(errorHandler);
 

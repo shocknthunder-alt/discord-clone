@@ -158,6 +158,14 @@ Owner pronouns unknown: use they/them.
   just the default of the "search" action. Push-to-talk accepts mouse buttons too. Desktop **1.10.0**
   `globalKeys.js` also forwards uiohook mouse buttons 3–5 as `Mouse3..5` (preload flag `mouseButtons`).
 
+- **🧱 Шметрис** (2026-11-22, channel type="blocks", solo falling blocks; owner asked for "Tetris like the
+  original" — refused the name/look, own palette + name): migration 20261122120000 adds `BlockScore` + a "шметрис"
+  channel to every server. Game runs client-side: `components/blocks/engine.ts` (10×20 + 2 hidden rows, rotation
+  kicks, 7-bag, hold, 3 next, ghost, 500 ms lock delay / 15 resets, T-spin 3-corner, combo, back-to-back, level per
+  10 lines), `BlocksGameView.tsx` (canvas, keys ←→↓ ↑/X Z A Space C/Shift P, touch buttons on coarse pointers,
+  pauses on blur), `sounds.ts` (WebAudio). Server `server/src/blocks.ts`: GET `/api/text-channels/:id/blocks`
+  (top 10 + mine), POST `.../blocks/score` (sanity ceiling only, friends app).
+
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
   channel to every server + `DrawScore`, 20261120180000 renames it "paint wars"; owner asked for
   "Skribbl" — refused, that's another game's name): server `server/src/draw/game.ts` (all in memory, per
@@ -186,7 +194,7 @@ Owner pronouns unknown: use they/them.
   `cleanPersonalLooks` (https only), PATCH /api/auth/me `personalLooks`; client `utils/personalLooks.ts` hooks
   (`useServerIcon/Banner`, `useChannelBackground`, `setPersonalLook`) + `MyLooksCard` (Settings → Външен вид). AppShell
   now calls `fetchMe()` on start so account changes from other devices show up. Cursors: `client/src/cursors/`
-  (11 hand-drawn SVG skins: arrow + pointer, colour, size 24–64, localStorage `cursorSkinV1`, `CursorCard`); a PostCSS
+  (19 hand-drawn SVG skins incl. 8 dark-fantasy/arena ones with a `gauntlet()` pointer: arrow + pointer, colour, size 24–64, localStorage `cursorSkinV1`, `CursorCard`); a PostCSS
   step in `vite.config.ts` rewrites every `cursor: pointer|default` to `var(--cur-pointer|--cur-default, …)`.
 
 ## Pending / ideas
