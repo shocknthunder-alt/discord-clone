@@ -92,7 +92,7 @@ test.describe("🖼️ моите картинки и 🖱️ курсори", (
     await card.screenshot({ path: "explore/cursor-card-sword.png" });
 
     // Всички модели един след друг — никой не чупи страницата.
-    for (const id of ["classic", "neon", "pixel", "crystal", "royal", "wand", "rocket", "flame", "demon", "pickle"]) {
+    for (const id of ["classic", "neon", "pixel", "crystal", "royal", "wand", "rocket", "flame", "demon", "pickle", "gothic", "bone", "rune", "ice", "axe", "dagger", "claw", "winged"]) {
       await card.locator(`.cursor-skin[data-skin="${id}"]`).click();
       expect(await cursorOf("body")).toContain("url(");
     }
