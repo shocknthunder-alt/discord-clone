@@ -522,6 +522,17 @@ button {
   box-shadow: 0 0 0 2px #23a559;
 }
 
+/* The name gives way (… at the end) so the icons, ping and LIVE button always fit in the narrow list. */
+.participant-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-row > :not(.participant-name) {
+  flex-shrink: 0;
+}
 .participant-name.streaming {
   color: #23a559;
   font-weight: 700;
@@ -1558,6 +1569,7 @@ button {
 /* Watch button next to a streamer in the sidebar's voice participant list. */
 .participant-watch {
   margin-left: auto;
+  margin-right: 4px; /* room for the pulsing glow — the list clips at its edge */
   flex-shrink: 0;
   border: none;
   border-radius: 4px;

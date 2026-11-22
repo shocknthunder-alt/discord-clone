@@ -40,8 +40,8 @@ async function joinVoice(page: Page) {
   await expect(page.getByTitle("Излез от канала")).toBeVisible({ timeout: 20_000 });
 }
 
-async function live(browser: import("@playwright/test").Browser) {
-  const ana = await register("ana");
+async function live(browser: import("@playwright/test").Browser, streamerPrefix = "ana") {
+  const ana = await register(streamerPrefix);
   const bob = await register("bob");
   const server = await serverWith(ana, bob);
   const a = await openAs(browser, ana);
@@ -70,13 +70,22 @@ test.describe("📺 Стрийм на екрана", () => {
   test.setTimeout(120_000);
 
   test("не се тегли, докато не цъкнеш „Гледай“; гледане; спри да гледаш; стриймърът спира", async ({ browser }) => {
-    const { a, b } = await live(browser);
+    const { a, b } = await live(browser, "anastasiaLong"); // дълго име — не бива да избута LIVE извън списъка
     await goLive(a.page);
     // Стриймърът вижда, че е на живо.
     await expect(a.page.locator(".live-banner, .live-edge").first()).toBeVisible();
 
     const watch = b.page.locator(".participant-watch");
     await expect(watch).toBeVisible({ timeout: 15_000 });
+    // Бутонът е изцяло вътре в изрязващия контейнер (списъкът с канали), не отрязан от десния край.
+    const clip = await watch.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      let p = el.parentElement;
+      while (p && getComputedStyle(p).overflowX === "visible") p = p.parentElement;
+      return { right: r.right, edge: p ? p.getBoundingClientRect().right : innerWidth };
+    });
+    expect(clip.right, "LIVE/Гледай е отрязан").toBeLessThanOrEqual(clip.edge);
+    await b.page.locator(".participant-row", { has: watch }).screenshot({ path: "explore/voice-row-live.png" }).catch(() => {});
     await b.page.waitForTimeout(3000);
     expect(await videoRate(b.page), "видео преди „Гледай“ (трябва да е 0 — пести трафик)").toBeLessThan(5_000);
 
