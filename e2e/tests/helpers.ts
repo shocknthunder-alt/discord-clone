@@ -52,7 +52,7 @@ export async function serverWith(owner: Account, ...others: Account[]) {
 export async function openAs(
   browser: Browser,
   acc: Account,
-  opts: { viewport?: { width: number; height: number }; isMobile?: boolean; setup?: (context: BrowserContext) => Promise<void> } = {},
+  opts: { viewport?: { width: number; height: number }; isMobile?: boolean; deviceScaleFactor?: number; setup?: (context: BrowserContext) => Promise<void> } = {},
 ) {
   // browser.newContext() does not inherit the config's `use` — permissions etc. are given here.
   const context = await browser.newContext({
@@ -62,6 +62,7 @@ export async function openAs(
     baseURL: WEB,
     isMobile: opts.isMobile,
     hasTouch: opts.isMobile,
+    deviceScaleFactor: opts.deviceScaleFactor,
   });
   await context.addInitScript(
     ([token, user]) => {

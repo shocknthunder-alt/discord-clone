@@ -1,16 +1,30 @@
 import type { GameEvent } from "./engine";
 
-// 🧱 Sound for Шметрис — all synthesized with WebAudio (no files):
-//  • effects (moves, drops, line clears that shatter like glass),
-//  • background music: our own little chiptune songs, a different one for every level, a bit
-//    faster each level, with more layers (arpeggio, busier drums) as the game speeds up.
+// 🧱 Sound effects for Шметрис — all synthesized with WebAudio (no files): moves, drops, line
+// clears that shatter like glass. The background music lives in music.ts and shares this graph.
 // Kept fairly quiet — people are usually in voice at the same time.
 
 let ctx: AudioContext | null = null;
 let sfxBus: GainNode | null = null;
-let musicBus: GainNode | null = null;
+let musicBus: GainNode | null = null; // music volume
+let musicIn: GainNode | null = null; // where music voices go (→ tone filter → volume)
+let musicTone: BiquadFilterNode | null = null; // per-style low-pass (lo-fi is darker)
+let musicEcho: GainNode | null = null; // send → music delay
 let echo: GainNode | null = null; // send → short feedback delay (sparkle on bells)
 let noiseBuf: AudioBuffer | null = null;
+let musicVolume = 0.5;
+
+/** The shared audio graph (created on first use, resumed if the browser suspended it). */
+export function audioGraph() {
+  const a = ac();
+  if (!a || !musicIn || !musicTone || !musicEcho || !noiseBuf || !musicBus) return null;
+  return { ctx: a, musicIn, musicTone, musicEcho, musicBus, noise: noiseBuf };
+}
+
+export function setMusicVolume(v: number) {
+  musicVolume = Math.max(0, Math.min(1, v));
+  if (musicBus && ctx) musicBus.gain.setTargetAtTime(musicVolume, ctx.currentTime, 0.05);
+}
 
 function ac(): AudioContext | null {
   try {
@@ -26,6 +40,26 @@ function ac(): AudioContext | null {
       musicBus = ctx.createGain();
       musicBus.gain.value = musicVolume;
       musicBus.connect(comp);
+      musicTone = ctx.createBiquadFilter();
+      musicTone.type = "lowpass";
+      musicTone.frequency.value = 18000;
+      musicTone.Q.value = 0.5;
+      musicTone.connect(musicBus);
+      musicIn = ctx.createGain();
+      musicIn.gain.value = 1;
+      musicIn.connect(musicTone);
+      // music echo: dotted-eighth-ish delay, darker repeats
+      musicEcho = ctx.createGain();
+      const md = ctx.createDelay(1.5);
+      md.delayTime.value = 0.33;
+      const mfb = ctx.createGain();
+      mfb.gain.value = 0.3;
+      const mdamp = ctx.createBiquadFilter();
+      mdamp.type = "lowpass";
+      mdamp.frequency.value = 2600;
+      musicEcho.connect(md);
+      md.connect(mdamp).connect(mfb).connect(md);
+      mdamp.connect(musicTone);
       // echo send
       echo = ctx.createGain();
       echo.gain.value = 1;
@@ -180,233 +214,3 @@ export function blockSound(e: GameEvent) {
   }
 }
 
-/* ───────────────────────── music ───────────────────────── */
-
-// Note names → frequency. "A4" = 440 Hz; sharps "#", flats "b".
-const SEMI: Record<string, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-function freqOf(name: string): number {
-  const m = /^([A-G])([#b]?)(-?\d)$/.exec(name);
-  if (!m) return 0;
-  const midi = 12 * (Number(m[3]) + 1) + SEMI[m[1]!]! + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0);
-  return 440 * Math.pow(2, (midi - 69) / 12);
-}
-
-interface Song {
-  name: string;
-  bpm: number; // at its first appearance; +6 per level after that
-  /** 4 bars × 16 steps: note, "." rest, "-" hold the previous note. */
-  lead: string[];
-  /** One chord per bar (bass root first). */
-  chords: string[][];
-  /** Bass rhythm over one bar: "R" root, "O" octave up, "F" fifth, "." rest. */
-  bass: string;
-  /** Drums over one bar: k kick, s snare, h hat, x kick+hat, "." */
-  drums: string;
-  wave: OscillatorType;
-}
-
-// Our own tunes (written for this game).
-const SONGS: Song[] = [
-  {
-    name: "Неон",
-    bpm: 118,
-    wave: "square",
-    lead: [
-      "A4 . C5 E5 . A5 - . G5 . E5 . C5 D5 E5 .",
-      "F5 - . E5 . C5 . A4 C5 - . F5 . E5 C5 .",
-      "E5 . G5 . C6 - - . B5 . G5 . E5 . G5 .",
-      "D5 - B4 . G4 . B4 D5 G5 - - . F5 E5 D5 B4",
-    ],
-    chords: [["A2", "A3", "C4", "E4"], ["F2", "F3", "A3", "C4"], ["C3", "C4", "E4", "G4"], ["G2", "G3", "B3", "D4"]],
-    bass: "R . R O . R . O R . R O . R F O",
-    drums: "x . h . s . h . x . x h s . h h",
-  },
-  {
-    name: "Скок",
-    bpm: 124,
-    wave: "square",
-    lead: [
-      "D5 . D5 F5 . A5 . F5 D5 . . C5 D5 . F5 .",
-      "D6 - . Bb5 . F5 . D5 Bb4 . D5 . F5 - . .",
-      "C5 . F5 . A5 . C6 . A5 G5 F5 . A5 - . .",
-      "G5 . E5 . C5 . E5 G5 C6 - Bb5 . G5 . E5 .",
-    ],
-    chords: [["D3", "D4", "F4", "A4"], ["Bb2", "Bb3", "D4", "F4"], ["F2", "F3", "A3", "C4"], ["C3", "C4", "E4", "G4"]],
-    bass: "R . O . R . O . R . O . R O F O",
-    drums: "x . h k s . h . x . h k s . h s",
-  },
-  {
-    name: "Буря",
-    bpm: 132,
-    wave: "sawtooth",
-    lead: [
-      "E5 B4 E5 G5 . F#5 . E5 B4 . E5 . G5 A5 B5 .",
-      "C6 - . B5 . G5 . E5 C5 . E5 G5 . B5 A5 G5",
-      "B5 - . D6 . B5 . G5 D5 . G5 . B5 . D6 .",
-      "A5 . F#5 . D5 . F#5 A5 D6 . C#6 . A5 . F#5 .",
-    ],
-    chords: [["E2", "E3", "G3", "B3"], ["C3", "C4", "E4", "G4"], ["G2", "G3", "B3", "D4"], ["D3", "D4", "F#4", "A4"]],
-    bass: "R R O R R R O R R R O R R O F O",
-    drums: "x h h h s h h h x h x h s h s h",
-  },
-  {
-    name: "Космос",
-    bpm: 112,
-    wave: "triangle",
-    lead: [
-      "C5 - - Eb5 . G5 . C6 - - . Bb5 G5 . Eb5 .",
-      "Ab5 - - . G5 . Eb5 . C5 - . Eb5 . Ab5 . .",
-      "G5 - Bb5 . Eb6 - - . D6 . Bb5 . G5 . Bb5 .",
-      "F5 - . D5 . Bb4 . D5 F5 - Bb5 . D6 - C6 Bb5",
-    ],
-    chords: [["C3", "C4", "Eb4", "G4"], ["Ab2", "Ab3", "C4", "Eb4"], ["Eb3", "Eb4", "G4", "Bb4"], ["Bb2", "Bb3", "D4", "F4"]],
-    bass: "R . . R . . O . R . . R . F O .",
-    drums: "k . h . s . h . k k h . s . h h",
-  },
-];
-
-const split = (s: string) => s.trim().split(/\s+/);
-
-let musicVolume = 0.5;
-let player: MusicPlayer | null = null;
-
-class MusicPlayer {
-  private songIdx = 0;
-  private level = 1;
-  private bpm = 118;
-  private step = 0; // 0..63
-  private nextTime = 0;
-  private timer: number | null = null;
-  private pendingLevel: number | null = null;
-  private layers = 1;
-
-  constructor(level: number) {
-    this.applyLevel(level);
-  }
-
-  private applyLevel(level: number) {
-    this.level = level;
-    this.songIdx = (level - 1) % SONGS.length;
-    const song = SONGS[this.songIdx]!;
-    this.bpm = Math.min(200, song.bpm + (level - 1) * 6);
-    // 1 = lead+bass+drums, 2 = + arpeggio, 3 = + busier hats
-    this.layers = level >= 6 ? 3 : level >= 3 ? 2 : 1;
-  }
-
-  setLevel(level: number) {
-    if (level !== this.level) this.pendingLevel = level;
-  }
-
-  get playing() {
-    return this.timer !== null;
-  }
-
-  play() {
-    const a = ac();
-    if (!a || this.timer !== null) return;
-    this.nextTime = a.currentTime + 0.08;
-    this.timer = window.setInterval(() => this.pump(), 25);
-  }
-
-  pause() {
-    if (this.timer !== null) window.clearInterval(this.timer);
-    this.timer = null;
-  }
-
-  private pump() {
-    const a = ctx;
-    if (!a) return;
-    // fell far behind (tab was asleep): jump ahead instead of playing everything at once
-    if (this.nextTime < a.currentTime - 0.25) this.nextTime = a.currentTime + 0.05;
-    while (this.nextTime < a.currentTime + 0.14) {
-      if (this.step % 16 === 0 && this.pendingLevel !== null) {
-        // a new level: switch song at the bar line, starting from its first bar
-        this.applyLevel(this.pendingLevel);
-        this.pendingLevel = null;
-        this.step = 0;
-      }
-      this.playStep(this.step, this.nextTime);
-      this.nextTime += 60 / this.bpm / 4;
-      this.step = (this.step + 1) % 64;
-    }
-  }
-
-  private playStep(step: number, t: number) {
-    const song = SONGS[this.songIdx]!;
-    const bar = Math.floor(step / 16);
-    const s = step % 16;
-    const stepLen = 60 / this.bpm / 4;
-    const bus = musicBus;
-
-    // lead
-    const lead = split(song.lead[bar]!);
-    const tok = lead[s];
-    if (tok && tok !== "." && tok !== "-") {
-      let len = 1;
-      while (lead[s + len] === "-") len++;
-      const f = freqOf(tok);
-      if (f) {
-        const ms = stepLen * len * 1000 * 0.92;
-        tone(f, ms, { t, type: song.wave, vol: song.wave === "triangle" ? 0.07 : 0.032, dest: bus, attack: 0.006 });
-        // a soft second voice an octave down, detuned, for body
-        tone(f / 2, ms, { t, type: "triangle", vol: 0.022, dest: bus, detune: 6 });
-      }
-    }
-
-    // bass
-    const chord = song.chords[bar]!;
-    const root = freqOf(chord[0]!);
-    const b = split(song.bass)[s];
-    if (b && b !== ".") {
-      const f = b === "O" ? root * 2 : b === "F" ? root * 1.5 : root;
-      tone(f, stepLen * 1000 * 0.9, { t, type: "triangle", vol: 0.09, dest: bus, attack: 0.003 });
-    }
-
-    // arpeggio (from level 3)
-    if (this.layers >= 2) {
-      const tones = chord.slice(1);
-      const f = freqOf(tones[s % tones.length]!) * 2;
-      tone(f, stepLen * 1000 * 0.6, { t, type: "square", vol: 0.009, dest: bus });
-    }
-
-    // drums
-    const d = split(song.drums)[s];
-    const hat = () => noise(28, { t, type: "highpass", freq: 7500, vol: 0.022, dest: bus });
-    const kick = () => {
-      tone(150, 130, { t, type: "sine", vol: 0.16, slide: -105, dest: bus, attack: 0.002 });
-    };
-    if (d === "k" || d === "x") kick();
-    if (d === "h" || d === "x") hat();
-    if (d === "s") {
-      noise(110, { t, type: "highpass", freq: 1400, vol: 0.06, dest: bus });
-      tone(190, 70, { t, type: "triangle", vol: 0.05, slide: -60, dest: bus });
-    }
-    if (this.layers >= 3 && d === ".") hat();
-  }
-}
-
-/** Background music: start / follow the level / pause. Safe to call often. */
-export const blocksMusic = {
-  play(level: number) {
-    if (!player) player = new MusicPlayer(level);
-    else player.setLevel(level);
-    player.play();
-  },
-  setLevel(level: number) {
-    player?.setLevel(level);
-  },
-  pause() {
-    player?.pause();
-  },
-  stop() {
-    player?.pause();
-    player = null;
-  },
-  setVolume(v: number) {
-    musicVolume = Math.max(0, Math.min(1, v));
-    if (musicBus && ctx) musicBus.gain.setTargetAtTime(musicVolume, ctx.currentTime, 0.05);
-  },
-  songName(level: number) {
-    return SONGS[(level - 1) % SONGS.length]!.name;
-  },
-};

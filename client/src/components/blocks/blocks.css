@@ -329,6 +329,11 @@
   cursor: pointer;
 }
 
+/* Бай Шмирко under the score (room above for his speech bubble) */
+.blk-shmirko {
+  padding: 46px 4px 4px;
+}
+
 .blk-music {
   display: flex;
   align-items: center;

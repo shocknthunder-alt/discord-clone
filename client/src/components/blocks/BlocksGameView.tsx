@@ -3,7 +3,9 @@ import { http } from "../../api/http";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { BlocksGame, COLS, HIDDEN, PIECES, ROWS, pieceCells, type GameEvent, type PieceType } from "./engine";
-import { blockSound, blocksMusic } from "./sounds";
+import BaiShmirko, { type ShmirkoMood } from "./BaiShmirko";
+import { blocksMusic } from "./music";
+import { blockSound } from "./sounds";
 import "./blocks.css";
 
 /** 🧱 Шметрис — the screen of a "blocks" channel: solo game + the server's top 10. */
@@ -125,6 +127,8 @@ interface Hud {
   next: PieceType[];
   paused: boolean;
   over: boolean;
+  /** The stack reaches close to the top. */
+  danger: boolean;
 }
 
 type Phase = "idle" | "playing" | "over";
@@ -204,9 +208,32 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     [channelId],
   );
 
+  // 👴 Бай Шмирко: cheers for a while after lines go (more lines / combo / T-spin → wilder).
+  const [cheer, setCheer] = useState<{ mood: ShmirkoMood; key: number } | null>(null);
+  const cheerTimer = useRef<number | undefined>(undefined);
+  const cheerFor = (lines: number, combo: number, tspin: boolean) => {
+    const lvl = Math.min(4, Math.max(1, lines + (combo >= 2 ? 1 : 0) + (tspin ? 1 : 0)));
+    const mood = `c${lvl}` as ShmirkoMood;
+    setCheer((c) => ({ mood, key: (c?.key ?? 0) + 1 }));
+    window.clearTimeout(cheerTimer.current);
+    cheerTimer.current = window.setTimeout(() => setCheer((c) => (c ? { ...c, mood: "idle" } : c)), [0, 1500, 1700, 2000, 3000][lvl]);
+  };
+  useEffect(() => () => window.clearTimeout(cheerTimer.current), []);
+  // Dev / e2e only: show a mood on demand (for screenshots of every pose).
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const w = window as unknown as { __shmirko?: (m: ShmirkoMood) => void };
+    w.__shmirko = (mood) => {
+      window.clearTimeout(cheerTimer.current);
+      setCheer((c) => ({ mood, key: (c?.key ?? 0) + 1 }));
+    };
+    return () => void delete w.__shmirko;
+  }, []);
+
   const onEvent = useCallback(
     (e: GameEvent) => {
       if (soundRef.current) blockSound(e);
+      if (e.kind === "clear" && (e.lines > 0 || e.tspin)) cheerFor(e.lines, e.combo, e.tspin);
       if (e.kind === "clear") {
         const name =
           e.lines === 4
@@ -223,7 +250,8 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         if (e.points > 0) popup(`+${fmt(e.points)}`);
       } else if (e.kind === "level") {
         popup(`${tr("Ниво", "Level")} ${e.level}!`, true);
-        if (musicRef.current) popup(`🎵 ${blocksMusic.songName(e.level)}`);
+        // a new style every two levels
+        if (musicRef.current && blocksMusic.songName(e.level) !== blocksMusic.songName(e.level - 1)) popup(`🎵 ${blocksMusic.songName(e.level)}`);
       }
     },
     [],
@@ -342,6 +370,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
           next: game.queue.slice(0, 3),
           paused: game.paused,
           over: game.over,
+          danger: stackDanger(game),
         };
         const k = JSON.stringify(h);
         if (k !== lastHud) {
@@ -372,6 +401,10 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     else blocksMusic.pause();
   }, [phase, musicOn, hudPaused, hudLevel]);
   useEffect(() => blocksMusic.setVolume(musicVol / 100), [musicVol]);
+  const hudDanger = phase === "playing" && !!hud?.danger;
+  useEffect(() => blocksMusic.setDanger(hudDanger), [hudDanger]);
+  const shmirkoMood: ShmirkoMood =
+    cheer && cheer.mood !== "idle" ? cheer.mood : phase === "over" ? "sad" : hudDanger ? "danger" : "idle";
 
   const g = () => gameRef.current;
   const tap = (fn: (game: BlocksGame) => void) => (e: React.PointerEvent) => {
@@ -452,6 +485,9 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
               <b>{fmt(mine.best)}</b>
             </div>
           )}
+        </div>
+        <div className="blk-shmirko">
+          <BaiShmirko mood={shmirkoMood} cheerKey={cheer?.key ?? 0} beat={60 / blocksMusic.bpmFor(hudLevel)} />
         </div>
         <div className="blk-box blk-keys">
           <div><kbd>←</kbd><kbd>→</kbd> {tr("местене", "move")}</div>
@@ -663,6 +699,13 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       </div>
     </div>
   );
+}
+
+/** The stack's top is within 5 rows of the top of the visible well. */
+function stackDanger(game: BlocksGame): boolean {
+  if (game.over) return false;
+  for (let y = HIDDEN; y < HIDDEN + 5; y++) if (game.board[y]!.some((v) => v)) return true;
+  return false;
 }
 
 /* ───────── drawing the well ───────── */

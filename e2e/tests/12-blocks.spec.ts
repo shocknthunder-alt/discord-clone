@@ -49,6 +49,7 @@ test.describe("🧱 Шметрис", () => {
     await musicBtn.click();
     await expect(a.page.locator(".blk-music input[type=range]")).toBeVisible();
 
+    await expect(a.page.locator(".blk-shmirko .bs-wrap.bs-idle")).toBeVisible();
     await a.page.getByRole("button", { name: /Играй/ }).click();
     await expect(overlay).toHaveCount(0);
     // Запазване на блок (C) → кутийката „Запазен“ вече рисува нещо; стрелки и въртене не чупят нищо.
@@ -72,6 +73,9 @@ test.describe("🧱 Шметрис", () => {
     const score = Number((await a.page.locator(".blk-result-score").innerText()).replace(/\D/g, ""));
     expect(score).toBeGreaterThan(0); // 2 т. на ред при мигновено пускане
     await expect(a.page.locator(".blk-record")).toContainText("Нов личен рекорд");
+    // 👴 Бай Шмирко е тъжен след края на играта (с реплика).
+    await expect(a.page.locator(".blk-shmirko .bs-wrap.bs-sad")).toBeVisible();
+    await expect(a.page.locator(".blk-shmirko .bs-bubble")).toBeVisible();
     await expect(a.page.locator(".blk-top li")).toHaveCount(1);
     await expect(a.page.locator(".blk-top li.me")).toContainText(ana.username);
     await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-over.png" });
@@ -96,5 +100,25 @@ test.describe("🧱 Шметрис", () => {
     expectNoCrashes(a.page);
     expectNoCrashes(b.page);
     await closeAll(a.context, b.context);
+  });
+
+  test("🎵 всеки музикален стил (нива 1, 3, 5, 7, 9, 11) свири без грешки", async ({ browser }) => {
+    const ana = await register("ana");
+    const server = await serverWith(ana);
+    await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
+    const a = await openAs(browser, ana);
+    await openServer(a.page, server.name);
+    await openTextChannel(a.page, "шметрис");
+    for (const level of [1, 3, 5, 7, 9, 11]) {
+      await a.page.locator(".blk-level-pick select").selectOption(String(level));
+      await a.page.getByRole("button", { name: /Играй|Нова игра/ }).click();
+      await expect(a.page.locator(".blk-stats")).toContainText(String(level));
+      await a.page.waitForTimeout(1500); // a few bars of that style
+      await a.page.keyboard.press("KeyP");
+      await a.page.getByRole("button", { name: /Край на играта/ }).click();
+      await expect(a.page.locator(".blk-overlay")).toContainText("Нова игра");
+    }
+    expectNoCrashes(a.page);
+    await closeAll(a.context);
   });
 });
