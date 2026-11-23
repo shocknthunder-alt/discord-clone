@@ -56,7 +56,7 @@ export async function createTextChannel(req: Request, res: Response) {
 
   const last = await prisma.textChannel.aggregate({ where: { serverId }, _max: { position: true } });
   const textChannel = await prisma.textChannel.create({
-    data: { name, serverId, position: (last._max.position ?? -1) + 1, type: type === "trivia" || type === "forum" || type === "draw" || type === "blocks" ? type : "text" },
+    data: { name, serverId, position: (last._max.position ?? -1) + 1, type: type === "trivia" || type === "forum" || type === "draw" || type === "blocks" || type === "match" ? type : "text" },
   });
   notifyChannelsChanged(req, serverId);
   res.status(201).json({ textChannel });

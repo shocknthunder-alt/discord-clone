@@ -23,7 +23,7 @@ export default function ClipDialog({
   useEffect(() => () => URL.revokeObjectURL(url), [url]);
   const channels = useServerStore((s) => s.textChannels);
   const activeTextChannelId = useServerStore((s) => s.activeTextChannelId);
-  const postable = channels.filter((c) => c.type !== "trivia" && c.type !== "draw" && c.type !== "blocks");
+  const postable = channels.filter((c) => c.type !== "trivia" && c.type !== "draw" && c.type !== "blocks" && c.type !== "match");
   const [channelId, setChannelId] = useState(
     () => (postable.find((c) => c.id === activeTextChannelId) ?? postable[0])?.id ?? "",
   );

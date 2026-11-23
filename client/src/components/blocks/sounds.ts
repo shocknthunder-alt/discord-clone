@@ -97,7 +97,7 @@ interface ToneOpts {
   detune?: number;
 }
 
-function tone(freq: number, ms: number, o: ToneOpts = {}) {
+export function tone(freq: number, ms: number, o: ToneOpts = {}) {
   const a = ac();
   if (!a) return;
   const { type = "square", vol = 0.05, at = 0, slide = 0, attack = 0.004, send = 0, detune = 0 } = o;
@@ -122,7 +122,7 @@ function tone(freq: number, ms: number, o: ToneOpts = {}) {
   osc.stop(t0 + dur + 0.03);
 }
 
-function noise(ms: number, o: { vol?: number; t?: number; at?: number; type?: BiquadFilterType; freq?: number; freqTo?: number; q?: number; dest?: AudioNode | null } = {}) {
+export function noise(ms: number, o: { vol?: number; t?: number; at?: number; type?: BiquadFilterType; freq?: number; freqTo?: number; q?: number; dest?: AudioNode | null } = {}) {
   const a = ac();
   if (!a || !noiseBuf) return;
   const { vol = 0.05, at = 0, type = "highpass", freq = 2000, freqTo, q = 0.8 } = o;
@@ -145,7 +145,7 @@ function noise(ms: number, o: { vol?: number; t?: number; at?: number; type?: Bi
 }
 
 /** A bell: sine + a slightly off overtone, with a bit of echo. */
-function bell(freq: number, ms: number, vol: number, at: number) {
+export function bell(freq: number, ms: number, vol: number, at: number) {
   tone(freq, ms, { type: "sine", vol, at, send: 0.5 });
   tone(freq * 2.01, ms * 0.6, { type: "sine", vol: vol * 0.35, at, send: 0.5 });
   tone(freq * 3.98, ms * 0.3, { type: "sine", vol: vol * 0.12, at });

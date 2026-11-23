@@ -31,6 +31,7 @@ model User {
   triviaScores         TriviaScore[]
   drawScores           DrawScore[]
   blockScores          BlockScore[]
+  matchScores          MatchScore[]
   eventRsvps           EventRsvp[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
@@ -311,6 +312,22 @@ model DrawScore {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([serverId, userId])
+}
+
+/// 🍬 Шмиксер (channel type "match", solo match-3): best per server, user and mode ("time" | "moves").
+model MatchScore {
+  id        String   @id @default(cuid())
+  serverId  String
+  userId    String
+  mode      String
+  best      Int      @default(0)
+  bestCombo Int      @default(0)
+  games     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([serverId, userId, mode])
 }
 
 /// 🧱 Шметрис (channel type "blocks", solo falling-blocks game): each person's best per server.

@@ -170,7 +170,16 @@ function InviteRow({ code }: { code: string }) {
   );
 }
 
+const GAME_TYPES = new Set(["trivia", "draw", "blocks", "match"]);
+const isGameChannel = (type: string | undefined) => !!type && GAME_TYPES.has(type);
+
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
+  const [gamesOpen, setGamesOpen] = useState(() => localStorage.getItem("gamesSectionOpen") !== "0");
+  const toggleGames = () =>
+    setGamesOpen((o) => {
+      localStorage.setItem("gamesSectionOpen", o ? "0" : "1");
+      return !o;
+    });
   const { servers, activeServerId, textChannels, voiceChannels, activeTextChannelId, setActiveTextChannel, setChannels } =
     useServerStore();
   const { activeVoiceChannelId, peers, isScreenSharing, isMuted, isDeafened, localStream, channelOccupants } =
@@ -342,6 +351,51 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
     getSocket()?.emit(SocketEvents.DmRing, { conversationId: conversation.id });
   }
 
+  // 🎮 Game channels live in their own folding section.
+  const gameChannels = textChannels.filter((c) => isGameChannel(c.type));
+  const gamesBadge = gameChannels.some(
+    (c) => c.id !== activeTextChannelId && (!!mentionCounts[c.id] || (unreadMarkers && !isMutedHere(mutes, activeServerId, c.id) && isChannelUnread(unread, c.id))),
+  );
+  const renderTextChannel = (channel: (typeof textChannels)[number]) => (
+              <div
+                key={channel.id}
+                {...dragProps("text", channel.id)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setMuteMenu({ id: channel.id, name: channel.name, x: e.clientX, y: e.clientY });
+                }}
+                className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${isMutedHere(mutes, activeServerId, channel.id) ? "muted" : unreadMarkers && isChannelUnread(unread, channel.id) ? "unread" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
+                title={unreadMarkers && isChannelUnread(unread, channel.id) ? tr("Има непрочетени съобщения", "Unread messages") : undefined}
+                onClick={() => {
+                  setActiveTextChannel(channel.id);
+                  onSelectText();
+                }}
+              >
+                <span className="channel-item-name">
+                  {channel.type === "trivia" ? "🎲" : channel.type === "forum" ? "🗂️" : channel.type === "draw" ? "🎨" : channel.type === "blocks" ? "🧱" : channel.type === "match" ? "🍬" : "#"} {channel.name}
+                  {isMutedHere(mutes, activeServerId, channel.id) && <span className="muted-icon" title={tr("Заглушен", "Muted")}> 🔕</span>}
+                </span>
+                {!!mentionCounts[channel.id] && channel.id !== activeTextChannelId && (
+                  <span className="mention-badge" title={tr("Споменаха те тук", "You were mentioned here")}>
+                    @{mentionCounts[channel.id]}
+                  </span>
+                )}
+                {isOwner && (
+                  <button
+                    className="channel-item-settings"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingChannel({ kind: "text", channel });
+                    }}
+                    title={tr("Настройки на канала", "Edit Channel")}
+                  >
+                    ⚙️
+                  </button>
+                )}
+              </div>
+  );
+
   return (
     <div className="channel-sidebar">
       <div className="channel-sidebar-scroll" onDragEnd={() => setUserDropId(null)}>
@@ -388,46 +442,23 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
 
             <div onContextMenu={(e) => handleSectionContextMenu(e, "text")}>
               <div className="channel-section">{tr("Текстови канали", "Text Channels")}</div>
-              {textChannels.map((channel) => (
-                <div
-                  key={channel.id}
-                  {...dragProps("text", channel.id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setMuteMenu({ id: channel.id, name: channel.name, x: e.clientX, y: e.clientY });
-                  }}
-                  className={`channel-item ${channel.id === activeTextChannelId ? "active" : ""} ${isMutedHere(mutes, activeServerId, channel.id) ? "muted" : unreadMarkers && isChannelUnread(unread, channel.id) ? "unread" : ""} ${dragOverId === channel.id && drag?.kind === "text" ? "drag-over" : ""}`}
-                  title={unreadMarkers && isChannelUnread(unread, channel.id) ? tr("Има непрочетени съобщения", "Unread messages") : undefined}
-                  onClick={() => {
-                    setActiveTextChannel(channel.id);
-                    onSelectText();
-                  }}
-                >
-                  <span className="channel-item-name">
-                    {channel.type === "trivia" ? "🎲" : channel.type === "forum" ? "🗂️" : channel.type === "draw" ? "🎨" : channel.type === "blocks" ? "🧱" : "#"} {channel.name}
-                    {isMutedHere(mutes, activeServerId, channel.id) && <span className="muted-icon" title={tr("Заглушен", "Muted")}> 🔕</span>}
-                  </span>
-                  {!!mentionCounts[channel.id] && channel.id !== activeTextChannelId && (
-                    <span className="mention-badge" title={tr("Споменаха те тук", "You were mentioned here")}>
-                      @{mentionCounts[channel.id]}
-                    </span>
-                  )}
-                  {isOwner && (
-                    <button
-                      className="channel-item-settings"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingChannel({ kind: "text", channel });
-                      }}
-                      title={tr("Настройки на канала", "Edit Channel")}
-                    >
-                      ⚙️
-                    </button>
-                  )}
-                </div>
-              ))}
+              {textChannels.filter((c) => !isGameChannel(c.type)).map(renderTextChannel)}
             </div>
+
+            {gameChannels.length > 0 && (
+              <div className="games-section">
+                <button
+                  className={`channel-section games-section-toggle ${gamesOpen ? "open" : ""}`}
+                  onClick={toggleGames}
+                  aria-expanded={gamesOpen}
+                  title={gamesOpen ? tr("Скрий игрите", "Hide the games") : tr("Покажи игрите", "Show the games")}
+                >
+                  <span className="games-chevron">▸</span> 🎮 {tr("Игри", "Games")} <span className="games-count">({gameChannels.length})</span>
+                  {!gamesOpen && gamesBadge && <span className="games-dot" />}
+                </button>
+                {gameChannels.filter((c) => gamesOpen || c.id === activeTextChannelId).map(renderTextChannel)}
+              </div>
+            )}
 
             <div onContextMenu={(e) => handleSectionContextMenu(e, "voice")}>
               <div className="channel-section">{tr("Гласови канали", "Voice Channels")}</div>

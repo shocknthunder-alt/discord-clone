@@ -28,6 +28,7 @@ import PinsPanel from "./PinsPanel";
 import ForumView from "./ForumView";
 import DrawGameView from "./draw/DrawGameView";
 import BlocksGameView from "./blocks/BlocksGameView";
+import MatchGameView from "./match/MatchGameView";
 import { isMutedHere, useMuteStore } from "../store/muteStore";
 import EditedTag from "./EditHistory";
 import { PollCard } from "./Polls";
@@ -388,8 +389,8 @@ export default function TextChatView({ channelId }: Props) {
     <div className="main-content" data-drop-zone>
       <div className="chat-header">
         <MobileNavButton />
-        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : channel?.type === "forum" ? "🗂️" : channel?.type === "draw" ? "🎨" : channel?.type === "blocks" ? "🧱" : "#"} {channel?.name ?? ""}</span>
-        {channel?.type !== "draw" && channel?.type !== "blocks" && (
+        <span className="chat-header-title">{channel?.type === "trivia" ? "🎲" : channel?.type === "forum" ? "🗂️" : channel?.type === "draw" ? "🎨" : channel?.type === "blocks" ? "🧱" : channel?.type === "match" ? "🍬" : "#"} {channel?.name ?? ""}</span>
+        {channel?.type !== "draw" && channel?.type !== "blocks" && channel?.type !== "match" && (
           <button
             className={`server-settings-button pins-toggle ${showPins ? "on" : ""}`}
             onClick={() => setShowPins((v) => !v)}
@@ -421,6 +422,8 @@ export default function TextChatView({ channelId }: Props) {
         <DrawGameView channelId={channelId} />
       ) : channel?.type === "blocks" ? (
         <BlocksGameView key={channelId} channelId={channelId} />
+      ) : channel?.type === "match" ? (
+        <MatchGameView key={channelId} channelId={channelId} />
       ) :channel?.type === "forum" ? (
         <ForumView channelId={channelId} />
       ) : (

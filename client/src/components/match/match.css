@@ -1,0 +1,281 @@
+/* 🍬 Шмиксер (the side panels reuse the Шметрис .blk-* styles) */
+.mx-view {
+  container-type: inline-size;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, #ff5d8f 16%, transparent), transparent 55%),
+    radial-gradient(circle at 10% 100%, color-mix(in srgb, #3d9bff 14%, transparent), transparent 50%),
+    var(--c-backdrop, #1e1f22);
+}
+
+.mx-board {
+  position: relative;
+  /* fits the game area: minus both side panels (170 + 230), gaps and padding */
+  width: min(calc(100vh - 110px), calc(100cqw - 480px), 640px);
+  min-width: 280px;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  touch-action: none;
+  background:
+    repeating-conic-gradient(rgba(255, 255, 255, 0.045) 0 25%, transparent 0 50%) 0 0 / 25% 25%,
+    linear-gradient(180deg, rgba(20, 16, 34, 0.92), rgba(14, 12, 24, 0.95));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, #ff5d8f 45%, transparent),
+    0 0 30px color-mix(in srgb, #b06bff 28%, transparent),
+    inset 0 0 40px rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+.mx-board.shake {
+  animation: mx-shake 0.4s ease-out;
+}
+@keyframes mx-shake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-6px, 3px); }
+  40% { transform: translate(5px, -4px); }
+  60% { transform: translate(-4px, 2px); }
+  80% { transform: translate(2px, -1px); }
+}
+
+.mx-tile {
+  position: absolute;
+  width: 12.5%;
+  height: 12.5%;
+  padding: 0.6%;
+  box-sizing: border-box;
+  transition:
+    top 0.28s cubic-bezier(0.5, 0, 0.75, 0),
+    left 0.17s ease-in-out;
+  cursor: pointer;
+  z-index: 1;
+}
+.mx-tile.above {
+  transition: none;
+}
+.mx-gem-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+  transition: transform 0.12s;
+}
+.mx-tile:hover .mx-gem-svg {
+  transform: scale(1.06);
+}
+.mx-tile.selected {
+  z-index: 2;
+}
+.mx-tile.selected .mx-gem-svg {
+  transform: scale(1.14);
+  filter: drop-shadow(0 0 8px #fff) drop-shadow(0 3px 3px rgba(0, 0, 0, 0.45));
+  animation: mx-pulse 0.7s ease-in-out infinite;
+}
+@keyframes mx-pulse { 0%, 100% { transform: scale(1.1); } 50% { transform: scale(1.18); } }
+.mx-tile.hint .mx-gem-svg {
+  animation: mx-hint 0.9s ease-in-out infinite;
+}
+@keyframes mx-hint { 0%, 100% { transform: rotate(0) scale(1); } 25% { transform: rotate(-10deg) scale(1.08); } 75% { transform: rotate(10deg) scale(1.08); } }
+.mx-tile.pop {
+  z-index: 3;
+}
+.mx-tile.pop .mx-gem-svg {
+  animation: mx-pop 0.23s ease-in forwards;
+}
+@keyframes mx-pop {
+  0% { transform: scale(1); filter: brightness(1); }
+  40% { transform: scale(1.3); filter: brightness(2.2); }
+  100% { transform: scale(0.1); opacity: 0; filter: brightness(3); }
+}
+.mx-tile.fresh .mx-gem-svg {
+  animation: mx-made 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+@keyframes mx-made { 0% { transform: scale(0.2) rotate(-90deg); } 100% { transform: scale(1) rotate(0); } }
+.mx-prism {
+  animation: mx-spin 3s linear infinite;
+}
+@keyframes mx-spin { to { transform: rotate(360deg); } }
+.mx-fuse {
+  animation: mx-fuse 0.25s ease-in-out infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes mx-fuse { from { transform: scale(0.7); fill: #ffd43b; } to { transform: scale(1.3); fill: #ff6b2a; } }
+
+/* effects */
+.mx-spark {
+  position: absolute;
+  z-index: 4;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px;
+  border-radius: 50%;
+  pointer-events: none;
+  box-shadow: 0 0 6px currentColor;
+  animation: mx-spark 0.7s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+@keyframes mx-spark {
+  0% { transform: translate(0, 0) scale(1.3); opacity: 1; }
+  100% { transform: translate(var(--dx), calc(var(--dy) + 24px)) scale(0.2); opacity: 0; }
+}
+.mx-beam {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #fff 20%, #fff6b0 50%, #fff 80%, transparent);
+  box-shadow: 0 0 18px #fff, 0 0 36px #ffd43b;
+  animation: mx-beam 0.45s ease-out forwards;
+}
+.mx-beam.row {
+  left: 0;
+  right: 0;
+  height: 12.5%;
+  transform-origin: center;
+}
+.mx-beam.col {
+  top: 0;
+  bottom: 0;
+  width: 12.5%;
+  background: linear-gradient(180deg, transparent, #fff 20%, #fff6b0 50%, #fff 80%, transparent);
+}
+@keyframes mx-beam {
+  0% { opacity: 0; transform: scale(0.2, 0.2); }
+  25% { opacity: 1; transform: scale(1, 0.6); }
+  100% { opacity: 0; transform: scale(1, 0.1); }
+}
+.mx-beam.col {
+  animation-name: mx-beam-col;
+}
+@keyframes mx-beam-col {
+  0% { opacity: 0; transform: scale(0.2, 0.2); }
+  25% { opacity: 1; transform: scale(0.6, 1); }
+  100% { opacity: 0; transform: scale(0.1, 1); }
+}
+.mx-ring {
+  position: absolute;
+  z-index: 4;
+  width: 37.5%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 6px solid #ffd43b;
+  box-shadow: 0 0 30px #ff8a3d, inset 0 0 30px #ff8a3d;
+  animation: mx-ring 0.5s ease-out forwards;
+}
+.mx-ring.big {
+  width: 62.5%;
+}
+@keyframes mx-ring {
+  0% { transform: scale(0.1); opacity: 1; }
+  100% { transform: scale(1.2); opacity: 0; }
+}
+.mx-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: conic-gradient(from 0deg, #ff4d6d80, #ffc53d80, #33d17a80, #3d9bff80, #b06bff80, #ff4d6d80);
+  mix-blend-mode: screen;
+  animation: mx-flash 0.6s ease-out forwards;
+}
+@keyframes mx-flash { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+.mx-points {
+  position: absolute;
+  z-index: 5;
+  translate: -50% -50%;
+  pointer-events: none;
+  font: 900 18px/1 system-ui, sans-serif;
+  color: #fff;
+  text-shadow: 0 2px 0 #b0306a, 0 0 10px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  animation: mx-points 0.9s ease-out forwards;
+}
+.mx-points.big {
+  font-size: 26px;
+  color: #ffd43b;
+}
+@keyframes mx-points {
+  0% { opacity: 0; transform: translateY(6px) scale(0.6); }
+  20% { opacity: 1; transform: translateY(0) scale(1.15); }
+  100% { opacity: 0; transform: translateY(-34px) scale(1); }
+}
+.mx-combo {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  top: 14%;
+  translate: -50% 0;
+  pointer-events: none;
+  font: 900 26px/1 system-ui, sans-serif;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 3px 0 #7a2bd1, 0 0 16px rgba(176, 107, 255, 0.8);
+  animation: mx-combo 1s cubic-bezier(0.3, 1.6, 0.5, 1) forwards;
+}
+.mx-combo.c3, .mx-combo.c4 { font-size: 32px; color: #ffd43b; }
+.mx-combo.c5, .mx-combo.c6 { font-size: 38px; color: #ff8a3d; text-shadow: 0 3px 0 #a3122f, 0 0 20px #ff8a3d; }
+.mx-combo.c7 { font-size: 44px; color: #fff6b0; text-shadow: 0 3px 0 #a3122f, 0 0 24px #ffd43b, 0 0 40px #ff4d6d; }
+@keyframes mx-combo {
+  0% { opacity: 0; transform: scale(0.3) rotate(-8deg); }
+  25% { opacity: 1; transform: scale(1.1) rotate(3deg); }
+  75% { opacity: 1; transform: scale(1) rotate(0); }
+  100% { opacity: 0; transform: scale(1.1) translateY(-14px); }
+}
+
+/* panels */
+.mx-clock {
+  text-align: center;
+  font: 800 20px/1.2 ui-monospace, monospace;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.mx-clock.urgent {
+  color: #ff6b6b;
+  animation: mx-urgent 0.5s ease-in-out infinite alternate;
+}
+@keyframes mx-urgent { to { transform: scale(1.1); } }
+.mx-help b {
+  color: var(--t-1, #fff);
+}
+.mx-title {
+  font: 900 30px/1 system-ui, sans-serif;
+  color: #fff;
+  text-shadow: 0 3px 0 #b0306a, 0 0 18px rgba(255, 93, 143, 0.6);
+}
+.mx-modes,
+.mx-tabs {
+  display: flex;
+  gap: 6px;
+}
+.mx-modes button,
+.mx-tabs button {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--t-2, #b5bac1);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.mx-tabs button {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+.mx-modes button.on,
+.mx-tabs button.on {
+  background: var(--accent, #5865f2);
+  color: #fff;
+  border-color: transparent;
+}
+
+@media (max-width: 760px) {
+  .mx-board {
+    width: min(calc(100cqw - 16px), calc(100vh - 300px));
+    min-width: 0;
+  }
+}
+
+/* the start / pause menu sits above the gems */
+.mx-board .blk-overlay {
+  z-index: 10;
+}

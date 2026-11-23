@@ -400,6 +400,41 @@ button {
   color: var(--t-3);
 }
 
+/* 🎮 the folding "Games" section */
+.games-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+}
+.games-section-toggle:hover {
+  color: var(--t-1);
+}
+.games-chevron {
+  display: inline-block;
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.games-section-toggle.open .games-chevron {
+  transform: rotate(90deg);
+}
+.games-count {
+  font-weight: 600;
+  opacity: 0.7;
+}
+.games-dot {
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--t-1);
+}
+
 .channel-item {
   display: flex;
   align-items: center;

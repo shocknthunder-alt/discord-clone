@@ -42,9 +42,9 @@ export interface TextChannelDTO {
   position: number;
   /**
    * "trivia" channels are handled by the Trivia Bot; "forum" = a list of topics, each its own thread;
-   * "draw" = the 🎨 draw-and-guess game; "blocks" = 🧱 Шметрис (solo falling blocks + server top list).
+   * "draw" = the 🎨 draw-and-guess game; "blocks" = 🧱 Шметрис (solo falling blocks + server top list); "match" = 🍬 Шмиксер (solo match-3 + top list).
    */
-  type: "text" | "trivia" | "forum" | "draw" | "blocks";
+  type: "text" | "trivia" | "forum" | "draw" | "blocks" | "match";
   /** Newest message by a person (not the trivia bot), for unread markers. Missing on old servers. */
   lastMessageAt?: string | null;
 }
