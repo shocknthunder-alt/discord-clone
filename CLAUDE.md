@@ -163,7 +163,7 @@ Owner pronouns unknown: use they/them.
   channel to every server. Game runs client-side: `components/blocks/engine.ts` (10×20 + 2 hidden rows, rotation
   kicks, 7-bag, hold, 3 next, ghost, 500 ms lock delay / 15 resets, T-spin 3-corner, combo, back-to-back, level per
   10 lines), `BlocksGameView.tsx` (canvas, keys ←→↓ ↑/X Z A Space C/Shift P, touch buttons on coarse pointers,
-  pauses on blur; well fits the window, corner drag handle = own height in localStorage `blocksWellHeight`, ⛶ full screen), `sounds.ts` (WebAudio). Server `server/src/blocks.ts`: GET `/api/text-channels/:id/blocks`
+  pauses on blur; well fits the window, corner drag handle = own height in localStorage `blocksWellHeight`, ⛶ full screen), `sounds.ts` (WebAudio: glassy shatter on line clears; own 4-song chiptune music `blocksMusic`, song changes every level and gets +6 bpm, layers added at levels 3/6; 🎵 toggle + volume, localStorage `blocksMusic`/`blocksMusicVol`). Server `server/src/blocks.ts`: GET `/api/text-channels/:id/blocks`
   (top 10 + mine), POST `.../blocks/score` (sanity ceiling only, friends app).
 
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
@@ -215,6 +215,8 @@ Owner pronouns unknown: use they/them.
 - Don't touch `updatedAt` of music state without folding elapsed time into `positionSeconds` (restart bug).
 - `videoTrack.contentHint = "detail"` forces screencast mode (low fps) — keep "motion" for games/video.
 - Older deployed clients keep talking to the shared server: change it additively.
+- Socket rooms (`server:`, `channel:`, `dm:`, voice) are per connection: anything that joins a room must join again on
+  `socket.on("connect")` (reconnects after Wi-Fi drops / Render restarts / sleep). Missing this froze voice lists and chat (fixed 2026-11-23, e2e 13-reconnect).
 - Screen-share bitrate ceilings (SfuMediaManager): Light 7 / Standard 14 / High 40 Mbps (Sharp a bit more);
   too-low ceilings = "smears when moving". Viewers get `jitterBufferTarget = 120` ms on screen consumers.
   Settings → Stream → Кодиране: GPU (H.264 High) / CPU (Baseline OpenH264 or VP8) + auto "refresh encoder"

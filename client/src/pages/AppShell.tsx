@@ -395,6 +395,24 @@ export default function AppShell() {
 
     const socket = getSocket();
     socket?.emit(SocketEvents.ServerJoin, { serverId: activeServerId });
+
+    // After a reconnect (Wi-Fi blip, Render restart, PC asleep overnight) the new connection isn't in
+    // the server's room, so the voice channel lists, member list and channel changes froze in their
+    // old state (e.g. you kept showing in a channel you'd long left). Join again — the server answers
+    // with fresh voice occupants — and reload members/channels.
+    const onReconnect = () => {
+      socket?.emit(SocketEvents.ServerJoin, { serverId: activeServerId });
+      void useMembersStore.getState().load(activeServerId).catch(console.error);
+      fetchChannels(activeServerId)
+        .then(({ textChannels, voiceChannels }) => {
+          if (useServerStore.getState().activeServerId === activeServerId) setChannels(textChannels, voiceChannels);
+        })
+        .catch(console.error);
+    };
+    socket?.on("connect", onReconnect);
+    return () => {
+      socket?.off("connect", onReconnect);
+    };
   }, [activeServerId, setChannels]);
 
 

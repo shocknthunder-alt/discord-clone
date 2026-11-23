@@ -273,6 +273,16 @@ export default function TextChatView({ channelId }: Props) {
       if (p.textChannelId === channelId) setPoll(channelId, p.messageId, p.poll);
     }
 
+    // After a reconnect (Wi-Fi blip, server restart, PC asleep) the new connection isn't in the
+    // channel's room — no new messages would arrive. Join again and fetch what came in meanwhile.
+    function onReconnect() {
+      socket?.emit(SocketEvents.ChannelJoin, { textChannelId: channelId });
+      fetchMessages(channelId)
+        .then((msgs) => setMessages(channelId, msgs))
+        .catch(console.error);
+    }
+
+    socket?.on("connect", onReconnect);
     socket?.on(SocketEvents.PollUpdated, onPoll);
     socket?.on(SocketEvents.MessagePinned, onPinned);
     socket?.on(SocketEvents.MessageReactionsUpdated, onReactions);
@@ -282,6 +292,7 @@ export default function TextChatView({ channelId }: Props) {
     socket?.on(SocketEvents.MessageDeleted, onDeleted);
 
     return () => {
+      socket?.off("connect", onReconnect);
       socket?.off(SocketEvents.PollUpdated, onPoll);
       socket?.off(SocketEvents.MessagePinned, onPinned);
       socket?.off(SocketEvents.MessageReactionsUpdated, onReactions);

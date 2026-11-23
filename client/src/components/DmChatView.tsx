@@ -151,13 +151,22 @@ export default function DmChatView({ conversationId }: Props) {
       if (cId === conversationId) removeMessage(cId, id);
     }
 
+    // After a reconnect (Wi-Fi blip, server restart, PC asleep) the new connection isn't in the
+    // conversation's room: join again and fetch what came in meanwhile.
+    function onReconnect() {
+      socket?.emit(SocketEvents.DmJoin, { conversationId });
+      fetchDmMessages(conversationId).then((msgs) => setMessages(conversationId, msgs)).catch(console.error);
+    }
+
     socket?.emit(SocketEvents.DmJoin, { conversationId });
+    socket?.on("connect", onReconnect);
     socket?.on(SocketEvents.DmNew, onMessage);
     socket?.on(SocketEvents.DmTypingUpdate, onTyping);
     socket?.on(SocketEvents.DmUpdated, onUpdated);
     socket?.on(SocketEvents.DmDeleted, onDeleted);
 
     return () => {
+      socket?.off("connect", onReconnect);
       socket?.off(SocketEvents.DmNew, onMessage);
       socket?.off(SocketEvents.DmTypingUpdate, onTyping);
       socket?.off(SocketEvents.DmUpdated, onUpdated);

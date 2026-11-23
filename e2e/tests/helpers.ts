@@ -49,7 +49,11 @@ export async function serverWith(owner: Account, ...others: Account[]) {
 }
 
 /** A browser window already logged in as `acc` (token put where the app looks for it). */
-export async function openAs(browser: Browser, acc: Account, opts: { viewport?: { width: number; height: number }; isMobile?: boolean } = {}) {
+export async function openAs(
+  browser: Browser,
+  acc: Account,
+  opts: { viewport?: { width: number; height: number }; isMobile?: boolean; setup?: (context: BrowserContext) => Promise<void> } = {},
+) {
   // browser.newContext() does not inherit the config's `use` — permissions etc. are given here.
   const context = await browser.newContext({
     viewport: opts.viewport ?? { width: 1440, height: 900 },
@@ -74,6 +78,7 @@ export async function openAs(browser: Browser, acc: Account, opts: { viewport?: 
     },
     [acc.token, acc.user],
   );
+  await opts.setup?.(context);
   const page = await context.newPage();
   collectErrors(page);
   openPages.push({ name: acc.username, page });
