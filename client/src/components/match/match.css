@@ -279,3 +279,11 @@
 .mx-board .blk-overlay {
   z-index: 10;
 }
+
+/* corner handle: resize the board */
+.mx-resize {
+  z-index: 12;
+}
+.mx-board:hover .mx-resize {
+  opacity: 1;
+}

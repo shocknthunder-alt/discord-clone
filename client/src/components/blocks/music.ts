@@ -166,42 +166,6 @@ const pluck: Voice = (g, f, t, dur, vel) => {
   out(g, amp, 0.45);
 };
 
-// Marimba: a warm wooden "tok" (sine + a fast-fading 4th harmonic).
-const marimba: Voice = (g, f, t, dur, vel) => {
-  const amp = g.ctx.createGain();
-  env(amp, t, 0.06 * vel, 0.002, Math.min(0.5, Math.max(0.18, dur)), 0.25, 0.12);
-  oscs(g, t, t + 0.8, f, [{ type: "sine" }], amp);
-  const ov = g.ctx.createGain();
-  env(ov, t, 0.025 * vel, 0.001, 0.05, 0.04, 0.1);
-  oscs(g, t, t + 0.12, f, [{ type: "sine", mult: 3.98 }], ov);
-  out(g, amp, 0.3);
-  out(g, ov, 0.2);
-};
-
-// Pizzicato strings: a short plucked triangle + saw through a closing filter.
-const pizz: Voice = (g, f, t, _dur, vel) => {
-  const lp = filter(g, "lowpass", 3000, 1.5);
-  lp.frequency.setValueAtTime(3000, t);
-  lp.frequency.exponentialRampToValueAtTime(600, t + 0.12);
-  oscs(g, t, t + 0.25, f, [{ type: "triangle" }, { type: "sawtooth", detune: 5 }], lp);
-  const amp = g.ctx.createGain();
-  env(amp, t, 0.02 * vel, 0.002, 0.08, 0.1, 0.3);
-  lp.connect(amp);
-  out(g, amp, 0.25);
-};
-
-// Bouncy round bass (short, a little plucky).
-const bounceBass: Voice = (g, f, t, dur, vel) => {
-  const amp = g.ctx.createGain();
-  env(amp, t, 0.12 * vel, 0.005, Math.min(dur, 0.22), 0.08, 0.45);
-  const lp = filter(g, "lowpass", 1100, 2);
-  lp.frequency.setValueAtTime(1600, t);
-  lp.frequency.exponentialRampToValueAtTime(500, t + 0.15);
-  oscs(g, t, t + 0.4, f, [{ type: "triangle" }, { type: "square", mult: 0.5, detune: 3 }], lp);
-  lp.connect(amp);
-  out(g, amp);
-};
-
 function makeLead(type: OscillatorType, vol: number, cutoff: number, send: number, second?: OscillatorType): Voice {
   return (g, f, t, dur, vel) => {
     const amp = g.ctx.createGain();
@@ -637,42 +601,44 @@ const STYLES: Style[] = [
   },
 ];
 
-// 🍬 Шмиксер: one playful tune; level 2 = hurry (last seconds / last moves): faster and busier.
+// 🍬 Шмиксер: energetic pop-punk rock in D (power-chord chugs, lead guitar, driving drums);
+// level 2 = hurry (last seconds / last moves): faster, busier, a semitone up.
 const MATCH_STYLE: Style = {
-  name: "Шмиксер",
-  bpm: 116,
+  name: "Шмиксер рок",
+  bpm: 150,
   bpmStep: 0,
-  swing: 0.12,
-  tone: 12000,
+  swing: 0,
+  tone: 14000,
   chords: [
-    ["C2", "E3", "G3", "C4"],
-    ["A1", "E3", "A3", "C4"],
-    ["F1", "F3", "A3", "C4"],
-    ["G1", "D3", "G3", "B3"],
+    ["D2", "D3"],
+    ["A1", "A2"],
+    ["B1", "B2"],
+    ["G1", "G2"],
   ],
   lead: [
-    "E5 . G5 . C6 . G5 . E5 . D5 . C5 . D5 .",
-    "E5 . C5 . A4 . C5 . E5 . A5 . G5 - - .",
-    "F5 . A5 . C6 . A5 . F5 . E5 . D5 . C5 .",
-    "D5 . G5 . B5 . D6 - - . B5 . G5 . A5 B5",
+    "F#5 . A5 . D6 - - . A5 . F#5 . E5 . D5 .",
+    "E5 . A5 . C#6 - - . B5 . A5 . E5 - - .",
+    "F#5 . B5 . D6 - - . C#6 . B5 . F#5 . D5 .",
+    "G5 . B5 . D6 - E6 . D6 . B5 . A5 - - -",
   ],
-  leadVoice: marimba,
-  bass: "R . . O R . F . R . . O R . F O",
-  bassVoice: bounceBass,
-  comp: ". . x . . . x . . . x . . . x .",
-  compVoice: pizz,
+  leadVoice: leadGuitar,
+  bass: "R . R R . R R . R . R R . R O .",
+  bassVoice: funkBass,
+  comp: "x . x x . x x . x . x x . x x .",
+  compVoice: guitar,
   drums: {
-    k: ["x . . . . . . . x . . x . . . ."],
+    k: ["x . . . . . x . x . . . . . . .", "x . . . . . x . x . x . . . x ."],
     s: [". . . . x . . . . . . . x . . ."],
-    h: ["x x x x x x x x x x x x x x x x"],
+    h: ["x . x . x . x . x . x . x . x ."],
   },
-  snare: "clap",
-  shaker: true,
+  snare: "normal",
+  hardKick: true,
+  fill: true,
 };
 const MATCH_SET = {
   styles: [MATCH_STYLE],
   tier: () => 0,
-  bpm: (level: number) => (level >= 2 ? 136 : 116),
+  bpm: (level: number) => (level >= 2 ? 172 : 150),
   busy: (level: number) => level >= 2,
   transpose: (level: number) => (level >= 2 ? Math.pow(2, 1 / 12) : 1),
 };

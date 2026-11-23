@@ -13,6 +13,9 @@ import "./match.css";
 
 type Mode = "time" | "moves";
 const TIME_S = 120;
+const SIZE_KEY = "matchBoardSize";
+const MIN_W = 260;
+const MAX_W = 1600;
 const MOVES = 30;
 
 interface TopRow {
@@ -402,13 +405,50 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     drag.current = null;
   };
 
+  // ↘ drag the corner to resize the board (like the stream / Шметрис); double-click = fit the window
+  const [customW, setCustomW] = useState<number | null>(() => Number(localStorage.getItem(SIZE_KEY)) || null);
+  const [resizing, setResizing] = useState(false);
+  const startResize = (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = boardEl.current;
+    if (!el) return;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    const w0 = el.getBoundingClientRect().width;
+    setResizing(true);
+    const move = (ev: PointerEvent) => {
+      // the board is centred, so sideways travel counts twice; whichever direction moved more wins
+      const dx = (ev.clientX - x0) * 2;
+      const dy = ev.clientY - y0;
+      const grow = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+      setCustomW(Math.round(Math.min(MAX_W, Math.max(MIN_W, w0 + grow))));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setResizing(false);
+      setCustomW((w) => {
+        if (w) localStorage.setItem(SIZE_KEY, String(w));
+        return w;
+      });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const resetSize = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    localStorage.removeItem(SIZE_KEY);
+    setCustomW(null);
+  };
+
   const cur = lists?.[tab];
   const mine = lists?.[mode]?.mine;
   const myRank = me && cur ? cur.top.findIndex((r) => r.userId === me.id) : -1;
   const pct = (n: number) => `${(n / SIZE) * 100}%`;
 
   return (
-    <div className="blk-view mx-view">
+    <div className={`blk-view mx-view ${resizing ? "resizing" : ""}`}>
       <GemDefs />
       <div className="blk-side blk-left">
         <div className="blk-box blk-stats">
@@ -456,6 +496,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
         <div
           ref={boardEl}
           className={`mx-board ${shake ? "shake" : ""}`}
+          style={customW ? { width: customW, minWidth: 0 } : undefined}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
@@ -518,6 +559,12 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               </button>
             </div>
           )}
+          <div
+            className="blk-resize-handle mx-resize"
+            title={tr("Влачи за размер · двоен клик = по екрана", "Drag to resize · double-click = fit")}
+            onPointerDown={startResize}
+            onDoubleClick={resetSize}
+          />
           {phase === "playing" && paused && (
             <div className="blk-overlay">
               <div className="blk-paused">{tr("Пауза", "Paused")}</div>
