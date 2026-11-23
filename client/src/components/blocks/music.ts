@@ -2,7 +2,7 @@ import { audioGraph, setMusicVolume } from "./sounds";
 
 // 🎵 Background music for Шметрис — our own tunes, synthesized with WebAudio (no files).
 // Every two levels is a different style with its own instruments, drums, key and tempo:
-//   1–2 чил (lo-fi) · 3–4 фънки диско · 5–6 80-те (synthwave) · 7–8 рок · 9–10 драм енд бас · 11+ епично
+//   1–2 чил (маримба, плажно) · 3–4 фънки диско · 5–6 80-те (synthwave) · 7–8 рок · 9–10 драм енд бас · 11+ епично
 // The second level of a style is a bit faster and busier; from 11 on the epic one climbs a semitone
 // and a few bpm per level. A level-up plays a riser and switches at the next bar line; a stack
 // close to the top adds a nervous heartbeat.
@@ -87,25 +87,36 @@ function distortion(g: G) {
   return ws;
 }
 
-// Electric piano (FM): warm, a little bell on the attack.
-const epiano: Voice = (g, f, t, dur, vel) => {
+// Marimba: a warm wooden "tok" — sine + a fast-fading 4th harmonic.
+const marimba: Voice = (g, f, t, dur, vel) => {
   const amp = g.ctx.createGain();
-  env(amp, t, 0.05 * vel, 0.006, dur, 0.35, 0.35);
-  const car = g.ctx.createOscillator();
-  car.frequency.value = f;
-  const mod = g.ctx.createOscillator();
-  mod.frequency.value = f;
-  const mg = g.ctx.createGain();
-  mg.gain.setValueAtTime(f * 2.2, t);
-  mg.gain.exponentialRampToValueAtTime(f * 0.25, t + 0.5);
-  mod.connect(mg).connect(car.frequency);
-  const lp = filter(g, "lowpass", 3200);
-  car.connect(lp).connect(amp);
-  out(g, amp, 0.25);
-  for (const o of [car, mod]) {
-    o.start(t);
-    o.stop(t + dur + 0.4);
-  }
+  env(amp, t, 0.06 * vel, 0.002, Math.min(0.5, Math.max(0.18, dur)), 0.25, 0.12);
+  oscs(g, t, t + 0.8, f, [{ type: "sine" }], amp);
+  const ov = g.ctx.createGain();
+  env(ov, t, 0.025 * vel, 0.001, 0.05, 0.04, 0.1);
+  oscs(g, t, t + 0.12, f, [{ type: "sine", mult: 3.98 }], ov);
+  out(g, amp, 0.3);
+  out(g, ov, 0.2);
+};
+
+// Round plucked bass (soft, short).
+const roundBass: Voice = (g, f, t, dur, vel) => {
+  const amp = g.ctx.createGain();
+  env(amp, t, 0.12 * vel, 0.006, Math.min(dur, 0.3), 0.1, 0.4);
+  const lp = filter(g, "lowpass", 900);
+  oscs(g, t, t + 0.45, f, [{ type: "triangle" }, { type: "sine", mult: 0.5 }], lp);
+  lp.connect(amp);
+  out(g, amp);
+};
+
+// Warm, quiet pad behind it all.
+const warmPad: Voice = (g, f, t, dur, vel) => {
+  const amp = g.ctx.createGain();
+  env(amp, t, 0.012 * vel, 0.5, dur, 0.6, 0.8);
+  const lp = filter(g, "lowpass", 1100);
+  oscs(g, t, t + dur + 0.6, f, [{ type: "triangle", detune: -7 }, { type: "sawtooth", detune: 7 }], lp);
+  lp.connect(amp);
+  out(g, amp, 0.3);
 };
 
 const softBass: Voice = (g, f, t, dur, vel) => {
@@ -393,42 +404,43 @@ interface Style {
   snare: "normal" | "gated" | "rim" | "clap";
   hardKick?: boolean;
   arp?: boolean; // 16th arpeggio of the chord
-  crackle?: boolean; // vinyl
+  shaker?: boolean; // hats played as a soft shaker
   fill?: boolean; // tom fill at the end of bar 4
   orchestra?: boolean; // hit + timpani on bar starts
 }
 
 const STYLES: Style[] = [
   {
+    // levels 1–2: warm beach chill — marimba, round bass, shaker, soft pad
     name: "Чил",
-    bpm: 86,
+    bpm: 98,
     bpmStep: 6,
-    swing: 0.22,
-    tone: 2600,
+    swing: 0.08,
+    tone: 7000,
     chords: [
-      ["F2", "A3", "C4", "E4", "G4"],
+      ["G2", "B3", "D4", "F#4"],
       ["E2", "G3", "B3", "D4"],
-      ["D2", "F3", "A3", "C4", "E4"],
-      ["Bb1", "D3", "F3", "A3", "C4"],
+      ["C2", "E3", "G3", "B3"],
+      ["D2", "F#3", "A3", "D4"],
     ],
     lead: [
-      "C5 - - A4 . . G4 A4 C5 - - . . . . .",
-      "B4 - - G4 . . E4 G4 B4 - D5 - . . . .",
-      "A4 - - F4 . . E4 F4 A4 - C5 - E5 - - .",
-      "D5 - - C5 . . A4 F4 . . G4 - - - . .",
+      "D5 . B4 . G4 . B4 D5 . E5 . D5 B4 . . .",
+      "G5 . E5 . D5 . B4 . D5 E5 . . G4 . A4 .",
+      "E5 . . G5 . E5 D5 . B4 . D5 . E5 . . .",
+      "F#5 . D5 . A4 . D5 . E5 . F#5 . A5 - - .",
     ],
-    leadVoice: epiano,
-    bass: "R - - . . . . R . . R - . . . .",
-    bassVoice: softBass,
-    comp: "x - - - - - . . . . x - - - . .",
-    compVoice: epiano,
+    leadVoice: marimba,
+    bass: "R . . R . . O . R . . R . . F .",
+    bassVoice: roundBass,
+    comp: "x - - - - - - - - - - - - - - -",
+    compVoice: warmPad,
     drums: {
-      k: ["x . . . . . . . x . x . . . . ."],
+      k: ["x . . . . . . . x . . . . . . ."],
       s: [". . . . x . . . . . . . x . . ."],
-      h: ["x . x . x . x . x . x . x . x ."],
+      h: ["x x x x x x x x x x x x x x x x"],
     },
     snare: "rim",
-    crackle: true,
+    shaker: true,
   },
   {
     name: "Диско",
@@ -768,11 +780,13 @@ class MusicPlayer {
     if (!fillNow && lane("s")) snare(g, t, 1, st.snare);
     if (lane("c")) snare(g, t, 1, "clap");
     if (lane("r")) snare(g, t, 0.5, "normal"); // ghost notes
-    if (lane("h")) hat(g, t, s % 4 === 0 ? 1 : 0.7);
+    if (lane("h")) {
+      if (st.shaker) noiseHit(g, t, 0.05, s % 4 === 2 ? 0.024 : 0.012, "bandpass", 6500, 1.2);
+      else hat(g, t, s % 4 === 0 ? 1 : 0.7);
+    }
     else if (this.busy && !lane("o")) hat(g, t, 0.45);
     if (lane("o")) hat(g, t, 1, true);
     if (fillNow) tom(g, t, [220, 180, 150, 110][s - 12]!, 1);
-    if (st.crackle && Math.random() < 0.3) noiseHit(g, t + Math.random() * stepLen, 0.006, 0.02 + Math.random() * 0.03, "highpass", 2500);
 
     // a nervous heartbeat when the stack is near the top
     if (this.danger && (s === 0 || s === 3 || s === 8 || s === 11)) {

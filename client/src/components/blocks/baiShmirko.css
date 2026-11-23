@@ -1,10 +1,10 @@
-/* 👴🥃 Бай Шмирко — the Шметрис fan. Transform origins are in the SVG's own units (viewBox 0 0 200 270). */
+/* 👴🦯 Бай Шмирко — the Шметрис fan. Transform origins are in the SVG's own units (viewBox 0 0 220 300). */
 .bs-wrap {
   position: relative;
   width: 100%;
-  max-width: 190px;
+  max-width: 200px;
   margin: 0 auto;
-  aspect-ratio: 200 / 270;
+  aspect-ratio: 220 / 300;
   pointer-events: none;
   --beat: 0.6s;
 }
@@ -17,28 +17,28 @@
   overflow: visible;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
-.bs-all { transform-origin: 100px 250px; }
-.bs-arm-l { transform-origin: 74px 124px; }
-.bs-arm-r { transform-origin: 126px 124px; }
-.bs-glass { transform-origin: 144px 182px; }
-.bs-head { transform-origin: 100px 116px; }
-.bs-cap { transform-origin: 100px 66px; }
-.bs-leg-l { transform-origin: 90px 184px; }
-.bs-leg-r { transform-origin: 110px 184px; }
-.bs-shadow { transform-origin: 100px 252px; transform-box: view-box; }
+.bs-all { transform-origin: 108px 286px; }
+.bs-arm-l { transform-origin: 78px 116px; }
+.bs-arm-r { transform-origin: 130px 116px; }
+.bs-cane { transform-origin: 152px 177px; }
+.bs-head { transform-origin: 104px 108px; }
+.bs-cap { transform-origin: 104px 46px; }
+.bs-leg-l { transform-origin: 90px 180px; }
+.bs-leg-r { transform-origin: 118px 180px; }
+.bs-shadow { transform-origin: 108px 288px; }
 
-/* ── idle: groove to the beat ── */
+/* ── idle: sways with the stick to the beat, taps it on the ground ── */
 .bs-idle .bs-all { animation: bs-bob var(--beat) ease-in-out infinite; }
 .bs-idle .bs-head { animation: bs-nod calc(var(--beat) * 2) ease-in-out infinite; }
-.bs-idle .bs-arm-r { animation: bs-sway calc(var(--beat) * 2) ease-in-out infinite; }
-.bs-idle .bs-arm-l { animation: bs-sway-l calc(var(--beat) * 2) ease-in-out infinite; }
-.bs-idle .bs-leg-r { animation: bs-tap var(--beat) ease-in-out infinite; }
-.bs-idle .bs-blink { animation: bs-blink 4.2s infinite; transform-origin: 100px 84px; }
-@keyframes bs-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px) scaleY(1.01); } }
-@keyframes bs-nod { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
-@keyframes bs-sway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-8deg); } }
-@keyframes bs-sway-l { 0%, 100% { transform: rotate(4deg); } 50% { transform: rotate(-3deg); } }
-@keyframes bs-tap { 0%, 60%, 100% { transform: rotate(0); } 30% { transform: rotate(-8deg) translateY(-2px); } }
+.bs-idle .bs-arm-r { animation: bs-tap-arm var(--beat) ease-in-out infinite; }
+.bs-idle .bs-cane { animation: bs-cane-sway calc(var(--beat) * 2) ease-in-out infinite; }
+.bs-idle .bs-leg-r { animation: bs-foot var(--beat) ease-in-out infinite; }
+.bs-idle .bs-blink { animation: bs-blink 4.2s infinite; transform-origin: 104px 68px; }
+@keyframes bs-bob { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-2px) rotate(-1.5deg); } 50% { transform: translateY(-3px); } 75% { transform: translateY(-2px) rotate(1.5deg); } }
+@keyframes bs-nod { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes bs-tap-arm { 0%, 55%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg); } }
+@keyframes bs-cane-sway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-9deg); } }
+@keyframes bs-foot { 0%, 60%, 100% { transform: rotate(0); } 30% { transform: rotate(-7deg) translateY(-2px); } }
 @keyframes bs-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
 
 .bs-notes text { opacity: 0; animation: bs-note 2.4s ease-out infinite; }
@@ -49,18 +49,7 @@
   100% { opacity: 0; transform: translateY(-40px) translateX(6px); }
 }
 
-/* ── arms up with the glass (glass counter-rotates so the rakia stays in) ── */
-@keyframes bs-raise-r { 0% { transform: rotate(0); } 18%, 85% { transform: rotate(-125deg); } 100% { transform: rotate(0); } }
-@keyframes bs-raise-r-glass { 0% { transform: rotate(0); } 18%, 85% { transform: rotate(125deg); } 100% { transform: rotate(0); } }
-@keyframes bs-wave-l {
-  0% { transform: rotate(0); }
-  15% { transform: rotate(130deg); }
-  30% { transform: rotate(100deg); }
-  45% { transform: rotate(130deg); }
-  60% { transform: rotate(100deg); }
-  75% { transform: rotate(130deg); }
-  100% { transform: rotate(0); }
-}
+/* ── c1 "Браво, машина!": jumps, shakes the stick high in the air, waves ── */
 @keyframes bs-jump {
   0% { transform: translateY(0); }
   10% { transform: translateY(3px) scaleY(0.94); }
@@ -70,14 +59,32 @@
   75%, 100% { transform: translateY(0); }
 }
 @keyframes bs-shadow-jump { 0%, 75%, 100% { transform: scale(1); opacity: 0.35; } 30% { transform: scale(0.65); opacity: 0.18; } 62% { transform: scale(0.85); } }
-
+@keyframes bs-stick-up {
+  0% { transform: rotate(0); }
+  16% { transform: rotate(-150deg); }
+  26% { transform: rotate(-132deg); }
+  36% { transform: rotate(-152deg); }
+  46% { transform: rotate(-132deg); }
+  56% { transform: rotate(-152deg); }
+  66% { transform: rotate(-132deg); }
+  85% { transform: rotate(-145deg); }
+  100% { transform: rotate(0); }
+}
+@keyframes bs-wave-l {
+  0% { transform: rotate(0); }
+  15% { transform: rotate(140deg); }
+  30% { transform: rotate(110deg); }
+  45% { transform: rotate(140deg); }
+  60% { transform: rotate(110deg); }
+  75% { transform: rotate(140deg); }
+  100% { transform: rotate(0); }
+}
 .bs-c1 .bs-all { animation: bs-jump 1.2s ease-out both; }
 .bs-c1 .bs-shadow { animation: bs-shadow-jump 1.2s ease-out both; }
-.bs-c1 .bs-arm-r { animation: bs-raise-r 1.4s ease-in-out both; }
-.bs-c1 .bs-glass { animation: bs-raise-r-glass 1.4s ease-in-out both; }
+.bs-c1 .bs-arm-r { animation: bs-stick-up 1.4s ease-in-out both; }
 .bs-c1 .bs-arm-l { animation: bs-wave-l 1.4s ease-in-out both; }
 
-/* ── c2: dance ── */
+/* ── c2 "Супер комбо, батка!": dances and twirls the stick ── */
 @keyframes bs-dance {
   0%, 100% { transform: translateX(0) rotate(0); }
   25% { transform: translateX(-9px) translateY(-6px) rotate(-7deg); }
@@ -86,77 +93,96 @@
 }
 @keyframes bs-kick-l { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(22deg); } }
 @keyframes bs-kick-r { 0%, 50%, 100% { transform: rotate(0); } 75% { transform: rotate(-22deg); } }
-@keyframes bs-both-l { 0%, 100% { transform: rotate(118deg); } 50% { transform: rotate(140deg); } }
-@keyframes bs-both-r { 0%, 100% { transform: rotate(-118deg); } 50% { transform: rotate(-140deg); } }
-@keyframes bs-both-r-glass { 0%, 100% { transform: rotate(118deg); } 50% { transform: rotate(140deg); } }
-@keyframes bs-head-bop { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
-
+@keyframes bs-twirl-arm { 0%, 100% { transform: rotate(-70deg); } 50% { transform: rotate(-80deg); } }
+@keyframes bs-twirl { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
+@keyframes bs-both-l { 0%, 100% { transform: rotate(128deg); } 50% { transform: rotate(150deg); } }
+@keyframes bs-head-bop { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 .bs-c2 .bs-all { animation: bs-dance 0.5s ease-in-out 3; }
 .bs-c2 .bs-leg-l { animation: bs-kick-l 0.5s ease-in-out 3; }
 .bs-c2 .bs-leg-r { animation: bs-kick-r 0.5s ease-in-out 3; }
+.bs-c2 .bs-arm-r { animation: bs-twirl-arm 0.25s ease-in-out 6; }
+.bs-c2 .bs-cane { animation: bs-twirl 0.375s linear 4; }
 .bs-c2 .bs-arm-l { animation: bs-both-l 0.25s ease-in-out 6; }
-.bs-c2 .bs-arm-r { animation: bs-both-r 0.25s ease-in-out 6; }
-.bs-c2 .bs-glass { animation: bs-both-r-glass 0.25s ease-in-out 6; }
 .bs-c2 .bs-head { animation: bs-head-bop 0.25s ease-in-out 6; }
 
-/* ── c3: a flip, the cap flies off ── */
+/* ── c3 "ГигаЧад!": a backflip, the hat flies off, stick held high ── */
 @keyframes bs-flip {
   0% { transform: translateY(0) rotate(0); }
   12% { transform: translateY(4px) scaleY(0.9) rotate(0); }
-  30% { transform: translateY(-48px) rotate(-90deg); }
-  50% { transform: translateY(-62px) rotate(-260deg); }
+  30% { transform: translateY(-50px) rotate(-90deg); }
+  50% { transform: translateY(-64px) rotate(-260deg); }
   68% { transform: translateY(-20px) rotate(-360deg); }
   78% { transform: translateY(2px) scaleY(0.93) rotate(-360deg); }
   88%, 100% { transform: translateY(0) rotate(-360deg); }
 }
 @keyframes bs-cap-fly {
   0%, 15% { transform: translateY(0) rotate(0); }
-  45% { transform: translateY(-46px) rotate(-30deg); }
+  45% { transform: translateY(-50px) rotate(-30deg); }
   70% { transform: translateY(-8px) rotate(8deg); }
   80%, 100% { transform: translateY(0) rotate(0); }
 }
 @keyframes bs-shadow-flip { 0%, 88%, 100% { transform: scale(1); opacity: 0.35; } 50% { transform: scale(0.5); opacity: 0.12; } }
-.bs-c3 .bs-all { transform-origin: 100px 160px; animation: bs-flip 1.6s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+@keyframes bs-both-r { 0%, 100% { transform: rotate(-140deg); } 50% { transform: rotate(-155deg); } }
+@keyframes bs-chad-chin { 0%, 70%, 100% { transform: rotate(0); } 85% { transform: rotate(-10deg) translateY(-2px); } }
+.bs-c3 .bs-all { transform-origin: 104px 170px; animation: bs-flip 1.6s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
 .bs-c3 .bs-shadow { animation: bs-shadow-flip 1.6s ease both; }
 .bs-c3 .bs-cap { animation: bs-cap-fly 1.6s ease both; }
 .bs-c3 .bs-arm-l { animation: bs-both-l 0.3s ease-in-out 6; }
 .bs-c3 .bs-arm-r { animation: bs-both-r 0.3s ease-in-out 6; }
-.bs-c3 .bs-glass { animation: bs-both-r-glass 0.3s ease-in-out 6; }
+.bs-c3 .bs-head { animation: bs-chad-chin 1.8s ease both; }
 
-/* ── c4: goes completely crazy ── */
-@keyframes bs-crazy {
-  0% { transform: translateY(0) rotate(0) scale(1); }
-  8% { transform: translateY(5px) scaleY(0.88); }
-  22% { transform: translateY(-58px) rotate(-200deg) scale(1.08); }
-  36% { transform: translateY(-70px) rotate(-400deg) scale(1.12); }
-  48% { transform: translateY(-10px) rotate(-720deg) scale(1.05); }
-  54% { transform: translateY(3px) scaleY(0.9) rotate(-720deg); }
-  60% { transform: translateY(-30px) rotate(-720deg) scale(1.1); }
-  66% { transform: translateY(0) rotate(-720deg) scale(1); }
-  70% { transform: translateX(-6px) rotate(-726deg); }
-  74% { transform: translateX(6px) rotate(-714deg); }
-  78% { transform: translateX(-6px) rotate(-726deg); }
-  82% { transform: translateX(6px) rotate(-714deg); }
-  86%, 100% { transform: translateX(0) rotate(-720deg); }
+/* ── c4 "Баси ръките, чуек!": spin jump, then an air-guitar solo on the stick with head-banging ── */
+@keyframes bs-c4-all {
+  0% { transform: translateY(0) rotate(0); }
+  7% { transform: translateY(5px) scaleY(0.88); }
+  20% { transform: translateY(-62px) rotate(-200deg) scale(1.08); }
+  30% { transform: translateY(-4px) rotate(-360deg); }
+  34% { transform: translateY(3px) scaleY(0.92) rotate(-360deg); }
+  42% { transform: translateY(-10px) rotate(-362deg); }
+  50% { transform: translateY(0) rotate(-358deg); }
+  58% { transform: translateY(-10px) rotate(-362deg); }
+  66% { transform: translateY(0) rotate(-358deg); }
+  74% { transform: translateY(-10px) rotate(-362deg); }
+  82% { transform: translateY(0) rotate(-358deg); }
+  90% { transform: translateY(-8px) rotate(-360deg); }
+  100% { transform: translateY(0) rotate(-360deg); }
 }
-@keyframes bs-windmill-l { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-@keyframes bs-windmill-r { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
-@keyframes bs-windmill-glass { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes bs-c4-arm-r { 0% { transform: rotate(0); } 10%, 28% { transform: rotate(-150deg); } 34%, 94% { transform: rotate(-38deg); } 100% { transform: rotate(0); } }
+@keyframes bs-c4-cane { 0%, 28% { transform: rotate(0); } 34%, 94% { transform: rotate(150deg); } 100% { transform: rotate(0); } }
+@keyframes bs-c4-strum {
+  0% { transform: rotate(0); }
+  10%, 28% { transform: rotate(150deg); }
+  34% { transform: rotate(-22deg); }
+  38% { transform: rotate(-42deg); } 42% { transform: rotate(-22deg); } 46% { transform: rotate(-42deg); }
+  50% { transform: rotate(-22deg); } 54% { transform: rotate(-42deg); } 58% { transform: rotate(-22deg); }
+  62% { transform: rotate(-42deg); } 66% { transform: rotate(-22deg); } 70% { transform: rotate(-42deg); }
+  74% { transform: rotate(-22deg); } 78% { transform: rotate(-42deg); } 82% { transform: rotate(-22deg); }
+  86% { transform: rotate(-42deg); } 90% { transform: rotate(-22deg); }
+  100% { transform: rotate(0); }
+}
+@keyframes bs-headbang {
+  0%, 30% { transform: rotate(0); }
+  36% { transform: rotate(16deg); } 42% { transform: rotate(-6deg); } 48% { transform: rotate(16deg); }
+  54% { transform: rotate(-6deg); } 60% { transform: rotate(16deg); } 66% { transform: rotate(-6deg); }
+  72% { transform: rotate(16deg); } 78% { transform: rotate(-6deg); } 84% { transform: rotate(16deg); }
+  90% { transform: rotate(-6deg); }
+  100% { transform: rotate(0); }
+}
 @keyframes bs-cap-launch {
-  0%, 10% { transform: translateY(0) rotate(0); }
-  35% { transform: translateY(-90px) rotate(-200deg); }
-  60% { transform: translateY(-60px) rotate(-340deg); }
-  78% { transform: translateY(-4px) rotate(-360deg); }
-  85%, 100% { transform: translateY(0) rotate(-360deg); }
+  0%, 8% { transform: translateY(0) rotate(0); }
+  22% { transform: translateY(-80px) rotate(-200deg); }
+  32% { transform: translateY(-4px) rotate(-360deg); }
+  100% { transform: translateY(0) rotate(-360deg); }
 }
 @keyframes bs-star-spin { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.25) rotate(20deg); } }
-.bs-c4 .bs-all { transform-origin: 100px 160px; animation: bs-crazy 2.6s ease-in-out both; }
-.bs-c4 .bs-shadow { animation: bs-shadow-flip 2.6s ease both; }
-.bs-c4 .bs-cap { animation: bs-cap-launch 2.6s ease both; }
-.bs-c4 .bs-arm-l { animation: bs-windmill-l 0.45s linear 6; }
-.bs-c4 .bs-arm-r { animation: bs-windmill-r 0.45s linear 6; }
-.bs-c4 .bs-glass { animation: bs-windmill-glass 0.45s linear 6; }
-.bs-c4 .bs-star-eyes { transform-origin: 100px 84px; animation: bs-star-spin 0.4s ease-in-out infinite; }
+.bs-c4 .bs-all { transform-origin: 104px 170px; animation: bs-c4-all 2.9s ease-in-out both; }
+.bs-c4 .bs-shadow { animation: bs-shadow-flip 2.9s ease both; }
+.bs-c4 .bs-cap { animation: bs-cap-launch 2.9s ease both; }
+.bs-c4 .bs-arm-r { animation: bs-c4-arm-r 2.9s ease-in-out both; }
+.bs-c4 .bs-cane { animation: bs-c4-cane 2.9s ease-in-out both; }
+.bs-c4 .bs-arm-l { animation: bs-c4-strum 2.9s linear both; }
+.bs-c4 .bs-head { animation: bs-headbang 2.9s ease-in-out both; }
+.bs-c4 .bs-star-eyes { transform-origin: 104px 68px; animation: bs-star-spin 0.4s ease-in-out infinite; }
 .bs-c4 .bs-svg { filter: drop-shadow(0 0 14px rgba(255, 212, 59, 0.7)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45)); }
 
 .bs-aura {
@@ -168,7 +194,7 @@
     repeating-conic-gradient(from 0deg, rgba(255, 212, 59, 0.28) 0 12deg, transparent 12deg 24deg),
     radial-gradient(circle, rgba(255, 212, 59, 0.45), transparent 65%);
   mask-image: radial-gradient(circle, #000 35%, transparent 70%);
-  animation: bs-aura 2.8s ease-out both;
+  animation: bs-aura 3s ease-out both;
 }
 @keyframes bs-aura {
   0% { opacity: 0; transform: scale(0.3) rotate(0); }
@@ -177,29 +203,22 @@
   100% { opacity: 0; transform: scale(1.2) rotate(110deg); }
 }
 
-/* ── danger: trembling, sweating, eyes darting ── */
-@keyframes bs-tremble { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-1.4px); } 75% { transform: translateX(1.4px); } }
+/* ── danger: leans on the stick, trembles, sweats ── */
+@keyframes bs-tremble { 0%, 100% { transform: rotate(3deg) translateX(0); } 25% { transform: rotate(3deg) translateX(-1.4px); } 75% { transform: rotate(3deg) translateX(1.4px); } }
 @keyframes bs-sweat-drop { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(26px); } }
-@keyframes bs-dart { 0%, 40% { transform: translateX(-2.5px); } 50%, 90% { transform: translateX(2.5px); } 100% { transform: translateX(-2.5px); } }
-@keyframes bs-fret-l { 0%, 100% { transform: rotate(36deg); } 50% { transform: rotate(44deg); } }
-@keyframes bs-fret-r { 0%, 100% { transform: rotate(-36deg); } 50% { transform: rotate(-44deg); } }
-@keyframes bs-fret-glass { 0%, 100% { transform: rotate(36deg); } 50% { transform: rotate(44deg); } }
+@keyframes bs-dart { 0%, 40% { transform: translateX(-2px); } 50%, 90% { transform: translateX(2px); } 100% { transform: translateX(-2px); } }
+@keyframes bs-fret-l { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(-14deg); } }
 .bs-danger .bs-all { animation: bs-tremble 0.14s linear infinite; }
 .bs-danger .bs-arm-l { animation: bs-fret-l 0.3s ease-in-out infinite; }
-.bs-danger .bs-arm-r { animation: bs-fret-r 0.3s ease-in-out infinite; }
-.bs-danger .bs-glass { animation: bs-fret-glass 0.3s ease-in-out infinite; }
 .bs-danger .bs-pupil { animation: bs-dart 1.1s steps(1) infinite; }
 .bs-danger .bs-sweat { animation: bs-sweat-drop 1.1s ease-in infinite; }
 .bs-danger .bs-sweat.s2 { animation-delay: 0.55s; }
 
-/* ── sad: slumps, cap tilts, a tear ── */
-.bs-sad .bs-all { transform: translateY(5px) scaleY(0.97); transition: transform 0.6s; }
-.bs-sad .bs-head { transform: rotate(9deg) translateY(4px); transition: transform 0.6s; }
-.bs-sad .bs-cap { transform: rotate(-10deg) translateY(4px); transition: transform 0.6s; }
-.bs-sad .bs-arm-l { transform: rotate(-6deg); }
-.bs-sad .bs-arm-r { transform: rotate(6deg); }
-.bs-sad .bs-glass { transform: rotate(-70deg); } /* empty glass hangs down */
-.bs-sad .bs-rakia { opacity: 0; }
+/* ── sad: slumps on the stick, hat tilts, a tear ── */
+.bs-sad .bs-all { transform: translateY(5px) rotate(3deg); transition: transform 0.6s; }
+.bs-sad .bs-head { transform: rotate(14deg) translateY(4px); transition: transform 0.6s; }
+.bs-sad .bs-cap { transform: rotate(-12deg) translateY(4px); transition: transform 0.6s; }
+.bs-sad .bs-arm-l { transform: rotate(-14deg); transition: transform 0.6s; }
 @keyframes bs-tear { 0% { opacity: 0; transform: translateY(0); } 25% { opacity: 1; } 100% { opacity: 0; transform: translateY(18px); } }
 .bs-sad .bs-tear { animation: bs-tear 1.6s ease-in infinite; }
 
@@ -208,7 +227,7 @@
   position: absolute;
   z-index: 3;
   left: 50%;
-  top: -6%;
+  top: -4%;
   transform: translate(-50%, -100%);
   white-space: nowrap;
   width: max-content;
@@ -232,15 +251,19 @@
   border-top-color: #fffbea;
 }
 .bs-bubble.huge {
-  font-size: 15px;
-  letter-spacing: 0.3px;
+  white-space: normal;
+  width: 178px;
+  font-size: 12px;
+  line-height: 1.15;
+  letter-spacing: 0;
+  padding: 5px 7px;
   background: linear-gradient(135deg, #ffd43b, #ff8a3d);
   color: #3a1600;
   animation: bs-pop 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) both, bs-huge 0.5s ease-in-out 0.35s infinite;
 }
 .bs-bubble.huge::after { border-top-color: #ff9c3d; }
 @keyframes bs-pop { 0% { opacity: 0; transform: translate(-50%, -80%) scale(0.4); } 100% { opacity: 1; transform: translate(-50%, -100%) scale(1); } }
-@keyframes bs-huge { 0%, 100% { transform: translate(-50%, -100%) rotate(-3deg) scale(1); } 50% { transform: translate(-50%, -100%) rotate(3deg) scale(1.08); } }
+@keyframes bs-huge { 0%, 100% { transform: translate(-50%, -100%) rotate(-3deg) scale(1); } 50% { transform: translate(-50%, -100%) rotate(3deg) scale(1.06); } }
 
 /* ── confetti + fireworks ── */
 .bs-confetti {

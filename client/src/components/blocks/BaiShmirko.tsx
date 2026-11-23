@@ -3,36 +3,21 @@ import { tr } from "../../i18n";
 import "./baiShmirko.css";
 
 /**
- * 👴🥃 Бай Шмирко — our own cartoon fan next to the Шметрис well. He taps along to the music,
- * cheers when lines go (more lines → wilder: wave → dance → flip with confetti → goes crazy with
- * fireworks), sweats when the stack gets close to the top and is sad when the game is over.
+ * 👴🦯 Бай Шмирко — our own cartoon fan next to the Шметрис well: a tall, lanky, grumpy old
+ * farmer (straw hat, round glasses, big white moustache, checked shirt, denim overalls) with a
+ * walking stick. He taps the stick to the music and cheers when lines go — more lines, wilder:
+ * stick in the air → dance with a stick twirl → a flip (hat flies off) → air guitar on the stick
+ * with fireworks. Sweats when the stack gets high, slumps on the stick when the game is over.
  */
 
 export type ShmirkoMood = "idle" | "c1" | "c2" | "c3" | "c4" | "danger" | "sad";
 
 const LINES: Record<ShmirkoMood, [string, string][]> = {
   idle: [],
-  c1: [
-    ["Браво бе!", "Nice one!"],
-    ["Ай наздраве!", "Cheers!"],
-    ["Така, така!", "That's it!"],
-    ["Опааа!", "Oh yeah!"],
-  ],
-  c2: [
-    ["Ееее, майсторе!", "Whoa, master!"],
-    ["Два наведнъж!", "Two at once!"],
-    ["Ох, че хубаво!", "Oh, that's nice!"],
-  ],
-  c3: [
-    ["Три?! Ти си звяр!", "Three?! You beast!"],
-    ["Наздраве за това!", "A toast to that!"],
-    ["Ехааа!", "Yeehaw!"],
-  ],
-  c4: [
-    ["ШМЕТРИС!!!", "SHMETRIS!!!"],
-    ["Четири! Хоро!", "Four! Let's dance!"],
-    ["Ракия за всички!", "Drinks on me!"],
-  ],
+  c1: [["Браво, машина!", "Bravo, machine!"]],
+  c2: [["Супер комбо, батка!", "Super combo, bro!"]],
+  c3: [["ГигаЧад!", "GigaChad!"]],
+  c4: [["Баси ръките, чуек! Туй мойте ръки ли са?!", "What hands, man! Are these MY hands?!"]],
   danger: [
     ["Ох, ох… внимавай!", "Oh no… careful!"],
     ["Леле, стига до горе!", "It's nearly at the top!"],
@@ -41,14 +26,13 @@ const LINES: Record<ShmirkoMood, [string, string][]> = {
   sad: [
     ["Е, нищо… пак!", "Oh well… again!"],
     ["Следващия път!", "Next time!"],
-    ["Ох, заболя ме…", "Ouch, that hurt…"],
+    ["Ох, кръстът ми…", "Oh, my back…"],
   ],
 };
 
 const CONFETTI = ["#ff5d8f", "#4dabf7", "#ffa94d", "#ffd43b", "#b197fc", "#38d9a9", "#ff6b6b"];
 
 export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood; cheerKey: number; beat: number }) {
-  // A speech bubble for every cheer, and when worry / game over starts.
   const [say, setSay] = useState<string | null>(null);
   useEffect(() => {
     const list = LINES[mood];
@@ -58,7 +42,7 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
     }
     const [bg, en] = list[Math.floor(Math.random() * list.length)]!;
     setSay(tr(bg, en));
-    const t = setTimeout(() => setSay(null), mood === "danger" || mood === "sad" ? 2600 : 1800);
+    const t = setTimeout(() => setSay(null), mood === "c4" ? 3000 : mood === "danger" || mood === "sad" ? 2600 : 1800);
     return () => clearTimeout(t);
   }, [mood, cheerKey]);
 
@@ -90,6 +74,7 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
   );
 
   const happy = mood.startsWith("c");
+  const worried = mood === "danger" || mood === "sad";
   return (
     <div className={`bs-wrap bs-${mood}`} style={{ ["--beat" as string]: `${beat}s` }} aria-hidden>
       {mood === "c4" && <div className="bs-aura" key={`a${cheerKey}`} />}
@@ -98,231 +83,249 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
           {say}
         </div>
       )}
-      <svg key={`s${cheerKey}`} className="bs-svg" viewBox="0 0 200 270" role="img">
+      <svg key={`s${cheerKey}`} className="bs-svg" viewBox="0 0 220 300" role="img">
         <defs>
-          <radialGradient id="bsSkin" cx="45%" cy="38%" r="70%">
-            <stop offset="0%" stopColor="#ffdcc0" />
-            <stop offset="60%" stopColor="#f3b98f" />
-            <stop offset="100%" stopColor="#d68d66" />
+          <radialGradient id="bsSkin" cx="45%" cy="35%" r="75%">
+            <stop offset="0%" stopColor="#ffe0c6" />
+            <stop offset="60%" stopColor="#f1b88f" />
+            <stop offset="100%" stopColor="#cf8a62" />
+          </radialGradient>
+          <radialGradient id="bsNose" cx="38%" cy="30%" r="75%">
+            <stop offset="0%" stopColor="#ffb7a3" />
+            <stop offset="55%" stopColor="#e6806a" />
+            <stop offset="100%" stopColor="#b9523f" />
           </radialGradient>
           <radialGradient id="bsCheek" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#ff6f6f" stopOpacity="0.7" />
+            <stop offset="0%" stopColor="#ff6f6f" stopOpacity="0.55" />
             <stop offset="100%" stopColor="#ff6f6f" stopOpacity="0" />
           </radialGradient>
-          <radialGradient id="bsNose" cx="38%" cy="32%" r="70%">
-            <stop offset="0%" stopColor="#ffb4a0" />
-            <stop offset="55%" stopColor="#e8836b" />
-            <stop offset="100%" stopColor="#c45d4a" />
-          </radialGradient>
-          <linearGradient id="bsJacket" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#7a6450" />
-            <stop offset="100%" stopColor="#4b3c2f" />
+          <linearGradient id="bsDenim" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#5f8fd0" />
+            <stop offset="100%" stopColor="#2f568f" />
           </linearGradient>
-          <linearGradient id="bsTrousers" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#4a4f58" />
-            <stop offset="100%" stopColor="#2f333a" />
+          <linearGradient id="bsDenimDark" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#3d679f" />
+            <stop offset="100%" stopColor="#264673" />
           </linearGradient>
-          <linearGradient id="bsCap" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="bsCapGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#8d9299" />
             <stop offset="100%" stopColor="#5a5f67" />
-          </linearGradient>
-          <linearGradient id="bsRakia" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#ffd77a" />
-            <stop offset="100%" stopColor="#e29a28" />
           </linearGradient>
           <pattern id="bsTweed" width="5" height="5" patternUnits="userSpaceOnUse">
             <rect width="5" height="5" fill="none" />
             <circle cx="1" cy="1" r="0.6" fill="#fff" opacity="0.13" />
             <circle cx="3.5" cy="3.2" r="0.5" fill="#000" opacity="0.15" />
           </pattern>
-          <pattern id="bsStripes" width="6" height="6" patternUnits="userSpaceOnUse">
-            <rect width="6" height="6" fill="#f1ede4" />
-            <rect width="6" height="3" fill="#2c3e66" />
+          <linearGradient id="bsWood" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#8a5a33" />
+            <stop offset="45%" stopColor="#c58a54" />
+            <stop offset="100%" stopColor="#6b4223" />
+          </linearGradient>
+          <linearGradient id="bsBoot" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#7a4e2c" />
+            <stop offset="100%" stopColor="#4a2d17" />
+          </linearGradient>
+          {/* red–black checked flannel */}
+          <pattern id="bsPlaid" width="12" height="12" patternUnits="userSpaceOnUse">
+            <rect width="12" height="12" fill="#c23b30" />
+            <rect width="12" height="4" y="4" fill="#7e1f1a" opacity="0.85" />
+            <rect width="4" height="12" x="4" fill="#7e1f1a" opacity="0.7" />
+            <rect width="12" height="1" y="10" fill="#f2c94c" opacity="0.5" />
+            <rect width="1" height="12" x="10" fill="#f2c94c" opacity="0.4" />
+          </pattern>
+          <pattern id="bsDenimTex" width="4" height="4" patternUnits="userSpaceOnUse">
+            <rect width="4" height="4" fill="none" />
+            <path d="M0 4 L4 0" stroke="#fff" strokeWidth="0.4" opacity="0.12" />
           </pattern>
         </defs>
 
-        {/* shadow on the ground (stays put when he jumps) */}
-        <ellipse className="bs-shadow" cx="100" cy="252" rx="50" ry="7" fill="#000" opacity="0.35" />
+        <ellipse className="bs-shadow" cx="108" cy="288" rx="60" ry="7" fill="#000" opacity="0.35" />
 
         <g className="bs-all">
-          {/* legs */}
+          {/* legs: wide denim trousers, knees a bit bent, work boots */}
           <g className="bs-leg bs-leg-l">
-            <path d="M82 182 L80 236 Q80 240 84 240 L96 240 Q99 240 98 236 L99 182 Z" fill="url(#bsTrousers)" />
-            <path d="M74 238 Q71 250 84 250 L100 250 Q104 250 102 243 L99 236 Z" fill="#2a1d16" />
-            <path d="M78 243 Q82 240 90 241" stroke="#6b5040" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+            <path d="M80 176 Q74 226 70 272 L96 272 Q97 228 103 180 Z" fill="url(#bsDenim)" />
+            <path d="M80 176 Q74 226 70 272 L96 272 Q97 228 103 180 Z" fill="url(#bsDenimTex)" />
+            <path d="M88 186 Q84 230 83 270" stroke="#f2c94c" strokeWidth="0.9" strokeDasharray="2.5 2" fill="none" opacity="0.7" />
+            <path d="M70 268 L97 268 L98 274 L69 274 Z" fill="#264673" />
+            <path d="M64 272 Q58 286 72 288 L102 288 Q107 287 103 279 L98 272 Z" fill="url(#bsBoot)" />
+            <path d="M70 284 L103 284" stroke="#2b1a0d" strokeWidth="3" />
+            <path d="M80 276 L88 276 M79 279.5 L89 279.5" stroke="#e8d2a6" strokeWidth="1" />
           </g>
           <g className="bs-leg bs-leg-r">
-            <path d="M118 182 L120 236 Q120 240 116 240 L104 240 Q101 240 102 236 L101 182 Z" fill="url(#bsTrousers)" />
-            <path d="M126 238 Q129 250 116 250 L100 250 Q96 250 98 243 L101 236 Z" fill="#2a1d16" />
-            <path d="M122 243 Q118 240 110 241" stroke="#6b5040" strokeWidth="1.6" fill="none" strokeLinecap="round" />
+            <path d="M106 180 Q114 228 116 272 L142 272 Q136 226 128 176 Z" fill="url(#bsDenim)" />
+            <path d="M106 180 Q114 228 116 272 L142 272 Q136 226 128 176 Z" fill="url(#bsDenimTex)" />
+            <path d="M120 186 Q126 230 129 270" stroke="#f2c94c" strokeWidth="0.9" strokeDasharray="2.5 2" fill="none" opacity="0.7" />
+            <path d="M115 268 L143 268 L144 274 L114 274 Z" fill="#264673" />
+            <path d="M113 272 L145 272 Q156 282 150 288 L118 288 Q110 287 113 272 Z" fill="url(#bsBoot)" />
+            <path d="M113 284 L152 284" stroke="#2b1a0d" strokeWidth="3" />
+            <path d="M124 276 L133 276 M123 279.5 L134 279.5" stroke="#e8d2a6" strokeWidth="1" />
           </g>
 
-          {/* left arm (waving) */}
+          {/* left arm: hand on the hip (waves / strums when cheering) */}
           <g className="bs-arm bs-arm-l">
-            <path d="M74 120 Q56 126 52 150 L47 172 Q46 180 54 181 L61 181 Q66 180 66 174 L70 152 Q72 140 82 134 Z" fill="url(#bsJacket)" />
-            <path d="M74 120 Q56 126 52 150 L47 172 Q46 180 54 181 L61 181 Q66 180 66 174 L70 152 Q72 140 82 134 Z" fill="url(#bsTweed)" />
-            <path d="M47 174 Q55 178 66 175" stroke="#3a2e24" strokeWidth="3" fill="none" />
-            <circle cx="56" cy="187" r="9" fill="url(#bsSkin)" stroke="#b97a58" strokeWidth="1" />
-            <path d="M50 184 Q49 189 52 192 M55 185 Q54 191 57 194" stroke="#b97a58" strokeWidth="1.1" fill="none" strokeLinecap="round" />
+            <path d="M78 116 L58 150" stroke="url(#bsPlaid)" strokeWidth="14" strokeLinecap="round" />
+            <circle cx="58" cy="150" r="7.5" fill="#9e2b23" />
+            <path d="M58 150 L80 174" stroke="#e9ac82" strokeWidth="8.5" strokeLinecap="round" />
+            <ellipse cx="82" cy="176" rx="7" ry="6" fill="url(#bsSkin)" stroke="#b8774f" strokeWidth="1" />
           </g>
 
-          {/* body */}
+          {/* body: shirt + overall bib + straps */}
           <g className="bs-body">
-            <path d="M84 114 L100 152 L116 114 Z" fill="url(#bsStripes)" />
-            <path
-              d="M66 124 Q72 112 86 112 L100 152 L114 112 Q128 112 134 124 Q148 152 139 188 Q120 197 100 197 Q80 197 61 188 Q52 152 66 124 Z"
-              fill="url(#bsJacket)"
-            />
-            <path
-              d="M66 124 Q72 112 86 112 L100 152 L114 112 Q128 112 134 124 Q148 152 139 188 Q120 197 100 197 Q80 197 61 188 Q52 152 66 124 Z"
-              fill="url(#bsTweed)"
-            />
-            <path d="M86 112 L100 152 L91 130 L79 124 Z" fill="#3e3127" />
-            <path d="M114 112 L100 152 L109 130 L121 124 Z" fill="#3e3127" />
-            <circle cx="100" cy="164" r="2.8" fill="#2b2119" />
-            <circle cx="100" cy="180" r="2.8" fill="#2b2119" />
-            {/* breast pocket with a red handkerchief */}
-            <path d="M113 140 L127 140 L126 147 L114 147 Z" fill="#3e3127" />
-            <path d="M115 140 L118 134 L121 139 L124 133 L126 140 Z" fill="#d63a3a" />
-            <path d="M62 186 Q100 200 139 186" stroke="#3a2e24" strokeWidth="1.5" fill="none" opacity="0.6" />
+            <path d="M74 112 Q104 100 134 112 L136 182 L72 182 Z" fill="url(#bsPlaid)" />
+            <path d="M96 104 L104 120 L112 104 Z" fill="#f4e7d0" />
+            <path d="M84 128 L124 128 L129 186 L79 186 Z" fill="url(#bsDenim)" />
+            <path d="M84 128 L124 128 L129 186 L79 186 Z" fill="url(#bsDenimTex)" />
+            <path d="M94 138 L114 138 L113 154 L95 154 Z" fill="url(#bsDenimDark)" />
+            <path d="M94 138 L114 138" stroke="#f2c94c" strokeWidth="0.9" strokeDasharray="2 1.6" />
+            <path d="M100 138 L100 128" stroke="#7a4e2c" strokeWidth="2.5" />
+            <path d="M84 128 L79 110 L88 108 L91 128 Z" fill="url(#bsDenimDark)" />
+            <path d="M124 128 L129 110 L120 108 L117 128 Z" fill="url(#bsDenimDark)" />
+            <circle cx="88" cy="131" r="3.4" fill="#f2c94c" stroke="#a37a16" strokeWidth="1" />
+            <circle cx="120" cy="131" r="3.4" fill="#f2c94c" stroke="#a37a16" strokeWidth="1" />
+            <path d="M78 182 L130 182 L131 190 L77 190 Z" fill="#264673" />
           </g>
 
-          {/* right arm with the glass */}
+          {/* right arm with the walking stick */}
           <g className="bs-arm bs-arm-r">
-            <path d="M126 120 Q144 126 148 150 L153 172 Q154 180 146 181 L139 181 Q134 180 134 174 L130 152 Q128 140 118 134 Z" fill="url(#bsJacket)" />
-            <path d="M126 120 Q144 126 148 150 L153 172 Q154 180 146 181 L139 181 Q134 180 134 174 L130 152 Q128 140 118 134 Z" fill="url(#bsTweed)" />
-            <path d="M153 174 Q145 178 134 175" stroke="#3a2e24" strokeWidth="3" fill="none" />
-            <g className="bs-glass">
-              <path d="M136 160 L152 160 L150 182 L138 182 Z" fill="rgba(220,240,255,0.35)" stroke="rgba(255,255,255,0.85)" strokeWidth="1.3" />
-              <path className="bs-rakia" d="M137.3 166 L150.7 166 L149.4 181 L138.6 181 Z" fill="url(#bsRakia)" />
-              <path d="M139 162 L140 179" stroke="#fff" strokeWidth="1.2" opacity="0.7" strokeLinecap="round" />
+            <path d="M130 116 L146 148" stroke="url(#bsPlaid)" strokeWidth="14" strokeLinecap="round" />
+            <circle cx="146" cy="148" r="7.5" fill="#9e2b23" />
+            <path d="M146 148 L152 176" stroke="#e9ac82" strokeWidth="8.5" strokeLinecap="round" />
+            <g className="bs-cane">
+              <path d="M152 176 L158 284" stroke="url(#bsWood)" strokeWidth="6" strokeLinecap="round" />
+              <path d="M152 178 Q148 160 160 158 Q172 158 171 170" stroke="url(#bsWood)" strokeWidth="6" fill="none" strokeLinecap="round" />
+              <path d="M155 200 L156.5 230 M157 245 L158 270" stroke="#e7b47c" strokeWidth="1.2" opacity="0.6" strokeLinecap="round" />
+              <path d="M156 280 L160 280 L160 286 L156 286 Z" fill="#333" />
             </g>
-            <circle cx="144" cy="187" r="9" fill="url(#bsSkin)" stroke="#b97a58" strokeWidth="1" />
-            <path d="M150 184 Q151 189 148 192 M145 185 Q146 191 143 194" stroke="#b97a58" strokeWidth="1.1" fill="none" strokeLinecap="round" />
+            <ellipse cx="152" cy="177" rx="7" ry="6.5" fill="url(#bsSkin)" stroke="#b8774f" strokeWidth="1" />
           </g>
 
-          {/* head */}
+          {/* head: long face leaning forward, round glasses, moustache, straw hat */}
           <g className="bs-head">
-            <rect x="90" y="106" width="20" height="14" rx="5" fill="#e3a47c" />
-            <ellipse cx="62" cy="88" rx="7" ry="10" fill="url(#bsSkin)" stroke="#c7835d" strokeWidth="1" />
-            <ellipse cx="138" cy="88" rx="7" ry="10" fill="url(#bsSkin)" stroke="#c7835d" strokeWidth="1" />
-            <path d="M60 84 Q63 88 61 93 M140 84 Q137 88 139 93" stroke="#c7835d" strokeWidth="1.2" fill="none" />
-            <ellipse cx="100" cy="86" rx="38" ry="36" fill="url(#bsSkin)" />
-            {/* grey sideburns under the cap */}
-            <path d="M63 74 Q62 86 66 94 Q68 84 70 76 Z" fill="#cfc9c0" />
-            <path d="M137 74 Q138 86 134 94 Q132 84 130 76 Z" fill="#cfc9c0" />
-            <ellipse cx="75" cy="99" rx="10" ry="7" fill="url(#bsCheek)" />
-            <ellipse cx="125" cy="99" rx="10" ry="7" fill="url(#bsCheek)" />
+            <path d="M96 92 L112 92 L113 112 L95 112 Z" fill="#e2a37b" />
+            <path d="M101 100 Q104 104 107 100" stroke="#c7835d" strokeWidth="1" fill="none" />
+            <ellipse cx="78" cy="72" rx="6" ry="9" fill="url(#bsSkin)" stroke="#c7835d" strokeWidth="1" />
+            <ellipse cx="130" cy="72" rx="6" ry="9" fill="url(#bsSkin)" stroke="#c7835d" strokeWidth="1" />
+            <path d="M104 40 Q130 40 131 70 Q132 98 104 104 Q77 98 77 70 Q78 40 104 40 Z" fill="url(#bsSkin)" />
+            {/* grey tufts over the ears */}
+            <path d="M78 60 Q72 64 74 74 Q78 68 81 62 Z M130 60 Q136 64 134 74 Q130 68 127 62 Z" fill="#e0dad0" />
+            <ellipse cx="86" cy="84" rx="7" ry="5" fill="url(#bsCheek)" />
+            <ellipse cx="122" cy="84" rx="7" ry="5" fill="url(#bsCheek)" />
 
-            {/* eyes per mood */}
+            {/* eyes per mood (behind the glasses) */}
             {mood === "idle" && (
               <g className="bs-blink">
-                <ellipse cx="86" cy="84" rx="4" ry="5" fill="#2a1d16" />
-                <ellipse cx="114" cy="84" rx="4" ry="5" fill="#2a1d16" />
-                <circle cx="87.5" cy="82" r="1.4" fill="#fff" />
-                <circle cx="115.5" cy="82" r="1.4" fill="#fff" />
+                <ellipse cx="94" cy="68" rx="2.8" ry="3.4" fill="#2a1d16" />
+                <ellipse cx="114" cy="68" rx="2.8" ry="3.4" fill="#2a1d16" />
+                <circle cx="95" cy="66.8" r="1" fill="#fff" />
+                <circle cx="115" cy="66.8" r="1" fill="#fff" />
               </g>
             )}
             {(mood === "c1" || mood === "c2" || mood === "c3") && (
               <g>
-                <path d="M79 86 Q86 77 93 86" stroke="#2a1d16" strokeWidth="3.2" fill="none" strokeLinecap="round" />
-                <path d="M107 86 Q114 77 121 86" stroke="#2a1d16" strokeWidth="3.2" fill="none" strokeLinecap="round" />
-                <path d="M78 90 Q80 92 83 91 M122 90 Q120 92 117 91" stroke="#c7835d" strokeWidth="1" fill="none" />
+                <path d="M89 70 Q94 63 99 70" stroke="#2a1d16" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+                <path d="M109 70 Q114 63 119 70" stroke="#2a1d16" strokeWidth="2.6" fill="none" strokeLinecap="round" />
               </g>
             )}
             {mood === "c4" && (
               <g className="bs-star-eyes">
-                {[86, 114].map((x) => (
+                {[94, 114].map((x) => (
                   <path
                     key={x}
-                    d={`M${x} 75 L${x + 2.6} 81.4 L${x + 9} 82 L${x + 4} 86 L${x + 5.6} 92.4 L${x} 89 L${x - 5.6} 92.4 L${x - 4} 86 L${x - 9} 82 L${x - 2.6} 81.4 Z`}
+                    d={`M${x} 61 L${x + 2} 66 L${x + 7} 66.4 L${x + 3.2} 69.6 L${x + 4.4} 74.6 L${x} 71.8 L${x - 4.4} 74.6 L${x - 3.2} 69.6 L${x - 7} 66.4 L${x - 2} 66 Z`}
                     fill="#ffd43b"
                     stroke="#c78d00"
-                    strokeWidth="1"
+                    strokeWidth="0.8"
                   />
                 ))}
               </g>
             )}
             {mood === "danger" && (
               <g>
-                <circle cx="86" cy="84" r="6.5" fill="#fff" stroke="#2a1d16" strokeWidth="1.2" />
-                <circle cx="114" cy="84" r="6.5" fill="#fff" stroke="#2a1d16" strokeWidth="1.2" />
-                <circle className="bs-pupil" cx="86" cy="85" r="2.8" fill="#2a1d16" />
-                <circle className="bs-pupil" cx="114" cy="85" r="2.8" fill="#2a1d16" />
+                <circle cx="94" cy="68" r="5" fill="#fff" />
+                <circle cx="114" cy="68" r="5" fill="#fff" />
+                <circle className="bs-pupil" cx="94" cy="68.5" r="2.2" fill="#2a1d16" />
+                <circle className="bs-pupil" cx="114" cy="68.5" r="2.2" fill="#2a1d16" />
               </g>
             )}
             {mood === "sad" && (
               <g>
-                <path d="M79 82 Q86 89 93 82" stroke="#2a1d16" strokeWidth="3" fill="none" strokeLinecap="round" />
-                <path d="M107 82 Q114 89 121 82" stroke="#2a1d16" strokeWidth="3" fill="none" strokeLinecap="round" />
-                <path className="bs-tear" d="M84 90 Q81 96 84 99 Q87 96 84 90 Z" fill="#7cc4ff" />
+                <path d="M89 67 Q94 72 99 67" stroke="#2a1d16" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+                <path d="M109 67 Q114 72 119 67" stroke="#2a1d16" strokeWidth="2.4" fill="none" strokeLinecap="round" />
+                <path className="bs-tear" d="M92 74 Q89.5 79 92 81.5 Q94.5 79 92 74 Z" fill="#7cc4ff" />
               </g>
             )}
 
-            {/* bushy eyebrows */}
+            {/* round glasses */}
+            <g className="bs-glasses">
+              <circle cx="94" cy="68" r="8.5" fill="rgba(200,230,255,0.18)" stroke="#2d2a26" strokeWidth="2" />
+              <circle cx="114" cy="68" r="8.5" fill="rgba(200,230,255,0.18)" stroke="#2d2a26" strokeWidth="2" />
+              <path d="M102.5 67 Q104 65 105.5 67" stroke="#2d2a26" strokeWidth="2" fill="none" />
+              <path d="M85.5 67 L79 65 M122.5 67 L129 65" stroke="#2d2a26" strokeWidth="1.6" />
+              <path d="M89 63 Q91 61 94 61" stroke="#fff" strokeWidth="1.3" opacity="0.7" fill="none" strokeLinecap="round" />
+              <path d="M109 63 Q111 61 114 61" stroke="#fff" strokeWidth="1.3" opacity="0.7" fill="none" strokeLinecap="round" />
+            </g>
+
+            {/* grumpy bushy eyebrows (up when happy, slanted when worried) */}
             <path
-              className="bs-brow bs-brow-l"
-              d={mood === "danger" || mood === "sad" ? "M77 74 Q84 72 93 68 Q90 73 78 77 Z" : "M76 73 Q85 66 94 71 Q86 70 77 76 Z"}
-              fill="#d8d2c9"
+              d={happy ? "M84 57 Q93 50 101 56 Q93 55 85 60 Z" : worried ? "M85 58 Q93 56 101 51 Q97 57 86 61 Z" : "M84 54 Q93 57 102 60 Q93 61 85 58 Z"}
+              fill="#e6e0d6"
               stroke="#9a9389"
-              strokeWidth="0.8"
+              strokeWidth="0.7"
             />
             <path
-              className="bs-brow bs-brow-r"
-              d={mood === "danger" || mood === "sad" ? "M123 74 Q116 72 107 68 Q110 73 122 77 Z" : "M124 73 Q115 66 106 71 Q114 70 123 76 Z"}
-              fill="#d8d2c9"
+              d={happy ? "M124 57 Q115 50 107 56 Q115 55 123 60 Z" : worried ? "M123 58 Q115 56 107 51 Q111 57 122 61 Z" : "M124 54 Q115 57 106 60 Q115 61 123 58 Z"}
+              fill="#e6e0d6"
               stroke="#9a9389"
-              strokeWidth="0.8"
+              strokeWidth="0.7"
             />
 
             {/* mouth (under the moustache) */}
-            {mood === "idle" && <path d="M92 116 Q100 121 108 116" stroke="#7a2d22" strokeWidth="2.4" fill="none" strokeLinecap="round" />}
+            {mood === "idle" && <path d="M97 96 Q104 94 111 97" stroke="#7a2d22" strokeWidth="2" fill="none" strokeLinecap="round" />}
             {happy && (
               <g>
-                <path d={mood === "c1" ? "M89 112 Q100 126 111 112 Z" : "M86 111 Q100 132 114 111 Z"} fill="#7a1f1f" />
-                <path d={mood === "c1" ? "M94 119 Q100 124 106 119 Q100 116 94 119 Z" : "M93 122 Q100 129 107 122 Q100 118 93 122 Z"} fill="#e86a6a" />
+                <path d={mood === "c1" ? "M95 92 Q104 104 113 92 Z" : "M93 91 Q104 108 115 91 Z"} fill="#7a1f1f" />
+                <path d={mood === "c1" ? "M99 98 Q104 101 109 98 Q104 96 99 98 Z" : "M98 100 Q104 104 110 100 Q104 97 98 100 Z"} fill="#e86a6a" />
+                <path d="M97 92 L111 92 L110 94.5 L98 94.5 Z" fill="#fff" />
               </g>
             )}
-            {mood === "danger" && <path d="M91 118 Q94 114 97 118 Q100 122 103 118 Q106 114 109 118" stroke="#7a2d22" strokeWidth="2.2" fill="none" strokeLinecap="round" />}
-            {mood === "sad" && <path d="M91 120 Q100 113 109 120" stroke="#7a2d22" strokeWidth="2.4" fill="none" strokeLinecap="round" />}
+            {mood === "danger" && <path d="M96 97 Q99 94 102 97 Q105 100 108 97 Q110 95 112 97" stroke="#7a2d22" strokeWidth="1.8" fill="none" strokeLinecap="round" />}
+            {mood === "sad" && <path d="M97 99 Q104 93 111 99" stroke="#7a2d22" strokeWidth="2" fill="none" strokeLinecap="round" />}
 
-            {/* nose + the big moustache */}
-            <ellipse cx="100" cy="96" rx="10.5" ry="9.5" fill="url(#bsNose)" />
-            <ellipse cx="96.5" cy="92.5" rx="3" ry="2.2" fill="#fff" opacity="0.55" />
+            {/* big nose + droopy white moustache */}
+            <ellipse cx="104" cy="80" rx="9" ry="11" fill="url(#bsNose)" />
+            <ellipse cx="101" cy="75.5" rx="2.6" ry="2.2" fill="#fff" opacity="0.5" />
             <path
-              className="bs-moustache"
-              d="M100 104 Q88 99 77 103 Q65 107 60 99 Q61 113 77 114 Q91 115 100 109 Q109 115 123 114 Q139 113 140 99 Q135 107 123 103 Q112 99 100 104 Z"
-              fill="#ece7e0"
+              d="M104 88 Q94 84 86 88 Q78 92 76 100 Q84 94 90 96 Q99 97 104 92 Q109 97 118 96 Q124 94 132 100 Q130 92 122 88 Q114 84 104 88 Z"
+              fill="#f1ece4"
               stroke="#a8a197"
-              strokeWidth="1"
+              strokeWidth="0.9"
             />
-            <path d="M74 107 Q80 109 86 107 M114 107 Q120 109 126 107" stroke="#c9c2b8" strokeWidth="1" fill="none" />
+            <path d="M86 92 Q92 94 98 92 M110 92 Q116 94 122 92" stroke="#cfc8bd" strokeWidth="0.9" fill="none" />
 
-            {/* sweat when worried */}
             {mood === "danger" && (
               <g>
-                <path className="bs-sweat s1" d="M134 64 Q130 71 134 74 Q138 71 134 64 Z" fill="#8fd3ff" />
-                <path className="bs-sweat s2" d="M66 66 Q62 73 66 76 Q70 73 66 66 Z" fill="#8fd3ff" />
+                <path className="bs-sweat s1" d="M128 48 Q124 55 128 58 Q132 55 128 48 Z" fill="#8fd3ff" />
+                <path className="bs-sweat s2" d="M80 50 Q76 57 80 60 Q84 57 80 50 Z" fill="#8fd3ff" />
               </g>
             )}
 
-            {/* the flat cap */}
+            {/* the flat cap (каскет), grey tweed */}
             <g className="bs-cap">
-              <path d="M60 74 Q56 42 100 38 Q146 40 141 70 Q122 62 100 62 Q78 62 60 74 Z" fill="url(#bsCap)" />
-              <path d="M60 74 Q56 42 100 38 Q146 40 141 70 Q122 62 100 62 Q78 62 60 74 Z" fill="url(#bsTweed)" />
-              <path d="M66 62 Q100 46 136 60" stroke="#4a4f56" strokeWidth="1" strokeDasharray="2.5 2" fill="none" />
-              <path d="M56 72 Q100 54 145 69 Q148 77 139 78 Q100 67 63 80 Q53 78 56 72 Z" fill="#4b5058" />
-              <path d="M60 74 Q100 60 142 72" stroke="#6e737b" strokeWidth="1.2" fill="none" />
-              <circle cx="100" cy="40" r="3.2" fill="#4b5058" />
+              <path d="M75 56 Q70 28 104 24 Q138 26 134 54 Q118 47 104 47 Q89 47 75 56 Z" fill="url(#bsCapGrad)" />
+              <path d="M75 56 Q70 28 104 24 Q138 26 134 54 Q118 47 104 47 Q89 47 75 56 Z" fill="url(#bsTweed)" />
+              <path d="M80 44 Q104 32 128 42" stroke="#4a4f56" strokeWidth="1" strokeDasharray="2.5 2" fill="none" />
+              <path d="M70 55 Q104 38 140 52 Q143 60 134 61 Q104 51 77 63 Q67 61 70 55 Z" fill="#4b5058" />
+              <path d="M74 57 Q104 44 137 55" stroke="#6e737b" strokeWidth="1.2" fill="none" />
+              <circle cx="104" cy="26" r="3" fill="#4b5058" />
             </g>
           </g>
         </g>
 
-        {/* music notes floating up while he grooves */}
         {mood === "idle" && (
           <g className="bs-notes">
-            <text className="n1" x="160" y="80" fontSize="16" fill="var(--accent, #5865f2)">♪</text>
-            <text className="n2" x="28" y="100" fontSize="14" fill="var(--accent, #5865f2)">♫</text>
+            <text className="n1" x="178" y="96" fontSize="16" fill="var(--accent, #5865f2)">♪</text>
+            <text className="n2" x="30" y="112" fontSize="14" fill="var(--accent, #5865f2)">♫</text>
           </g>
         )}
       </svg>
