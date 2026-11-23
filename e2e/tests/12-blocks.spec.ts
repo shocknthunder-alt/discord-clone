@@ -49,7 +49,15 @@ test.describe("🧱 Шметрис", () => {
     await musicBtn.click();
     await expect(a.page.locator(".blk-music input[type=range]")).toBeVisible();
 
-    await expect(a.page.locator(".blk-shmirko .bs-wrap.bs-idle")).toBeVisible();
+    // 🐉 Дракончето: ново яйце, спи докато не играеш; може да се кръсти (остава в браузъра).
+    await expect(a.page.locator(".blk-pet .dr-wrap.dr-sleep.dr-stage-0")).toBeVisible();
+    await expect(a.page.locator(".blk-pet-stage")).toContainText("Яйце");
+    await expect(a.page.locator(".blk-pet-info")).toContainText("още 10 реда до „Бебе“");
+    await a.page.locator(".blk-pet-name").click();
+    await a.page.locator(".blk-pet-input").fill("Пламъчко");
+    await a.page.keyboard.press("Enter");
+    await expect(a.page.locator(".blk-pet-name")).toContainText("Пламъчко");
+    expect(await a.page.evaluate(() => localStorage.getItem("blocksDragonName"))).toBe("Пламъчко");
     await a.page.getByRole("button", { name: /Играй/ }).click();
     await expect(overlay).toHaveCount(0);
     // Запазване на блок (C) → кутийката „Запазен“ вече рисува нещо; стрелки и въртене не чупят нищо.
@@ -74,8 +82,8 @@ test.describe("🧱 Шметрис", () => {
     expect(score).toBeGreaterThan(0); // 2 т. на ред при мигновено пускане
     await expect(a.page.locator(".blk-record")).toContainText("Нов личен рекорд");
     // 👴 Бай Шмирко е тъжен след края на играта (с реплика).
-    await expect(a.page.locator(".blk-shmirko .bs-wrap.bs-sad")).toBeVisible();
-    await expect(a.page.locator(".blk-shmirko .bs-bubble")).toBeVisible();
+    await expect(a.page.locator(".blk-pet .dr-wrap.dr-sad")).toBeVisible();
+    await expect(a.page.locator(".blk-pet .dr-bubble")).toBeVisible();
     await expect(a.page.locator(".blk-top li")).toHaveCount(1);
     await expect(a.page.locator(".blk-top li.me")).toContainText(ana.username);
     await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-over.png" });
@@ -127,12 +135,19 @@ test.describe("🧱 Шметрис", () => {
     await a.page.keyboard.press("Space");
     await expect.poll(async () => Number((await a.page.locator(".blk-score").innerText()).replace(/\D/g, ""))).toBeGreaterThan(Number(score.replace(/\D/g, "")));
 
-    // Снимки на всяко настроение на Бай Шмирко (explore/shmirko-*.png).
+    // Снимки на дракончето: всеки стадий + всяко настроение на „Младо драконче“ (explore/dragon-*.png).
     await a.page.keyboard.press("KeyP");
-    for (const mood of ["idle", "c1", "c2", "c3", "c4", "danger", "sad"]) {
-      await a.page.evaluate((m) => (window as unknown as { __shmirko?: (m: string) => void }).__shmirko?.(m), mood);
-      await a.page.waitForTimeout(mood === "c4" ? 1400 : 500);
-      await a.page.locator(".blk-shmirko").screenshot({ path: `explore/shmirko-${mood}.png` });
+    const dragon = (mood: string, stage: number) =>
+      a.page.evaluate(([m, s]) => (window as unknown as { __dragon?: (m: string, s: number) => void }).__dragon?.(m as string, s as number), [mood, stage] as const);
+    for (const stage of [0, 1, 2, 3, 4, 5]) {
+      await dragon("idle", stage);
+      await a.page.waitForTimeout(400);
+      await a.page.locator(".blk-pet .dr-wrap").screenshot({ path: `explore/dragon-stage${stage}.png` });
+    }
+    for (const mood of ["sleep", "c1", "c2", "c3", "c4", "danger", "sad", "grow"]) {
+      await dragon(mood, 3);
+      await a.page.waitForTimeout(mood === "c4" ? 1400 : mood === "c3" ? 850 : 450);
+      await a.page.locator(".blk-pet .dr-wrap").screenshot({ path: `explore/dragon-${mood}.png` });
     }
     expectNoCrashes(a.page);
     await closeAll(a.context);
@@ -141,10 +156,14 @@ test.describe("🧱 Шметрис", () => {
   test("🎵 всеки музикален стил (нива 1, 3, 5, 7, 9, 11) свири без грешки", async ({ browser }) => {
     const ana = await register("ana");
     const server = await serverWith(ana);
-    await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
+    const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
+    // 60 изчистени реда от по-стари игри → дракончето вече е „Малко драконче“.
+    await api(ana.token, "POST", `/text-channels/${textChannel.id}/blocks/score`, { score: 100, lines: 60, level: 1, durationMs: 600_000 });
     const a = await openAs(browser, ana);
     await openServer(a.page, server.name);
     await openTextChannel(a.page, "шметрис");
+    await expect(a.page.locator(".blk-pet .dr-wrap.dr-stage-2")).toBeVisible();
+    await expect(a.page.locator(".blk-pet-info")).toContainText("още 140 реда до „Младо драконче“");
     for (const level of [1, 3, 5, 7, 9, 11]) {
       await a.page.locator(".blk-level-pick select").selectOption(String(level));
       await a.page.getByRole("button", { name: /Играй|Нова игра/ }).click();

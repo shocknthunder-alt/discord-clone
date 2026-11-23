@@ -329,9 +329,60 @@
   cursor: pointer;
 }
 
-/* Бай Шмирко under the score (room above for his speech bubble) */
-.blk-shmirko {
-  padding: 54px 4px 4px;
+/* 🐉 The dragon under the score (room above for its speech bubble) */
+.blk-pet {
+  padding-top: 50px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.blk-pet-info {
+  align-items: stretch;
+  gap: 5px;
+}
+.blk-pet-name {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--t-1, #fff);
+  font: 800 14px/1.2 inherit;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.blk-pet-name span {
+  font-size: 11px;
+  opacity: 0.5;
+}
+.blk-pet-name:hover span {
+  opacity: 1;
+}
+.blk-pet-input {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid var(--accent, #5865f2);
+  border-radius: 6px;
+  padding: 3px 6px;
+  font: 700 13px inherit;
+  font-family: inherit;
+}
+.blk-pet-stage {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffd43b;
+}
+.blk-pet-bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+.blk-pet-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #38d9a9, #ffd43b);
+  transition: width 0.4s;
 }
 
 .blk-music {

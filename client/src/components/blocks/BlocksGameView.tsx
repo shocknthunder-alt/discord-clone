@@ -3,7 +3,7 @@ import { http } from "../../api/http";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { BlocksGame, COLS, HIDDEN, PIECES, ROWS, pieceCells, type GameEvent, type PieceType } from "./engine";
-import BaiShmirko, { type ShmirkoMood } from "./BaiShmirko";
+import Dragon, { DRAGON_STAGES, dragonStage, type DragonMood } from "./Dragon";
 import { blocksMusic } from "./music";
 import { blockSound } from "./sounds";
 import "./blocks.css";
@@ -159,6 +159,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   const [hud, setHud] = useState<Hud | null>(null);
   const [top, setTop] = useState<TopRow[]>([]);
   const [mine, setMine] = useState<Mine | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const [startLevel, setStartLevel] = useState(() => Number(localStorage.getItem("blocksStartLevel")) || 1);
   const [sound, setSound] = useState(() => localStorage.getItem("blocksSound") !== "off");
   const [musicOn, setMusicOn] = useState(() => localStorage.getItem("blocksMusic") !== "off");
@@ -186,8 +187,9 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       .then((r) => {
         setTop(r.data.top);
         setMine(r.data.mine);
+        setLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => setLoaded(true));
   }, [channelId]);
   useEffect(load, [load]);
 
@@ -220,12 +222,15 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     [channelId],
   );
 
-  // 👴 Бай Шмирко: cheers for a while after lines go (more lines / combo / T-spin → wilder).
-  const [cheer, setCheer] = useState<{ mood: ShmirkoMood; key: number } | null>(null);
+  // 🐉 The dragon: cheers for a while after lines go (more lines / combo / T-spin → wilder).
+  const [cheer, setCheer] = useState<{ mood: DragonMood; key: number } | null>(null);
+  const [forceStage, setForceStage] = useState<number | null>(null); // dev screenshots only
+  const [dragonName, setDragonName] = useState(() => localStorage.getItem("blocksDragonName") || "Змейчо");
+  const [naming, setNaming] = useState(false);
   const cheerTimer = useRef<number | undefined>(undefined);
   const cheerFor = (lines: number, combo: number, tspin: boolean) => {
     const lvl = Math.min(4, Math.max(1, lines + (combo >= 2 ? 1 : 0) + (tspin ? 1 : 0)));
-    const mood = `c${lvl}` as ShmirkoMood;
+    const mood = `c${lvl}` as DragonMood;
     setCheer((c) => ({ mood, key: (c?.key ?? 0) + 1 }));
     window.clearTimeout(cheerTimer.current);
     cheerTimer.current = window.setTimeout(() => setCheer((c) => (c ? { ...c, mood: "idle" } : c)), [0, 1500, 1700, 2000, 3000][lvl]);
@@ -234,12 +239,13 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   // Dev / e2e only: show a mood on demand (for screenshots of every pose).
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    const w = window as unknown as { __shmirko?: (m: ShmirkoMood) => void };
-    w.__shmirko = (mood) => {
+    const w = window as unknown as { __dragon?: (m: DragonMood, stage?: number) => void };
+    w.__dragon = (mood, stage) => {
       window.clearTimeout(cheerTimer.current);
+      if (stage !== undefined) setForceStage(stage);
       setCheer((c) => ({ mood, key: (c?.key ?? 0) + 1 }));
     };
-    return () => void delete w.__shmirko;
+    return () => void delete w.__dragon;
   }, []);
 
   const onEvent = useCallback(
@@ -433,8 +439,37 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   useEffect(() => blocksMusic.setVolume(musicVol / 100), [musicVol]);
   const hudDanger = phase === "playing" && !!hud?.danger;
   useEffect(() => blocksMusic.setDanger(hudDanger), [hudDanger]);
-  const shmirkoMood: ShmirkoMood =
-    cheer && cheer.mood !== "idle" ? cheer.mood : phase === "over" ? "sad" : hudDanger ? "danger" : "idle";
+  // 🐉 It grows with every line ever cleared: saved total + the running game (until it is saved).
+  const liveLines = (mine?.totalLines ?? 0) + (phase !== "idle" && !result?.saved ? (hud?.lines ?? 0) : 0);
+  const grown = dragonStage(liveLines);
+  const stage = forceStage ?? grown.stage;
+  const prevStage = useRef<number | null>(null);
+  useEffect(() => {
+    if (!loaded) return; // the saved total is not known yet
+    const before = prevStage.current;
+    prevStage.current = stage;
+    if (before === null || stage <= before || forceStage !== null) return;
+    window.clearTimeout(cheerTimer.current);
+    setCheer((c) => ({ mood: "grow", key: (c?.key ?? 0) + 1 }));
+    cheerTimer.current = window.setTimeout(() => setCheer((c) => (c ? { ...c, mood: "idle" } : c)), 3000);
+    if (soundRef.current) blockSound({ kind: "level", level: stage + 1 });
+  }, [stage, loaded, forceStage]);
+  const dragonMood: DragonMood =
+    cheer && cheer.mood !== "idle"
+      ? cheer.mood
+      : phase === "over"
+        ? "sad"
+        : phase !== "playing" || hudPaused
+          ? "sleep"
+          : hudDanger
+            ? "danger"
+            : "idle";
+  const saveName = (v: string) => {
+    const name = v.trim().slice(0, 20) || "Змейчо";
+    setDragonName(name);
+    localStorage.setItem("blocksDragonName", name);
+    setNaming(false);
+  };
 
   const g = () => gameRef.current;
   const tap = (fn: (game: BlocksGame) => void) => (e: React.PointerEvent) => {
@@ -516,8 +551,44 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
             </div>
           )}
         </div>
-        <div className="blk-shmirko">
-          <BaiShmirko mood={shmirkoMood} cheerKey={cheer?.key ?? 0} beat={60 / blocksMusic.bpmFor(hudLevel)} />
+        <div className="blk-pet">
+          <Dragon
+            mood={dragonMood}
+            cheerKey={cheer?.key ?? 0}
+            beat={60 / blocksMusic.bpmFor(hudLevel)}
+            stage={stage}
+            progress={forceStage !== null ? 0.7 : grown.progress}
+          />
+          <div className="blk-box blk-pet-info">
+            {naming ? (
+              <input
+                className="blk-pet-input"
+                autoFocus
+                defaultValue={dragonName}
+                maxLength={20}
+                onBlur={(e) => saveName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveName(e.currentTarget.value);
+                  if (e.key === "Escape") setNaming(false);
+                }}
+              />
+            ) : (
+              <button className="blk-pet-name" title={tr("Кръсти го", "Rename")} onClick={() => setNaming(true)}>
+                🐉 {dragonName} <span>✏️</span>
+              </button>
+            )}
+            <div className="blk-pet-stage">
+              {DRAGON_STAGES[stage]!.name} · {stage + 1}/{DRAGON_STAGES.length}
+            </div>
+            <div className="blk-pet-bar">
+              <i style={{ width: `${Math.round(grown.progress * 100)}%` }} />
+            </div>
+            <div className="blk-muted">
+              {grown.toNext !== null
+                ? `${tr("още", "")} ${grown.toNext} ${tr(grown.toNext === 1 ? "ред до" : "реда до", "lines to")} „${DRAGON_STAGES[grown.stage + 1]!.name}“`
+                : tr("Порасна докрай! 👑", "Fully grown! 👑")}
+            </div>
+          </div>
         </div>
         <div className="blk-box blk-keys">
           <div><kbd>←</kbd><kbd>→</kbd> {tr("местене", "move")}</div>
