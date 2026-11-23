@@ -17,15 +17,15 @@
   overflow: visible;
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45));
 }
-.bs-all { transform-origin: 108px 286px; }
-.bs-arm-l { transform-origin: 78px 116px; }
-.bs-arm-r { transform-origin: 130px 116px; }
-.bs-cane { transform-origin: 152px 177px; }
-.bs-head { transform-origin: 104px 108px; }
-.bs-cap { transform-origin: 104px 46px; }
-.bs-leg-l { transform-origin: 90px 180px; }
-.bs-leg-r { transform-origin: 118px 180px; }
-.bs-shadow { transform-origin: 108px 288px; }
+.bs-all { transform-origin: 120px 284px; }
+.bs-arm-l { transform-origin: 98px 116px; }
+.bs-arm-r { transform-origin: 108px 118px; }
+.bs-cane { transform-origin: 146px 170px; }
+.bs-head { transform-origin: 124px 106px; }
+.bs-cap { transform-origin: 140px 48px; }
+.bs-leg-l { transform-origin: 104px 180px; }
+.bs-leg-r { transform-origin: 114px 180px; }
+.bs-shadow { transform-origin: 122px 287px; }
 
 /* ── idle: sways with the stick to the beat, taps it on the ground ── */
 .bs-idle .bs-all { animation: bs-bob var(--beat) ease-in-out infinite; }
@@ -33,7 +33,7 @@
 .bs-idle .bs-arm-r { animation: bs-tap-arm var(--beat) ease-in-out infinite; }
 .bs-idle .bs-cane { animation: bs-cane-sway calc(var(--beat) * 2) ease-in-out infinite; }
 .bs-idle .bs-leg-r { animation: bs-foot var(--beat) ease-in-out infinite; }
-.bs-idle .bs-blink { animation: bs-blink 4.2s infinite; transform-origin: 104px 68px; }
+.bs-idle .bs-blink { animation: bs-blink 4.2s infinite; transform-origin: 152px 66px; }
 @keyframes bs-bob { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-2px) rotate(-1.5deg); } 50% { transform: translateY(-3px); } 75% { transform: translateY(-2px) rotate(1.5deg); } }
 @keyframes bs-nod { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
 @keyframes bs-tap-arm { 0%, 55%, 100% { transform: rotate(0); } 25% { transform: rotate(-7deg); } }
@@ -61,13 +61,13 @@
 @keyframes bs-shadow-jump { 0%, 75%, 100% { transform: scale(1); opacity: 0.35; } 30% { transform: scale(0.65); opacity: 0.18; } 62% { transform: scale(0.85); } }
 @keyframes bs-stick-up {
   0% { transform: rotate(0); }
-  16% { transform: rotate(-150deg); }
-  26% { transform: rotate(-132deg); }
-  36% { transform: rotate(-152deg); }
-  46% { transform: rotate(-132deg); }
-  56% { transform: rotate(-152deg); }
-  66% { transform: rotate(-132deg); }
-  85% { transform: rotate(-145deg); }
+  16% { transform: rotate(-118deg); }
+  26% { transform: rotate(-100deg); }
+  36% { transform: rotate(-120deg); }
+  46% { transform: rotate(-100deg); }
+  56% { transform: rotate(-120deg); }
+  66% { transform: rotate(-100deg); }
+  85% { transform: rotate(-112deg); }
   100% { transform: rotate(0); }
 }
 @keyframes bs-wave-l {
@@ -93,7 +93,7 @@
 }
 @keyframes bs-kick-l { 0%, 50%, 100% { transform: rotate(0); } 25% { transform: rotate(22deg); } }
 @keyframes bs-kick-r { 0%, 50%, 100% { transform: rotate(0); } 75% { transform: rotate(-22deg); } }
-@keyframes bs-twirl-arm { 0%, 100% { transform: rotate(-70deg); } 50% { transform: rotate(-80deg); } }
+@keyframes bs-twirl-arm { 0%, 100% { transform: rotate(-48deg); } 50% { transform: rotate(-60deg); } }
 @keyframes bs-twirl { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
 @keyframes bs-both-l { 0%, 100% { transform: rotate(128deg); } 50% { transform: rotate(150deg); } }
 @keyframes bs-head-bop { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
@@ -122,9 +122,9 @@
   80%, 100% { transform: translateY(0) rotate(0); }
 }
 @keyframes bs-shadow-flip { 0%, 88%, 100% { transform: scale(1); opacity: 0.35; } 50% { transform: scale(0.5); opacity: 0.12; } }
-@keyframes bs-both-r { 0%, 100% { transform: rotate(-140deg); } 50% { transform: rotate(-155deg); } }
+@keyframes bs-both-r { 0%, 100% { transform: rotate(-108deg); } 50% { transform: rotate(-124deg); } }
 @keyframes bs-chad-chin { 0%, 70%, 100% { transform: rotate(0); } 85% { transform: rotate(-10deg) translateY(-2px); } }
-.bs-c3 .bs-all { transform-origin: 104px 170px; animation: bs-flip 1.6s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+.bs-c3 .bs-all { transform-origin: 114px 170px; animation: bs-flip 1.6s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
 .bs-c3 .bs-shadow { animation: bs-shadow-flip 1.6s ease both; }
 .bs-c3 .bs-cap { animation: bs-cap-fly 1.6s ease both; }
 .bs-c3 .bs-arm-l { animation: bs-both-l 0.3s ease-in-out 6; }
@@ -147,17 +147,17 @@
   90% { transform: translateY(-8px) rotate(-360deg); }
   100% { transform: translateY(0) rotate(-360deg); }
 }
-@keyframes bs-c4-arm-r { 0% { transform: rotate(0); } 10%, 28% { transform: rotate(-150deg); } 34%, 94% { transform: rotate(-38deg); } 100% { transform: rotate(0); } }
-@keyframes bs-c4-cane { 0%, 28% { transform: rotate(0); } 34%, 94% { transform: rotate(150deg); } 100% { transform: rotate(0); } }
+@keyframes bs-c4-arm-r { 0% { transform: rotate(0); } 10%, 28% { transform: rotate(-118deg); } 34%, 94% { transform: rotate(-22deg); } 100% { transform: rotate(0); } }
+@keyframes bs-c4-cane { 0%, 28% { transform: rotate(0); } 34%, 94% { transform: rotate(-78deg); } 100% { transform: rotate(0); } }
 @keyframes bs-c4-strum {
   0% { transform: rotate(0); }
   10%, 28% { transform: rotate(150deg); }
-  34% { transform: rotate(-22deg); }
-  38% { transform: rotate(-42deg); } 42% { transform: rotate(-22deg); } 46% { transform: rotate(-42deg); }
-  50% { transform: rotate(-22deg); } 54% { transform: rotate(-42deg); } 58% { transform: rotate(-22deg); }
-  62% { transform: rotate(-42deg); } 66% { transform: rotate(-22deg); } 70% { transform: rotate(-42deg); }
-  74% { transform: rotate(-22deg); } 78% { transform: rotate(-42deg); } 82% { transform: rotate(-22deg); }
-  86% { transform: rotate(-42deg); } 90% { transform: rotate(-22deg); }
+  34% { transform: rotate(-58deg); }
+  38% { transform: rotate(-78deg); } 42% { transform: rotate(-58deg); } 46% { transform: rotate(-78deg); }
+  50% { transform: rotate(-58deg); } 54% { transform: rotate(-78deg); } 58% { transform: rotate(-58deg); }
+  62% { transform: rotate(-78deg); } 66% { transform: rotate(-58deg); } 70% { transform: rotate(-78deg); }
+  74% { transform: rotate(-58deg); } 78% { transform: rotate(-78deg); } 82% { transform: rotate(-58deg); }
+  86% { transform: rotate(-78deg); } 90% { transform: rotate(-58deg); }
   100% { transform: rotate(0); }
 }
 @keyframes bs-headbang {
@@ -175,14 +175,14 @@
   100% { transform: translateY(0) rotate(-360deg); }
 }
 @keyframes bs-star-spin { 0%, 100% { transform: scale(1) rotate(0); } 50% { transform: scale(1.25) rotate(20deg); } }
-.bs-c4 .bs-all { transform-origin: 104px 170px; animation: bs-c4-all 2.9s ease-in-out both; }
+.bs-c4 .bs-all { transform-origin: 114px 170px; animation: bs-c4-all 2.9s ease-in-out both; }
 .bs-c4 .bs-shadow { animation: bs-shadow-flip 2.9s ease both; }
 .bs-c4 .bs-cap { animation: bs-cap-launch 2.9s ease both; }
 .bs-c4 .bs-arm-r { animation: bs-c4-arm-r 2.9s ease-in-out both; }
 .bs-c4 .bs-cane { animation: bs-c4-cane 2.9s ease-in-out both; }
 .bs-c4 .bs-arm-l { animation: bs-c4-strum 2.9s linear both; }
 .bs-c4 .bs-head { animation: bs-headbang 2.9s ease-in-out both; }
-.bs-c4 .bs-star-eyes { transform-origin: 104px 68px; animation: bs-star-spin 0.4s ease-in-out infinite; }
+.bs-c4 .bs-star-eyes { transform-origin: 152px 66px; animation: bs-star-spin 0.4s ease-in-out infinite; }
 .bs-c4 .bs-svg { filter: drop-shadow(0 0 14px rgba(255, 212, 59, 0.7)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45)); }
 
 .bs-aura {
