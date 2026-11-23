@@ -2,7 +2,7 @@ import { audioGraph, setMusicVolume } from "./sounds";
 
 // 🎵 Background music for Шметрис — our own tunes, synthesized with WebAudio (no files).
 // Every two levels is a different style with its own instruments, drums, key and tempo:
-//   1–2 чил (маримба, плажно) · 3–4 фънки диско · 5–6 80-те (synthwave) · 7–8 рок · 9–10 драм енд бас · 11+ епично
+//   1–2 сърф рок · 3–4 фънки диско · 5–6 80-те (synthwave) · 7–8 рок · 9–10 драм енд бас · 11+ епично
 // The second level of a style is a bit faster and busier; from 11 on the epic one climbs a semitone
 // and a few bpm per level. A level-up plays a riser and switches at the next bar line; a stack
 // close to the top adds a nervous heartbeat.
@@ -87,36 +87,33 @@ function distortion(g: G) {
   return ws;
 }
 
-// Marimba: a warm wooden "tok" — sine + a fast-fading 4th harmonic.
-const marimba: Voice = (g, f, t, dur, vel) => {
+// Surf guitar: bright twangy pluck (filter closes after the attack), wobbly vibrato, lots of echo.
+const twang: Voice = (g, f, t, dur, vel) => {
+  const lp = filter(g, "lowpass", 4200, 2.2);
+  lp.frequency.setValueAtTime(4200, t);
+  lp.frequency.exponentialRampToValueAtTime(1400, t + 0.3);
+  for (const [ty, det] of [["sawtooth", 0], ["square", 6]] as [OscillatorType, number][]) {
+    const o = g.ctx.createOscillator();
+    o.type = ty;
+    o.frequency.value = f;
+    o.detune.value = det;
+    vibrato(g, o, t, t + dur + 0.3, 12, 6.5);
+    o.connect(lp);
+    o.start(t);
+    o.stop(t + dur + 0.35);
+  }
   const amp = g.ctx.createGain();
-  env(amp, t, 0.06 * vel, 0.002, Math.min(0.5, Math.max(0.18, dur)), 0.25, 0.12);
-  oscs(g, t, t + 0.8, f, [{ type: "sine" }], amp);
-  const ov = g.ctx.createGain();
-  env(ov, t, 0.025 * vel, 0.001, 0.05, 0.04, 0.1);
-  oscs(g, t, t + 0.12, f, [{ type: "sine", mult: 3.98 }], ov);
-  out(g, amp, 0.3);
-  out(g, ov, 0.2);
+  env(amp, t, 0.032 * vel, 0.003, dur, 0.3, 0.45);
+  lp.connect(amp);
+  out(g, amp, 0.5);
 };
 
-// Round plucked bass (soft, short).
-const roundBass: Voice = (g, f, t, dur, vel) => {
+// Combo organ: short bright chops on the off-beats.
+const organ: Voice = (g, f, t, dur, vel) => {
   const amp = g.ctx.createGain();
-  env(amp, t, 0.12 * vel, 0.006, Math.min(dur, 0.3), 0.1, 0.4);
-  const lp = filter(g, "lowpass", 900);
-  oscs(g, t, t + 0.45, f, [{ type: "triangle" }, { type: "sine", mult: 0.5 }], lp);
-  lp.connect(amp);
-  out(g, amp);
-};
-
-// Warm, quiet pad behind it all.
-const warmPad: Voice = (g, f, t, dur, vel) => {
-  const amp = g.ctx.createGain();
-  env(amp, t, 0.012 * vel, 0.5, dur, 0.6, 0.8);
-  const lp = filter(g, "lowpass", 1100);
-  oscs(g, t, t + dur + 0.6, f, [{ type: "triangle", detune: -7 }, { type: "sawtooth", detune: 7 }], lp);
-  lp.connect(amp);
-  out(g, amp, 0.3);
+  env(amp, t, 0.012 * vel, 0.004, Math.min(dur, 0.11), 0.05, 0.75);
+  oscs(g, t, t + 0.2, f, [{ type: "sine" }, { type: "sine", mult: 2 }, { type: "square", mult: 3, detune: 2 }], amp);
+  out(g, amp, 0.15);
 };
 
 const softBass: Voice = (g, f, t, dur, vel) => {
@@ -411,36 +408,36 @@ interface Style {
 
 const STYLES: Style[] = [
   {
-    // levels 1–2: warm beach chill — marimba, round bass, shaker, soft pad
-    name: "Чил",
-    bpm: 98,
+    // levels 1–2: surf rock — twangy guitar lead with echo, combo organ, walking bass, driving drums
+    name: "Сърф",
+    bpm: 108,
     bpmStep: 6,
-    swing: 0.08,
-    tone: 7000,
+    swing: 0,
+    tone: 11000,
     chords: [
-      ["G2", "B3", "D4", "F#4"],
-      ["E2", "G3", "B3", "D4"],
-      ["C2", "E3", "G3", "B3"],
-      ["D2", "F#3", "A3", "D4"],
+      ["A1", "A3", "C4", "E4"],
+      ["F1", "A3", "C4", "F4"],
+      ["G1", "G3", "B3", "D4"],
+      ["E2", "G#3", "B3", "E4"],
     ],
     lead: [
-      "D5 . B4 . G4 . B4 D5 . E5 . D5 B4 . . .",
-      "G5 . E5 . D5 . B4 . D5 E5 . . G4 . A4 .",
-      "E5 . . G5 . E5 D5 . B4 . D5 . E5 . . .",
-      "F#5 . D5 . A4 . D5 . E5 . F#5 . A5 - - .",
+      "A4 . C5 . E5 . A5 . G5 . E5 . C5 . E5 .",
+      "F5 - . E5 . C5 . A4 . C5 . F5 . A5 - .",
+      "G5 . D5 . B4 . D5 . G5 . A5 . B5 - - .",
+      "G#5 . E5 . B4 . E5 . G#5 . B5 . E6 - - -",
     ],
-    leadVoice: marimba,
-    bass: "R . . R . . O . R . . R . . F .",
-    bassVoice: roundBass,
-    comp: "x - - - - - - - - - - - - - - -",
-    compVoice: warmPad,
+    leadVoice: twang,
+    bass: "R . R . F . O . R . F . O . F .",
+    bassVoice: funkBass,
+    comp: ". . x . . . x . . . x . . . x .",
+    compVoice: organ,
     drums: {
-      k: ["x . . . . . . . x . . . . . . ."],
-      s: [". . . . x . . . . . . . x . . ."],
+      k: ["x . . . . . x . x . . . . . . .", "x . . . . . x . x . x . . . . ."],
+      s: [". . . . x . . . . . . . x . . x"],
       h: ["x x x x x x x x x x x x x x x x"],
     },
-    snare: "rim",
-    shaker: true,
+    snare: "normal",
+    fill: true,
   },
   {
     name: "Диско",
