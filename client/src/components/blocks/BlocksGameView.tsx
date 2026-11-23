@@ -3,7 +3,7 @@ import { http } from "../../api/http";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { BlocksGame, COLS, HIDDEN, PIECES, ROWS, pieceCells, type GameEvent, type PieceType } from "./engine";
-import { blockSound } from "./sounds";
+import { blockSound, blocksMusic } from "./sounds";
 import "./blocks.css";
 
 /** 🧱 Шметрис — the screen of a "blocks" channel: solo game + the server's top 10. */
@@ -145,6 +145,11 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   const [mine, setMine] = useState<Mine | null>(null);
   const [startLevel, setStartLevel] = useState(() => Number(localStorage.getItem("blocksStartLevel")) || 1);
   const [sound, setSound] = useState(() => localStorage.getItem("blocksSound") !== "off");
+  const [musicOn, setMusicOn] = useState(() => localStorage.getItem("blocksMusic") !== "off");
+  const [musicVol, setMusicVol] = useState(() => {
+    const v = Number(localStorage.getItem("blocksMusicVol"));
+    return Number.isFinite(v) && localStorage.getItem("blocksMusicVol") !== null ? v : 50;
+  });
   const [popups, setPopups] = useState<{ id: number; text: string; big?: boolean }[]>([]);
   const [result, setResult] = useState<{ score: number; lines: number; level: number; record: boolean; saved: boolean } | null>(null);
   // Size of the well: null = fit the window; a number = the height the person dragged it to.
@@ -153,6 +158,8 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   const [fullscreen, setFullscreen] = useState(false);
   const viewRef = useRef<HTMLDivElement>(null);
   const wellRef = useRef<HTMLDivElement>(null);
+  const musicRef = useRef(musicOn);
+  musicRef.current = musicOn;
   const soundRef = useRef(sound);
   soundRef.current = sound;
   const popupId = useRef(0);
@@ -216,6 +223,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         if (e.points > 0) popup(`+${fmt(e.points)}`);
       } else if (e.kind === "level") {
         popup(`${tr("Ниво", "Level")} ${e.level}!`, true);
+        if (musicRef.current) popup(`🎵 ${blocksMusic.songName(e.level)}`);
       }
     },
     [],
@@ -227,6 +235,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       onEvent(e);
       if (e.kind === "over") setTimeout(() => finish(game), 0);
     }, startLevel);
+    blocksMusic.stop(); // a new game starts its level's song from the top
     gameRef.current = game;
     setResult(null);
     setPopups([]);
@@ -346,7 +355,23 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   }, []);
 
   // Leaving the channel ends the game (nothing is saved for an unfinished one).
-  useEffect(() => () => void (gameRef.current = null), []);
+  useEffect(
+    () => () => {
+      gameRef.current = null;
+      blocksMusic.stop();
+    },
+    [],
+  );
+
+  // 🎵 Music: plays while a game runs (not paused), follows the level (new song + faster).
+  const hudLevel = hud?.level ?? startLevel;
+  const hudPaused = !!hud?.paused;
+  useEffect(() => {
+    if (phase === "playing" && musicOn && !hudPaused) blocksMusic.play(hudLevel);
+    else if (phase === "over") blocksMusic.stop();
+    else blocksMusic.pause();
+  }, [phase, musicOn, hudPaused, hudLevel]);
+  useEffect(() => blocksMusic.setVolume(musicVol / 100), [musicVol]);
 
   const g = () => gameRef.current;
   const tap = (fn: (game: BlocksGame) => void) => (e: React.PointerEvent) => {
@@ -596,6 +621,35 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         >
           {sound ? "🔊" : "🔇"} {tr("Звук", "Sound")}
         </button>
+        <div className="blk-music">
+          <button
+            className="blk-sound"
+            onClick={() => {
+              const v = !musicOn;
+              setMusicOn(v);
+              localStorage.setItem("blocksMusic", v ? "on" : "off");
+              (document.activeElement as HTMLElement | null)?.blur?.();
+            }}
+            title={tr("Музика по време на игра — всяко ниво е друга песен", "Music while playing — every level has its own song")}
+          >
+            {musicOn ? "🎵" : "🔇"} {tr("Музика", "Music")}
+          </button>
+          {musicOn && (
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={musicVol}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setMusicVol(v);
+                localStorage.setItem("blocksMusicVol", String(v));
+              }}
+              onPointerUp={(e) => e.currentTarget.blur()}
+              title={tr("Сила на музиката", "Music volume")}
+            />
+          )}
+        </div>
         <div className="blk-size-buttons">
           <button className="blk-sound blk-fs" onClick={toggleFullscreen} title={tr("Цял екран", "Full screen")}>
             {fullscreen ? tr("🗗 Изход от цял екран", "🗗 Exit full screen") : tr("⛶ Цял екран", "⛶ Full screen")}

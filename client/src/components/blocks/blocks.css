@@ -329,6 +329,16 @@
   cursor: pointer;
 }
 
+.blk-music {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.blk-music input[type="range"] {
+  width: 100px;
+  accent-color: var(--accent, #5865f2);
+}
+
 .blk-size-buttons {
   display: flex;
   flex-wrap: wrap;

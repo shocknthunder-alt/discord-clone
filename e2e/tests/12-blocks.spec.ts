@@ -39,6 +39,16 @@ test.describe("🧱 Шметрис", () => {
     await expect(a.page.locator(".blk-top")).toContainText("Още никой не е играл");
     await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-start.png" });
 
+    // 🎵 Музика: включена по подразбиране, с плъзгач; изключване → без плъзгач (остава след презареждане).
+    const musicBtn = a.page.locator(".blk-music button");
+    await expect(musicBtn).toContainText("🎵");
+    await expect(a.page.locator(".blk-music input[type=range]")).toBeVisible();
+    await musicBtn.click();
+    await expect(a.page.locator(".blk-music input[type=range]")).toHaveCount(0);
+    expect(await a.page.evaluate(() => localStorage.getItem("blocksMusic"))).toBe("off");
+    await musicBtn.click();
+    await expect(a.page.locator(".blk-music input[type=range]")).toBeVisible();
+
     await a.page.getByRole("button", { name: /Играй/ }).click();
     await expect(overlay).toHaveCount(0);
     // Запазване на блок (C) → кутийката „Запазен“ вече рисува нещо; стрелки и въртене не чупят нищо.
