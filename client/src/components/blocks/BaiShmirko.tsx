@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { tr } from "../../i18n";
 import "./baiShmirko.css";
 
 /**
  * 👴🦯 Бай Шмирко — our own cartoon fan next to the Шметрис well, drawn in profile looking at the
- * well: a tall, lanky, hunched, grumpy old farmer (red cap, round glasses, long sharp nose, droopy
- * white moustache, checked shirt, denim overalls) with a walking stick, flat colours + thick ink
+ * well: a tall, lanky, hunched, grumpy old farmer (red cap, round glasses, long, slightly hooked
+ * nose, clean-shaven, checked shirt, denim overalls) with a walking stick, flat colours + thick ink
  * outlines. He taps the stick to the music and cheers when lines go — more lines, wilder: stick in
  * the air → dance with a stick twirl → a backflip (cap flies off) → air guitar on the stick with
  * fireworks. Sweats when the stack gets high, slumps on the stick when the game is over.
@@ -13,22 +12,15 @@ import "./baiShmirko.css";
 
 export type ShmirkoMood = "idle" | "c1" | "c2" | "c3" | "c4" | "danger" | "sad";
 
-const LINES: Record<ShmirkoMood, [string, string][]> = {
+// Always in Bulgarian (the owner's words), whatever the app language is.
+const LINES: Record<ShmirkoMood, string[]> = {
   idle: [],
-  c1: [["Браво, машина!", "Bravo, machine!"]],
-  c2: [["Супер комбо, батка!", "Super combo, bro!"]],
-  c3: [["ГигаЧад!", "GigaChad!"]],
-  c4: [["Баси ръките, чуек! Туй мойте ръки ли са?!", "What hands, man! Are these MY hands?!"]],
-  danger: [
-    ["Ох, ох… внимавай!", "Oh no… careful!"],
-    ["Леле, стига до горе!", "It's nearly at the top!"],
-    ["Дишай, дишай…", "Breathe, breathe…"],
-  ],
-  sad: [
-    ["Е, нищо… пак!", "Oh well… again!"],
-    ["Следващия път!", "Next time!"],
-    ["Ох, кръстът ми…", "Oh, my back…"],
-  ],
+  c1: ["Браво, машина!"],
+  c2: ["Супер комбо, батка!"],
+  c3: ["ГигаЧад!"],
+  c4: ["Баси ръките, чуек! Туй мойте ръки ли са?!"],
+  danger: ["Ох, ох… внимавай!", "Леле, стига до горе!", "Дишай, дишай…"],
+  sad: ["Е, нищо… пак!", "Следващия път!", "Ох, кръстът ми…"],
 };
 
 const INK = "#1d1a17"; // cartoon outlines
@@ -42,8 +34,7 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
       setSay(null);
       return;
     }
-    const [bg, en] = list[Math.floor(Math.random() * list.length)]!;
-    setSay(tr(bg, en));
+    setSay(list[Math.floor(Math.random() * list.length)]!);
     const t = setTimeout(() => setSay(null), mood === "c4" ? 3000 : mood === "danger" || mood === "sad" ? 2600 : 1800);
     return () => clearTimeout(t);
   }, [mood, cheerKey]);
@@ -88,59 +79,59 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
       <svg key={`s${cheerKey}`} className="bs-svg" viewBox="0 0 220 300" role="img">
         <defs>
           <clipPath id="bsShirtClip">
-            <path d="M86 112 Q70 142 86 182 L127 182 Q133 150 129 116 Q118 102 100 104 Q90 106 86 112 Z" />
+            <path d="M94 108 Q74 120 82 150 Q86 168 90 184 L118 184 Q121 156 119 128 Q118 112 110 104 Q100 100 94 108 Z" />
           </clipPath>
         </defs>
 
-        <ellipse className="bs-shadow" cx="122" cy="287" rx="56" ry="7" fill="#000" opacity="0.35" />
+        <ellipse className="bs-shadow" cx="120" cy="287" rx="44" ry="7" fill="#000" opacity="0.35" />
 
         <g className="bs-all" stroke={INK} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round">
           {/* far leg (darker) */}
           <g className="bs-leg bs-leg-l">
-            <path d="M94 178 Q90 226 95 268 L112 268 Q113 226 113 182 Z" fill="#2f5a92" />
-            <path d="M90 266 L126 267 Q138 269 137 280 L90 281 Q86 274 90 266 Z" fill="#4e2f18" />
+            <path d="M96 180 Q94 226 98 268 L109 268 Q110 226 108 182 Z" fill="#2f5a92" />
+            <path d="M93 266 L120 267 Q130 269 129 280 L93 281 Q89 274 93 266 Z" fill="#4e2f18" />
           </g>
 
           {/* far arm: hand behind the back (waves / strums when cheering) */}
           <g className="bs-arm bs-arm-l">
-            <path d="M98 116 L80 146" stroke={INK} strokeWidth={15} />
-            <path d="M98 116 L80 146" stroke="#a8372d" strokeWidth={10.5} />
-            <path d="M80 146 L90 170" stroke={INK} strokeWidth={10.5} />
-            <path d="M80 146 L90 170" stroke="#e2a87f" strokeWidth={6.5} />
-            <circle cx="91" cy="172" r="6" fill="#e2a87f" />
+            <path d="M98 116 L80 146" stroke={INK} strokeWidth={11.5} />
+            <path d="M98 116 L80 146" stroke="#a8372d" strokeWidth={7.5} />
+            <path d="M80 146 L90 170" stroke={INK} strokeWidth={8.5} />
+            <path d="M80 146 L90 170" stroke="#e2a87f" strokeWidth={5} />
+            <circle cx="91" cy="172" r="5" fill="#e2a87f" />
           </g>
 
           {/* near leg */}
           <g className="bs-leg bs-leg-r">
-            <path d="M104 180 Q113 222 116 268 L135 268 Q131 222 125 178 Z" fill="#3e6fb0" />
-            <path d="M117 196 Q123 232 126 266" stroke="#f2c94c" strokeWidth={1.1} strokeDasharray="3 2.5" fill="none" />
-            <path d="M109 266 L152 267 Q166 270 164 282 L109 283 Q104 275 109 266 Z" fill="#6b4226" />
-            <path d="M110 278 L163 278" stroke={INK} strokeWidth={2} />
-            <path d="M130 270 L138 270 M129 273.5 L139 273.5" stroke="#f1dfbf" strokeWidth={1.2} />
+            <path d="M104 180 Q111 222 113 268 L126 268 Q124 222 117 178 Z" fill="#3e6fb0" />
+            <path d="M111 196 Q116 232 119 266" stroke="#f2c94c" strokeWidth={1.1} strokeDasharray="3 2.5" fill="none" />
+            <path d="M106 266 L143 267 Q156 270 154 282 L106 283 Q101 275 106 266 Z" fill="#6b4226" />
+            <path d="M107 278 L153 278" stroke={INK} strokeWidth={2} />
+            <path d="M124 270 L131 270 M123 273.5 L132 273.5" stroke="#f1dfbf" strokeWidth={1.2} />
           </g>
 
           {/* hunched body: checked shirt, overalls */}
           <g className="bs-body">
-            <path d="M86 112 Q70 142 86 182 L127 182 Q133 150 129 116 Q118 102 100 104 Q90 106 86 112 Z" fill="#d2473b" />
+            <path d="M94 108 Q74 120 82 150 Q86 168 90 184 L118 184 Q121 156 119 128 Q118 112 110 104 Q100 100 94 108 Z" fill="#d2473b" />
             <g clipPath="url(#bsShirtClip)" stroke="#9e2c23" strokeWidth={3.2} opacity={0.75}>
-              <path d="M92 100 L88 190 M106 100 L106 190 M120 100 L122 190" />
+              <path d="M90 100 L86 190 M102 100 L102 190 M114 100 L116 190" />
               <path d="M70 128 L135 124 M70 150 L135 148" />
             </g>
-            <path d="M86 112 Q70 142 86 182 L127 182 Q133 150 129 116 Q118 102 100 104 Q90 106 86 112 Z" fill="none" />
-            <path d="M110 128 L129 125 Q132 150 128 176 L103 176 Z" fill="#3e6fb0" />
-            <path d="M112 127 Q103 110 90 113 L88 121 Q100 119 106 130 Z" fill="#3e6fb0" />
-            <path d="M84 172 L129 172 L128 190 L86 190 Z" fill="#3e6fb0" />
-            <path d="M88 181 L127 181" stroke="#f2c94c" strokeWidth={1.1} strokeDasharray="3 2.5" fill="none" />
-            <circle cx="114" cy="131" r="3.6" fill="#f2c94c" />
+            <path d="M94 108 Q74 120 82 150 Q86 168 90 184 L118 184 Q121 156 119 128 Q118 112 110 104 Q100 100 94 108 Z" fill="none" />
+            <path d="M104 132 L119 129 Q121 155 118 177 L98 177 Z" fill="#3e6fb0" />
+            <path d="M106 131 Q99 113 88 114 L86 121 Q96 121 101 133 Z" fill="#3e6fb0" />
+            <path d="M86 172 L119 172 L118 190 L89 190 Z" fill="#3e6fb0" />
+            <path d="M90 181 L117 181" stroke="#f2c94c" strokeWidth={1.1} strokeDasharray="3 2.5" fill="none" />
+            <circle cx="110" cy="135" r="3.2" fill="#f2c94c" />
           </g>
 
           {/* near arm with the walking stick */}
           <g className="bs-arm bs-arm-r">
-            <path d="M108 118 L122 148" stroke={INK} strokeWidth={15} />
-            <path d="M108 118 L122 148" stroke="#d2473b" strokeWidth={10.5} />
-            <circle cx="122" cy="148" r="7" fill="#9e2c23" />
-            <path d="M122 148 L144 167" stroke={INK} strokeWidth={10.5} />
-            <path d="M122 148 L144 167" stroke="#f3c39b" strokeWidth={6.5} />
+            <path d="M108 118 L122 148" stroke={INK} strokeWidth={11.5} />
+            <path d="M108 118 L122 148" stroke="#d2473b" strokeWidth={7.5} />
+            <circle cx="122" cy="148" r="5" fill="#9e2c23" />
+            <path d="M122 148 L144 167" stroke={INK} strokeWidth={8.5} />
+            <path d="M122 148 L144 167" stroke="#f3c39b" strokeWidth={5} />
             <g className="bs-cane">
               <path d="M146 172 L156 283" stroke={INK} strokeWidth={9} />
               <path d="M146 172 L156 283" stroke="#a8693a" strokeWidth={5} />
@@ -149,12 +140,13 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
               <path d="M150 200 L153 240" stroke="#d99a62" strokeWidth={1.4} />
               <path d="M152.5 278 L159 278 L159.6 286 L153.3 286 Z" fill="#2a2a2a" strokeWidth={1.6} />
             </g>
-            <circle cx="146" cy="169" r="7" fill="#f3c39b" />
+            <circle cx="146" cy="169" r="5.5" fill="#f3c39b" />
           </g>
 
           {/* head in profile, looking at the well (to the right) */}
+          <path d="M106 108 L124 98 L136 112 L118 120 Z" fill="#e8b08a" />
+          <g transform="translate(6 10)">
           <g className="bs-head">
-            <path d="M115 100 L128 90 L136 104 L123 112 Z" fill="#e8b08a" />
             <path
               d="M118 52 Q115 92 128 102 Q142 109 160 103 Q165 97 162 89 L158 79 Q162 66 160 56 Q150 40 132 42 Q120 44 118 52 Z"
               fill="#f3c39b"
@@ -166,8 +158,8 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
             <path d="M143 74 L139 76 M144 78 L140 80" fill="none" strokeWidth={1.3} />
 
             {/* the long, sharp nose */}
-            <path d="M157 69 Q172 74 197 86 Q177 88 157 85 Z" fill="#f3c39b" />
-            <path d="M184 83 Q190 84 194 86" fill="none" stroke="#e9806d" strokeWidth={2} />
+            <path d="M157 67 Q171 64 181 73 Q190 81 191 92 Q183 90 175 89 Q165 88 157 85 Z" fill="#f3c39b" />
+            <path d="M174 85 Q178 88 182 87" fill="none" stroke="#c97a5e" strokeWidth={1.6} />
 
             {/* eye (inside the glasses) per mood */}
             {mood === "idle" && (
@@ -215,20 +207,17 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
               fill="#ece7de"
             />
 
-            {/* mouth under the moustache */}
-            {mood === "idle" && <path d="M155 100 Q161 97 168 101" fill="none" stroke="#7a2d22" strokeWidth={2.2} />}
+            {/* mouth (no moustache) + a grumpy cheek line */}
+            <path d="M156 88 Q160 94 158 99" fill="none" stroke="#c97a5e" strokeWidth={1.4} />
+            {mood === "idle" && <path d="M147 98 Q153 95 159 98" fill="none" stroke="#7a2d22" strokeWidth={2.2} />}
             {happy && (
               <g>
-                <path d={mood === "c1" ? "M153 96 Q159 107 169 97 Z" : "M151 95 Q158 112 172 96 Z"} fill="#7a1f1f" />
-                <path d="M156 101 Q160 104 165 101 Q160 99 156 101 Z" fill="#e86a6a" stroke="none" />
+                <path d={mood === "c1" ? "M146 94 Q152 104 160 95 Z" : "M144 93 Q151 108 162 94 Z"} fill="#7a1f1f" />
+                <path d="M148 99 Q152 102 157 99 Q152 97 148 99 Z" fill="#e86a6a" stroke="none" />
               </g>
             )}
-            {mood === "danger" && <path d="M154 100 Q157 97 160 100 Q163 103 166 100 Q168 98 170 100" fill="none" stroke="#7a2d22" strokeWidth={2} />}
-            {mood === "sad" && <path d="M155 102 Q161 96 168 101" fill="none" stroke="#7a2d22" strokeWidth={2.2} />}
-
-            {/* droopy white moustache */}
-            <path d="M157 84 Q149 86 147 93 Q155 97 165 94 Q174 97 180 91 Q171 86 163 84 Z" fill="#f4f1ea" />
-            <path d="M154 90 Q160 92 166 90" fill="none" stroke="#c9c2b8" strokeWidth={1.2} />
+            {mood === "danger" && <path d="M145 98 Q148 95 151 98 Q154 101 157 98 Q159 96 161 98" fill="none" stroke="#7a2d22" strokeWidth={2} />}
+            {mood === "sad" && <path d="M147 100 Q153 94 159 99" fill="none" stroke="#7a2d22" strokeWidth={2.2} />}
 
             {mood === "danger" && (
               <g>
@@ -249,6 +238,7 @@ export default function BaiShmirko({ mood, cheerKey, beat }: { mood: ShmirkoMood
               <path d="M126 40 Q130 48 128 57" fill="none" strokeWidth={1.4} />
               <circle cx="138" cy="31.5" r="2.6" fill="#b8352f" />
             </g>
+          </g>
           </g>
         </g>
 

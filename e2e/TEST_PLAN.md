@@ -9,7 +9,7 @@
 cd e2e
 npm install                    # веднъж
 npx playwright install chromium  # веднъж
-npm test                       # всичко (~4 мин, 56 теста)
+npm test                       # всичко (~4 мин, 57 теста)
 npm test -- tests/05           # само един файл
 npm test -- -g "Paint Wars"    # само тестове с това в името
 npm run test:headed            # с видими прозорци

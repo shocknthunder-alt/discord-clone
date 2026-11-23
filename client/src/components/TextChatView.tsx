@@ -420,7 +420,7 @@ export default function TextChatView({ channelId }: Props) {
       {channel?.type === "draw" ? (
         <DrawGameView channelId={channelId} />
       ) : channel?.type === "blocks" ? (
-        <BlocksGameView channelId={channelId} />
+        <BlocksGameView key={channelId} channelId={channelId} />
       ) :channel?.type === "forum" ? (
         <ForumView channelId={channelId} />
       ) : (

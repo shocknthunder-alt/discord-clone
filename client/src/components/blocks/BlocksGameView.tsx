@@ -139,11 +139,23 @@ const SIZE_KEY = "blocksWellHeight";
 const MIN_H = 320;
 const MAX_H = 2400;
 
+/**
+ * A game in progress survives leaving the channel (e.g. a peek at a friend's stream): it is kept here
+ * paused, per channel, and picked up again when the channel is opened. Its events go to whichever view
+ * is mounted at the moment (`liveHandler`).
+ */
+const savedGames = new Map<string, BlocksGame>();
+let liveHandler: ((game: BlocksGame, e: GameEvent) => void) | null = null;
+
 export default function BlocksGameView({ channelId }: { channelId: string }) {
   const me = useAuthStore((s) => s.user);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<BlocksGame | null>(null);
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [resumed] = useState(() => {
+    const g = savedGames.get(channelId) ?? null;
+    return g && !g.over ? g : null;
+  });
+  const gameRef = useRef<BlocksGame | null>(resumed);
+  const [phase, setPhase] = useState<Phase>(resumed ? "playing" : "idle");
   const [hud, setHud] = useState<Hud | null>(null);
   const [top, setTop] = useState<TopRow[]>([]);
   const [mine, setMine] = useState<Mine | null>(null);
@@ -259,16 +271,14 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
 
   const start = useCallback(() => {
     (document.activeElement as HTMLElement | null)?.blur?.();
-    const game: BlocksGame = new BlocksGame((e) => {
-      onEvent(e);
-      if (e.kind === "over") setTimeout(() => finish(game), 0);
-    }, startLevel);
+    const game: BlocksGame = new BlocksGame((e) => liveHandler?.(game, e), startLevel);
     blocksMusic.stop(); // a new game starts its level's song from the top
+    savedGames.delete(channelId);
     gameRef.current = game;
     setResult(null);
     setPopups([]);
     setPhase("playing");
-  }, [startLevel, onEvent, finish]);
+  }, [startLevel, channelId]);
 
   // Keyboard.
   useEffect(() => {
@@ -383,12 +393,32 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // Leaving the channel ends the game (nothing is saved for an unfinished one).
+  // This view receives the events of the running game (also one resumed from an earlier visit).
+  useEffect(() => {
+    const handler = (game: BlocksGame, e: GameEvent) => {
+      if (game !== gameRef.current) return;
+      onEvent(e);
+      if (e.kind === "over") setTimeout(() => finish(game), 0);
+    };
+    liveHandler = handler;
+    return () => {
+      if (liveHandler === handler) liveHandler = null;
+    };
+  }, [onEvent, finish]);
+
+  // Leaving the channel pauses an unfinished game and keeps it for when you come back.
   useEffect(
     () => () => {
-      gameRef.current = null;
+      const g = gameRef.current;
+      if (g && !g.over) {
+        g.paused = true;
+        g.setShift(0);
+        g.setSoftDrop(false);
+        savedGames.set(channelId, g);
+      } else savedGames.delete(channelId);
       blocksMusic.stop();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 

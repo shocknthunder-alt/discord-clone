@@ -102,6 +102,42 @@ test.describe("🧱 Шметрис", () => {
     await closeAll(a.context, b.context);
   });
 
+  test("излизане от канала (напр. да гледаш стрийм) и връщане → играта е на пауза, не е свършила", async ({ browser }) => {
+    const ana = await register("ana");
+    const server = await serverWith(ana);
+    await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
+    const a = await openAs(browser, ana);
+    await openServer(a.page, server.name);
+    await openTextChannel(a.page, "шметрис");
+    await a.page.getByRole("button", { name: /Играй/ }).click();
+    for (let i = 0; i < 4; i++) {
+      await a.page.keyboard.press("Space");
+      await a.page.waitForTimeout(60);
+    }
+    const score = await a.page.locator(".blk-score").innerText();
+    expect(Number(score.replace(/\D/g, ""))).toBeGreaterThan(0);
+
+    await openTextChannel(a.page, "general");
+    await expect(a.page.locator(".blk-view")).toHaveCount(0);
+    await openTextChannel(a.page, "шметрис");
+    await expect(a.page.locator(".blk-paused")).toBeVisible();
+    await expect(a.page.locator(".blk-score")).toHaveText(score);
+    await a.page.getByRole("button", { name: /Продължи/ }).click();
+    await expect(a.page.locator(".blk-paused")).toHaveCount(0);
+    await a.page.keyboard.press("Space");
+    await expect.poll(async () => Number((await a.page.locator(".blk-score").innerText()).replace(/\D/g, ""))).toBeGreaterThan(Number(score.replace(/\D/g, "")));
+
+    // Снимки на всяко настроение на Бай Шмирко (explore/shmirko-*.png).
+    await a.page.keyboard.press("KeyP");
+    for (const mood of ["idle", "c1", "c2", "c3", "c4", "danger", "sad"]) {
+      await a.page.evaluate((m) => (window as unknown as { __shmirko?: (m: string) => void }).__shmirko?.(m), mood);
+      await a.page.waitForTimeout(mood === "c4" ? 1400 : 500);
+      await a.page.locator(".blk-shmirko").screenshot({ path: `explore/shmirko-${mood}.png` });
+    }
+    expectNoCrashes(a.page);
+    await closeAll(a.context);
+  });
+
   test("🎵 всеки музикален стил (нива 1, 3, 5, 7, 9, 11) свири без грешки", async ({ browser }) => {
     const ana = await register("ana");
     const server = await serverWith(ana);
