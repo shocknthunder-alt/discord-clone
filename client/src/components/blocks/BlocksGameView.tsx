@@ -2,7 +2,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { http } from "../../api/http";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
-import { BlocksGame, COLS, HIDDEN, PIECES, ROWS, pieceCells, type GameEvent, type PieceType } from "./engine";
+import {
+  BlocksGame,
+  COLS,
+  GOLD,
+  HIDDEN,
+  PIECES,
+  RAGE_MAX,
+  ROWS,
+  STONE,
+  bonusCell,
+  pieceCells,
+  type BonusKind,
+  type GameEvent,
+  type Mission,
+  type MissionId,
+  type PieceBonus,
+  type PieceType,
+} from "./engine";
 import Dragon, { DRAGON_COLORS, DRAGON_STAGES, dragonColor, dragonStage, type DragonMood } from "./Dragon";
 import { blocksMusic } from "./music";
 import { blockSound } from "./sounds";
@@ -113,8 +130,35 @@ function drawGhost(g: CanvasRenderingContext2D, x: number, y: number, s: number,
   g.restore();
 }
 
+/** Board value → colour (1..7 pieces, gold, stone). */
+function cellColor(v: number): string {
+  if (v === GOLD) return "#ffc93a";
+  if (v === STONE) return "#5d6170";
+  return BLOCK_COLORS[PIECES[v - 1]!];
+}
+
+export const BONUS_ICON: Record<BonusKind, string> = { bomb: "💣", bolt: "⚡", rainbow: "🌈", slow: "⏳" };
+const BONUS_GLOW: Record<BonusKind, string> = { bomb: "#ff7a1a", bolt: "#8fd3ff", rainbow: "#ff5df0", slow: "#7cc4ff" };
+
+/** The icon of a bonus cell, on top of the cell (with a pulsing glow). */
+function drawBonus(g: CanvasRenderingContext2D, x: number, y: number, s: number, kind: BonusKind, now: number) {
+  const k = 0.55 + 0.45 * Math.sin(now / 160);
+  g.save();
+  g.globalAlpha = 0.35 + 0.4 * k;
+  g.fillStyle = BONUS_GLOW[kind];
+  g.beginPath();
+  g.arc(x + s / 2, y + s / 2, s * (0.36 + 0.06 * k), 0, Math.PI * 2);
+  g.fill();
+  g.globalAlpha = 1;
+  g.font = `${Math.round(s * 0.62)}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(BONUS_ICON[kind], x + s / 2, y + s * 0.54);
+  g.restore();
+}
+
 /** A small piece picture (hold / next). */
-function PiecePreview({ type, dim }: { type: PieceType | null; dim?: boolean }) {
+function PiecePreview({ type, dim, bonus }: { type: PieceType | null; dim?: boolean; bonus?: PieceBonus | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current;
@@ -137,7 +181,11 @@ function PiecePreview({ type, dim }: { type: PieceType | null; dim?: boolean }) 
     const ox = (W - w * s) / 2 - Math.min(...xs) * s;
     const oy = (H - h * s) / 2 - Math.min(...ys) * s;
     for (const [x, y] of cells) drawCell(g, ox + x * s, oy + y * s, s, BLOCK_COLORS[type], dim ? 0.35 : 1);
-  }, [type, dim]);
+    if (bonus) {
+      const [bx, by] = bonusCell(type, 0, bonus.i);
+      drawBonus(g, ox + bx * s, oy + by * s, s, bonus.kind, 0);
+    }
+  }, [type, dim, bonus?.i, bonus?.kind]);
   return <canvas ref={ref} className="blk-preview" style={{ width: 84, height: 52 }} />;
 }
 
@@ -152,7 +200,32 @@ interface Hud {
   over: boolean;
   /** The stack reaches close to the top. */
   danger: boolean;
+  holdBonus: PieceBonus | null;
+  nextBonus: (PieceBonus | null)[];
+  fever: number;
+  rage: number;
+  /** Seconds left of the dragon's fire (×2) / of the slow bonus. */
+  rageSec: number;
+  slowSec: number;
+  mission: Mission | null;
+  missionsDone: number;
+  dragonBonus: number;
 }
+
+export const MISSION_TEXT: Record<MissionId, [string, string]> = {
+  tspin: ["Направи Т-завъртане, което чисти ред", "Do a T-spin that clears a line"],
+  triple: ["Изчисти 3 реда наведнъж", "Clear 3 lines at once"],
+  tetra: ["Изчисти 4 реда наведнъж", "Clear 4 lines at once"],
+  combo3: ["Направи комбо ×3", "Make a ×3 combo"],
+  lines8: ["Изчисти 8 реда", "Clear 8 lines"],
+  bonus: ["Задействай бонус блокче", "Fire a bonus cell"],
+  spin: ["Завъртане (всяка фигура), което чисти ред", "A spin (any piece) that clears a line"],
+  b2b: ["Два трудни подред (4 реда / завъртане)", "Two hard clears in a row"],
+  fever2: ["Стигни огнен множител ×2", "Reach the ×2 fever"],
+  chain3: ["Чисти редове с 3 фигури подред", "Clear with 3 pieces in a row"],
+  gold: ["Изчисти златния ред", "Clear the golden row"],
+};
+const missionText = (id: MissionId) => tr(...MISSION_TEXT[id]);
 
 type Phase = "idle" | "playing" | "over";
 
@@ -221,7 +294,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
 
   const popup = (text: string, big = false) => {
     const id = ++popupId.current;
-    setPopups((p) => [...p.slice(-3), { id, text, big }]);
+    setPopups((p) => [...p.slice(-5), { id, text, big }]);
     setTimeout(() => setPopups((p) => p.filter((x) => x.id !== id)), 1300);
   };
 
@@ -273,27 +346,61 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       if (color !== undefined) setForceColor(color);
       setCheer((c) => ({ mood, key: (c?.key ?? 0) + 1 }));
     };
-    return () => void delete w.__dragon;
+    const wg = window as unknown as { __blocksGame?: () => BlocksGame | null };
+    wg.__blocksGame = () => gameRef.current; // e2e: set up bonus cells / rage / golden rows
+    return () => {
+      delete w.__dragon;
+      delete wg.__blocksGame;
+    };
   }, []);
 
   const onEvent = useCallback(
     (e: GameEvent) => {
       if (soundRef.current) blockSound(e);
-      if (e.kind === "clear" && (e.lines > 0 || e.tspin)) cheerFor(e.lines, e.combo, e.tspin);
+      if (e.kind === "clear" && (e.lines > 0 || e.spin))
+        cheerFor(e.perfect ? 4 : e.lines + (e.bonuses.length || e.cascades ? 1 : 0), e.combo, !!e.spin && !e.mini);
       if (e.kind === "clear") {
+        const n = e.rows.length;
+        const spinName = e.spin
+          ? `${e.spin === "T" ? "Т" : e.spin}-${tr("завъртане", "spin")}${e.mini ? tr(" мини", " mini") : ""}${n ? ` ×${n}` : ""}`
+          : "";
         const name =
-          e.lines === 4
-            ? tr("ЧЕТИРИ РЕДА!", "FOUR LINES!")
-            : e.tspin
-              ? `${tr("Т-завъртане", "T-spin")}${e.lines ? ` ×${e.lines}` : ""}`
-              : e.lines === 3
-                ? tr("Три реда", "Three lines")
-                : e.lines === 2
-                  ? tr("Два реда", "Two lines")
-                  : "";
-        if (name) popup(`${name}${e.b2b ? tr(" · подред", " · back-to-back") : ""}`, e.lines === 4 || e.tspin);
+          spinName ||
+          (n === 4 ? tr("ЧЕТИРИ РЕДА!", "FOUR LINES!") : n === 3 ? tr("Три реда", "Three lines") : n === 2 ? tr("Два реда", "Two lines") : "");
+        if (e.perfect) popup(tr("✨ ЧИСТ КЛАДЕНЕЦ!", "✨ PERFECT CLEAR!"), true);
+        if (name) popup(`${name}${e.b2b ? ` · ${tr("подред", "back-to-back")} ×${e.b2bChain}` : ""}`, n === 4 || (!!e.spin && !e.mini));
+        for (const k of new Set(e.bonuses))
+          popup(
+            k === "bomb"
+              ? tr("💣 Бомба!", "💣 Bomb!")
+              : k === "bolt"
+                ? tr("⚡ Мълния!", "⚡ Lightning!")
+                : k === "rainbow"
+                  ? tr("🌈 Дъга!", "🌈 Rainbow!")
+                  : tr("⏳ Забавяне 10 с", "⏳ Slow-down 10 s"),
+            k !== "slow",
+          );
+        if (e.cascades > 0) popup(`${tr("Каскада", "Cascade")} ×${e.cascades + 1}!`, true);
+        if (e.gold) popup(tr("🪙 Златен ред!", "🪙 Golden row!"), true);
         if (e.combo > 0) popup(`${tr("Комбо", "Combo")} ×${e.combo}`);
-        if (e.points > 0) popup(`+${fmt(e.points)}`);
+        if (e.points > 0) popup(`+${fmt(e.points)}${e.fever > 1 ? ` (×${e.fever})` : ""}`);
+      } else if (e.kind === "fever") {
+        popup(e.mult > 1 ? `🔥 ${tr("Огнен множител", "Fever")} ×${e.mult}` : tr("огънят угасна", "the fever is out"), e.mult > 1);
+      } else if (e.kind === "rageReady") {
+        popup(tr("🐉 Гневът е пълен — натисни V!", "🐉 Rage is full — press V!"), true);
+      } else if (e.kind === "rage") {
+        popup(tr("🔥 ДРАКОНОВ ОГЪН! ×2 за 10 с", "🔥 DRAGON FIRE! ×2 for 10 s"), true);
+        if (e.points) popup(`+${fmt(e.points)}`);
+        cheerFor(4, 0, false);
+      } else if (e.kind === "mission") {
+        popup(`🎯 ${tr("Мисията е изпълнена!", "Mission done!")} +${fmt(e.points)}`, true);
+        cheerFor(2, 0, false);
+      } else if (e.kind === "missionNew") {
+        popup(`🎯 ${missionText(e.id)}`);
+      } else if (e.kind === "goldRow") {
+        popup(tr("🪙 Златен ред отдолу!", "🪙 A golden row!"));
+      } else if (e.kind === "stone") {
+        popup(tr("Златото стана на камък", "The gold turned to stone"));
       } else if (e.kind === "level") {
         popup(`${tr("Ниво", "Level")} ${e.level}!`, true);
         // a new style every two levels
@@ -351,6 +458,9 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         case "ShiftLeft":
         case "ShiftRight":
           if (!e.repeat) g.holdPiece();
+          break;
+        case "KeyV":
+          if (!e.repeat) g.unleash();
           break;
         case "Escape":
         case "KeyP":
@@ -416,7 +526,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         game.softSpeed = softRef.current;
         game.tick(dt);
       }
-      draw(canvasRef.current, game, size.w, size.h);
+      draw(canvasRef.current, game, size.w, size.h, now);
       if (game) {
         const h: Hud = {
           score: game.score,
@@ -428,6 +538,15 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
           paused: game.paused,
           over: game.over,
           danger: stackDanger(game),
+          holdBonus: game.holdBonus,
+          nextBonus: game.queueBonus.slice(0, 3),
+          fever: game.fever,
+          rage: Math.floor(game.rage),
+          rageSec: Math.ceil(game.rageMs / 1000),
+          slowSec: Math.ceil(game.slowMs / 1000),
+          mission: game.mission && { ...game.mission },
+          missionsDone: game.missionsDone,
+          dragonBonus: game.dragonBonus,
         };
         const k = JSON.stringify(h);
         if (k !== lastHud) {
@@ -484,7 +603,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   const hudDanger = phase === "playing" && !!hud?.danger;
   useEffect(() => blocksMusic.setDanger(hudDanger), [hudDanger]);
   // 🐉 Every game hatches a new egg: it grows with this game's lines, its colour follows the levels climbed.
-  const liveLines = phase !== "idle" ? (hud?.lines ?? 0) : 0;
+  const liveLines = phase !== "idle" ? (hud?.lines ?? 0) + (hud?.dragonBonus ?? 0) : 0;
   const grown = dragonStage(liveLines);
   const tint = forceColor ?? dragonColor(phase !== "idle" && hud && gameRef.current ? hud.level - gameRef.current.startLevel : 0);
   const stage = forceStage ?? grown.stage;
@@ -577,7 +696,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       <div className="blk-side blk-left">
         <div className="blk-box">
           <div className="blk-label">{tr("Запазен", "Hold")} <kbd>C</kbd></div>
-          <PiecePreview type={hud?.hold ?? null} dim={hud?.holdUsed} />
+          <PiecePreview type={hud?.hold ?? null} dim={hud?.holdUsed} bonus={hud?.holdBonus} />
         </div>
         <div className="blk-box blk-stats">
           <div className="blk-label">{tr("Точки", "Score")}</div>
@@ -644,6 +763,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
           <div><kbd>↑</kbd>/<kbd>X</kbd> {tr("завърти", "rotate")} · <kbd>Z</kbd> {tr("обратно", "back")}</div>
           <div><kbd>↓</kbd> {tr("по-бързо", "soft drop")} · <kbd>{tr("Интервал", "Space")}</kbd> {tr("пусни", "drop")}</div>
           <div><kbd>C</kbd>/<kbd>Shift</kbd> {tr("запази", "hold")} · <kbd>P</kbd> {tr("пауза", "pause")}</div>
+          <div><kbd>V</kbd> {tr("драконов огън (когато гневът е пълен)", "dragon fire (when rage is full)")}</div>
           <label className="blk-soft-pick" title={tr("Колко бързо пада блокчето, докато държиш ↓", "How fast a piece falls while ↓ is held")}>
             <kbd>↓</kbd> {tr("скорост", "speed")}
             <select
@@ -665,7 +785,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       </div>
 
       <div className="blk-center">
-        <div ref={wellRef} className="blk-well-wrap" style={customH && !fullscreen ? { height: customH } : undefined}>
+        <div ref={wellRef} className={"blk-well-wrap" + (phase === "playing" && hud ? (hud.fever > 1 ? " fever f" + String(hud.fever).replace(".", "") : "") + (hud.rageSec > 0 ? " raging" : "") + (hud.slowSec > 0 ? " slowed" : "") : "")} style={customH && !fullscreen ? { height: customH } : undefined}>
           <canvas ref={canvasRef} className="blk-well" />
           <div className="blk-popups">
             {popups.map((p) => (
@@ -782,6 +902,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
             →
           </button>
           <button onPointerDown={tap((x) => x.hardDrop())}>⤓</button>
+          <button className={hud?.rage && hud.rage >= RAGE_MAX ? "blk-touch-rage ready" : "blk-touch-rage"} onPointerDown={tap((x) => x.unleash())}>🔥</button>
           <button onPointerDown={tap((x) => !x.over && (x.paused = !x.paused))}>⏸</button>
         </div>
       </div>
@@ -790,10 +911,40 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         <div className="blk-box">
           <div className="blk-label">{tr("Следващи", "Next")}</div>
           {(hud?.next ?? []).map((t, i) => (
-            <PiecePreview key={i} type={t} />
+            <PiecePreview key={i} type={t} bonus={hud?.nextBonus[i]} />
           ))}
           {!hud && <div className="blk-muted blk-next-empty">—</div>}
         </div>
+        {phase === "playing" && hud && (
+          <div className="blk-box blk-extras">
+            <div className={"blk-rage" + (hud.rage >= RAGE_MAX ? " ready" : "") + (hud.rageSec > 0 ? " burning" : "")}>
+              <div className="blk-label">
+                🐉 {tr("Гняв", "Rage")}{" "}
+                {hud.rageSec > 0 ? <b>🔥 ×2 · {hud.rageSec} {tr("с", "s")}</b> : hud.rage >= RAGE_MAX ? <b>{tr("натисни", "press")} <kbd>V</kbd>!</b> : null}
+              </div>
+              <div className="blk-rage-bar">
+                <i style={{ width: (hud.rageSec > 0 ? (hud.rageSec / 10) * 100 : (hud.rage / RAGE_MAX) * 100) + "%" }} />
+              </div>
+            </div>
+            {hud.fever > 1 && <div className={"blk-fever f" + String(hud.fever).replace(".", "")}>🔥 {tr("Огнен множител", "Fever")} ×{hud.fever}</div>}
+            {hud.slowSec > 0 && <div className="blk-slow">⏳ {tr("Забавено", "Slowed")} · {hud.slowSec} {tr("с", "s")}</div>}
+            <div className="blk-mission">
+              <div className="blk-label">🎯 {tr("Мисия", "Mission")} {hud.missionsDone > 0 && <span className="blk-muted">· ✔ {hud.missionsDone}</span>}</div>
+              {hud.mission ? (
+                <>
+                  <div className="blk-mission-text">{missionText(hud.mission.id)}</div>
+                  {hud.mission.goal > 1 && (
+                    <div className="blk-pet-bar">
+                      <i style={{ width: (hud.mission.progress / hud.mission.goal) * 100 + "%" }} />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="blk-muted">{tr("следващата идва…", "the next one is coming…")}</div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="blk-box blk-top">
           <div className="blk-label">🏆 {tr("Класация на сървъра", "Server top list")}</div>
           {top.length === 0 && <div className="blk-muted">{tr("Още никой не е играл. Бъди първи!", "Nobody has played yet. Be the first!")}</div>}
@@ -879,7 +1030,7 @@ function stackDanger(game: BlocksGame): boolean {
 
 const VISIBLE = ROWS - HIDDEN;
 
-function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null, cw: number, ch: number) {
+function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null, cw: number, ch: number, now: number) {
   if (!canvas || !cw) return;
   const rect = { width: cw, height: ch };
   const dpr = window.devicePixelRatio || 1;
@@ -912,7 +1063,20 @@ function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null, cw: num
   for (let y = HIDDEN; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const v = game.board[y]![x]!;
-      if (v) stampCell(g, x * s, (y - HIDDEN) * s, s, dpr, BLOCK_COLORS[PIECES[v - 1]!], game.over ? 0.45 : 1);
+      if (!v) continue;
+      stampCell(g, x * s, (y - HIDDEN) * s, s, dpr, cellColor(v), game.over ? 0.45 : 1);
+      if (v === GOLD) {
+        // a glint running along the golden row
+        const k = Math.max(0, Math.sin(now / 220 - x * 0.7));
+        if (k > 0.6) {
+          g.fillStyle = "rgba(255,255,255," + ((k - 0.6) * 1.8).toFixed(2) + ")";
+          g.beginPath();
+          g.roundRect(x * s + s * 0.15, (y - HIDDEN) * s + s * 0.15, s * 0.7, s * 0.7, s * 0.15);
+          g.fill();
+        }
+      }
+      const tag = game.tags[y]![x];
+      if (tag && !game.over) drawBonus(g, x * s, (y - HIDDEN) * s, s, tag, now);
     }
   }
   const a = game.active;
@@ -929,7 +1093,12 @@ function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null, cw: num
       const y = a.y + cy - HIDDEN + off;
       if (y > -1) stampCell(g, (a.x + cx) * s, y * s, s, dpr, col);
     }
+    if (a.bonus) {
+      const [bx, by] = bonusCell(a.type, a.rot, a.bonus.i);
+      drawBonus(g, (a.x + bx) * s, (a.y + by - HIDDEN + off) * s, s, a.bonus.kind, now);
+    }
   }
+  drawFx(g, game, s, rect.width, rect.height);
   if (game.flash) {
     // The rows that just went: a white sweep (they are gone from the board already).
     const k = Math.max(0, game.flash.ms / 220);
@@ -940,5 +1109,82 @@ function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null, cw: num
   if (game.paused) {
     g.fillStyle = "rgba(10,10,14,0.55)";
     g.fillRect(0, 0, rect.width, rect.height);
+  }
+}
+
+/** Bonus / rage / perfect-clear effects on top of the well. */
+function drawFx(g: CanvasRenderingContext2D, game: BlocksGame, s: number, W: number, H: number) {
+  for (const f of game.fx) {
+    const t = 1 - f.ms / f.total; // 0 → 1
+    const cx = (f.x + 0.5) * s;
+    const cy = (f.y + 0.5) * s;
+    g.save();
+    if (f.kind === "bomb") {
+      g.globalAlpha = 1 - t;
+      const r = s * (0.5 + 3 * t);
+      const grad = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grad.addColorStop(0, "rgba(255,250,210,0.95)");
+      grad.addColorStop(0.4, "rgba(255,150,40,0.8)");
+      grad.addColorStop(1, "rgba(255,60,20,0)");
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(cx, cy, r, 0, Math.PI * 2);
+      g.fill();
+    } else if (f.kind === "bolt") {
+      g.globalAlpha = (1 - t) * (0.7 + 0.3 * Math.sin(t * 40));
+      const grad = g.createLinearGradient(cx - s, 0, cx + s, 0);
+      grad.addColorStop(0, "rgba(120,200,255,0)");
+      grad.addColorStop(0.5, "rgba(235,248,255,1)");
+      grad.addColorStop(1, "rgba(120,200,255,0)");
+      g.fillStyle = grad;
+      g.fillRect(cx - s, 0, 2 * s, H);
+      // the zig-zag
+      g.strokeStyle = "#fff";
+      g.lineWidth = Math.max(2, s * 0.12);
+      g.beginPath();
+      for (let y = 0; y <= H; y += s * 0.8) g.lineTo(cx + (Math.random() - 0.5) * s * 0.7, y);
+      g.stroke();
+    } else if (f.kind === "rainbow") {
+      g.globalAlpha = 0.35 * (1 - t);
+      const grad = g.createLinearGradient(0, 0, W, H);
+      ["#ff4d6d", "#ff8a3d", "#ffc53d", "#33d17a", "#3d9bff", "#b06bff"].forEach((c, i) => grad.addColorStop(i / 5, c));
+      g.fillStyle = grad;
+      g.fillRect(0, 0, W, H);
+    } else if (f.kind === "slow") {
+      g.globalAlpha = 1 - t;
+      g.strokeStyle = "#9fd8ff";
+      g.lineWidth = s * 0.15;
+      for (const k of [0, 0.3]) {
+        g.beginPath();
+        g.arc(cx, cy, s * (0.5 + 5 * Math.max(0, t - k)), 0, Math.PI * 2);
+        g.stroke();
+      }
+    } else if (f.kind === "rage") {
+      // flames licking up from the bottom
+      g.globalAlpha = 1 - t * t;
+      const h = s * (3 + 4 * Math.sin(t * Math.PI));
+      const grad = g.createLinearGradient(0, H, 0, H - h);
+      grad.addColorStop(0, "rgba(255,240,170,0.95)");
+      grad.addColorStop(0.35, "rgba(255,140,30,0.85)");
+      grad.addColorStop(1, "rgba(220,30,20,0)");
+      g.fillStyle = grad;
+      g.beginPath();
+      g.moveTo(cx - s * 1.2, H);
+      g.quadraticCurveTo(cx - s * 0.6, H - h * 0.6, cx + Math.sin(t * 20 + f.x) * s * 0.4, H - h);
+      g.quadraticCurveTo(cx + s * 0.6, H - h * 0.6, cx + s * 1.2, H);
+      g.fill();
+    } else if (f.kind === "perfect") {
+      g.globalAlpha = 0.5 * (1 - t);
+      g.fillStyle = "#fff6c0";
+      g.fillRect(0, 0, W, H);
+    } else if (f.kind === "gold") {
+      g.globalAlpha = 0.6 * (1 - t);
+      const grad = g.createLinearGradient(0, H - s, 0, H - 3 * s);
+      grad.addColorStop(0, "rgba(255,210,60,0.9)");
+      grad.addColorStop(1, "rgba(255,210,60,0)");
+      g.fillStyle = grad;
+      g.fillRect(0, H - 3 * s, W, 3 * s);
+    }
+    g.restore();
   }
 }

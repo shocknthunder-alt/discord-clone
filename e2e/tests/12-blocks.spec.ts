@@ -185,4 +185,64 @@ test.describe("🧱 Шметрис", () => {
     expectNoCrashes(a.page);
     await closeAll(a.context);
   });
+  test("💣 бонус блокче, 🐉 драконов огън (V), 🪙 златен ред, 🎯 мисии", async ({ browser }) => {
+    const ana = await register("ana");
+    const server = await serverWith(ana);
+    await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
+    const a = await openAs(browser, ana);
+    await a.page.addInitScript(() => localStorage.setItem("blocksMusic", "off"));
+    await openServer(a.page, server.name);
+    await openTextChannel(a.page, "шметрис");
+    await a.page.getByRole("button", { name: /Играй/ }).click();
+    type G = {
+      board: number[][];
+      tags: (string | null)[][];
+      active: { type: string; rot: number; x: number; y: number; bonus: unknown } | null;
+      rage: number;
+      untilGold: number;
+      hardDrop(): void;
+      mission: unknown;
+    };
+    const run = <T,>(fn: string) => a.page.evaluate((code) => {
+      const g = (window as unknown as { __blocksGame: () => G }).__blocksGame();
+      return new Function("g", code)(g) as T;
+    }, fn);
+
+    // Долният ред пълен без последната колона, в него 💣; над него 5 клетки, които бомбата трябва да взриви.
+    await run(`
+      for (const row of g.board) row.fill(0);
+      for (const row of g.tags) row.fill(null);
+      for (let x = 0; x < 9; x++) g.board[21][x] = 1;
+      g.tags[21][4] = "bomb";
+      for (let x = 2; x <= 6; x++) g.board[20][x] = 3;
+      g.active = { type: "I", rot: 1, x: 7, y: 2, bonus: null };
+      g.hardDrop();`);
+    await expect(a.page.locator(".blk-popup", { hasText: "Бомба" })).toBeVisible();
+    // остават само 3-те клетки на пръчката (паднали до дъното), бомбата е взривила петте
+    expect(await run<number>("return g.board.flat().filter((v) => v).length")).toBe(3);
+
+    // 🐉 Гняв: пълен → „натисни V“; V изгаря долните 3 реда и дава ×2 за 10 с.
+    await run("g.rage = 100");
+    await expect(a.page.locator(".blk-rage.ready")).toContainText("V");
+    await a.page.keyboard.press("KeyV");
+    await expect(a.page.locator(".blk-popup", { hasText: "ДРАКОНОВ ОГЪН" })).toBeVisible();
+    await expect(a.page.locator(".blk-well-wrap.raging")).toBeVisible();
+    await expect(a.page.locator(".blk-rage")).toContainText("×2");
+    expect(await run<number>("return g.board.flat().filter((v) => v).length")).toBe(0);
+
+    // 🪙 Златен ред: изниква отдолу (9 златни + 1 дупка); бонус блокче в падащата фигура се вижда.
+    await run("g.untilGold = 1; g.hardDrop();");
+    await expect(a.page.locator(".blk-popup", { hasText: "Златен ред" })).toBeVisible();
+    expect(await run<number>("return g.board[21].filter((v) => v === 8).length")).toBe(9);
+    // 🎯 мисия се появява след няколко фигури
+    await a.page.keyboard.press("Space");
+    await a.page.keyboard.press("Space");
+    await expect(a.page.locator(".blk-mission-text")).not.toBeEmpty();
+    await run('g.active.bonus = { i: 1, kind: "bolt" }');
+    await a.page.waitForTimeout(300);
+    await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-bonus.png" });
+    expectNoCrashes(a.page);
+    await closeAll(a.context);
+  });
 });
+

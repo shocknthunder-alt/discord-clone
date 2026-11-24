@@ -12,7 +12,7 @@ import "./match.css";
 /** 🍬 Шмиксер — the screen of a "match" channel: solo match-3 + the server's top lists. */
 
 type Mode = "time" | "moves";
-const TIME_S = 120;
+const TIME_S = 240;
 const SIZE_KEY = "matchBoardSize";
 const MIN_W = 260;
 const MAX_W = 1600;
@@ -550,7 +550,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               )}
               <div className="mx-modes">
                 <button className={mode === "time" ? "on" : ""} onClick={() => setMode("time")}>
-                  ⏱ {tr("2 минути", "2 minutes")}
+                  ⏱ {tr("4 минути", "4 minutes")}
                 </button>
                 <button className={mode === "moves" ? "on" : ""} onClick={() => setMode("moves")}>
                   👆 {tr("30 хода", "30 moves")}

@@ -59,8 +59,9 @@ blocksRouter.post("/text-channels/:channelId/blocks/score", async (req, res) => 
   const level = int(req.body?.level, 1_000);
   const ms = int(req.body?.durationMs, 24 * 3600_000);
   if (score === null || lines === null || level === null || ms === null || level < 1) return res.status(400).json({ error: "Bad score" });
-  // Rough plausibility: a 4-line clear is worth at most ~800×level×1.5 + combo, drops a few points a cell.
-  const ceiling = (lines + 4) * 2_500 * (level + 1) + 200 * Math.ceil(ms / 1000) + 5_000;
+  // Rough plausibility: a hard clear is worth at most ~1600×level × back-to-back ×3 × fever ×3 × rage ×2
+  // per 3–4 lines (+ perfect clears, golden rows, missions, bonus cells), drops a few points a cell.
+  const ceiling = (lines + 4) * 15_000 * (level + 1) + 1_000 * Math.ceil(ms / 1000) + 20_000;
   if (score > ceiling) return res.status(400).json({ error: "Implausible score" });
 
   const where = { serverId_userId: { serverId: ch.serverId, userId: req.userId! } };
