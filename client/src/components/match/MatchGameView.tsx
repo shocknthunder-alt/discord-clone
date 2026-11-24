@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { http } from "../../api/http";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { matchMusic } from "../blocks/music";
 import "../blocks/blocks.css";
 import { Gem, GemDefs, GEM_COLORS } from "./Gems";
-import { MatchBoard, SIZE, type Pos, type Step, type Tile } from "./engine";
+import { MatchBoard, SIZE, feverOf, type MoveResult, type Pos, type Special, type Step, type Tile } from "./engine";
 import { matchSound } from "./sounds";
 import "./match.css";
 
@@ -43,7 +43,10 @@ interface ViewTile {
 }
 interface Fx {
   id: number;
-  kind: "spark" | "beamRow" | "beamCol" | "ring" | "flash" | "score";
+  kind: "beamRow" | "beamCol" | "ring" | "flash" | "score" | "fly";
+  /** fly: target cell */
+  tr?: number;
+  tc?: number;
   r: number;
   c: number;
   color?: string;
@@ -67,6 +70,87 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const POP_MS = 230;
 const FALL_MS = 280;
 
+/** One tile: memoised, so a change of one tile (or the clock) doesn't re-render all 64 gems. */
+const TileView = memo(function TileView({ cls, r, c, color, special }: { cls: string; r: number; c: number; color: number; special: Special | null }) {
+  return (
+    <div className={cls} style={{ transform: `translate3d(${c * 100}%, ${r * 100}%, 0)` }}>
+      <Gem color={color} special={special} />
+    </div>
+  );
+});
+
+/** Sparks on a canvas over the board (hundreds of DOM sparks were the slow part of big combos). */
+interface Spark {
+  x: number; // 0..1 of the board
+  y: number;
+  vx: number; // board widths per second
+  vy: number;
+  life: number; // s left
+  total: number;
+  color: string;
+  size: number; // of a cell
+}
+class SparkLayer {
+  sparks: Spark[] = [];
+  canvas: HTMLCanvasElement | null = null;
+  private raf = 0;
+  private last = 0;
+  burst(items: Spark[]) {
+    this.sparks.push(...items);
+    if (this.sparks.length > 700) this.sparks.splice(0, this.sparks.length - 700);
+    if (!this.raf) {
+      this.last = performance.now();
+      this.raf = requestAnimationFrame(this.frame);
+    }
+  }
+  stop() {
+    cancelAnimationFrame(this.raf);
+    this.raf = 0;
+    this.sparks = [];
+  }
+  private frame = (now: number) => {
+    const dt = Math.min(0.05, (now - this.last) / 1000);
+    this.last = now;
+    const c = this.canvas;
+    if (!c) {
+      this.raf = 0;
+      return;
+    }
+    const w = c.clientWidth;
+    const h = c.clientHeight;
+    const dpr = window.devicePixelRatio || 1;
+    if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+    }
+    const g = c.getContext("2d")!;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    g.globalCompositeOperation = "lighter";
+    const cell = w / SIZE;
+    for (const p of this.sparks) {
+      p.life -= dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vy += 0.9 * dt; // gravity
+      p.vx *= 1 - 1.5 * dt;
+      const k = Math.max(0, p.life / p.total);
+      g.globalAlpha = k;
+      g.fillStyle = p.color;
+      const r = cell * p.size * (0.4 + 0.6 * k);
+      g.beginPath();
+      g.arc(p.x * w, p.y * h, r, 0, Math.PI * 2);
+      g.fill();
+    }
+    this.sparks = this.sparks.filter((p) => p.life > 0);
+    if (this.sparks.length) this.raf = requestAnimationFrame(this.frame);
+    else {
+      g.clearRect(0, 0, w, h);
+      this.raf = 0;
+    }
+  };
+}
+
 function viewOf(board: MatchBoard): Record<number, ViewTile> {
   const out: Record<number, ViewTile> = {};
   board.grid.forEach((row, r) => row.forEach((t, c) => t && (out[t.id] = { tile: t, r, c })));
@@ -74,6 +158,7 @@ function viewOf(board: MatchBoard): Record<number, ViewTile> {
 }
 
 function comboName(combo: number) {
+  if (combo >= 9) return tr("Божествено!", "Divine!");
   if (combo >= 7) return tr("Невероятно!", "Incredible!");
   if (combo >= 5) return tr("Машина!", "Machine!");
   if (combo >= 3) return tr("Супер!", "Super!");
@@ -112,8 +197,11 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
   const soundRef = useRef(sound);
   soundRef.current = sound;
   const boardEl = useRef<HTMLDivElement>(null);
-  const timeRef = useRef(timeLeft);
-  timeRef.current = timeLeft;
+  // the exact time left lives here; the state only changes once a second (no re-render 10× a second)
+  const timeRef = useRef(resumed?.timeLeft ?? TIME_S);
+  const [streak, setStreak] = useState(resumed?.board.streak ?? 0);
+  const sparks = useRef(new SparkLayer());
+  useEffect(() => () => sparks.current.stop(), []);
   const movesRef = useRef(movesLeft);
   movesRef.current = movesLeft;
   const sfx = <K extends keyof typeof matchSound>(k: K, ...a: Parameters<(typeof matchSound)[K]>) => {
@@ -145,6 +233,8 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     setTiles(viewOf(board));
     setScore(0);
     setTimeLeft(TIME_S);
+    timeRef.current = TIME_S;
+    setStreak(0);
     setMovesLeft(MOVES);
     setResult(null);
     setSelected(null);
@@ -186,19 +276,24 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     });
     // effects
     const items: Omit<Fx, "id">[] = [];
-    for (const p of st.popped.slice(0, 40)) {
+    const burst: Spark[] = [];
+    for (const p of st.popped) {
       const color = p.tile.special === "prism" ? "#fff" : GEM_COLORS[p.tile.color] ?? "#fff";
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 6; i++) {
         const a = Math.random() * Math.PI * 2;
-        const d = 30 + Math.random() * 45;
-        items.push({ kind: "spark", r: p.r, c: p.c, color, dx: Math.cos(a) * d, dy: Math.sin(a) * d });
+        const v = 0.08 + Math.random() * 0.22;
+        const life = 0.45 + Math.random() * 0.4;
+        burst.push({ x: (p.c + 0.5) / SIZE, y: (p.r + 0.5) / SIZE, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 0.05, life, total: life, color, size: 0.05 + Math.random() * 0.05 });
       }
     }
+    sparks.current.burst(burst);
     let bigShake = false;
     for (const b of st.blasts) {
       if (b.kind === "rowRocket") items.push({ kind: "beamRow", r: b.r, c: b.c });
       else if (b.kind === "colRocket") items.push({ kind: "beamCol", r: b.r, c: b.c });
       else if (b.kind === "cross") items.push({ kind: "beamRow", r: b.r, c: b.c }, { kind: "beamCol", r: b.r, c: b.c });
+      else if (b.kind === "firefly" && b.tr !== undefined) items.push({ kind: "fly", r: b.r, c: b.c, tr: b.tr, tc: b.tc });
+      else if (b.kind === "firefly") items.push({ kind: "ring", r: b.r, c: b.c });
       else if (b.kind === "bomb" || b.kind === "bigBomb") {
         items.push({ kind: "ring", r: b.r, c: b.c, big: b.kind === "bigBomb" });
         bigShake = true;
@@ -220,10 +315,11 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     if (kinds.has("rowRocket") || kinds.has("colRocket") || kinds.has("cross")) sfx("rocket");
     if (kinds.has("bomb") || kinds.has("bigBomb")) sfx("bomb", kinds.has("bigBomb"));
     if (kinds.has("allColor") || kinds.has("board") || kinds.has("prism")) sfx("prism", kinds.has("board"));
+    if (kinds.has("firefly")) sfx("firefly");
     if (st.made.length) setTimeout(() => sfx("made"), 120);
     if (st.combo >= 2) {
       setCombo((c) => ({ n: st.combo, key: (c?.key ?? 0) + 1 }));
-      if (st.combo === 5 || st.combo === 7) sfx("fanfare", st.combo);
+      if (st.combo === 5 || st.combo === 7 || st.combo === 9) sfx("fanfare", st.combo);
     }
     setScore((s) => s + st.points);
     await sleep(POP_MS);
@@ -246,6 +342,28 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     });
     await sleep(FALL_MS);
     sfx("land");
+  };
+
+  /** Fever, move bonuses and extra seconds, once the steps are shown. */
+  const afterMove = (res: MoveResult) => {
+    const before = feverOf(streak);
+    setStreak(res.streak ?? 0);
+    const fever = res.fever ?? 1;
+    if (fever > before) {
+      sfx("fever", fever);
+      addFx([{ kind: "score", r: 2.2, c: 3.5, text: `🔥 ${tr("Огнен множител", "Fever")} ×${fever}`, big: true }], 1300);
+    } else if (fever === 1 && before > 1) addFx([{ kind: "score", r: 2.2, c: 3.5, text: tr("огънят угасна", "the fever is out") }], 1100);
+    const texts: string[] = [];
+    for (const b of res.bonuses ?? []) {
+      texts.push(`${b.kind === "double" ? tr("⚡ Двоен удар!", "⚡ Double strike!") : tr("💥 Мега ход!", "💥 Mega move!")} +${fmt(b.points)}`);
+      sfx("bonus", b.kind === "mega");
+    }
+    if (mode === "time" && res.timeBonus) {
+      timeRef.current += res.timeBonus;
+      setTimeLeft(timeRef.current);
+      texts.push(`⏱ +${res.timeBonus} ${tr("с", "s")}`);
+    }
+    texts.forEach((text, i) => addFx([{ kind: "score", r: 4.6 + i * 0.8, c: 3.5, text, big: true }], 1400));
   };
 
   const trySwap = async (a: Pos, b: Pos) => {
@@ -271,6 +389,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     }
     if (mode === "moves") setMovesLeft((m) => m - 1);
     for (const st of res.steps) await playStep(st);
+    afterMove(res);
     if (res.shuffled) {
       sfx("shuffle");
       addFx([{ kind: "score", r: 3.5, c: 3.5, text: tr("Разбъркване!", "Shuffle!"), big: true }], 1100);
@@ -290,11 +409,13 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
       const now = performance.now();
       const dt = (now - last) / 1000;
       last = now;
-      setTimeLeft((v) => {
-        const nv = Math.max(0, v - dt);
-        if (Math.ceil(nv) !== Math.ceil(v) && nv <= 10 && nv > 0) sfx("tick", nv <= 5);
-        return nv;
-      });
+      const v = timeRef.current;
+      const nv = Math.max(0, v - dt);
+      timeRef.current = nv;
+      if (Math.ceil(nv) !== Math.ceil(v)) {
+        if (nv <= 10 && nv > 0) sfx("tick", nv <= 5);
+        setTimeLeft(nv);
+      }
     }, 100);
     return () => window.clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -354,9 +475,15 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     const w = window as unknown as { __matchMove?: () => [Pos, Pos] | null; __matchBusy?: () => boolean };
     w.__matchMove = () => boardRef.current?.findMove() ?? null;
     w.__matchBusy = () => busy.current;
+    // e2e: set up a board by hand, then show it
+    const wb = window as unknown as { __matchBoard?: () => MatchBoard | null; __matchSync?: () => void };
+    wb.__matchBoard = () => boardRef.current;
+    wb.__matchSync = () => boardRef.current && setTiles(viewOf(boardRef.current));
     return () => {
       delete w.__matchMove;
       delete w.__matchBusy;
+      delete wb.__matchBoard;
+      delete wb.__matchSync;
     };
   }, []);
 
@@ -465,6 +592,17 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               👆 {movesLeft} {tr("хода", "moves")}
             </div>
           )}
+          {phase === "playing" && feverOf(streak) > 1 && (
+            <div className={`mx-fever f${String(feverOf(streak)).replace(".", "")}`}>
+              🔥 {tr("Огнен множител", "Fever")} ×{feverOf(streak)}
+            </div>
+          )}
+          {phase === "playing" && (
+            <div className="blk-stat-row">
+              <span>{tr("Силни ходове подред", "Strong moves in a row")}</span>
+              <b>{streak}</b>
+            </div>
+          )}
           <div className="blk-stat-row">
             <span>{tr("Най-голямо комбо", "Best combo")}</span>
             <b>×{boardRef.current?.bestCombo ?? 0}</b>
@@ -487,7 +625,12 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
           <div>
             <b>5</b> {tr("в редица → призма", "in a row → prism")} 🌈
           </div>
+          <div>
+            <b>2×2</b> {tr("квадрат → светулка", "square → firefly")} ✨
+          </div>
           <div>{tr("Две специални заедно = мега взрив!", "Two specials together = mega blast!")}</div>
+          <div>{tr("Силни ходове подред (каскада / специално) → 🔥 ×1.5 / ×2 / ×3", "Strong moves in a row → 🔥 ×1.5 / ×2 / ×3")}</div>
+          <div>{tr("2 специални в един ход = ⚡ Двоен удар; 30+ камъчета = 💥 Мега ход; дълго комбо = ⏱ + секунди", "2 specials in a move = ⚡ Double strike; 30+ gems = 💥 Mega move; long combo = ⏱ + seconds")}</div>
           <div>
             <kbd>P</kbd> {tr("пауза", "pause")}
           </div>
@@ -497,7 +640,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
       <div className="blk-center">
         <div
           ref={boardEl}
-          className={`mx-board ${shake ? "shake" : ""}`}
+          className={`mx-board ${shake ? "shake" : ""} ${phase === "playing" && feverOf(streak) > 1 ? `fever f${String(feverOf(streak)).replace(".", "")}` : ""}`}
           style={customW ? { width: customW, minWidth: 0 } : undefined}
           onPointerDown={onDown}
           onPointerMove={onMove}
@@ -505,17 +648,30 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
           onPointerCancel={onUp}
         >
           {Object.entries(tiles).map(([id, v]) => (
-            <div
+            <TileView
               key={id}
-              className={`mx-tile ${v.pop ? "pop" : ""} ${v.fresh ? "fresh" : ""} ${hint.includes(Number(id)) ? "hint" : ""} ${selected && selected.r === v.r && selected.c === v.c ? "selected" : ""} ${v.r < 0 ? "above" : ""} ${v.swap ? "swapping" : ""}`}
-              style={{ transform: `translate3d(${v.c * 100}%, ${v.r * 100}%, 0)` }}
-            >
-              <Gem color={v.tile.color} special={v.tile.special} />
-            </div>
+              cls={`mx-tile ${v.pop ? "pop" : ""} ${v.fresh ? "fresh" : ""} ${hint.includes(Number(id)) ? "hint" : ""} ${selected && selected.r === v.r && selected.c === v.c ? "selected" : ""} ${v.r < 0 ? "above" : ""} ${v.swap ? "swapping" : ""}`}
+              r={v.r}
+              c={v.c}
+              color={v.tile.color}
+              special={v.tile.special}
+            />
           ))}
+          <canvas ref={(el) => void (sparks.current.canvas = el)} className="mx-sparks" />
           {fx.map((f) =>
-            f.kind === "spark" ? (
-              <i key={f.id} className="mx-spark" style={{ left: pct(f.c + 0.5), top: pct(f.r + 0.5), background: f.color, ["--dx" as string]: `${f.dx}px`, ["--dy" as string]: `${f.dy}px` }} />
+            f.kind === "fly" ? (
+              <i
+                key={f.id}
+                className="mx-fly"
+                style={{
+                  ["--x0" as string]: `${(f.c / SIZE) * 100}%`,
+                  ["--y0" as string]: `${(f.r / SIZE) * 100}%`,
+                  ["--x1" as string]: `${((f.tc ?? 0) / SIZE) * 100}%`,
+                  ["--y1" as string]: `${((f.tr ?? 0) / SIZE) * 100}%`,
+                }}
+              >
+                <b />
+              </i>
             ) : f.kind === "beamRow" ? (
               <i key={f.id} className="mx-beam row" style={{ top: pct(f.r) }} />
             ) : f.kind === "beamCol" ? (
@@ -592,7 +748,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
           <div className="blk-label">🏆 {tr("Класация", "Top 10")}</div>
           <div className="mx-tabs">
             <button className={tab === "time" ? "on" : ""} onClick={() => setTab("time")}>
-              ⏱ 2 {tr("мин", "min")}
+              ⏱ 4 {tr("мин", "min")}
             </button>
             <button className={tab === "moves" ? "on" : ""} onClick={() => setTab("moves")}>
               👆 30 {tr("хода", "moves")}

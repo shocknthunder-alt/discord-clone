@@ -90,6 +90,66 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await closeAll(a.context);
   });
 
+  test("✨ квадрат 2×2 → светулка; светулка + ракета лети и стреля; 🔥 множител", async ({ browser }) => {
+    const ana = await register("ana");
+    const server = await serverWith(ana);
+    await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиксер", type: "match" });
+    const a = await openAs(browser, ana);
+    await a.page.addInitScript(() => localStorage.setItem("matchMusic", "off"));
+    await openServer(a.page, server.name);
+    await openTextChannel(a.page, "шмиксер");
+    await a.page.locator(".mx-modes button", { hasText: "30 хода" }).click();
+    await a.page.getByRole("button", { name: /Играй/ }).click();
+    type B = { grid: { color: number; special: string | null }[][]; streak: number };
+    const setup = (code: string) =>
+      a.page.evaluate((src) => {
+        const w = window as unknown as { __matchBoard: () => B; __matchSync: () => void };
+        new Function("b", src)(w.__matchBoard());
+        w.__matchSync();
+      }, code);
+    const drag = async (p: Pos, q: Pos) => {
+      await expect.poll(() => a.page.evaluate(() => (window as unknown as { __matchBusy?: () => boolean }).__matchBusy?.())).toBe(false);
+      const box = (await a.page.locator(".mx-board").boundingBox())!;
+      const cell = box.width / 8;
+      await a.page.mouse.move(box.x + (p.c + 0.5) * cell, box.y + (p.r + 0.5) * cell);
+      await a.page.mouse.down();
+      await a.page.mouse.move(box.x + (q.c + 0.5) * cell, box.y + (q.r + 0.5) * cell, { steps: 4 });
+      await a.page.mouse.up();
+      await expect.poll(() => a.page.evaluate(() => (window as unknown as { __matchBusy?: () => boolean }).__matchBusy?.())).toBe(false);
+    };
+    // A board without matches ((2r + c) mod 6), then three zeros in an L and a zero to swap in → a 2×2 square.
+    await setup(`
+      b.grid.forEach((row, r) => row.forEach((t, c) => { t.color = (2 * r + c) % 6; t.special = null; }));
+      b.grid[0][0].color = 0; b.grid[0][1].color = 0; b.grid[1][0].color = 0;
+      b.grid[1][1].color = 1; b.grid[1][2].color = 0;`);
+    await drag({ r: 1, c: 2 }, { r: 1, c: 1 });
+    // (new gems falling in may make another one, so: at least one)
+    await expect.poll(() => a.page.locator(".mx-firefly").count()).toBeGreaterThan(0);
+    // the firefly + a rocket next to it → it flies off with the rocket
+    const before = await a.page.locator(".mx-firefly").count();
+    const ff = await a.page.evaluate(() => {
+      const b = (window as unknown as { __matchBoard: () => B }).__matchBoard();
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (b.grid[r]![c]!.special === "firefly") return { r, c };
+      return null;
+    });
+    expect(ff).not.toBeNull();
+    const nb = ff!.c < 7 ? { r: ff!.r, c: ff!.c + 1 } : { r: ff!.r, c: ff!.c - 1 };
+    await setup(`b.grid[${nb.r}][${nb.c}].special = "rowRocket";`);
+    await drag(ff!, nb);
+    // the firefly went off with the rocket (its cell is not a firefly any more)
+    expect(await a.page.evaluate(([r, c]) => (window as unknown as { __matchBoard: () => B }).__matchBoard().grid[r]![c]!.special, [ff!.r, ff!.c] as const)).not.toBe("firefly");
+    expect(await a.page.locator(".mx-firefly").count()).toBeLessThanOrEqual(before + 2);
+    // 🔥 a long streak of strong moves → the fever badge
+    await setup("b.streak = 4;");
+    await setup(`b.grid[0][0].special = "bomb"; b.grid[0][1].special = "bomb";`);
+    await drag({ r: 0, c: 0 }, { r: 0, c: 1 });
+    await expect(a.page.locator(".mx-fever")).toContainText("×2");
+    await expect(a.page.locator(".mx-board.fever")).toBeVisible();
+    await a.page.locator(".mx-view").screenshot({ path: "explore/match-fever.png" });
+    expectNoCrashes(a.page);
+    await closeAll(a.context);
+  });
+
   test("излизане от канала по време на игра → връщаш се на пауза със същите точки", async ({ browser }) => {
     const ana = await register("ana");
     const server = await serverWith(ana);

@@ -133,6 +133,15 @@ export function Gem({ color, special }: { color: number; special: string | null 
   return (
     <svg viewBox="0 0 100 100" className="mx-gem-svg">
       <use href={`#mx-s${color}`} width="100" height="100" />
+      {special === "firefly" && (
+        <g className="mx-firefly">
+          {/* two glowing wings + a bright core */}
+          <ellipse cx="30" cy="34" rx="20" ry="11" transform="rotate(-30 30 34)" fill="#e8fbff" fillOpacity="0.75" stroke="#fff" strokeWidth="2" className="mx-wing l" />
+          <ellipse cx="70" cy="34" rx="20" ry="11" transform="rotate(30 70 34)" fill="#e8fbff" fillOpacity="0.75" stroke="#fff" strokeWidth="2" className="mx-wing r" />
+          <circle cx="50" cy="50" r="13" fill="#fffbd0" filter="url(#mx-rune-glow)" />
+          <circle cx="50" cy="50" r="6" fill="#fff" />
+        </g>
+      )}
       {(special === "rowRocket" || special === "colRocket") && (
         <g transform={special === "colRocket" ? "rotate(90 50 50)" : undefined}>
           <path d="M14 40 L86 40 M14 50 L86 50 M14 60 L86 60" stroke="#fff" strokeWidth="5" strokeLinecap="round" opacity="0.9" />

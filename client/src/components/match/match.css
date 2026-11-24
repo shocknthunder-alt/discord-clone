@@ -9,6 +9,7 @@
 
 .mx-board {
   position: relative;
+  container-type: inline-size; /* popups size with the board */
   /* fits the game area: minus both side panels (170 + 230), gaps and padding */
   width: min(calc(100vh - 110px), calc(100cqw - 480px), 640px);
   min-width: 280px;
@@ -88,9 +89,9 @@
   animation: mx-pop 0.23s ease-in forwards;
 }
 @keyframes mx-pop {
-  0% { transform: scale(1); filter: brightness(1); }
-  40% { transform: scale(1.3); filter: brightness(2.2); }
-  100% { transform: scale(0.1); opacity: 0; filter: brightness(3); }
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.1); opacity: 0; }
 }
 .mx-tile.fresh .mx-gem-svg {
   animation: mx-made 0.45s cubic-bezier(0.3, 1.6, 0.5, 1);
@@ -108,21 +109,6 @@
 @keyframes mx-fuse { from { transform: scale(0.7); fill: #ffd43b; } to { transform: scale(1.3); fill: #ff6b2a; } }
 
 /* effects */
-.mx-spark {
-  position: absolute;
-  z-index: 4;
-  width: 7px;
-  height: 7px;
-  margin: -3.5px;
-  border-radius: 50%;
-  pointer-events: none;
-  box-shadow: 0 0 6px currentColor;
-  animation: mx-spark 0.7s cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
-}
-@keyframes mx-spark {
-  0% { transform: translate(0, 0) scale(1.3); opacity: 1; }
-  100% { transform: translate(var(--dx), calc(var(--dy) + 24px)) scale(0.2); opacity: 0; }
-}
 .mx-beam {
   position: absolute;
   z-index: 4;
@@ -190,14 +176,14 @@
   z-index: 5;
   translate: -50% -50%;
   pointer-events: none;
-  font: 900 18px/1 system-ui, sans-serif;
+  font: 900 clamp(12px, 3.6cqw, 18px)/1 system-ui, sans-serif;
   color: #fff;
   text-shadow: 0 2px 0 #b0306a, 0 0 10px rgba(0, 0, 0, 0.7);
   white-space: nowrap;
   animation: mx-points 0.9s ease-out forwards;
 }
 .mx-points.big {
-  font-size: 26px;
+  font-size: clamp(14px, 5cqw, 26px);
   color: #ffd43b;
 }
 @keyframes mx-points {
@@ -293,3 +279,75 @@
 .mx-board:hover .mx-resize {
   opacity: 1;
 }
+
+/* sparks are drawn on this canvas (one layer instead of hundreds of DOM dots) */
+.mx-sparks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 4;
+  pointer-events: none;
+}
+/* ✨ firefly: wings flap; a flight = a glowing dot from its cell to the target (the element is board-sized,
+   so translate % = board %) */
+.mx-firefly .mx-wing {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: mx-flap 0.28s ease-in-out infinite alternate;
+}
+.mx-firefly .mx-wing.r {
+  animation-delay: 0.14s;
+}
+@keyframes mx-flap { from { opacity: 0.55; } to { opacity: 1; } }
+.mx-fly {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  pointer-events: none;
+  animation: mx-fly 0.42s cubic-bezier(0.4, 0, 0.3, 1) forwards;
+}
+.mx-fly b {
+  position: absolute;
+  left: 6.25%;
+  top: 6.25%;
+  width: 4%;
+  height: 4%;
+  margin: -2%;
+  border-radius: 50%;
+  background: #fffbd0;
+  box-shadow: 0 0 10px 4px #fff6a0, 0 0 22px 8px rgba(255, 230, 120, 0.6);
+}
+@keyframes mx-fly {
+  0% { transform: translate(var(--x0), var(--y0)); opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translate(var(--x1), var(--y1)); opacity: 0; }
+}
+/* 🔥 fever */
+.mx-fever {
+  font-weight: 800;
+  font-size: 14px;
+  color: #ffb347;
+  text-shadow: 0 0 8px rgba(255, 120, 30, 0.8);
+  animation: mx-fever-pulse 0.5s ease-in-out infinite alternate;
+}
+.mx-fever.f2 { color: #ff8a3d; }
+.mx-fever.f3 { color: #ff4d3a; font-size: 16px; }
+@keyframes mx-fever-pulse { to { transform: scale(1.06); } }
+.mx-board.fever::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 6;
+  box-shadow: inset 0 0 0 3px var(--fever), inset 0 0 36px var(--fever);
+  animation: mx-fever-glow 0.45s ease-in-out infinite alternate;
+}
+.mx-board.fever.f15 { --fever: rgba(255, 179, 71, 0.7); }
+.mx-board.fever.f2 { --fever: rgba(255, 120, 40, 0.8); }
+.mx-board.fever.f3 { --fever: rgba(255, 50, 30, 0.9); }
+@keyframes mx-fever-glow { from { opacity: 0.55; } to { opacity: 1; } }

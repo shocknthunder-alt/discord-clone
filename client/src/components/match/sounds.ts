@@ -55,6 +55,23 @@ export const matchSound = {
       tone(base * m * 0.5, i === 3 ? 420 : 120, { type: "triangle", vol: 0.03, at: i * 110 });
     });
   },
+  /** A firefly flying off: a quick rising flutter. */
+  firefly() {
+    for (let i = 0; i < 6; i++) tone(1200 + i * 220, 45, { type: "sine", vol: 0.02, at: i * 35, send: 0.3 });
+    noise(260, { vol: 0.025, type: "bandpass", freq: 2500, freqTo: 6000, q: 2 });
+  },
+  /** The fever goes up: a whoosh and a crackle, higher for a bigger multiplier. */
+  fever(mult: number) {
+    noise(420, { vol: 0.06, type: "bandpass", freq: 500, freqTo: 4200, q: 1.2 });
+    tone(220 * mult, 380, { type: "sawtooth", vol: 0.03, slide: 260 * mult });
+    [1, 1.5, 2].forEach((m, i) => bell(440 * mult * m, 260, 0.035, 200 + i * 70));
+  },
+  /** Double strike / mega move. */
+  bonus(big = false) {
+    const notes = big ? [523.25, 783.99, 1046.5, 1567.98, 2093] : [659.25, 987.77, 1318.51];
+    notes.forEach((f, i) => bell(f, 320, 0.04, 150 + i * 65));
+    if (big) tone(80, 600, { type: "sine", vol: 0.12, slide: -40, at: 100 });
+  },
   shuffle() {
     for (let i = 0; i < 8; i++) tone(500 + Math.random() * 900, 50, { type: "triangle", vol: 0.02, at: i * 40 });
   },

@@ -7,12 +7,17 @@
  * → bomb (3×3); 5 in a row → prism (swap it with a gem: every gem of that colour). Two specials
  * swapped together: rocket+rocket = cross, bomb+rocket = 3 rows + 3 cols, bomb+bomb = 5×5,
  * prism+special = all of that colour turn into that special and go off, prism+prism = the whole board.
+ * A 2×2 square → firefly: pops its four neighbours and flies to a far gem and pops it (with a rocket
+ * or bomb swapped onto it, it carries that there; two fireflies = three of them).
+ * Fever: strong moves in a row (a cascade or a special going off) → ×1.5 (3) / ×2 (5) / ×3 (8).
+ * Move bonuses: two+ specials made in one move ("Двоен удар"), 30+ gems in one move ("Мега ход");
+ * long combos give extra seconds in the time mode.
  */
 
 export const SIZE = 8;
 export const COLORS = 6;
 
-export type Special = "rowRocket" | "colRocket" | "bomb" | "prism";
+export type Special = "rowRocket" | "colRocket" | "bomb" | "prism" | "firefly";
 export interface Tile {
   id: number;
   color: number; // 0..5 (-1 for a prism)
@@ -32,7 +37,7 @@ export interface Popped {
 export interface Step {
   popped: Popped[];
   /** specials that went off this step (for sounds / effects) */
-  blasts: { kind: Special | "cross" | "bigBomb" | "allColor" | "board"; r: number; c: number }[];
+  blasts: { kind: Special | "cross" | "bigBomb" | "allColor" | "board"; r: number; c: number; /** firefly: where it flew */ tr?: number; tc?: number }[];
   /** new specials made from a match (they stay on the board) */
   made: { tile: Tile; r: number; c: number }[];
   /** after popping: every remaining tile's new row (by id) and the new tiles from above (with their start row) */
@@ -41,10 +46,26 @@ export interface Step {
   combo: number; // 1 = the move itself, 2+ = cascades
   points: number;
 }
+export interface MoveBonus {
+  kind: "double" | "mega";
+  points: number;
+}
 export interface MoveResult {
   ok: boolean;
   steps: Step[];
   shuffled: boolean;
+  /** the fever multiplier this move got (1 = none) */
+  fever?: number;
+  /** strong moves in a row so far */
+  streak?: number;
+  bonuses?: MoveBonus[];
+  /** extra seconds (time mode) */
+  timeBonus?: number;
+}
+
+/** Strong moves in a row → multiplier. */
+export function feverOf(streak: number): number {
+  return streak >= 8 ? 3 : streak >= 5 ? 2 : streak >= 3 ? 1.5 : 1;
 }
 
 let nextId = 1;
@@ -56,6 +77,8 @@ export class MatchBoard {
   score = 0;
   bestCombo = 0;
   moves = 0;
+  /** strong moves in a row (a cascade or a special going off) */
+  streak = 0;
 
   constructor() {
     this.fill();
@@ -76,7 +99,8 @@ export class MatchBoard {
           do color = rnd(COLORS);
           while (
             (c >= 2 && row[c - 1]!.color === color && row[c - 2]!.color === color) ||
-            (r >= 2 && this.grid[r - 1]![c]!.color === color && this.grid[r - 2]![c]!.color === color)
+            (r >= 2 && this.grid[r - 1]![c]!.color === color && this.grid[r - 2]![c]!.color === color) ||
+            (r >= 1 && c >= 1 && row[c - 1]!.color === color && this.grid[r - 1]![c]!.color === color && this.grid[r - 1]![c - 1]!.color === color)
           );
           row.push(this.newTile(color));
         }
@@ -129,9 +153,9 @@ export class MatchBoard {
   }
 
   /** Groups of matching cells: each group = the cells + whether it has a horizontal / vertical run of 3+. */
-  findMatches(): { cells: Pos[]; h: number; v: number }[] {
+  findMatches(): { cells: Pos[]; h: number; v: number; sq?: boolean }[] {
     const mark: number[][] = Array.from({ length: SIZE }, () => Array(SIZE).fill(-1));
-    const runs: { cells: Pos[]; dir: "h" | "v" }[] = [];
+    const runs: { cells: Pos[]; dir: "h" | "v" | "sq" }[] = [];
     const color = (r: number, c: number) => {
       const t = this.grid[r]?.[c];
       return t && t.special !== "prism" ? t.color : -9;
@@ -154,12 +178,19 @@ export class MatchBoard {
         r = e;
       }
     }
+    // 2×2 squares of one colour (→ firefly)
+    for (let r = 0; r + 1 < SIZE; r++)
+      for (let c = 0; c + 1 < SIZE; c++) {
+        const k = color(r, c);
+        if (k >= 0 && color(r, c + 1) === k && color(r + 1, c) === k && color(r + 1, c + 1) === k)
+          runs.push({ cells: [{ r, c }, { r, c: c + 1 }, { r: r + 1, c }, { r: r + 1, c: c + 1 }], dir: "sq" });
+      }
     // join runs that share a cell (L / T / + shapes)
-    const groups: { cells: Pos[]; h: number; v: number }[] = [];
+    const groups: { cells: Pos[]; h: number; v: number; sq?: boolean }[] = [];
     for (const run of runs) {
       const hit = new Set<number>();
       for (const p of run.cells) if (mark[p.r]![p.c]! >= 0) hit.add(mark[p.r]![p.c]!);
-      let g: { cells: Pos[]; h: number; v: number };
+      let g: { cells: Pos[]; h: number; v: number; sq?: boolean };
       if (hit.size === 0) {
         g = { cells: [], h: 0, v: 0 };
         groups.push(g);
@@ -171,6 +202,7 @@ export class MatchBoard {
           for (const p of o.cells) if (!g.cells.some((q) => q.r === p.r && q.c === p.c)) g.cells.push(p);
           g.h = Math.max(g.h, o.h);
           g.v = Math.max(g.v, o.v);
+          g.sq = g.sq || o.sq;
           o.cells = [];
         }
       }
@@ -180,7 +212,8 @@ export class MatchBoard {
         mark[p.r]![p.c] = gi;
       }
       if (run.dir === "h") g.h = Math.max(g.h, run.cells.length);
-      else g.v = Math.max(g.v, run.cells.length);
+      else if (run.dir === "v") g.v = Math.max(g.v, run.cells.length);
+      else g.sq = true;
       for (const p of g.cells) mark[p.r]![p.c] = gi;
     }
     return groups.filter((g) => g.cells.length > 0);
@@ -217,12 +250,45 @@ export class MatchBoard {
       if (combo > 60) break;
     }
     this.bestCombo = Math.max(this.bestCombo, steps.length);
+    // fever: strong moves in a row multiply this move's points
+    const strong = steps.length >= 2 || steps.some((st) => st.blasts.length > 0);
+    this.streak = strong ? this.streak + 1 : 0;
+    const fever = feverOf(this.streak);
+    if (fever > 1)
+      for (const st of steps) {
+        const extra = Math.round(st.points * (fever - 1));
+        st.points += extra;
+        this.score += extra;
+      }
+    const bonuses: MoveBonus[] = [];
+    const made = steps.reduce((n, st) => n + st.made.length, 0);
+    const popped = steps.reduce((n, st) => n + st.popped.length, 0);
+    if (made >= 2) bonuses.push({ kind: "double", points: 250 * made });
+    if (popped >= 30) bonuses.push({ kind: "mega", points: 30 * popped });
+    for (const b of bonuses) this.score += b.points;
+    const timeBonus = Math.min(8, Math.max(0, steps.length - 3)) + (popped >= 30 ? 3 : 0);
     let shuffled = false;
     if (!this.findMove()) {
       this.shuffle();
       shuffled = true;
     }
-    return { ok: true, steps, shuffled };
+    return { ok: true, steps, shuffled, fever, streak: this.streak, bonuses, timeBonus };
+  }
+
+  /** A far gem for a firefly to fly to (not already going; often a special if there is one). */
+  private fireflyTarget(r: number, c: number, taken: Set<string>): Pos | null {
+    const options: Pos[] = [];
+    const specials: Pos[] = [];
+    for (let rr = 0; rr < SIZE; rr++)
+      for (let cc = 0; cc < SIZE; cc++) {
+        if (taken.has(this.key(rr, cc)) || Math.abs(rr - r) + Math.abs(cc - c) < 3) continue;
+        const t = this.grid[rr]![cc];
+        if (!t) continue;
+        options.push({ r: rr, c: cc });
+        if (t.special && t.special !== "firefly") specials.push({ r: rr, c: cc });
+      }
+    const pool = specials.length && Math.random() < 0.5 ? specials : options;
+    return pool.length ? pool[rnd(pool.length)]! : null;
   }
 
   private key = (r: number, c: number) => `${r},${c}`;
@@ -258,10 +324,30 @@ export class MatchBoard {
           const t = this.grid[r]![c]!;
           if (t.color === other.color && t.special !== "prism") {
             // prism + special: every gem of that colour becomes that special and goes off
-            if (other.special && other.special !== "prism" && !t.special) t.special = other.special === "bomb" ? "bomb" : Math.random() < 0.5 ? "rowRocket" : "colRocket";
+            if (other.special && other.special !== "prism" && !t.special)
+              t.special =
+                other.special === "bomb" ? "bomb" : other.special === "firefly" ? "firefly" : Math.random() < 0.5 ? "rowRocket" : "colRocket";
             add(r, c);
           }
         }
+    } else if (s1 === "firefly" || s2 === "firefly") {
+      // the firefly carries the other special to a far gem (two fireflies = three of them)
+      const other = s1 === "firefly" ? s2 : s1;
+      t1.special = null;
+      t2.special = null;
+      const flights = other === "firefly" ? 3 : 1;
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) add(at.r + dr, at.c + dc);
+      for (let i = 0; i < flights; i++) {
+        const to = this.fireflyTarget(at.r, at.c, clear);
+        if (!to) break;
+        blasts.push({ kind: "firefly", r: at.r, c: at.c, tr: to.r, tc: to.c });
+        if (other === "rowRocket") row(to.r);
+        else if (other === "colRocket") col(to.c);
+        else if (other === "bomb") {
+          for (let r = to.r - 1; r <= to.r + 1; r++) for (let c = to.c - 1; c <= to.c + 1; c++) add(r, c);
+          blasts.push({ kind: "bomb", r: to.r, c: to.c });
+        } else for (const [dr, dc] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) add(to.r + dr, to.c + dc);
+      }
     } else {
       const kinds = [s1, s2];
       const rockets = kinds.filter((k) => k === "rowRocket" || k === "colRocket").length;
@@ -287,7 +373,7 @@ export class MatchBoard {
   }
 
   /** Matched groups → cells to clear + specials to make (at the moved cell if it is in the group). */
-  private fromGroups(groups: { cells: Pos[]; h: number; v: number }[], prefer: Pos[]) {
+  private fromGroups(groups: { cells: Pos[]; h: number; v: number; sq?: boolean }[], prefer: Pos[]) {
     const clear = new Set<string>();
     const made: Step["made"] = [];
     for (const g of groups) {
@@ -297,6 +383,7 @@ export class MatchBoard {
       else if (g.h >= 3 && g.v >= 3) special = "bomb";
       else if (g.h === 4) special = "rowRocket";
       else if (g.v === 4) special = "colRocket";
+      else if (g.sq) special = "firefly";
       if (!special) continue;
       const spot = prefer.find((p) => g.cells.some((q) => q.r === p.r && q.c === p.c)) ?? g.cells[Math.floor(g.cells.length / 2)]!;
       const base = this.grid[spot.r]![spot.c]!;
@@ -332,6 +419,14 @@ export class MatchBoard {
       else if (t.special === "prism") {
         const col = rnd(COLORS);
         for (let rr = 0; rr < SIZE; rr++) for (let cc = 0; cc < SIZE; cc++) if (this.grid[rr]![cc]?.color === col) push(rr, cc);
+      } else if (t.special === "firefly") {
+        for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) push(r + dr, c + dc);
+        const to = this.fireflyTarget(r, c, clear);
+        if (to) {
+          push(to.r, to.c);
+          blasts.push({ kind: "firefly", r, c, tr: to.r, tc: to.c });
+          continue;
+        }
       }
       blasts.push({ kind: t.special, r, c });
     }

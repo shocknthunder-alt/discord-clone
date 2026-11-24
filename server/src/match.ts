@@ -4,7 +4,7 @@ import { requireAuth } from "./middleware/auth.js";
 
 /**
  * 🍬 Шмиксер — a solo match-3 game in channels of type "match". The game runs in the browser; the
- * server keeps each person's best per server and mode ("time" = 2 minutes, "moves" = 30 moves) and
+ * server keeps each person's best per server and mode ("time" = 4 minutes, "moves" = 30 moves) and
  * serves the top lists. Friends-only app: only a sanity ceiling, not real anti-cheat.
  */
 export const matchRouter = Router();
@@ -70,8 +70,8 @@ matchRouter.post("/text-channels/:channelId/match/score", async (req, res) => {
   const combo = int(req.body?.combo, 500);
   const moves = int(req.body?.moves, 2_000);
   if (!mode || score === null || combo === null || moves === null) return res.status(400).json({ error: "Bad score" });
-  // Very rough: even a whole-board clear with a big combo is a few tens of thousands per move.
-  if (score > (moves + 1) * 60_000) return res.status(400).json({ error: "Implausible score" });
+  // Very rough: a whole-board clear with a big combo × the fever (×3) + move bonuses, per move.
+  if (score > (moves + 1) * 200_000) return res.status(400).json({ error: "Implausible score" });
 
   const where = { serverId_userId_mode: { serverId: ch.serverId, userId: req.userId!, mode } };
   const prev = await prisma.matchScore.findUnique({ where });
