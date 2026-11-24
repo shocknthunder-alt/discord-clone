@@ -320,6 +320,8 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
         socketId: socket.id,
         label: peer.screenShareLabel,
       });
+      // the LIVE badge in the channel list of everyone in the server (not only this voice room)
+      void broadcastOccupants(io, voiceChannelId);
     },
   );
 
@@ -332,6 +334,7 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
       userId,
       socketId: socket.id,
     });
+    void broadcastOccupants(io, voiceChannelId);
   });
 }
 

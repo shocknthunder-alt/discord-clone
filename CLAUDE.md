@@ -224,6 +224,10 @@ Owner pronouns unknown: use they/them.
 - Don't touch `updatedAt` of music state without folding elapsed time into `positionSeconds` (restart bug).
 - `videoTrack.contentHint = "detail"` forces screencast mode (low fps) — keep "motion" for games/video.
 - Older deployed clients keep talking to the shared server: change it additively.
+- Stale LIVE (2026-11-26): `isScreenSharing` lives in the Render roster and only the streamer clears it. Now the streamer's
+  app runs `startShareWatchdog` (SfuMediaManager `screenShareAlive`: producer/track/send transport; 3 misses ≈ 9 s → stop +
+  notice), a viewer's Watch checks `hasScreenFrom(userId)` after 5 s and drops the LIVE locally, and the server re-broadcasts
+  occupants on share start/stop (channel-list badge for people outside the voice room).
 - Socket rooms (`server:`, `channel:`, `dm:`, voice) are per connection: anything that joins a room must join again on
   `socket.on("connect")` (reconnects after Wi-Fi drops / Render restarts / sleep). Missing this froze voice lists and chat (fixed 2026-11-23, e2e 13-reconnect).
 - Screen-share bitrate ceilings (SfuMediaManager): Light 7 / Standard 14 / High 40 Mbps (Sharp a bit more);

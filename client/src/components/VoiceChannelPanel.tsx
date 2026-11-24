@@ -342,7 +342,7 @@ export default function VoiceChannelPanel() {
                 <LiveIcon size={12} color="#ffffff" /> {tr("Стриймваш", "You're sharing")}
               </div>
             )}
-            {isScreenSharing && screenShareNotice && <div className="screen-share-notice">{screenShareNotice}</div>}
+            {screenShareNotice && <div className="screen-share-notice">{screenShareNotice}</div>}
           </div>
         </div>
       </div>

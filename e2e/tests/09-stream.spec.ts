@@ -108,6 +108,29 @@ test.describe("📺 Стрийм на екрана", () => {
     await closeAll(a.context, b.context);
   });
 
+  test("стриймът умира сам (без „спри“) → след ~10 с приложението го спира и LIVE изчезва при зрителя", async ({ browser }) => {
+    const { a, b } = await live(browser);
+    // keep the captured stream so the test can kill its track without the "ended" event (= a silent death)
+    await a.page.evaluate(() => {
+      const md = navigator.mediaDevices;
+      const orig = md.getDisplayMedia.bind(md);
+      md.getDisplayMedia = async (o?: DisplayMediaStreamOptions) => {
+        const st = await orig(o);
+        (window as unknown as { __display: MediaStream }).__display = st;
+        return st;
+      };
+    });
+    await goLive(a.page);
+    await expect(b.page.locator(".participant-watch")).toBeVisible({ timeout: 15_000 });
+    await a.page.evaluate(() => (window as unknown as { __display: MediaStream }).__display.getVideoTracks().forEach((t) => t.stop()));
+    await expect(a.page.getByTitle("Започни стрийм (Go Live)")).toBeVisible({ timeout: 20_000 });
+    await expect(a.page.locator(".screen-share-notice")).toContainText("прекъсна");
+    await expect(b.page.locator(".participant-watch")).toHaveCount(0, { timeout: 10_000 });
+    expectNoCrashes(a.page);
+    expectNoCrashes(b.page);
+    await closeAll(a.context, b.context);
+  });
+
   test("📊 диагностика при стриймъра и 🔄 нов енкодер — зрителят продължава да гледа", async ({ browser }) => {
     const { a, b } = await live(browser);
     await goLive(a.page);

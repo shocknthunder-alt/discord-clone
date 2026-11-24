@@ -321,7 +321,49 @@ export function watchStream(key: string) {
   useWatchStore.getState().watch(key);
   if (key === SELF_STREAM_KEY) return;
   const userId = useVoiceStore.getState().peers.get(key)?.userId;
-  if (userId) void activeMediaManager?.watchScreen(userId);
+  if (!userId) return;
+  void activeMediaManager?.watchScreen(userId);
+  // "LIVE" with nothing behind it: the streamer's app still says it is sharing, but the media server
+  // has no screen from them (their stream died without a stop — dropped connection, crash). Don't
+  // leave the viewer clicking at nothing: after a few seconds take the LIVE away here.
+  const manager = activeMediaManager;
+  setTimeout(() => {
+    if (!manager || activeMediaManager !== manager || !manager.isReady || manager.hasScreenFrom(userId)) return;
+    const peer = useVoiceStore.getState().peers.get(key);
+    if (!peer || peer.screenStream || !useWatchStore.getState().watching.has(key)) return;
+    console.warn(`[sfu] ${peer.username} shows LIVE but the media server has no screen from them`);
+    useWatchStore.getState().unwatch(key);
+    closePopout(key);
+    useVoiceStore.getState().upsertPeer({ socketId: key, isScreenSharing: false, screenShareLabel: null });
+  }, 5000);
+}
+
+/** Streamer side: if the share died on its own (media server restart, dropped connection, the
+ *  capture ended) while the app still says "live", stop it properly so the others are told. */
+let shareWatchdog: ReturnType<typeof setInterval> | null = null;
+function stopShareWatchdog() {
+  if (shareWatchdog) clearInterval(shareWatchdog);
+  shareWatchdog = null;
+}
+function startShareWatchdog(stop: () => void) {
+  stopShareWatchdog();
+  let misses = 0;
+  shareWatchdog = setInterval(() => {
+    const st = useVoiceStore.getState();
+    if (!st.isScreenSharing || !activeMediaManager) return stopShareWatchdog();
+    if (activeMediaManager.screenShareAlive) {
+      misses = 0;
+      return;
+    }
+    // three checks in a row (~9 s): a quick encoder refresh / ICE hiccup is not a dead stream
+    if (++misses < 3) return;
+    stopShareWatchdog();
+    console.warn("[sfu] the screen share died without a stop — stopping it");
+    stop();
+    useVoiceStore
+      .getState()
+      .setScreenShareNotice(tr("Стриймът ти прекъсна (връзката с гласовия сървър падна). Пусни го отново.", "Your stream dropped (the connection to the voice server was lost). Start it again."));
+  }, 3000);
 }
 
 export function stopWatchingStream(key: string) {
@@ -700,6 +742,7 @@ export function useVoiceChannel() {
       }
     };
     safely(stopMicWatchdog);
+    safely(stopShareWatchdog);
     safely(() => activeMediaManager?.leave());
     activeMediaManager = null;
     safely(() => activeMicProcessing?.destroy());
@@ -798,6 +841,7 @@ export function useVoiceChannel() {
     if (!socket || !activeVoiceChannelId || !activeMediaManager) return;
 
     if (isScreenSharing) {
+      stopShareWatchdog();
       activeMediaManager.stopScreenShare();
       stopNativeAppAudio();
       store.setLocalScreenStream(null);
@@ -893,6 +937,9 @@ export function useVoiceChannel() {
     screenStream.getVideoTracks()[0].onended = () => {
       void toggleScreenShare();
     };
+    startShareWatchdog(() => {
+      if (useVoiceStore.getState().isScreenSharing) void toggleScreenShare();
+    });
   }, [store]);
 
   const setScreenShareQuality = useCallback((quality: "low" | "standard" | "high") => {

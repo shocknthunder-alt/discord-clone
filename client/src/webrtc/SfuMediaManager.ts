@@ -94,6 +94,20 @@ export class SfuMediaManager {
     return !!this.sendTransport && !this.sendTransport.closed;
   }
 
+  /** Is our screen share really going out? false = the producer, the capture or the send transport died
+   *  (media server restart, a dropped connection) while the app still thinks it is live. */
+  get screenShareAlive(): boolean {
+    const p = this.screenVideoProducer;
+    const t = this.sendTransport;
+    return !!p && !p.closed && p.track?.readyState === "live" && !!t && !t.closed && t.connectionState !== "failed" && t.connectionState !== "closed";
+  }
+
+  /** Does the media server list a screen share from this person (watched or not)? */
+  hasScreenFrom(userId: string): boolean {
+    for (const p of this.screenPayloads.values()) if (p.userId === userId) return true;
+    return false;
+  }
+
   async join(roomId: string): Promise<void> {
     this.roomId = roomId;
     // A retry after a failed attempt: drop whatever that attempt got half-way through.
