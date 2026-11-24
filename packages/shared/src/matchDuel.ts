@@ -1,7 +1,12 @@
-/** ⚔️ Шмиксер duel: two people play their own boards at the same time; combos send attacks. */
+/**
+ * ⚔️ Duels of the solo games: two people play their own boards at the same time; combos hurt the other.
+ * Шмиксер ("match" channels): 2 minutes, higher score wins. Шметрис ("blocks" channels): last one
+ * standing (cleared rows send garbage rows), at most BLOCKS_DUEL_SECONDS, then the higher score.
+ */
 
 /** How long a duel lasts. */
 export const DUEL_SECONDS = 120;
+export const BLOCKS_DUEL_SECONDS = 600;
 /** Countdown before the boards open. */
 export const DUEL_COUNTDOWN_MS = 3500;
 /** How long an incoming attack is shown before it lands (a strong move of yours in that time blocks it). */
@@ -11,8 +16,8 @@ export const DUEL_WARN_MS = 1800;
  * 🧊 ice: gems can't be moved · 🪨 stone: blocks in the top half · 🌫️ fog: the board is hidden for a few seconds
  * · 🌀 scramble: the colours are mixed.
  */
-export type DuelAttackKind = "ice" | "stone" | "fog" | "scramble";
-export const DUEL_ATTACKS: readonly DuelAttackKind[] = ["ice", "stone", "fog", "scramble"];
+export type DuelAttackKind = "ice" | "stone" | "fog" | "scramble" | "garbage";
+export const DUEL_ATTACKS: readonly DuelAttackKind[] = ["ice", "stone", "fog", "scramble", "garbage"];
 
 export interface DuelPlayerDTO {
   userId: string;
@@ -53,7 +58,7 @@ export interface DuelOpponentDTO {
 export interface DuelAttackDTO {
   duelId: string;
   kind: DuelAttackKind;
-  /** 1..3 */
+  /** 1..3 (Шметрис garbage: rows, 1..12) */
   power: number;
 }
 
@@ -63,7 +68,8 @@ export interface DuelOverDTO {
   you: number;
   them: number;
   winnerId: string | null;
-  reason: "time" | "forfeit" | "left";
+  /** out = topped out (Шметрис) */
+  reason: "time" | "forfeit" | "left" | "out";
   /** your totals in this server */
   wins: number;
   games: number;

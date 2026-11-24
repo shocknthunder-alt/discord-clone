@@ -3,11 +3,11 @@ import type { DuelAttackKind, DuelLobbyDTO, DuelPlayerDTO } from "@discord-clone
 import { tr } from "../../i18n";
 import { GEM_COLORS } from "./Gems";
 
-/** ⚔️ Шмиксер duel bits: the opponent's card with a tiny picture of their board, and the lobby. */
+/** ⚔️ Duel bits: the opponent's card with a tiny picture of their board, and the lobby (Шмиксер; the lobby also Шметрис). */
 
-export const ATTACK_ICON: Record<DuelAttackKind, string> = { ice: "🧊", stone: "🪨", fog: "🌫️", scramble: "🌀" };
+export const ATTACK_ICON: Record<DuelAttackKind, string> = { ice: "🧊", stone: "🪨", fog: "🌫️", scramble: "🌀", garbage: "🧱" };
 export function attackName(k: DuelAttackKind) {
-  return k === "ice" ? tr("Лед", "Ice") : k === "stone" ? tr("Камъни", "Stones") : k === "fog" ? tr("Мъгла", "Fog") : tr("Разбъркване", "Scramble");
+  return k === "ice" ? tr("Лед", "Ice") : k === "stone" ? tr("Камъни", "Stones") : k === "fog" ? tr("Мъгла", "Fog") : k === "garbage" ? tr("Боклук", "Garbage") : tr("Разбъркване", "Scramble");
 }
 
 const fmt = (n: number) => n.toLocaleString("bg-BG");
@@ -85,11 +85,14 @@ export function DuelLobby({
   meId,
   onSeek,
   onCancel,
+  gameName = "Шмиксер",
 }: {
   lobby: DuelLobbyDTO | null;
   meId: string | undefined;
   onSeek: (withId?: string) => void;
   onCancel: () => void;
+  /** shown in "ask a friend to open … → ⚔️ Дуел" */
+  gameName?: string;
 }) {
   const waitingMe = !!lobby?.waiting.some((p) => p.userId === meId);
   const others = lobby?.waiting.filter((p) => p.userId !== meId) ?? [];
@@ -98,7 +101,7 @@ export function DuelLobby({
       {waitingMe ? (
         <>
           <div className="mx-waiting">⏳ {tr("Чакаш противник…", "Waiting for an opponent…")}</div>
-          <div className="blk-muted">{tr("Кажи на приятел да отвори Шмиксер → ⚔️ Дуел.", "Ask a friend to open Шмиксер → ⚔️ Duel.")}</div>
+          <div className="blk-muted">{tr(`Кажи на приятел да отвори ${gameName} → ⚔️ Дуел.`, `Ask a friend to open ${gameName} → ⚔️ Duel.`)}</div>
           <button className="blk-quit" onClick={onCancel}>
             {tr("Откажи", "Cancel")}
           </button>

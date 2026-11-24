@@ -146,7 +146,28 @@ export type GameEvent =
   | { kind: "missionNew"; id: MissionId }
   | { kind: "goldRow" }
   | { kind: "stone" }
+  /** ⚔️ duel: rows sent to the opponent (after cancelling your incoming ones) */
+  | { kind: "attack"; lines: number }
+  /** ⚔️ duel: your clear knocked out this many incoming rows */
+  | { kind: "cancel"; lines: number }
+  /** ⚔️ duel: garbage rows came up from the bottom */
+  | { kind: "garbage"; lines: number }
   | { kind: "over" };
+
+/** ⚔️ How many garbage rows a clear sends (before cancelling your own incoming ones). */
+export function garbageOf(e: ClearEvent): number {
+  const n = e.lines;
+  if (!n) return 0;
+  let g = e.spin && !e.mini ? n * 2 : e.mini ? n - 1 : n >= 4 ? n : n - 1;
+  if (e.b2b) g += 1;
+  g += [0, 0, 1, 1, 2, 2, 3, 3, 4][Math.min(8, e.combo)]!;
+  if (e.perfect) g += 6;
+  if (e.cascades) g += e.cascades;
+  if (e.fever >= 2) g += 1;
+  return Math.max(0, Math.min(12, g));
+}
+/** Garbage rows (grey, one hole per attack). */
+export const GARBAGE = STONE;
 
 /** Short-lived effects for the drawing (visible-well coordinates). */
 export interface Fx {
@@ -248,6 +269,10 @@ export class BlocksGame {
   private stepMs = 1000;
   /** "↓ speed" setting, 1..4. */
   softSpeed = 2;
+  /** ⚔️ duel: clears send garbage rows, incoming ones wait here (they rise on a lock without a clear) */
+  versus = false;
+  pending: { lines: number; hole: number }[] = [];
+  sent = 0;
   private rng: () => number;
 
   constructor(
@@ -640,6 +665,7 @@ export class BlocksGame {
       };
       this.emit(ev);
       this.missionProgress(ev);
+      if (this.versus && n > 0) this.sendAttack(garbageOf(ev));
     } else {
       this.combo = -1;
     }
@@ -658,9 +684,64 @@ export class BlocksGame {
       this.emit({ kind: "over" });
       return;
     }
+    if (this.versus && !n && this.pending.length && this.riseGarbage()) return;
     this.goldTurn();
     this.missionTurn();
     this.spawn();
+  }
+
+  /** ⚔️ Rows from the opponent (they rise on your next lock that clears nothing). */
+  receiveGarbage(lines: number) {
+    if (this.over || lines <= 0) return;
+    this.pending.push({ lines: Math.min(12, lines), hole: Math.floor(this.rng() * COLS) });
+  }
+
+  get pendingLines() {
+    return this.pending.reduce((n, p) => n + p.lines, 0);
+  }
+
+  /** Your rows first knock out incoming ones; the rest go to the opponent. */
+  private sendAttack(lines: number) {
+    let left = lines;
+    let cancelled = 0;
+    while (left > 0 && this.pending.length) {
+      const p = this.pending[0]!;
+      const k = Math.min(left, p.lines);
+      p.lines -= k;
+      left -= k;
+      cancelled += k;
+      if (!p.lines) this.pending.shift();
+    }
+    if (cancelled) this.emit({ kind: "cancel", lines: cancelled });
+    if (left > 0) {
+      this.sent += left;
+      this.emit({ kind: "attack", lines: left });
+    }
+  }
+
+  /** Push the waiting garbage up from the bottom. True = it pushed the stack out of the top (game over). */
+  private riseGarbage(): boolean {
+    let total = 0;
+    let out = false;
+    for (const p of this.pending.splice(0)) {
+      for (let i = 0; i < p.lines; i++) {
+        const gone = this.board.shift()!;
+        this.tags.shift();
+        if (gone.some((v) => v)) out = true;
+        const row = Array(COLS).fill(GARBAGE);
+        row[p.hole] = 0;
+        this.board.push(row);
+        this.tags.push(Array(COLS).fill(null));
+        total++;
+      }
+    }
+    if (total) this.emit({ kind: "garbage", lines: total });
+    if (out) {
+      this.over = true;
+      this.active = null;
+      this.emit({ kind: "over" });
+    }
+    return out;
   }
 
   private setFever() {
@@ -771,6 +852,7 @@ export class BlocksGame {
     this.rageMs = RAGE_MS;
     for (let x = 0; x < COLS; x += 2) this.addFx("rage", x + 0.5, ROWS - 2, 900);
     this.emit({ kind: "rage", cells, points });
+    if (this.versus) this.sendAttack(3);
     return true;
   }
 

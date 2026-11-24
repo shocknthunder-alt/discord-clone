@@ -110,6 +110,71 @@ test.describe("🧱 Шметрис", () => {
     await closeAll(a.context, b.context);
   });
 
+  test("⚔️ дуел: 4 реда + чист кладенец → 10 реда боклук при другия, мини кладенец, препълване → победа", async ({ browser }) => {
+    const ana = await register("ana");
+    const bob = await register("bob");
+    const server = await serverWith(ana, bob);
+    const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
+    const a = await openAs(browser, ana);
+    const b = await openAs(browser, bob);
+    for (const p of [a.page, b.page]) {
+      await p.addInitScript(() => localStorage.setItem("blocksMusic", "off"));
+      await openServer(p, server.name);
+      await openTextChannel(p, "шметрис");
+      await p.locator(".mx-modes button", { hasText: "Дуел" }).click();
+    }
+    await a.page.getByRole("button", { name: /Търси противник/ }).click();
+    await expect(a.page.locator(".mx-waiting")).toBeVisible();
+    await b.page.getByRole("button", { name: new RegExp(`Играй срещу ${ana.username}`) }).click();
+    for (const p of [a.page, b.page]) await expect(p.locator(".mx-count")).toBeVisible();
+    await expect(a.page.locator(".blk-opp")).toContainText(bob.username);
+    await expect(a.page.locator(".mx-count")).toHaveCount(0, { timeout: 8_000 });
+    await expect(b.page.locator(".mx-count")).toHaveCount(0, { timeout: 8_000 });
+    await expect(a.page.locator(".blk-mini i")).toHaveCount(200);
+    type G = { board: number[][]; active: { type: string; rot: number; x: number; y: number } | null; fits: (a: unknown) => boolean; hardDrop: () => void; pendingLines: number; over: boolean };
+    // ana: 4 rows full except column 0 + a vertical I into it → four lines → 4 garbage rows for bob
+    await a.page.evaluate(() => {
+      const g = (window as unknown as { __blocksGame: () => G }).__blocksGame();
+      for (let y = 18; y < 22; y++) g.board[y] = [0, 1, 2, 3, 4, 5, 6, 7, 1, 2];
+      for (let y = 0; y < 18; y++) g.board[y] = Array(10).fill(0);
+      for (let x = -3; x < 3; x++) {
+        const p = { type: "I", rot: 1, x, y: 0, bonus: null };
+        if (g.fits(p)) {
+          // every cell in column 0?
+          g.active = p;
+          break;
+        }
+      }
+      g.hardDrop();
+    });
+    // (4 lines + a perfect clear = 10 rows)
+    await expect(b.page.locator(".blk-garbage")).toContainText("10");
+    await b.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel-incoming.png" });
+    // bob locks a piece without a clear → the garbage rises (grey rows with one hole)
+    await b.page.evaluate(() => (window as unknown as { __blocksGame: () => G }).__blocksGame().hardDrop());
+    await expect.poll(() => b.page.evaluate(() => (window as unknown as { __blocksGame: () => G }).__blocksGame().board[21]!.filter((v) => v === 9).length)).toBe(9);
+    await expect.poll(() => b.page.evaluate(() => (window as unknown as { __blocksGame: () => G }).__blocksGame().board[12]!.filter((v) => v === 9).length)).toBe(9);
+    await expect(b.page.locator(".blk-garbage")).toHaveCount(0);
+    await expect.poll(async () => (await a.page.locator(".blk-mini i[style]").count())).toBeGreaterThan(30);
+    await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel.png" });
+    // bob's well full to the top → he tops out → ana wins
+    await b.page.evaluate(() => {
+      const g = (window as unknown as { __blocksGame: () => G }).__blocksGame();
+      for (let y = 0; y < 22; y++) g.board[y] = [9, 9, 9, 9, 9, 9, 9, 9, 9, 0];
+      g.hardDrop();
+    });
+    await expect(a.page.locator(".mx-duel-verdict")).toContainText("Победа");
+    await expect(a.page.locator(".blk-result")).toContainText("противникът се препълни");
+    await expect(b.page.locator(".mx-duel-verdict")).toContainText("Загуба");
+    await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel-over.png" });
+    const lists = await api(ana.token, "GET", `/text-channels/${textChannel.id}/blocks`);
+    expect(lists.duel.mine.wins).toBe(1);
+    await expect(a.page.locator(".blk-top li.me")).toContainText("1 🏆");
+    expectNoCrashes(a.page);
+    expectNoCrashes(b.page);
+    await closeAll(a.context, b.context);
+  });
+
   test("излизане от канала (напр. да гледаш стрийм) и връщане → играта е на пауза, не е свършила", async ({ browser }) => {
     const ana = await register("ana");
     const server = await serverWith(ana);

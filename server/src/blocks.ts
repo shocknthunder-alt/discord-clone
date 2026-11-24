@@ -24,6 +24,21 @@ async function blocksChannel(req: Request, res: Response) {
   return ch;
 }
 
+/** ⚔️ Duel wins (written by matchDuel.ts into MatchScore, mode "blocks-duel"). */
+async function duelLists(serverId: string, userId: string) {
+  const rows = await prisma.matchScore.findMany({
+    where: { serverId, mode: "blocks-duel", games: { gt: 0 } },
+    orderBy: [{ best: "desc" }, { games: "asc" }],
+    take: 10,
+    include: { user: { select: { username: true, avatarUrl: true } } },
+  });
+  const mine = await prisma.matchScore.findUnique({ where: { serverId_userId_mode: { serverId, userId, mode: "blocks-duel" } } });
+  return {
+    top: rows.map((r) => ({ userId: r.userId, username: r.user.username, avatarUrl: r.user.avatarUrl, wins: r.best, games: r.games })),
+    mine: mine ? { wins: mine.best, games: mine.games } : null,
+  };
+}
+
 async function top(serverId: string) {
   const rows = await prisma.blockScore.findMany({
     where: { serverId, best: { gt: 0 } },
@@ -46,7 +61,11 @@ blocksRouter.get("/text-channels/:channelId/blocks", async (req, res) => {
   const ch = await blocksChannel(req, res);
   if (!ch) return;
   const mine = await prisma.blockScore.findUnique({ where: { serverId_userId: { serverId: ch.serverId, userId: req.userId! } } });
-  res.json({ top: await top(ch.serverId), mine: mine ? { best: mine.best, games: mine.games, totalLines: mine.totalLines } : null });
+  res.json({
+    top: await top(ch.serverId),
+    mine: mine ? { best: mine.best, games: mine.games, totalLines: mine.totalLines } : null,
+    duel: await duelLists(ch.serverId, req.userId!),
+  });
 });
 
 const int = (v: unknown, max: number) => (typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= max ? v : null);

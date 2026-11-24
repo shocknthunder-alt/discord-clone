@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  SocketEvents,
+  type DuelAttackDTO,
+  type DuelLobbyDTO,
+  type DuelOpponentDTO,
+  type DuelOverDTO,
+  type DuelPlayerDTO,
+  type DuelStartDTO,
+} from "@discord-clone/shared";
 import { http } from "../../api/http";
+import { getSocket } from "../../socket/socket";
+import { DuelLobby } from "../match/DuelPanel";
+import "../match/match.css";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import {
@@ -25,7 +37,20 @@ import { blocksMusic } from "./music";
 import { blockSound } from "./sounds";
 import "./blocks.css";
 
-/** 🧱 Шметрис — the screen of a "blocks" channel: solo game + the server's top 10. */
+/** 🧱 Шметрис — the screen of a "blocks" channel: solo game, ⚔️ duel (last one standing; cleared
+ *  rows send garbage rows to the other) + the server's top 10. */
+
+interface DuelTop {
+  top: { userId: string; username: string; avatarUrl: string | null; wins: number; games: number }[];
+  mine: { wins: number; games: number } | null;
+}
+interface Duel {
+  id: string;
+  opponent: DuelPlayerDTO;
+  /** local clock */
+  startsAt: number;
+  endsAt: number;
+}
 
 interface TopRow {
   userId: string;
@@ -210,7 +235,31 @@ interface Hud {
   mission: Mission | null;
   missionsDone: number;
   dragonBonus: number;
+  /** ⚔️ garbage rows waiting to rise */
+  pending: number;
 }
+
+/** ⚔️ The visible well (10×20) with the falling piece, for the opponent's mini picture. */
+function wellCodes(game: BlocksGame): number[] {
+  const rows = game.board.slice(HIDDEN).map((r) => [...r]);
+  const a = game.active;
+  if (a && !game.over)
+    for (const [cx, cy] of pieceCells(a.type, a.rot)) {
+      const y = a.y + cy - HIDDEN;
+      if (y >= 0 && y < rows.length) rows[y]![a.x + cx] = PIECES.indexOf(a.type) + 1;
+    }
+  return rows.flat();
+}
+
+const MiniWell = memo(function MiniWell({ codes }: { codes: number[] | null }) {
+  return (
+    <div className="blk-mini">
+      {(codes ?? Array(200).fill(0)).map((v, i) => (
+        <i key={i} style={v ? { background: cellColor(v) } : undefined} />
+      ))}
+    </div>
+  );
+});
 
 export const MISSION_TEXT: Record<MissionId, [string, string]> = {
   tspin: ["Направи Т-завъртане, което чисти ред", "Do a T-spin that clears a line"],
@@ -241,6 +290,7 @@ const MAX_H = 2400;
  * is mounted at the moment (`liveHandler`).
  */
 const savedGames = new Map<string, BlocksGame>();
+const savedDuels = new Map<string, Duel>();
 let liveHandler: ((game: BlocksGame, e: GameEvent) => void) | null = null;
 
 export default function BlocksGameView({ channelId }: { channelId: string }) {
@@ -279,13 +329,32 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   const soundRef = useRef(sound);
   soundRef.current = sound;
   const popupId = useRef(0);
+  // ⚔️ duel
+  const [mode, setMode] = useState<"solo" | "duel">(() => (resumed?.versus ? "duel" : localStorage.getItem("blocksMode") === "duel" ? "duel" : "solo"));
+  const [lobby, setLobby] = useState<DuelLobbyDTO | null>(null);
+  const [duel, setDuel] = useState<Duel | null>(() => (resumed?.versus ? savedDuels.get(channelId) ?? null : null));
+  const duelRef = useRef(duel);
+  duelRef.current = duel;
+  const [opp, setOpp] = useState<{ score: number; board: number[] | null; lines: number }>({ score: 0, board: null, lines: 0 });
+  const oppRef = useRef(opp);
+  oppRef.current = opp;
+  const [countdown, setCountdown] = useState(0);
+  const [duelDone, setDuelDone] = useState(false);
+  const [duelResult, setDuelResult] = useState<DuelOverDTO | null>(null);
+  const duelResultRef = useRef(duelResult);
+  duelResultRef.current = duelResult;
+  const [duelTop, setDuelTop] = useState<DuelTop | null>(null);
+  const [topTab, setTopTab] = useState<"score" | "duel">(mode === "duel" ? "duel" : "score");
+  const [shakeWell, setShakeWell] = useState(false);
+  const lastOpp = useRef<DuelPlayerDTO | null>(duel?.opponent ?? null);
 
   const load = useCallback(() => {
     http
-      .get<{ top: TopRow[]; mine: Mine | null }>(`/api/text-channels/${channelId}/blocks`)
+      .get<{ top: TopRow[]; mine: Mine | null; duel?: DuelTop }>(`/api/text-channels/${channelId}/blocks`)
       .then((r) => {
         setTop(r.data.top);
         setMine(r.data.mine);
+        if (r.data.duel) setDuelTop(r.data.duel);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -401,6 +470,16 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         popup(tr("🪙 Златен ред отдолу!", "🪙 A golden row!"));
       } else if (e.kind === "stone") {
         popup(tr("Златото стана на камък", "The gold turned to stone"));
+      } else if (e.kind === "attack") {
+        const d = duelRef.current;
+        if (d) getSocket()?.emit(SocketEvents.MatchDuelAttack, { duelId: d.id, kind: "garbage", power: e.lines });
+        popup(`⚔️ +${e.lines} ${tr(e.lines === 1 ? "ред" : "реда", "rows")} → ${d?.opponent.username ?? ""}`, e.lines >= 3);
+      } else if (e.kind === "cancel") {
+        popup(`🛡 ${tr("Спря", "Blocked")} ${e.lines} ${tr(e.lines === 1 ? "ред" : "реда", "rows")}`);
+      } else if (e.kind === "garbage") {
+        popup(`🧱 +${e.lines} ${tr(e.lines === 1 ? "ред боклук!" : "реда боклук!", "garbage rows!")}`, true);
+        setShakeWell(true);
+        window.setTimeout(() => setShakeWell(false), 450);
       } else if (e.kind === "level") {
         popup(`${tr("Ниво", "Level")} ${e.level}!`, true);
         // a new style every two levels
@@ -412,6 +491,11 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
 
   const start = useCallback(() => {
     (document.activeElement as HTMLElement | null)?.blur?.();
+    getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId });
+    setDuel(null);
+    setDuelDone(false);
+    setDuelResult(null);
+    localStorage.setItem("blocksMode", "solo");
     const game: BlocksGame = new BlocksGame((e) => liveHandler?.(game, e), startLevel);
     blocksMusic.stop(); // a new game starts its level's song from the top
     savedGames.delete(channelId);
@@ -464,7 +548,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
           break;
         case "Escape":
         case "KeyP":
-          if (!e.repeat && !g.over) g.paused = !g.paused;
+          if (!e.repeat && !g.over && !g.versus) g.paused = !g.paused;
           break;
         default:
           used = false;
@@ -483,7 +567,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     };
     const pause = () => {
       const g = gameRef.current;
-      if (g && !g.over) {
+      if (g && !g.over && !g.versus) {
         g.paused = true;
         g.setShift(0);
         g.setSoftDrop(false);
@@ -547,6 +631,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
           mission: game.mission && { ...game.mission },
           missionsDone: game.missionsDone,
           dragonBonus: game.dragonBonus,
+          pending: game.pendingLines,
         };
         const k = JSON.stringify(h);
         if (k !== lastHud) {
@@ -567,7 +652,11 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     const handler = (game: BlocksGame, e: GameEvent) => {
       if (game !== gameRef.current) return;
       onEvent(e);
-      if (e.kind === "over") setTimeout(() => finish(game), 0);
+      if (e.kind === "over" && game.versus) {
+        const d = duelRef.current;
+        if (d) getSocket()?.emit(SocketEvents.MatchDuelUpdate, { duelId: d.id, score: game.score, board: wellCodes(game), out: true });
+        setDuelDone(true);
+      } else if (e.kind === "over") setTimeout(() => finish(game), 0);
     };
     liveHandler = handler;
     return () => {
@@ -580,10 +669,11 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     () => () => {
       const g = gameRef.current;
       if (g && !g.over) {
-        g.paused = true;
+        if (!g.versus) g.paused = true;
         g.setShift(0);
         g.setSoftDrop(false);
         savedGames.set(channelId, g);
+        if (g.versus && duelRef.current) savedDuels.set(channelId, duelRef.current);
       } else savedGames.delete(channelId);
       blocksMusic.stop();
     },
@@ -591,14 +681,142 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     [],
   );
 
+  // ⚔️ Duel over the socket: lobby, start, the opponent's well, garbage, the result.
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const watch = () => socket.emit(SocketEvents.MatchWatch, { channelId });
+    const onLobby = (l: DuelLobbyDTO) => {
+      if (l.channelId !== channelId) return;
+      setLobby(l);
+      const d = duelRef.current;
+      if (d && !duelResultRef.current && Date.now() > d.startsAt && !l.playing.some((p) => p.a.userId === me?.id || p.b.userId === me?.id)) {
+        // the duel ended while this window was away
+        const g = gameRef.current;
+        if (g) g.over = true;
+        setDuelDone(true);
+        setPhase("over");
+        setDuelResult({ duelId: d.id, channelId, you: g?.score ?? 0, them: oppRef.current.score, winnerId: null, reason: "left", wins: 0, games: 0 });
+        savedGames.delete(channelId);
+        savedDuels.delete(channelId);
+        load();
+      }
+    };
+    const onStart = (st: DuelStartDTO) => {
+      if (st.channelId !== channelId) return;
+      const off = Date.now() - st.serverNow;
+      const d: Duel = { id: st.duelId, opponent: st.opponent, startsAt: st.startsAt + off, endsAt: st.endsAt + off };
+      lastOpp.current = st.opponent;
+      if (duelRef.current?.id === st.duelId && gameRef.current?.versus) {
+        setDuel(d);
+        if (st.opponentScore !== undefined) setOpp((o) => ({ ...o, score: st.opponentScore!, board: st.opponentBoard ?? o.board }));
+        return;
+      }
+      (document.activeElement as HTMLElement | null)?.blur?.();
+      const game: BlocksGame = new BlocksGame((e) => liveHandler?.(game, e), 1);
+      game.versus = true;
+      game.paused = Date.now() < d.startsAt;
+      if (st.yourScore) game.score = st.yourScore;
+      blocksMusic.stop();
+      savedGames.delete(channelId);
+      gameRef.current = game;
+      setMode("duel");
+      setTopTab("duel");
+      setDuel(d);
+      setDuelDone(false);
+      setDuelResult(null);
+      setOpp({ score: st.opponentScore ?? 0, board: st.opponentBoard ?? null, lines: 0 });
+      setResult(null);
+      setPopups([]);
+      setPhase("playing");
+    };
+    const onOpp = (o: DuelOpponentDTO) => {
+      if (o.duelId !== duelRef.current?.id) return;
+      setOpp((cur) => ({ score: o.score, board: o.board ?? cur.board, lines: o.combo ?? cur.lines }));
+    };
+    const onAttacked = (a: DuelAttackDTO) => {
+      if (a.duelId !== duelRef.current?.id || a.kind !== "garbage") return;
+      const g = gameRef.current;
+      if (!g || g.over) return;
+      g.receiveGarbage(a.power);
+      popup(`⚠️ ${a.power} ${tr(a.power === 1 ? "ред идва" : "реда идват", "rows coming")} — ${tr("изчисти ред, за да ги спреш!", "clear lines to stop them!")}`, a.power >= 3);
+      if (soundRef.current) blockSound({ kind: "stone" });
+    };
+    const onOver = (o: DuelOverDTO) => {
+      if (o.channelId !== channelId || o.duelId !== duelRef.current?.id) return;
+      const g = gameRef.current;
+      if (g) g.over = true;
+      setDuelResult(o);
+      setDuelDone(true);
+      setPhase("over");
+      savedGames.delete(channelId);
+      savedDuels.delete(channelId);
+      blocksMusic.stop();
+      if (soundRef.current) blockSound(o.winnerId === me?.id ? { kind: "level", level: 2 } : { kind: "over" });
+      if (o.winnerId === me?.id) cheerFor(4, 0, false);
+      load();
+    };
+    watch();
+    socket.on("connect", watch);
+    socket.on(SocketEvents.MatchLobby, onLobby);
+    socket.on(SocketEvents.MatchDuelStart, onStart);
+    socket.on(SocketEvents.MatchDuelOpponent, onOpp);
+    socket.on(SocketEvents.MatchDuelAttacked, onAttacked);
+    socket.on(SocketEvents.MatchDuelOver, onOver);
+    return () => {
+      socket.emit(SocketEvents.MatchUnwatch, { channelId });
+      socket.off("connect", watch);
+      socket.off(SocketEvents.MatchLobby, onLobby);
+      socket.off(SocketEvents.MatchDuelStart, onStart);
+      socket.off(SocketEvents.MatchDuelOpponent, onOpp);
+      socket.off(SocketEvents.MatchDuelAttacked, onAttacked);
+      socket.off(SocketEvents.MatchDuelOver, onOver);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, me?.id]);
+
+  // ⚔️ countdown, then the boards open; my well + score go to the opponent a few times a second
+  useEffect(() => {
+    if (phase !== "playing" || !duel) return;
+    let lastKey = "";
+    const t = window.setInterval(() => {
+      const g = gameRef.current;
+      if (!g?.versus) return;
+      const now = Date.now();
+      const cd = Math.max(0, Math.ceil((duel.startsAt - now) / 1000));
+      setCountdown((c) => (c !== cd ? cd : c));
+      if (!g.over) g.paused = now < duel.startsAt || now >= duel.endsAt;
+      if (now >= duel.endsAt && !g.over) setDuelDone(true);
+      if (g.over) return;
+      const codes = wellCodes(g);
+      const key = g.score + "|" + g.lines + "|" + codes.join("");
+      if (key !== lastKey) {
+        lastKey = key;
+        // (the "combo" field carries the lines: the server only relays it)
+        getSocket()?.emit(SocketEvents.MatchDuelUpdate, { duelId: duel.id, score: g.score, board: codes, combo: g.lines });
+      }
+    }, 250);
+    return () => window.clearInterval(t);
+  }, [phase, duel]);
+  const seek = (withId?: string) => {
+    localStorage.setItem("blocksMode", "duel");
+    getSocket()?.emit(SocketEvents.MatchDuelSeek, { channelId, ...(withId ? { with: withId } : {}) });
+  };
+  const forfeit = () => {
+    const d = duelRef.current;
+    if (d) getSocket()?.emit(SocketEvents.MatchDuelForfeit, { duelId: d.id });
+  };
+  const inDuel = phase === "playing" && !!duel && mode === "duel";
+  const oppPlayer = duel?.opponent ?? lastOpp.current;
+
   // 🎵 Music: plays while a game runs (not paused), follows the level (new song + faster).
   const hudLevel = hud?.level ?? startLevel;
   const hudPaused = !!hud?.paused;
   useEffect(() => {
-    if (phase === "playing" && musicOn && !hudPaused) blocksMusic.play(hudLevel);
+    if (phase === "playing" && musicOn && !hudPaused && !duelDone) blocksMusic.play(hudLevel);
     else if (phase === "over") blocksMusic.stop();
     else blocksMusic.pause();
-  }, [phase, musicOn, hudPaused, hudLevel]);
+  }, [phase, musicOn, hudPaused, hudLevel, duelDone]);
   useEffect(() => blocksMusic.setVolume(musicVol / 100), [musicVol]);
   const hudDanger = phase === "playing" && !!hud?.danger;
   useEffect(() => blocksMusic.setDanger(hudDanger), [hudDanger]);
@@ -709,13 +927,42 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
             <span>{tr("Редове", "Lines")}</span>
             <b>{hud?.lines ?? 0}</b>
           </div>
-          {mine && (
+          {mine && mode !== "duel" && (
             <div className="blk-stat-row blk-best">
               <span>{tr("Моят рекорд", "My best")}</span>
               <b>{fmt(mine.best)}</b>
             </div>
           )}
+          {mode === "duel" && duelTop?.mine && (
+            <div className="blk-stat-row blk-best">
+              <span>{tr("Победи в дуели", "Duel wins")}</span>
+              <b>
+                {duelTop.mine.wins} / {duelTop.mine.games}
+              </b>
+            </div>
+          )}
+          {inDuel && (
+            <div className="mx-controls">
+              <button onClick={forfeit} disabled={duelDone}>
+                🏳️ {tr("Предай се", "Give up")}
+              </button>
+            </div>
+          )}
         </div>
+        {mode === "duel" && oppPlayer && (phase === "playing" || duelResult) && (
+          <div className="blk-box blk-opp">
+            <div className="blk-label">⚔️ {tr("Противник", "Opponent")}</div>
+            <div className="mx-opp-head">
+              {oppPlayer.avatarUrl ? <img className="mx-duel-ava" src={oppPlayer.avatarUrl} alt="" /> : <span className="mx-duel-ava">{oppPlayer.username[0]?.toUpperCase()}</span>}
+              <b>{oppPlayer.username}</b>
+            </div>
+            <div className="mx-opp-score">{fmt(opp.score)}</div>
+            <div className="blk-muted">
+              {opp.lines} {tr("реда", "lines")}
+            </div>
+            <MiniWell codes={opp.board} />
+          </div>
+        )}
         <div className="blk-pet">
           <Dragon
             mood={dragonMood}
@@ -786,7 +1033,29 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
 
       <div className="blk-center">
         <div ref={wellRef} className={"blk-well-wrap" + (phase === "playing" && hud ? (hud.fever > 1 ? " fever f" + String(hud.fever).replace(".", "") : "") + (hud.rageSec > 0 ? " raging" : "") + (hud.slowSec > 0 ? " slowed" : "") : "")} style={customH && !fullscreen ? { height: customH } : undefined}>
-          <canvas ref={canvasRef} className="blk-well" />
+          <canvas ref={canvasRef} className={"blk-well" + (shakeWell ? " blk-hit" : "")} />
+          {phase === "playing" && !!hud?.pending && (
+            <div className="blk-garbage" title={tr("Редове боклук, които идват", "Garbage rows coming")}>
+              <i style={{ height: `${Math.min(100, (hud.pending / 20) * 100)}%` }} />
+              <span>{hud.pending}</span>
+            </div>
+          )}
+          {inDuel && countdown > 0 && (
+            <div className="blk-overlay mx-countdown">
+              <div className="mx-vs">
+                ⚔️ {me?.username} <span>vs</span> {duel!.opponent.username}
+              </div>
+              <div key={countdown} className="mx-count">
+                {countdown}
+              </div>
+            </div>
+          )}
+          {inDuel && duelDone && (
+            <div className="blk-overlay">
+              <div className="blk-paused">{hud?.over ? tr("💥 Препълни се!", "💥 Topped out!") : tr("⏱ Времето свърши!", "⏱ Time is up!")}</div>
+              <div className="blk-muted">{tr("Чакаме резултата…", "Waiting for the result…")}</div>
+            </div>
+          )}
           <div className="blk-popups">
             {popups.map((p) => (
               <div key={p.id} className={`blk-popup ${p.big ? "big" : ""}`}>
@@ -805,7 +1074,65 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
                 <span>И</span>
                 <span>С</span>
               </div>
-              {result && (
+              <div className="mx-modes">
+                <button
+                  className={mode === "solo" ? "on" : ""}
+                  onClick={() => {
+                    setMode("solo");
+                    setTopTab("score");
+                    localStorage.setItem("blocksMode", "solo");
+                  }}
+                >
+                  🧱 {tr("Соло", "Solo")}
+                </button>
+                <button
+                  className={mode === "duel" ? "on" : ""}
+                  onClick={() => {
+                    setMode("duel");
+                    setTopTab("duel");
+                    localStorage.setItem("blocksMode", "duel");
+                  }}
+                >
+                  ⚔️ {tr("Дуел", "Duel")}
+                </button>
+              </div>
+              {mode === "duel" && duelResult && (
+                <div className="blk-result">
+                  <div className={`mx-duel-verdict ${duelResult.winnerId === me?.id ? "win" : duelResult.winnerId ? "lose" : ""}`}>
+                    {duelResult.winnerId === me?.id ? `🏆 ${tr("Победа!", "Victory!")}` : duelResult.winnerId ? tr("Загуба", "Defeat") : tr("Равенство", "Draw")}
+                  </div>
+                  <div className="mx-duel-score">
+                    {fmt(duelResult.you)} : {fmt(duelResult.them)}
+                  </div>
+                  {duelResult.reason === "out" && <div>{duelResult.winnerId === me?.id ? tr("противникът се препълни", "the opponent topped out") : tr("препълни се", "you topped out")}</div>}
+                  {duelResult.reason === "forfeit" && <div>{duelResult.winnerId === me?.id ? tr("противникът се предаде", "the opponent gave up") : tr("предаде се", "you gave up")}</div>}
+                  {duelResult.reason === "left" && <div>{duelResult.winnerId === me?.id ? tr("противникът излезе", "the opponent left") : tr("дуелът приключи, докато те нямаше", "the duel ended while you were away")}</div>}
+                  {duelResult.games > 0 && (
+                    <div>
+                      {tr("Победи", "Wins")}: {duelResult.wins} / {duelResult.games}
+                    </div>
+                  )}
+                </div>
+              )}
+              {mode === "duel" && (
+                <>
+                  {duelResult && oppPlayer && (
+                    <button className="blk-start" onClick={() => seek(lobby?.waiting.some((p) => p.userId === oppPlayer.userId) ? oppPlayer.userId : undefined)}>
+                      🔁 {tr("Реванш", "Rematch")}
+                    </button>
+                  )}
+                  <DuelLobby lobby={lobby} meId={me?.id} onSeek={seek} onCancel={() => getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId })} gameName="Шметрис" />
+                  <div className="mx-duel-help blk-duel-help">
+                    <div>⚔️ {tr("Който се препълни пръв, губи.", "Whoever tops out first loses.")}</div>
+                    <div>
+                      🧱 {tr("2 реда → 1 ред боклук на другия, 3 → 2, 4 → 4; завъртане ×2; комбо, подред, чист кладенец и огнен множител — още.", "2 lines → 1 garbage row for the other, 3 → 2, 4 → 4; spins ×2; combos, back-to-back, perfect clears and fever add more.")}
+                    </div>
+                    <div>🛡 {tr("Твоите редове първо спират идващите към теб (червената лента).", "Your lines first cancel the rows coming at you (the red bar).")}</div>
+                    <div>🐉 {tr("Драконов огън (V) праща 3 реда.", "Dragon fire (V) sends 3 rows.")}</div>
+                  </div>
+                </>
+              )}
+              {mode === "solo" && result && (
                 <div className="blk-result">
                   <div className="blk-result-score">{fmt(result.score)}</div>
                   <div>
@@ -815,6 +1142,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
                   {result.score > 0 && !result.saved && <div className="blk-muted">{tr("записва се…", "saving…")}</div>}
                 </div>
               )}
+              {mode === "solo" && (
               <label className="blk-level-pick">
                 {tr("Начално ниво", "Start level")}
                 <select
@@ -832,12 +1160,15 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
                   ))}
                 </select>
               </label>
+              )}
+              {mode === "solo" && (
               <button className="blk-start" onClick={start}>
                 {result ? tr("▶ Нова игра", "▶ New game") : tr("▶ Играй", "▶ Play")}
               </button>
+              )}
             </div>
           )}
-          {phase === "playing" && hud?.paused && (
+          {phase === "playing" && hud?.paused && !gameRef.current?.versus && (
             <div className="blk-overlay">
               <div className="blk-paused">{tr("Пауза", "Paused")}</div>
               <button
@@ -947,21 +1278,47 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
         )}
         <div className="blk-box blk-top">
           <div className="blk-label">🏆 {tr("Класация на сървъра", "Server top list")}</div>
-          {top.length === 0 && <div className="blk-muted">{tr("Още никой не е играл. Бъди първи!", "Nobody has played yet. Be the first!")}</div>}
-          <ol>
-            {top.map((r, i) => (
-              <li key={r.userId} className={me?.id === r.userId ? "me" : ""} title={`${r.lines} ${tr("реда", "lines")} · ${tr("ниво", "level")} ${r.level} · ${r.games} ${tr("игри", "games")}`}>
-                <span className="blk-rank">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</span>
-                {r.avatarUrl ? <img src={r.avatarUrl} alt="" /> : <span className="blk-ava">{r.username.slice(0, 1).toUpperCase()}</span>}
-                <span className="blk-name">{r.username}</span>
-                <b>{fmt(r.best)}</b>
-              </li>
-            ))}
-          </ol>
-          {mine && myRank < 0 && mine.best > 0 && (
-            <div className="blk-muted">
-              {tr("Твоят рекорд", "Your best")}: {fmt(mine.best)}
-            </div>
+          <div className="mx-tabs">
+            <button className={topTab === "score" ? "on" : ""} onClick={() => setTopTab("score")}>
+              🧱 {tr("Точки", "Score")}
+            </button>
+            <button className={topTab === "duel" ? "on" : ""} onClick={() => setTopTab("duel")}>
+              ⚔️ {tr("Дуели", "Duels")}
+            </button>
+          </div>
+          {topTab === "duel" ? (
+            <>
+              {!duelTop?.top.length && <div className="blk-muted">{tr("Още няма дуели.", "No duels yet.")}</div>}
+              <ol>
+                {(duelTop?.top ?? []).map((r, i) => (
+                  <li key={r.userId} className={me?.id === r.userId ? "me" : ""} title={`${r.games} ${tr("дуела", "duels")}`}>
+                    <span className="blk-rank">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</span>
+                    {r.avatarUrl ? <img src={r.avatarUrl} alt="" /> : <span className="blk-ava">{r.username.slice(0, 1).toUpperCase()}</span>}
+                    <span className="blk-name">{r.username}</span>
+                    <b>{r.wins} 🏆</b>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <>
+            {top.length === 0 && <div className="blk-muted">{tr("Още никой не е играл. Бъди първи!", "Nobody has played yet. Be the first!")}</div>}
+            <ol>
+              {top.map((r, i) => (
+                <li key={r.userId} className={me?.id === r.userId ? "me" : ""} title={`${r.lines} ${tr("реда", "lines")} · ${tr("ниво", "level")} ${r.level} · ${r.games} ${tr("игри", "games")}`}>
+                  <span className="blk-rank">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</span>
+                  {r.avatarUrl ? <img src={r.avatarUrl} alt="" /> : <span className="blk-ava">{r.username.slice(0, 1).toUpperCase()}</span>}
+                  <span className="blk-name">{r.username}</span>
+                  <b>{fmt(r.best)}</b>
+                </li>
+              ))}
+            </ol>
+            {mine && myRank < 0 && mine.best > 0 && (
+              <div className="blk-muted">
+                {tr("Твоят рекорд", "Your best")}: {fmt(mine.best)}
+              </div>
+            )}
+            </>
           )}
         </div>
         <button

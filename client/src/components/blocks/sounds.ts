@@ -264,6 +264,19 @@ export function blockSound(e: GameEvent) {
     case "level":
       [523, 659, 784, 1046, 1318].forEach((f, i) => bell(f, 260, 0.045, 300 + i * 75));
       break;
+    case "attack":
+      // ⚔️ rows fly off to the opponent
+      noise(320, { type: "bandpass", freq: 800, freqTo: 5000, q: 1.5, vol: 0.06, at: 80 });
+      tone(330, 280, { type: "sawtooth", vol: 0.03, slide: 700, at: 80 });
+      break;
+    case "cancel":
+      tone(196, 110, { type: "square", vol: 0.045 });
+      [784, 1175, 1568].forEach((f, i) => bell(f, 320, 0.04, 60 + i * 60));
+      break;
+    case "garbage":
+      tone(70, 450, { type: "sine", vol: 0.16, slide: -30 });
+      noise(400, { type: "lowpass", freq: 900, freqTo: 100, vol: 0.09 });
+      break;
     case "over":
       [392, 330, 262, 196].forEach((f, i) => tone(f, 220, { vol: 0.05, type: "sawtooth", at: i * 170 }));
       noise(900, { type: "lowpass", freq: 1500, freqTo: 100, vol: 0.05, at: 500 });

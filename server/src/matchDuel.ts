@@ -1,4 +1,5 @@
 import {
+  BLOCKS_DUEL_SECONDS,
   DUEL_ATTACKS,
   DUEL_COUNTDOWN_MS,
   DUEL_SECONDS,
@@ -13,18 +14,23 @@ import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "./db.js";
 
 /**
- * ⚔️ Шмиксер duel: two people in a "match" channel play their own boards for DUEL_SECONDS; the higher
- * score wins. The boards run in the browsers; the server pairs people up, relays scores / tiny board
- * pictures / attacks, ends the duel on time and saves wins (MatchScore mode "duel": best = wins,
- * bestCombo = best duel score). All in memory: a Render restart ends running duels without a result.
+ * ⚔️ Duels: two people in a "match" (Шмиксер) or "blocks" (Шметрис) channel play their own boards.
+ * Шмиксер: DUEL_SECONDS, the higher score wins. Шметрис: whoever tops out first loses (at most
+ * BLOCKS_DUEL_SECONDS, then the higher score). The boards run in the browsers; the server pairs people
+ * up, relays scores / tiny board pictures / attacks, ends the duel and saves wins in MatchScore (it is
+ * keyed by server + user + mode): mode "duel" (Шмиксер) / "blocks-duel" (Шметрис), best = wins,
+ * bestCombo = best duel score. All in memory: a Render restart ends running duels without a result.
  */
 
 const LEFT_GRACE_MS = 10_000; // a reload / Wi-Fi drop doesn't lose the duel at once
 const END_GRACE_MS = 4_000; // the last moves' scores still count
 const MAX_SCORE = 30_000_000;
 
+type Kind = "match" | "blocks";
+
 interface Duel {
   id: string;
+  kind: Kind;
   channelId: string;
   serverId: string;
   players: [DuelPlayerDTO, DuelPlayerDTO];
@@ -41,19 +47,20 @@ interface Duel {
 const watchers = new Map<string, Map<string, string>>();
 const waiting = new Map<string, DuelPlayerDTO[]>();
 const duels = new Map<string, Duel>();
-const channelServer = new Map<string, string>();
+const channelServer = new Map<string, { serverId: string; kind: Kind }>();
 let seq = 0;
 
 const room = (channelId: string) => `match:${channelId}`;
 
 async function serverOfMatchChannel(channelId: string, userId: string): Promise<string | null> {
-  let serverId = channelServer.get(channelId);
-  if (!serverId) {
+  let info = channelServer.get(channelId);
+  if (!info) {
     const ch = await prisma.textChannel.findUnique({ where: { id: channelId }, select: { serverId: true, type: true } });
-    if (!ch || ch.type !== "match") return null;
-    serverId = ch.serverId;
-    channelServer.set(channelId, serverId);
+    if (!ch || (ch.type !== "match" && ch.type !== "blocks")) return null;
+    info = { serverId: ch.serverId, kind: ch.type };
+    channelServer.set(channelId, info);
   }
+  const serverId = info.serverId;
   const member = await prisma.membership.findUnique({ where: { userId_serverId: { userId, serverId } }, select: { userId: true } });
   return member ? serverId : null;
 }
@@ -106,14 +113,15 @@ function startFor(d: Duel, userId: string, resume: boolean): DuelStartDTO {
   };
 }
 
-function startDuel(io: IOServer, channelId: string, serverId: string, a: DuelPlayerDTO, b: DuelPlayerDTO) {
+function startDuel(io: IOServer, channelId: string, serverId: string, kind: Kind, a: DuelPlayerDTO, b: DuelPlayerDTO) {
   removeWaiting(channelId, a.userId);
   removeWaiting(channelId, b.userId);
   const now = Date.now();
   const startsAt = now + DUEL_COUNTDOWN_MS;
-  const endsAt = startsAt + DUEL_SECONDS * 1000;
+  const endsAt = startsAt + (kind === "blocks" ? BLOCKS_DUEL_SECONDS : DUEL_SECONDS) * 1000;
   const d: Duel = {
     id: `d${Date.now().toString(36)}${++seq}`,
+    kind,
     channelId,
     serverId,
     players: [a, b],
@@ -146,11 +154,12 @@ async function finish(io: IOServer, d: Duel, loser: string | null, reason: DuelO
     const won = winnerId === p.userId;
     const score = d.scores[p.userId] ?? 0;
     try {
-      const where = { serverId_userId_mode: { serverId: d.serverId, userId: p.userId, mode: "duel" } };
+      const mode = d.kind === "blocks" ? "blocks-duel" : "duel";
+      const where = { serverId_userId_mode: { serverId: d.serverId, userId: p.userId, mode } };
       const prev = await prisma.matchScore.findUnique({ where });
       const row = await prisma.matchScore.upsert({
         where,
-        create: { serverId: d.serverId, userId: p.userId, mode: "duel", best: won ? 1 : 0, bestCombo: score, games: 1 },
+        create: { serverId: d.serverId, userId: p.userId, mode, best: won ? 1 : 0, bestCombo: score, games: 1 },
         update: {
           games: { increment: 1 },
           ...(won ? { best: { increment: 1 } } : {}),
@@ -197,8 +206,9 @@ function unwatch(io: IOServer, socket: Socket, channelId: string) {
   }
 }
 
+/** Шмиксер: 8×8 codes; Шметрис: the visible 10×20 well (cell values). */
 const cleanBoard = (b: unknown): number[] | undefined =>
-  Array.isArray(b) && b.length === 64 && b.every((x) => Number.isInteger(x) && x >= 0 && x <= 40) ? (b as number[]) : undefined;
+  Array.isArray(b) && (b.length === 64 || b.length === 200) && b.every((x) => Number.isInteger(x) && x >= 0 && x <= 40) ? (b as number[]) : undefined;
 
 export function registerMatchDuelGateway(io: IOServer, socket: Socket) {
   const userId: string = socket.data.userId;
@@ -237,14 +247,15 @@ export function registerMatchDuelGateway(io: IOServer, socket: Socket) {
 
   socket.on(SocketEvents.MatchDuelSeek, async ({ channelId, with: withId }: { channelId: string; with?: string }) => {
     if (typeof channelId !== "string" || !watching.has(channelId)) return;
-    const serverId = channelServer.get(channelId);
-    if (!serverId || duelOf(userId)) return;
+    const info = channelServer.get(channelId);
+    if (!info || duelOf(userId)) return;
+    const { serverId, kind } = info;
     const u = await prisma.user.findUnique({ where: { id: userId }, select: { username: true, avatarUrl: true } });
     if (!u) return;
     const me: DuelPlayerDTO = { userId, username: u.username, avatarUrl: u.avatarUrl };
     const list = (waiting.get(channelId) ?? []).filter((p) => p.userId !== userId && socketsOf(channelId, p.userId).length && !duelOf(p.userId));
     const other = typeof withId === "string" ? list.find((p) => p.userId === withId) : list[0];
-    if (other) return startDuel(io, channelId, serverId, other, me);
+    if (other) return startDuel(io, channelId, serverId, kind, other, me);
     if (typeof withId === "string") return pushLobby(io, channelId); // they're gone already
     if (!(waiting.get(channelId) ?? []).some((p) => p.userId === userId)) waiting.set(channelId, [...list, me]);
     pushLobby(io, channelId);
@@ -254,7 +265,7 @@ export function registerMatchDuelGateway(io: IOServer, socket: Socket) {
     if (typeof channelId === "string" && removeWaiting(channelId, userId)) pushLobby(io, channelId);
   });
 
-  socket.on(SocketEvents.MatchDuelUpdate, ({ duelId, score, board, combo }: { duelId: string; score: unknown; board?: unknown; combo?: unknown }) => {
+  socket.on(SocketEvents.MatchDuelUpdate, ({ duelId, score, board, combo, out }: { duelId: string; score: unknown; board?: unknown; combo?: unknown; out?: unknown }) => {
     const d = myDuel(duelId);
     if (!d || typeof score !== "number" || !Number.isFinite(score)) return;
     if (Date.now() > d.endsAt + END_GRACE_MS) return;
@@ -269,12 +280,15 @@ export function registerMatchDuelGateway(io: IOServer, socket: Socket) {
       combo: typeof combo === "number" ? Math.min(99, Math.max(0, Math.round(combo))) : undefined,
     });
     pushLobby(io, d.channelId);
+    // Шметрис: topped out → the other one wins
+    if (out === true && d.kind === "blocks") void finish(io, d, userId, "out");
   });
 
   socket.on(SocketEvents.MatchDuelAttack, ({ duelId, kind, power }: { duelId: string; kind: DuelAttackKind; power?: unknown }) => {
     const d = myDuel(duelId);
     if (!d || !DUEL_ATTACKS.includes(kind) || Date.now() < d.startsAt || Date.now() > d.endsAt) return;
-    const p = Math.min(3, Math.max(1, Math.round(Number(power) || 1)));
+    if ((kind === "garbage") !== (d.kind === "blocks")) return;
+    const p = Math.min(kind === "garbage" ? 12 : 3, Math.max(1, Math.round(Number(power) || 1)));
     emitTo(io, d.channelId, otherOf(d, userId).userId, SocketEvents.MatchDuelAttacked, { duelId: d.id, kind, power: p });
   });
 
