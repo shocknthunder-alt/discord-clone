@@ -52,7 +52,7 @@ test.describe("🧱 Шметрис", () => {
     // 🐉 Дракончето: ново яйце, спи докато не играеш; може да се кръсти (остава в браузъра).
     await expect(a.page.locator(".blk-pet .dr-wrap.dr-sleep.dr-stage-0")).toBeVisible();
     await expect(a.page.locator(".blk-pet-stage")).toContainText("Яйце");
-    await expect(a.page.locator(".blk-pet-info")).toContainText("още 10 реда до „Бебе“");
+    await expect(a.page.locator(".blk-pet-info")).toContainText("още 2 реда до „Бебе“");
     await a.page.locator(".blk-pet-name").click();
     await a.page.locator(".blk-pet-input").fill("Пламъчко");
     await a.page.keyboard.press("Enter");
@@ -137,15 +137,24 @@ test.describe("🧱 Шметрис", () => {
 
     // Снимки на дракончето: всеки стадий + всяко настроение на „Младо драконче“ (explore/dragon-*.png).
     await a.page.keyboard.press("KeyP");
-    const dragon = (mood: string, stage: number) =>
-      a.page.evaluate(([m, s]) => (window as unknown as { __dragon?: (m: string, s: number) => void }).__dragon?.(m as string, s as number), [mood, stage] as const);
+    const dragon = (mood: string, stage: number, color = 0) =>
+      a.page.evaluate(
+        ([m, s, c]) => (window as unknown as { __dragon?: (m: string, s: number, c: number) => void }).__dragon?.(m as string, s as number, c as number),
+        [mood, stage, color] as const,
+      );
     for (const stage of [0, 1, 2, 3, 4, 5]) {
       await dragon("idle", stage);
       await a.page.waitForTimeout(400);
       await a.page.locator(".blk-pet .dr-wrap").screenshot({ path: `explore/dragon-stage${stage}.png` });
     }
+    // всеки цвят (по едно ниво нагоре): зелено → … → черно-червено
+    for (let color = 0; color < 10; color++) {
+      await dragon("idle", 4, color);
+      await a.page.waitForTimeout(250);
+      await a.page.locator(".blk-pet .dr-wrap").screenshot({ path: `explore/dragon-color${color}.png` });
+    }
     for (const mood of ["sleep", "c1", "c2", "c3", "c4", "danger", "sad", "grow"]) {
-      await dragon(mood, 3);
+      await dragon(mood, 3, 0);
       await a.page.waitForTimeout(mood === "c4" ? 1400 : mood === "c3" ? 850 : 450);
       await a.page.locator(".blk-pet .dr-wrap").screenshot({ path: `explore/dragon-${mood}.png` });
     }
@@ -157,13 +166,13 @@ test.describe("🧱 Шметрис", () => {
     const ana = await register("ana");
     const server = await serverWith(ana);
     const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
-    // 60 изчистени реда от по-стари игри → дракончето вече е „Малко драконче“.
+    // Редовете от по-стари игри не се броят: всяка игра започва с ново яйце.
     await api(ana.token, "POST", `/text-channels/${textChannel.id}/blocks/score`, { score: 100, lines: 60, level: 1, durationMs: 600_000 });
     const a = await openAs(browser, ana);
     await openServer(a.page, server.name);
     await openTextChannel(a.page, "шметрис");
-    await expect(a.page.locator(".blk-pet .dr-wrap.dr-stage-2")).toBeVisible();
-    await expect(a.page.locator(".blk-pet-info")).toContainText("още 140 реда до „Младо драконче“");
+    await expect(a.page.locator(".blk-pet .dr-wrap.dr-stage-0")).toBeVisible();
+    await expect(a.page.locator(".blk-pet-info")).toContainText("всяка игра — ново яйце");
     for (const level of [1, 3, 5, 7, 9, 11]) {
       await a.page.locator(".blk-level-pick select").selectOption(String(level));
       await a.page.getByRole("button", { name: /Играй|Нова игра/ }).click();

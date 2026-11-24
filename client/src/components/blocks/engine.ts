@@ -91,6 +91,10 @@ const LOCK_MS = 500;
 const MAX_RESETS = 15;
 const DAS_MS = 160;
 const ARR_MS = 35;
+/** Soft drop (↓ held): ms per row, by the "↓ speed" setting (1 = slow … 4 = fast). */
+export const SOFT_DROP_MS = [0, 110, 75, 50, 30] as const;
+/** A new piece doesn't start soft-dropping for this long even if ↓ is still held (no accidental drops). */
+const SOFT_SPAWN_GRACE_MS = 140;
 
 /** Seconds a piece takes to fall one row at `level`. */
 export function gravitySeconds(level: number): number {
@@ -122,6 +126,11 @@ export class BlocksGame {
   private lowestY = 0;
   private held: { dir: -1 | 1 | 0; ms: number; das: boolean } = { dir: 0, ms: 0, das: false };
   private soft = false;
+  private softGrace = 0;
+  /** ms per row of the current fall (for the smooth drawing). */
+  private stepMs = 1000;
+  /** "↓ speed" setting, 1..4. */
+  softSpeed = 2;
   private rng: () => number;
 
   constructor(
@@ -162,6 +171,7 @@ export class BlocksGame {
     this.resets = 0;
     this.lastWasRotate = false;
     this.lowestY = a.y;
+    this.softGrace = SOFT_SPAWN_GRACE_MS;
     if (!this.fits(a)) {
       // Topped out.
       this.active = a;
@@ -267,6 +277,12 @@ export class BlocksGame {
     this.soft = on;
   }
 
+  /** How far (0..1 of a row) the piece has fallen towards the next row: drawn in between for a smooth fall. */
+  get dropOffset(): number {
+    if (!this.playing || !this.active || this.stepMs < 20 || this.onGround) return 0;
+    return Math.min(0.999, Math.max(0, this.fall / this.stepMs));
+  }
+
   get playing(): boolean {
     return !this.over && !this.paused;
   }
@@ -365,7 +381,14 @@ export class BlocksGame {
 
     // Gravity (soft drop = 20× faster, at least a row every 40 ms).
     const g = gravitySeconds(this.level) * 1000;
-    const step = this.soft ? Math.min(g / 20, 40) : g;
+    if (this.softGrace > 0) this.softGrace -= dt;
+    const soft = this.soft && this.softGrace <= 0;
+    const step = soft ? Math.min(g, SOFT_DROP_MS[this.softSpeed] ?? 75) : g;
+    if (step !== this.stepMs) {
+      // keep the same fraction of a row when the speed changes (no jump in the smooth drawing)
+      this.fall = (this.fall / this.stepMs) * step;
+      this.stepMs = step;
+    }
     this.fall += dt;
     while (this.fall >= step && this.active) {
       this.fall -= step;
@@ -376,7 +399,7 @@ export class BlocksGame {
       }
       this.active = next;
       this.lastWasRotate = false;
-      if (this.soft) this.score += 1;
+      if (soft) this.score += 1;
       if (next.y > this.lowestY) {
         // Falling to a new lowest row gives the move/rotate resets back.
         this.lowestY = next.y;

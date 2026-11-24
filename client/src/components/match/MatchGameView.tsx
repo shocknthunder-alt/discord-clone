@@ -39,6 +39,7 @@ interface ViewTile {
   c: number;
   pop?: boolean;
   fresh?: boolean; // just made (a special)
+  swap?: boolean; // sliding in a swap (quicker, eased both ways)
 }
 interface Fx {
   id: number;
@@ -179,6 +180,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     const ids = new Set(st.popped.map((p) => p.tile.id));
     setTiles((cur) => {
       const next = { ...cur };
+      for (const [id, v] of Object.entries(next)) if (v.swap) next[Number(id)] = { ...v, swap: false };
       for (const id of ids) if (next[id]) next[id] = { ...next[id]!, pop: true };
       return next;
     });
@@ -258,7 +260,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     const tb = board.at(b)!;
     const res = board.swap(a, b);
     sfx("swap");
-    setTiles((cur) => ({ ...cur, [ta.id]: { ...cur[ta.id]!, r: b.r, c: b.c }, [tb.id]: { ...cur[tb.id]!, r: a.r, c: a.c } }));
+    setTiles((cur) => ({ ...cur, [ta.id]: { ...cur[ta.id]!, r: b.r, c: b.c, swap: true }, [tb.id]: { ...cur[tb.id]!, r: a.r, c: a.c, swap: true } }));
     await sleep(170);
     if (!res.ok) {
       sfx("invalid");
@@ -505,8 +507,8 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
           {Object.entries(tiles).map(([id, v]) => (
             <div
               key={id}
-              className={`mx-tile ${v.pop ? "pop" : ""} ${v.fresh ? "fresh" : ""} ${hint.includes(Number(id)) ? "hint" : ""} ${selected && selected.r === v.r && selected.c === v.c ? "selected" : ""} ${v.r < 0 ? "above" : ""}`}
-              style={{ left: pct(v.c), top: pct(v.r) }}
+              className={`mx-tile ${v.pop ? "pop" : ""} ${v.fresh ? "fresh" : ""} ${hint.includes(Number(id)) ? "hint" : ""} ${selected && selected.r === v.r && selected.c === v.c ? "selected" : ""} ${v.r < 0 ? "above" : ""} ${v.swap ? "swapping" : ""}`}
+              style={{ transform: `translate3d(${v.c * 100}%, ${v.r * 100}%, 0)` }}
             >
               <Gem color={v.tile.color} special={v.tile.special} />
             </div>

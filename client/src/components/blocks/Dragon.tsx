@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import "./dragon.css";
 
 /**
- * 🐉 The Шметрис pet: our own little dragon next to the well, in profile looking at it. It hatches
- * from an egg and grows with every line you have ever cleared (BlockScore.totalLines + the running
- * game): egg → baby → small → young → dragon → legendary (purple + gold). Babies have a big head,
+ * 🐉 The Шметрис pet: our own little dragon next to the well, in profile looking at it. Every game
+ * starts from an egg again; it hatches and grows with the lines of that game: egg → baby → small →
+ * young → dragon → legendary (gold runes), and changes colour with every level it climbs: green →
+ * teal → blue → indigo → purple → magenta → orange → red → crimson → black-red. Babies have a big head,
  * big eyes and stubby wings; it gets a longer body, horns, back spikes and big wings as it grows.
  * Sleeps when you are not playing, bobs to the music, cheers when lines go (hop → flap → loop in
  * the air → breathes fire at the well), hides behind its wings when the stack is high, is sad at
@@ -15,11 +16,11 @@ export type DragonMood = "sleep" | "idle" | "c1" | "c2" | "c3" | "c4" | "danger"
 
 export const DRAGON_STAGES = [
   { at: 0, name: "Яйце" },
-  { at: 10, name: "Бебе" },
-  { at: 60, name: "Малко драконче" },
-  { at: 200, name: "Младо драконче" },
-  { at: 500, name: "Дракон" },
-  { at: 1200, name: "Легендарен дракон" },
+  { at: 2, name: "Бебе" },
+  { at: 8, name: "Малко драконче" },
+  { at: 20, name: "Младо драконче" },
+  { at: 40, name: "Дракон" },
+  { at: 70, name: "Легендарен дракон" },
 ] as const;
 
 /** Stage index for a number of cleared lines + how far it is to the next one (0..1). */
@@ -55,16 +56,28 @@ interface Palette {
   wingDark: string;
   horn: string;
   iris: string;
+  /** Outline colour (default ink; the black dragon gets a red rim so it shows on a dark page). */
+  ink?: string;
 }
-const PALETTES: Palette[] = [
-  // 0 = egg (uses body/dark for its spots)
-  { body: "#7fdcaa", light: "#c9f5dc", dark: "#3d9a66", belly: "#fbf1d2", bellyLine: "#d9c48a", wing: "#9be8c2", wingDark: "#5fbf92", horn: "#f6efd9", iris: "#ffb020" },
-  { body: "#74d6a0", light: "#b8f0d0", dark: "#3d9a66", belly: "#fbeec4", bellyLine: "#d8c07e", wing: "#9be8c2", wingDark: "#5fbf92", horn: "#f6efd9", iris: "#ffb020" },
-  { body: "#52c487", light: "#9fe8bf", dark: "#2f8a58", belly: "#f8e6b0", bellyLine: "#d1b26c", wing: "#7fd9b2", wingDark: "#45a97e", horn: "#f3ead2", iris: "#ffab1a" },
-  { body: "#3aa872", light: "#80d6a8", dark: "#237049", belly: "#f6e0a2", bellyLine: "#c9a660", wing: "#5fc7a0", wingDark: "#318d68", horn: "#efe3c4", iris: "#ff9f10" },
-  { body: "#2e8f63", light: "#64bf8f", dark: "#1b5c3d", belly: "#f3d98f", bellyLine: "#bf9a52", wing: "#4cb88f", wingDark: "#24785a", horn: "#ece0bd", iris: "#ff8a00" },
-  { body: "#6b3fc9", light: "#a682f0", dark: "#3f2290", belly: "#ffd77a", bellyLine: "#d9a640", wing: "#9b6cff", wingDark: "#5a35b8", horn: "#ffd43b", iris: "#3ff0e0" },
+/** Egg spots (always green: a new game, a new egg). */
+const EGG_PALETTE: Palette = { body: "#7fdcaa", light: "#c9f5dc", dark: "#3d9a66", belly: "#fbf1d2", bellyLine: "#d9c48a", wing: "#9be8c2", wingDark: "#5fbf92", horn: "#f6efd9", iris: "#ffb020" };
+/** One colour per level climbed in this game: green at the start … black-red at the end. */
+export const DRAGON_COLORS: (Palette & { name: string })[] = [
+  { name: "Зелен", body: "#52c487", light: "#9fe8bf", dark: "#2f8a58", belly: "#f8e6b0", bellyLine: "#d1b26c", wing: "#7fd9b2", wingDark: "#45a97e", horn: "#f3ead2", iris: "#ffab1a" },
+  { name: "Тюркоазен", body: "#2fb8a8", light: "#86e6da", dark: "#1a7a70", belly: "#f6e8b8", bellyLine: "#cdb070", wing: "#6fd8cc", wingDark: "#2a9488", horn: "#f1ead6", iris: "#ffb020" },
+  { name: "Син", body: "#3d8fe0", light: "#9cc8f6", dark: "#1f5aa0", belly: "#f4e6bc", bellyLine: "#c9ac6c", wing: "#7ab4f0", wingDark: "#2f6fbe", horn: "#efe8d8", iris: "#ffc53d" },
+  { name: "Индиго", body: "#5a5ee0", light: "#a8aaf6", dark: "#33369c", belly: "#f2e2c0", bellyLine: "#c4a670", wing: "#8e90f2", wingDark: "#4144b8", horn: "#eee6d8", iris: "#ffd43b" },
+  { name: "Лилав", body: "#8a4fd6", light: "#c6a0f4", dark: "#552a94", belly: "#f4dcae", bellyLine: "#c99e5c", wing: "#b07ef0", wingDark: "#6a38b4", horn: "#f0e2c8", iris: "#3ff0e0" },
+  { name: "Пурпурен", body: "#c04fb8", light: "#eea0e6", dark: "#7e2478", belly: "#f6dcb0", bellyLine: "#cc9e5e", wing: "#e07ed8", wingDark: "#952f8e", horn: "#f2e4cc", iris: "#5ff0b0" },
+  { name: "Огнен", body: "#e8862f", light: "#ffc890", dark: "#a4521a", belly: "#fbe6b4", bellyLine: "#d0a45a", wing: "#f8ac64", wingDark: "#bb6424", horn: "#f6ead2", iris: "#ff3d2a" },
+  { name: "Червен", body: "#d93a2f", light: "#ff948a", dark: "#8e1d18", belly: "#f6d6a0", bellyLine: "#c4914c", wing: "#f06a5e", wingDark: "#a42820", horn: "#f2e2c4", iris: "#ffd43b" },
+  { name: "Кървав", body: "#9c1f24", light: "#d85a5e", dark: "#5a0c10", belly: "#e8b07a", bellyLine: "#a8703c", wing: "#c43a3e", wingDark: "#6e1216", horn: "#e6d6bc", iris: "#ffb020" },
+  { name: "Черно-червен", body: "#2a1416", light: "#5e2a2e", dark: "#0c0607", belly: "#b3202a", bellyLine: "#5e0a10", wing: "#a3161c", wingDark: "#3e070b", horn: "#e2d4bf", iris: "#ff2a1a", ink: "#d0202a" },
 ];
+/** Colour index for the number of levels climbed in this game (0 = the starting level). */
+export function dragonColor(levelsUp: number): number {
+  return Math.max(0, Math.min(DRAGON_COLORS.length - 1, levelsUp));
+}
 
 const SPIKES: [number, number][] = [
   [113, 86],
@@ -83,12 +96,15 @@ export default function Dragon({
   beat,
   stage,
   progress,
+  color = 0,
 }: {
   mood: DragonMood;
   cheerKey: number;
   beat: number;
   stage: number;
   progress: number;
+  /** DRAGON_COLORS index (by levels climbed in this game). */
+  color?: number;
 }) {
   const [say, setSay] = useState<string | null>(null);
   useEffect(() => {
@@ -139,7 +155,7 @@ export default function Dragon({
         </div>
       )}
       <svg key={`s${cheerKey}${mood === "grow" ? "g" : ""}`} className="dr-svg" viewBox="0 0 220 220" role="img">
-        {s === 0 ? <Egg mood={mood} progress={progress} /> : <Beast mood={mood} s={s} />}
+        {s === 0 ? <Egg mood={mood} progress={progress} /> : <Beast mood={mood} s={s} c={dragonColor(color)} />}
         {mood === "sleep" && (
           <g className="dr-zzz" fill="#cfe3ff" stroke="none" fontWeight={900} fontFamily="system-ui, sans-serif">
             <text className="z1" x={s === 0 ? 150 : 176} y={s === 0 ? 96 : 60} fontSize="13">z</text>
@@ -204,7 +220,7 @@ export default function Dragon({
 const EGG = "M112 70 Q150 72 156 136 Q160 194 112 196 Q64 194 68 136 Q74 72 112 70 Z";
 
 function Egg({ mood, progress }: { mood: DragonMood; progress: number }) {
-  const p = PALETTES[0]!;
+  const p = EGG_PALETTE;
   const cracks = Math.floor(progress * 4); // more cracks as it gets close to hatching
   return (
     <g stroke={INK} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round">
@@ -258,8 +274,9 @@ function Egg({ mood, progress }: { mood: DragonMood; progress: number }) {
 
 /* ───────────── the dragon ───────────── */
 
-function Beast({ mood, s }: { mood: DragonMood; s: number }) {
-  const p = PALETTES[s]!;
+function Beast({ mood, s, c }: { mood: DragonMood; s: number; c: number }) {
+  const p = DRAGON_COLORS[c]!;
+  const id = `${s}-${c}`; // gradient ids follow the colour
   const k = (s - 1) / 4; // 0 = baby … 1 = legendary
   const bodyScale = 0.68 + 0.34 * k;
   const headScale = 1.34 - 0.32 * k; // babies: big head
@@ -276,7 +293,7 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
       <g transform={`translate(${far ? 92 : 100} ${far ? 112 : 118}) scale(${wingScale}) translate(-100 -118)`}>
         <path
           d="M100 118 L80 66 Q56 44 26 48 Q42 64 36 84 Q52 86 56 104 Q74 102 84 120 Z"
-          fill={far ? p.wingDark : `url(#drWingG${s})`}
+          fill={far ? p.wingDark : `url(#drWingG${id})`}
         />
         <path d="M80 66 L28 50 M80 66 L38 83 M80 66 L57 102" fill="none" stroke={far ? p.dark : p.wingDark} strokeWidth={2} />
         <path d="M100 118 L80 66" fill="none" stroke={p.dark} strokeWidth={5.5} />
@@ -286,14 +303,14 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
   );
 
   return (
-    <g stroke={INK} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round">
+    <g stroke={p.ink ?? INK} strokeWidth={2.4} strokeLinejoin="round" strokeLinecap="round">
       <defs>
-        <radialGradient id={`drBodyG${s}`} cx="0.65" cy="0.25" r="0.85">
+        <radialGradient id={`drBodyG${id}`} cx="0.65" cy="0.25" r="0.85">
           <stop offset="0" stopColor={p.light} />
           <stop offset="0.55" stopColor={p.body} />
           <stop offset="1" stopColor={p.dark} />
         </radialGradient>
-        <linearGradient id={`drWingG${s}`} x1="1" y1="1" x2="0" y2="0">
+        <linearGradient id={`drWingG${id}`} x1="1" y1="1" x2="0" y2="0">
           <stop offset="0" stopColor={p.wing} />
           <stop offset="1" stopColor={p.wingDark} />
         </linearGradient>
@@ -303,7 +320,7 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
           <stop offset="0.7" stopColor="#ff7a1a" />
           <stop offset="1" stopColor="#e8301a" stopOpacity="0.2" />
         </radialGradient>
-        <pattern id={`drScales${s}`} width="9" height="7" patternUnits="userSpaceOnUse">
+        <pattern id={`drScales${id}`} width="9" height="7" patternUnits="userSpaceOnUse">
           <path d="M0 7 Q4.5 1 9 7" fill="none" stroke={p.dark} strokeWidth="1" opacity="0.4" />
         </pattern>
       </defs>
@@ -314,8 +331,8 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
         <g transform={`translate(112 204) scale(${bodyScale}) translate(-112 -204)`}>
           {/* tail with a spade tip */}
           <g className="dr-tail">
-            <path d="M92 176 Q60 202 36 188 Q20 178 24 160 Q32 174 46 178 Q66 182 86 160 Z" fill={`url(#drBodyG${s})`} />
-            <path d="M92 176 Q60 202 36 188 Q20 178 24 160 Q32 174 46 178 Q66 182 86 160 Z" fill={`url(#drScales${s})`} stroke="none" />
+            <path d="M92 176 Q60 202 36 188 Q20 178 24 160 Q32 174 46 178 Q66 182 86 160 Z" fill={`url(#drBodyG${id})`} />
+            <path d="M92 176 Q60 202 36 188 Q20 178 24 160 Q32 174 46 178 Q66 182 86 160 Z" fill={`url(#drScales${id})`} stroke="none" />
             <path d="M26 164 Q8 160 10 144 Q20 150 28 151 Q28 140 40 136 Q42 152 26 164 Z" fill={p.dark} />
             {SPIKES.slice(6, 6 + Math.max(0, spikes - 4)).map(([x, y], i) => (
               <path key={i} d={`M${x - 5} ${y - 2} L${x} ${y - 11} L${x + 5} ${y - 1} Z`} fill={p.horn} strokeWidth={1.6} />
@@ -328,13 +345,13 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
           <path d="M100 196 Q112 192 120 200 L120 204 L98 204 Z" fill={p.dark} />
 
           {/* body, belly plates */}
-          <path d="M84 122 Q72 152 80 182 Q90 204 122 202 Q150 200 154 174 Q158 146 140 122 Q124 104 102 108 Q88 112 84 122 Z" fill={`url(#drBodyG${s})`} />
-          <path d="M84 122 Q72 152 80 182 Q90 204 122 202 Q150 200 154 174 Q158 146 140 122 Q124 104 102 108 Q88 112 84 122 Z" fill={`url(#drScales${s})`} stroke="none" />
+          <path d="M84 122 Q72 152 80 182 Q90 204 122 202 Q150 200 154 174 Q158 146 140 122 Q124 104 102 108 Q88 112 84 122 Z" fill={`url(#drBodyG${id})`} />
+          <path d="M84 122 Q72 152 80 182 Q90 204 122 202 Q150 200 154 174 Q158 146 140 122 Q124 104 102 108 Q88 112 84 122 Z" fill={`url(#drScales${id})`} stroke="none" />
           <path d="M124 116 Q146 132 148 166 Q146 192 124 199 Q109 180 111 152 Q111 130 124 116 Z" fill={p.belly} />
           <path d="M117 130 Q131 126 141 133 M113 145 Q131 141 146 147 M112 160 Q130 156 147 162 M113 175 Q130 172 145 176 M117 189 Q129 187 139 189" fill="none" stroke={p.bellyLine} strokeWidth={1.5} />
 
           {/* neck */}
-          <path d="M104 116 Q106 92 120 80 L146 90 Q132 100 130 122 Z" fill={`url(#drBodyG${s})`} />
+          <path d="M104 116 Q106 92 120 80 L146 90 Q132 100 130 122 Z" fill={`url(#drBodyG${id})`} />
           <path d="M131 94 Q140 96 144 98 Q134 106 131 122 Q127 106 131 94 Z" fill={p.belly} strokeWidth={1.8} />
 
           {/* back spikes */}
@@ -345,7 +362,7 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
 
           {/* hind leg + claws */}
           <g className="dr-leg">
-            <path d="M88 156 Q76 186 96 200 L130 202 Q134 192 120 186 Q118 164 104 154 Q94 150 88 156 Z" fill={`url(#drBodyG${s})`} />
+            <path d="M88 156 Q76 186 96 200 L130 202 Q134 192 120 186 Q118 164 104 154 Q94 150 88 156 Z" fill={`url(#drBodyG${id})`} />
             <path d="M96 168 Q104 176 104 188" fill="none" stroke={p.dark} strokeWidth={1.6} />
             <path d="M94 160 Q104 158 112 166 Q102 164 96 170 Z" fill="#fff" opacity={0.3} stroke="none" />
             <path d="M124 201 L131 206 L126 206 Z M130 198 L138 203 L133 204 Z M134 193 L142 197 L137 199 Z" fill="#fff" strokeWidth={1.4} />
@@ -353,7 +370,7 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
 
           {/* front arm + claws */}
           <g className="dr-arm">
-            <path d="M128 120 Q148 124 156 142 Q159 151 153 154 Q147 149 140 143 Q128 136 124 128 Z" fill={`url(#drBodyG${s})`} />
+            <path d="M128 120 Q148 124 156 142 Q159 151 153 154 Q147 149 140 143 Q128 136 124 128 Z" fill={`url(#drBodyG${id})`} />
             <path d="M134 128 Q144 134 150 144" fill="none" stroke={p.dark} strokeWidth={1.4} />
             <path d="M152 153 L157 159 L151 157 Z M156 149 L162 153 L156 153 Z" fill="#fff" strokeWidth={1.3} />
           </g>
@@ -377,12 +394,12 @@ function Beast({ mood, s }: { mood: DragonMood; s: number }) {
                 </g>
               )}
               {/* ear frill */}
-              <path d="M124 64 L100 56 L108 66 L98 72 L106 76 L122 76 Z" fill={`url(#drWingG${s})`} />
+              <path d="M124 64 L100 56 L108 66 L98 72 L106 76 L122 76 Z" fill={`url(#drWingG${id})`} />
               <path d="M122 68 L104 62 M122 72 L102 72" fill="none" stroke={p.wingDark} strokeWidth={1.3} />
 
               {/* skull + snout */}
-              <path d="M118 76 Q115 50 138 44 Q158 40 166 54 Q186 56 195 68 Q200 80 190 86 Q178 92 160 90 Q146 99 130 95 Q117 89 118 76 Z" fill={`url(#drBodyG${s})`} />
-              <path d="M118 76 Q115 50 138 44 Q158 40 166 54 Q186 56 195 68 Q200 80 190 86 Q178 92 160 90 Q146 99 130 95 Q117 89 118 76 Z" fill={`url(#drScales${s})`} stroke="none" opacity={0.7} />
+              <path d="M118 76 Q115 50 138 44 Q158 40 166 54 Q186 56 195 68 Q200 80 190 86 Q178 92 160 90 Q146 99 130 95 Q117 89 118 76 Z" fill={`url(#drBodyG${id})`} />
+              <path d="M118 76 Q115 50 138 44 Q158 40 166 54 Q186 56 195 68 Q200 80 190 86 Q178 92 160 90 Q146 99 130 95 Q117 89 118 76 Z" fill={`url(#drScales${id})`} stroke="none" opacity={0.7} />
               <path d="M136 50 Q146 44 158 48 Q148 48 140 56 Z" fill="#fff" opacity={0.45} stroke="none" />
               {/* lower jaw */}
               <path d="M138 90 Q160 98 186 88 Q182 98 166 100 Q148 102 138 94 Z" fill={p.belly} strokeWidth={1.8} />

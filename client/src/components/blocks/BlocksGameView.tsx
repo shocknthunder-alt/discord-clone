@@ -3,7 +3,7 @@ import { http } from "../../api/http";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { BlocksGame, COLS, HIDDEN, PIECES, ROWS, pieceCells, type GameEvent, type PieceType } from "./engine";
-import Dragon, { DRAGON_STAGES, dragonStage, type DragonMood } from "./Dragon";
+import Dragon, { DRAGON_COLORS, DRAGON_STAGES, dragonColor, dragonStage, type DragonMood } from "./Dragon";
 import { blocksMusic } from "./music";
 import { blockSound } from "./sounds";
 import "./blocks.css";
@@ -72,6 +72,29 @@ function drawCell(g: CanvasRenderingContext2D, x: number, y: number, s: number, 
   g.arc(x + s * 0.28, y + s * 0.25, s * 0.06, 0, Math.PI * 2);
   g.fill();
   g.restore();
+}
+
+/**
+ * Cells are drawn once per colour / size / alpha into a small canvas and then just stamped with
+ * drawImage (gradients + rounded paths for 200 cells every frame were the slow part).
+ */
+const cellSprites = new Map<string, HTMLCanvasElement>();
+let spriteSize = 0;
+function stampCell(g: CanvasRenderingContext2D, x: number, y: number, s: number, dpr: number, color: string, alpha = 1) {
+  const px = Math.max(1, Math.round(s * dpr));
+  if (px !== spriteSize) {
+    cellSprites.clear();
+    spriteSize = px;
+  }
+  const key = `${color}|${alpha}`;
+  let c = cellSprites.get(key);
+  if (!c) {
+    c = document.createElement("canvas");
+    c.width = c.height = px;
+    drawCell(c.getContext("2d")!, 0, 0, px, color, alpha);
+    cellSprites.set(key, c);
+  }
+  g.drawImage(c, x, y, s, s);
 }
 
 function drawGhost(g: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
@@ -167,6 +190,9 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     const v = Number(localStorage.getItem("blocksMusicVol"));
     return Number.isFinite(v) && localStorage.getItem("blocksMusicVol") !== null ? v : 50;
   });
+  const [softSpeed, setSoftSpeed] = useState(() => Number(localStorage.getItem("blocksSoftSpeed")) || 2);
+  const softRef = useRef(softSpeed);
+  softRef.current = softSpeed;
   const [popups, setPopups] = useState<{ id: number; text: string; big?: boolean }[]>([]);
   const [result, setResult] = useState<{ score: number; lines: number; level: number; record: boolean; saved: boolean } | null>(null);
   // Size of the well: null = fit the window; a number = the height the person dragged it to.
@@ -225,6 +251,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   // 🐉 The dragon: cheers for a while after lines go (more lines / combo / T-spin → wilder).
   const [cheer, setCheer] = useState<{ mood: DragonMood; key: number } | null>(null);
   const [forceStage, setForceStage] = useState<number | null>(null); // dev screenshots only
+  const [forceColor, setForceColor] = useState<number | null>(null); // dev screenshots only
   const [dragonName, setDragonName] = useState(() => localStorage.getItem("blocksDragonName") || "Змейчо");
   const [naming, setNaming] = useState(false);
   const cheerTimer = useRef<number | undefined>(undefined);
@@ -239,10 +266,11 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   // Dev / e2e only: show a mood on demand (for screenshots of every pose).
   useEffect(() => {
     if (!import.meta.env.DEV) return;
-    const w = window as unknown as { __dragon?: (m: DragonMood, stage?: number) => void };
-    w.__dragon = (mood, stage) => {
+    const w = window as unknown as { __dragon?: (m: DragonMood, stage?: number, color?: number) => void };
+    w.__dragon = (mood, stage, color) => {
       window.clearTimeout(cheerTimer.current);
       if (stage !== undefined) setForceStage(stage);
+      if (color !== undefined) setForceColor(color);
       setCheer((c) => ({ mood, key: (c?.key ?? 0) + 1 }));
     };
     return () => void delete w.__dragon;
@@ -369,13 +397,26 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     let raf = 0;
     let last = performance.now();
     let lastHud = "";
+    // the canvas size is read only when it changes (not every frame: that forces a layout)
+    const size = { w: 0, h: 0 };
+    const ro = new ResizeObserver(() => {
+      const r = canvasRef.current?.getBoundingClientRect();
+      if (r) {
+        size.w = r.width;
+        size.h = r.height;
+      }
+    });
+    if (canvasRef.current) ro.observe(canvasRef.current);
     const frame = (now: number) => {
       raf = requestAnimationFrame(frame);
       const dt = Math.min(50, now - last);
       last = now;
       const game = gameRef.current;
-      if (game) game.tick(dt);
-      draw(canvasRef.current, game);
+      if (game) {
+        game.softSpeed = softRef.current;
+        game.tick(dt);
+      }
+      draw(canvasRef.current, game, size.w, size.h);
       if (game) {
         const h: Hud = {
           score: game.score,
@@ -396,7 +437,10 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       }
     };
     raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, []);
 
   // This view receives the events of the running game (also one resumed from an earlier visit).
@@ -439,13 +483,14 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   useEffect(() => blocksMusic.setVolume(musicVol / 100), [musicVol]);
   const hudDanger = phase === "playing" && !!hud?.danger;
   useEffect(() => blocksMusic.setDanger(hudDanger), [hudDanger]);
-  // 🐉 It grows with every line ever cleared: saved total + the running game (until it is saved).
-  const liveLines = (mine?.totalLines ?? 0) + (phase !== "idle" && !result?.saved ? (hud?.lines ?? 0) : 0);
+  // 🐉 Every game hatches a new egg: it grows with this game's lines, its colour follows the levels climbed.
+  const liveLines = phase !== "idle" ? (hud?.lines ?? 0) : 0;
   const grown = dragonStage(liveLines);
+  const tint = forceColor ?? dragonColor(phase !== "idle" && hud && gameRef.current ? hud.level - gameRef.current.startLevel : 0);
   const stage = forceStage ?? grown.stage;
   const prevStage = useRef<number | null>(null);
   useEffect(() => {
-    if (!loaded) return; // the saved total is not known yet
+    if (!loaded || (phase !== "idle" && !hud)) return; // a resumed game: its lines are not read yet
     const before = prevStage.current;
     prevStage.current = stage;
     if (before === null || stage <= before || forceStage !== null) return;
@@ -453,7 +498,8 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
     setCheer((c) => ({ mood: "grow", key: (c?.key ?? 0) + 1 }));
     cheerTimer.current = window.setTimeout(() => setCheer((c) => (c ? { ...c, mood: "idle" } : c)), 3000);
     if (soundRef.current) blockSound({ kind: "level", level: stage + 1 });
-  }, [stage, loaded, forceStage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, loaded, forceStage, !hud]);
   const dragonMood: DragonMood =
     cheer && cheer.mood !== "idle"
       ? cheer.mood
@@ -558,6 +604,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
             beat={60 / blocksMusic.bpmFor(hudLevel)}
             stage={stage}
             progress={forceStage !== null ? 0.7 : grown.progress}
+            color={tint}
           />
           <div className="blk-box blk-pet-info">
             {naming ? (
@@ -579,6 +626,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
             )}
             <div className="blk-pet-stage">
               {DRAGON_STAGES[stage]!.name} · {stage + 1}/{DRAGON_STAGES.length}
+              {stage > 0 && <> · {DRAGON_COLORS[tint]!.name}</>}
             </div>
             <div className="blk-pet-bar">
               <i style={{ width: `${Math.round(grown.progress * 100)}%` }} />
@@ -587,6 +635,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
               {grown.toNext !== null
                 ? `${tr("още", "")} ${grown.toNext} ${tr(grown.toNext === 1 ? "ред до" : "реда до", "lines to")} „${DRAGON_STAGES[grown.stage + 1]!.name}“`
                 : tr("Порасна докрай! 👑", "Fully grown! 👑")}
+              {phase === "idle" && <> · {tr("всяка игра — ново яйце", "every game hatches a new egg")}</>}
             </div>
           </div>
         </div>
@@ -595,6 +644,23 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
           <div><kbd>↑</kbd>/<kbd>X</kbd> {tr("завърти", "rotate")} · <kbd>Z</kbd> {tr("обратно", "back")}</div>
           <div><kbd>↓</kbd> {tr("по-бързо", "soft drop")} · <kbd>{tr("Интервал", "Space")}</kbd> {tr("пусни", "drop")}</div>
           <div><kbd>C</kbd>/<kbd>Shift</kbd> {tr("запази", "hold")} · <kbd>P</kbd> {tr("пауза", "pause")}</div>
+          <label className="blk-soft-pick" title={tr("Колко бързо пада блокчето, докато държиш ↓", "How fast a piece falls while ↓ is held")}>
+            <kbd>↓</kbd> {tr("скорост", "speed")}
+            <select
+              value={softSpeed}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setSoftSpeed(v);
+                localStorage.setItem("blocksSoftSpeed", String(v));
+                e.currentTarget.blur();
+              }}
+            >
+              <option value={1}>{tr("бавно", "slow")}</option>
+              <option value={2}>{tr("средно", "medium")}</option>
+              <option value={3}>{tr("бързо", "fast")}</option>
+              <option value={4}>{tr("много бързо", "very fast")}</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -813,10 +879,9 @@ function stackDanger(game: BlocksGame): boolean {
 
 const VISIBLE = ROWS - HIDDEN;
 
-function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null) {
-  if (!canvas) return;
-  const rect = canvas.getBoundingClientRect();
-  if (!rect.width) return;
+function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null, cw: number, ch: number) {
+  if (!canvas || !cw) return;
+  const rect = { width: cw, height: ch };
   const dpr = window.devicePixelRatio || 1;
   const W = Math.round(rect.width * dpr);
   const H = Math.round(rect.height * dpr);
@@ -847,7 +912,7 @@ function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null) {
   for (let y = HIDDEN; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       const v = game.board[y]![x]!;
-      if (v) drawCell(g, x * s, (y - HIDDEN) * s, s, BLOCK_COLORS[PIECES[v - 1]!], game.over ? 0.45 : 1);
+      if (v) stampCell(g, x * s, (y - HIDDEN) * s, s, dpr, BLOCK_COLORS[PIECES[v - 1]!], game.over ? 0.45 : 1);
     }
   }
   const a = game.active;
@@ -858,9 +923,11 @@ function draw(canvas: HTMLCanvasElement | null, game: BlocksGame | null) {
       const y = gy + cy - HIDDEN;
       if (y >= 0) drawGhost(g, (a.x + cx) * s, y * s, s, col);
     }
+    // drawn part of the way to the next row → a smooth fall instead of a jump per row
+    const off = game.dropOffset;
     for (const [cx, cy] of pieceCells(a.type, a.rot)) {
-      const y = a.y + cy - HIDDEN;
-      if (y >= 0) drawCell(g, (a.x + cx) * s, y * s, s, col);
+      const y = a.y + cy - HIDDEN + off;
+      if (y > -1) stampCell(g, (a.x + cx) * s, y * s, s, dpr, col);
     }
   }
   if (game.flash) {

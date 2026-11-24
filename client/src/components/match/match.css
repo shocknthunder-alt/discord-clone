@@ -42,11 +42,17 @@
   height: 12.5%;
   padding: 0.6%;
   box-sizing: border-box;
-  transition:
-    top 0.28s cubic-bezier(0.5, 0, 0.75, 0),
-    left 0.17s ease-in-out;
+  left: 0;
+  top: 0;
+  /* moved with transform (compositor only, no layout), each tile on its own layer so its gem with
+     the blurred glow is painted once and then just slid around → smooth on high-refresh screens */
+  transition: transform 0.28s cubic-bezier(0.5, 0, 0.75, 0);
+  will-change: transform;
   cursor: pointer;
   z-index: 1;
+}
+.mx-tile.swapping {
+  transition: transform 0.17s ease-in-out;
 }
 .mx-tile.above {
   transition: none;
