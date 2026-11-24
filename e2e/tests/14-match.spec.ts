@@ -163,10 +163,12 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await closeAll(a.context);
   });
 
-  test("⚔️ дуел: търси / приеми, броене, точки на противника, атака 🪨, предаване → победа", async ({ browser }) => {
+  test("⚔️ дуел: търси / приеми, броене, точки на противника, атака 🪨, предаване → победа; 👁 carl гледа", async ({ browser }) => {
+    test.setTimeout(120_000);
     const ana = await register("ana");
     const bob = await register("bob");
-    const server = await serverWith(ana, bob);
+    const carl = await register("carl");
+    const server = await serverWith(ana, bob, carl);
     const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиксер", type: "match" });
     const a = await openAs(browser, ana);
     const b = await openAs(browser, bob);
@@ -187,10 +189,26 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await expect(b.page.locator(".mx-opp")).toContainText(ana.username);
     await expect(a.page.locator(".mx-count")).toHaveCount(0, { timeout: 8_000 });
     await expect(a.page.locator(".mx-clock")).toContainText("2:0");
+    // 👁 carl opens the channel (solo mode) → the running duel with "Гледай"
+    const c = await openAs(browser, carl);
+    await c.page.addInitScript(() => localStorage.setItem("matchMusic", "off"));
+    await openServer(c.page, server.name);
+    await openTextChannel(c.page, "шмиксер");
+    const watchBtn = c.page.locator(".mx-spectate-btn");
+    await expect(watchBtn).toBeVisible({ timeout: 10_000 });
+    await watchBtn.click();
+    const spec = c.page.locator(".mx-spec");
+    await expect(spec).toContainText(ana.username);
+    await expect(spec).toContainText(bob.username);
+    await expect(spec.locator(".mx-spec-clock")).toContainText(/1:|2:0/);
+    const anaSide = spec.locator(".mx-spec-side").first();
     // a move of ana → bob sees her score
     await playOneMove(a.page);
     await expect.poll(async () => Number((await b.page.locator(".mx-opp-score").innerText()).replace(/\D/g, ""))).toBeGreaterThan(0);
     await expect(b.page.locator(".mx-mini i")).toHaveCount(64);
+    // carl sees ana's score and both boards
+    await expect.poll(async () => Number((await anaSide.locator(".mx-spec-score").innerText()).replace(/\D/g, ""))).toBeGreaterThan(0);
+    await expect(spec.locator(".mx-mini")).toHaveCount(2);
     // two bombs together → 🪨 stones for bob (after the warning)
     await expect.poll(() => a.page.evaluate(() => (window as unknown as { __matchBusy?: () => boolean }).__matchBusy?.())).toBe(false);
     await a.page.evaluate(() => {
@@ -207,6 +225,8 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await a.page.mouse.move(box.x + 1.5 * cell, box.y + 7.5 * cell, { steps: 4 });
     await a.page.mouse.up();
     await expect(b.page.locator(".mx-incoming")).toContainText("Камъни");
+    await expect(spec.locator(".mx-spec-flash").first()).toContainText("Камъни");
+    await c.page.locator(".mx-view").screenshot({ path: "explore/match-duel-spectate.png" });
     await b.page.locator(".mx-view").screenshot({ path: "explore/match-duel-incoming.png" });
     await expect.poll(() => b.page.locator(".mx-tile .mx-stone").count(), { timeout: 8_000 }).toBeGreaterThan(0);
     await b.page.locator(".mx-view").screenshot({ path: "explore/match-duel-stones.png" });
@@ -215,6 +235,11 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await expect(a.page.locator(".mx-duel-verdict")).toContainText("Победа");
     await expect(b.page.locator(".mx-duel-verdict")).toContainText("Загуба");
     await expect(a.page.locator(".blk-result")).toContainText("противникът се предаде");
+    await expect(spec.locator(".mx-spec-over")).toContainText(`${ana.username} печели`);
+    await expect(spec.locator(".mx-spec-over")).toContainText("се предаде");
+    await spec.locator(".mx-spec-over .blk-start").click();
+    await expect(spec).toHaveCount(0);
+    expectNoCrashes(c.page);
     await a.page.locator(".mx-view").screenshot({ path: "explore/match-duel-over.png" });
     const lists = await api(ana.token, "GET", `/text-channels/${textChannel.id}/match`);
     expect(lists.duel.mine.best).toBe(1);
@@ -223,7 +248,7 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await expect(a.page.locator(".blk-top li.me")).toContainText("1 🏆");
     expectNoCrashes(a.page);
     expectNoCrashes(b.page);
-    await closeAll(a.context, b.context);
+    await closeAll(a.context, b.context, c.context);
   });
 
   test("излизане от канала по време на игра → връщаш се на пауза със същите точки", async ({ browser }) => {

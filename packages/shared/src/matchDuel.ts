@@ -29,7 +29,56 @@ export interface DuelPlayerDTO {
 export interface DuelLobbyDTO {
   channelId: string;
   waiting: DuelPlayerDTO[];
-  playing: { a: DuelPlayerDTO; b: DuelPlayerDTO; scoreA: number; scoreB: number }[];
+  playing: {
+    a: DuelPlayerDTO;
+    b: DuelPlayerDTO;
+    scoreA: number;
+    scoreB: number;
+    /** (2026-11-24+) for 👁 watching it */
+    duelId?: string;
+    spectators?: number;
+  }[];
+}
+
+/** 👁 A duel as a spectator sees it: both players, scores and board pictures. */
+export interface DuelSpectateDTO {
+  duelId: string;
+  channelId: string;
+  a: DuelPlayerDTO;
+  b: DuelPlayerDTO;
+  scoreA: number;
+  scoreB: number;
+  boardA?: number[];
+  boardB?: number[];
+  startsAt: number;
+  endsAt: number;
+  serverNow: number;
+}
+
+export interface DuelSpectateUpdateDTO {
+  duelId: string;
+  userId: string;
+  score: number;
+  board?: number[];
+  /** Шмиксер: the move's combo; Шметрис: lines cleared */
+  combo?: number;
+}
+
+/** An attack sent / blocked (from = who did it). */
+export interface DuelSpectateEventDTO {
+  duelId: string;
+  from: string;
+  type: "attack" | "block";
+  kind?: DuelAttackKind;
+  power?: number;
+}
+
+export interface DuelSpectateOverDTO {
+  duelId: string;
+  winnerId: string | null;
+  scoreA: number;
+  scoreB: number;
+  reason: DuelOverDTO["reason"];
 }
 
 export interface DuelStartDTO {

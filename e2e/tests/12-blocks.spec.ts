@@ -110,10 +110,12 @@ test.describe("🧱 Шметрис", () => {
     await closeAll(a.context, b.context);
   });
 
-  test("⚔️ дуел: 4 реда + чист кладенец → 10 реда боклук при другия, мини кладенец, препълване → победа", async ({ browser }) => {
+  test("⚔️ дуел: 4 реда + чист кладенец → 10 реда боклук при другия, мини кладенец, препълване → победа; 👁 carl гледа", async ({ browser }) => {
+    test.setTimeout(120_000);
     const ana = await register("ana");
     const bob = await register("bob");
-    const server = await serverWith(ana, bob);
+    const carl = await register("carl");
+    const server = await serverWith(ana, bob, carl);
     const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шметрис", type: "blocks" });
     const a = await openAs(browser, ana);
     const b = await openAs(browser, bob);
@@ -131,6 +133,16 @@ test.describe("🧱 Шметрис", () => {
     await expect(a.page.locator(".mx-count")).toHaveCount(0, { timeout: 8_000 });
     await expect(b.page.locator(".mx-count")).toHaveCount(0, { timeout: 8_000 });
     await expect(a.page.locator(".blk-mini i")).toHaveCount(200);
+    // 👁 carl opens the channel (solo mode) → watches the duel
+    const c = await openAs(browser, carl);
+    await c.page.addInitScript(() => localStorage.setItem("blocksMusic", "off"));
+    await openServer(c.page, server.name);
+    await openTextChannel(c.page, "шметрис");
+    await c.page.locator(".mx-spectate-btn").click({ timeout: 10_000 });
+    const spec = c.page.locator(".mx-spec");
+    await expect(spec).toContainText(ana.username);
+    await expect(spec).toContainText(bob.username);
+    await expect(spec.locator(".blk-mini")).toHaveCount(2);
     type G = { board: number[][]; active: { type: string; rot: number; x: number; y: number } | null; fits: (a: unknown) => boolean; hardDrop: () => void; pendingLines: number; over: boolean };
     // ana: 4 rows full except column 0 + a vertical I into it → four lines → 4 garbage rows for bob
     await a.page.evaluate(() => {
@@ -149,6 +161,7 @@ test.describe("🧱 Шметрис", () => {
     });
     // (4 lines + a perfect clear = 10 rows)
     await expect(b.page.locator(".blk-garbage")).toContainText("10");
+    await expect(spec.locator(".mx-spec-flash").first()).toContainText("+10");
     await b.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel-incoming.png" });
     // bob locks a piece without a clear → the garbage rises (grey rows with one hole)
     await b.page.evaluate(() => (window as unknown as { __blocksGame: () => G }).__blocksGame().hardDrop());
@@ -157,6 +170,9 @@ test.describe("🧱 Шметрис", () => {
     await expect(b.page.locator(".blk-garbage")).toHaveCount(0);
     await expect.poll(async () => (await a.page.locator(".blk-mini i[style]").count())).toBeGreaterThan(30);
     await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel.png" });
+    // carl sees bob's well full of garbage too
+    await expect.poll(async () => spec.locator(".mx-spec-side").nth(1).locator(".blk-mini i[style]").count()).toBeGreaterThan(30);
+    await c.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel-spectate.png" });
     // bob's well full to the top → he tops out → ana wins
     await b.page.evaluate(() => {
       const g = (window as unknown as { __blocksGame: () => G }).__blocksGame();
@@ -167,12 +183,15 @@ test.describe("🧱 Шметрис", () => {
     await expect(a.page.locator(".blk-result")).toContainText("противникът се препълни");
     await expect(b.page.locator(".mx-duel-verdict")).toContainText("Загуба");
     await a.page.locator(".blk-view").screenshot({ path: "explore/blocks-duel-over.png" });
+    await expect(spec.locator(".mx-spec-over")).toContainText(`${ana.username} печели`);
+    await expect(spec.locator(".mx-spec-over")).toContainText("се препълни");
+    expectNoCrashes(c.page);
     const lists = await api(ana.token, "GET", `/text-channels/${textChannel.id}/blocks`);
     expect(lists.duel.mine.wins).toBe(1);
     await expect(a.page.locator(".blk-top li.me")).toContainText("1 🏆");
     expectNoCrashes(a.page);
     expectNoCrashes(b.page);
-    await closeAll(a.context, b.context);
+    await closeAll(a.context, b.context, c.context);
   });
 
   test("излизане от канала (напр. да гледаш стрийм) и връщане → играта е на пауза, не е свършила", async ({ browser }) => {

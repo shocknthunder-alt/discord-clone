@@ -10,7 +10,7 @@ import {
 } from "@discord-clone/shared";
 import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
-import { DuelLobby } from "../match/DuelPanel";
+import { DuelLobby, DuelSpectator, LiveDuels } from "../match/DuelPanel";
 import "../match/match.css";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
@@ -332,6 +332,8 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
   // ⚔️ duel
   const [mode, setMode] = useState<"solo" | "duel">(() => (resumed?.versus ? "duel" : localStorage.getItem("blocksMode") === "duel" ? "duel" : "solo"));
   const [lobby, setLobby] = useState<DuelLobbyDTO | null>(null);
+  /** 👁 the duel this person is watching */
+  const [spectating, setSpectating] = useState<string | null>(null);
   const [duel, setDuel] = useState<Duel | null>(() => (resumed?.versus ? savedDuels.get(channelId) ?? null : null));
   const duelRef = useRef(duel);
   duelRef.current = duel;
@@ -703,6 +705,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
       }
     };
     const onStart = (st: DuelStartDTO) => {
+      if (st.channelId === channelId) setSpectating(null);
       if (st.channelId !== channelId) return;
       const off = Date.now() - st.serverNow;
       const d: Duel = { id: st.duelId, opponent: st.opponent, startsAt: st.startsAt + off, endsAt: st.endsAt + off };
@@ -911,6 +914,16 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
 
   return (
     <div ref={viewRef} className={`blk-view ${fullscreen ? "blk-fullscreen" : ""} ${resizing ? "resizing" : ""}`}>
+      {spectating && (
+        <DuelSpectator
+          channelId={channelId}
+          duelId={spectating}
+          gameName="🧱 Шметрис"
+          linesLabel
+          renderBoard={(codes) => <MiniWell codes={codes} />}
+          onClose={() => setSpectating(null)}
+        />
+      )}
       <div className="blk-side blk-left">
         <div className="blk-box">
           <div className="blk-label">{tr("Запазен", "Hold")} <kbd>C</kbd></div>
@@ -1121,7 +1134,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
                       🔁 {tr("Реванш", "Rematch")}
                     </button>
                   )}
-                  <DuelLobby lobby={lobby} meId={me?.id} onSeek={seek} onCancel={() => getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId })} gameName="Шметрис" />
+                  <DuelLobby lobby={lobby} meId={me?.id} onSeek={seek} onSpectate={setSpectating} onCancel={() => getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId })} gameName="Шметрис" />
                   <div className="mx-duel-help blk-duel-help">
                     <div>⚔️ {tr("Който се препълни пръв, губи.", "Whoever tops out first loses.")}</div>
                     <div>
@@ -1166,6 +1179,7 @@ export default function BlocksGameView({ channelId }: { channelId: string }) {
                 {result ? tr("▶ Нова игра", "▶ New game") : tr("▶ Играй", "▶ Play")}
               </button>
               )}
+              {mode === "solo" && <LiveDuels lobby={lobby} meId={me?.id} onSpectate={setSpectating} />}
             </div>
           )}
           {phase === "playing" && hud?.paused && !gameRef.current?.versus && (

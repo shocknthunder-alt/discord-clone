@@ -160,6 +160,13 @@ export const SocketEvents = {
   MatchDuelBlocked: "match:duel-blocked", // server → the attacker: { duelId }
   MatchDuelForfeit: "match:duel-forfeit", // { duelId }
   MatchDuelOver: "match:duel-over", // server → both: DuelOverDTO
+  // 👁 watching someone else's duel (anyone who has the channel open)
+  MatchSpectate: "match:spectate", // client → server: { channelId, duelId }
+  MatchSpectateStop: "match:spectate-stop", // { duelId }
+  MatchSpectateState: "match:spectate-state", // server → spectator: DuelSpectateDTO (also after a reconnect)
+  MatchSpectateUpdate: "match:spectate-update", // server → spectators: DuelSpectateUpdateDTO
+  MatchSpectateEvent: "match:spectate-event", // server → spectators: DuelSpectateEventDTO (attack / block)
+  MatchSpectateOver: "match:spectate-over", // server → spectators: DuelSpectateOverDTO
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

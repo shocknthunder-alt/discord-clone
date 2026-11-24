@@ -617,3 +617,160 @@
 }
 @keyframes mx-warn { to { background: rgba(255, 70, 70, 0.95); } }
 @keyframes mx-warn-bar { to { transform: scaleX(0); } }
+
+/* 👁 watching a duel */
+.blk-view {
+  position: relative;
+}
+.mx-live-names {
+  flex: 1;
+  min-width: 0;
+}
+.mx-live-eyes {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.mx-spectate-btn {
+  flex: none;
+}
+.mx-spec {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px;
+  overflow: auto;
+  /* the boards are sized by this box (cqw / cqh), not by the window */
+  container-type: size;
+  background:
+    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent, #5865f2) 22%, transparent), transparent 60%),
+    var(--c-backdrop, #1e1f22);
+}
+.mx-spec-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+}
+.mx-spec-head > span:first-child {
+  flex: 1;
+}
+.mx-spec-head .blk-quit {
+  margin: 0;
+  width: auto;
+}
+.mx-spec-clock {
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+}
+.mx-spec-arena {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 18px;
+  min-height: 0;
+}
+.mx-spec-vs {
+  align-self: center;
+  font-size: 28px;
+  font-weight: 900;
+  opacity: 0.6;
+  letter-spacing: 2px;
+}
+.mx-spec-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c-panel, #2b2d31) 80%, transparent);
+  border: 2px solid transparent;
+  transition: border-color 0.3s, opacity 0.3s;
+}
+.mx-spec-side.won {
+  border-color: #f5c542;
+  box-shadow: 0 0 24px color-mix(in srgb, #f5c542 40%, transparent);
+}
+.mx-spec-side.lost {
+  opacity: 0.6;
+}
+.mx-spec-score {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.mx-spec-score.lead {
+  color: #5ee08a;
+}
+.mx-spec-sub {
+  font-size: 12px;
+  opacity: 0.8;
+  min-height: 16px;
+}
+.mx-spec-board {
+  position: relative;
+}
+.mx-spec-board.hit {
+  animation: mx-spec-hit 0.4s;
+}
+@keyframes mx-spec-hit {
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-3px); }
+}
+.mx-spec .mx-mini {
+  width: min(36cqw, 66cqh, 380px);
+  max-width: none;
+}
+.mx-spec .blk-mini {
+  width: min(30cqw, 36cqh, 240px);
+  margin: 4px auto 0;
+}
+.mx-spec-flash {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 800;
+  white-space: nowrap;
+  background: color-mix(in srgb, #000 70%, transparent);
+  animation: mx-spec-pop 2.2s forwards;
+  pointer-events: none;
+}
+.mx-spec-flash.hit {
+  color: #ff8080;
+}
+@keyframes mx-spec-pop {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
+  10% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -70%); }
+}
+.mx-spec-wait {
+  margin: auto;
+  opacity: 0.8;
+}
+.mx-spec-over {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 28px;
+  border-radius: 14px;
+  background: color-mix(in srgb, #000 78%, transparent);
+  text-align: center;
+}
+.mx-spec-over .blk-start {
+  width: auto;
+}

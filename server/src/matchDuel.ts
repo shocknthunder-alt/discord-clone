@@ -8,6 +8,9 @@ import {
   type DuelLobbyDTO,
   type DuelOverDTO,
   type DuelPlayerDTO,
+  type DuelSpectateDTO,
+  type DuelSpectateEventDTO,
+  type DuelSpectateOverDTO,
   type DuelStartDTO,
 } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
@@ -41,6 +44,8 @@ interface Duel {
   timer: ReturnType<typeof setTimeout>;
   leftTimers: Map<string, ReturnType<typeof setTimeout>>;
   over: boolean;
+  /** 👁 socket ids watching this duel */
+  spectators: Set<string>;
 }
 
 /** channelId → socketId → userId (who has the channel on screen). */
@@ -83,7 +88,14 @@ function lobby(channelId: string): DuelLobbyDTO {
     waiting: waiting.get(channelId) ?? [],
     playing: [...duels.values()]
       .filter((d) => d.channelId === channelId && !d.over)
-      .map((d) => ({ a: d.players[0], b: d.players[1], scoreA: d.scores[d.players[0].userId] ?? 0, scoreB: d.scores[d.players[1].userId] ?? 0 })),
+      .map((d) => ({
+        a: d.players[0],
+        b: d.players[1],
+        scoreA: d.scores[d.players[0].userId] ?? 0,
+        scoreB: d.scores[d.players[1].userId] ?? 0,
+        duelId: d.id,
+        spectators: d.spectators.size,
+      })),
   };
 }
 function pushLobby(io: IOServer, channelId: string) {
@@ -98,6 +110,26 @@ function removeWaiting(channelId: string, userId: string) {
   if (next.length) waiting.set(channelId, next);
   else waiting.delete(channelId);
   return true;
+}
+
+function spectateState(d: Duel): DuelSpectateDTO {
+  const [a, b] = d.players;
+  return {
+    duelId: d.id,
+    channelId: d.channelId,
+    a,
+    b,
+    scoreA: d.scores[a.userId] ?? 0,
+    scoreB: d.scores[b.userId] ?? 0,
+    boardA: d.boards[a.userId],
+    boardB: d.boards[b.userId],
+    startsAt: d.startsAt,
+    endsAt: d.endsAt,
+    serverNow: Date.now(),
+  };
+}
+function toSpectators(io: IOServer, d: Duel, event: string, data: unknown) {
+  for (const s of d.spectators) io.to(s).emit(event, data);
 }
 
 function startFor(d: Duel, userId: string, resume: boolean): DuelStartDTO {
@@ -132,6 +164,7 @@ function startDuel(io: IOServer, channelId: string, serverId: string, kind: Kind
     timer: setTimeout(() => void finish(io, d, null, "time"), endsAt - now + END_GRACE_MS),
     leftTimers: new Map(),
     over: false,
+    spectators: new Set(),
   };
   duels.set(d.id, d);
   for (const p of d.players) emitTo(io, channelId, p.userId, SocketEvents.MatchDuelStart, startFor(d, p.userId, false));
@@ -171,6 +204,9 @@ async function finish(io: IOServer, d: Duel, loser: string | null, reason: DuelO
       totals[p.userId] = { wins: 0, games: 0 };
     }
   }
+  const over: DuelSpectateOverDTO = { duelId: d.id, winnerId, scoreA: sa, scoreB: sb, reason };
+  toSpectators(io, d, SocketEvents.MatchSpectateOver, over);
+  d.spectators.clear();
   for (const p of d.players) {
     const o = otherOf(d, p.userId);
     const dto: DuelOverDTO = {
@@ -195,6 +231,9 @@ function unwatch(io: IOServer, socket: Socket, channelId: string) {
   w.delete(socket.id);
   if (w.size === 0) watchers.delete(channelId);
   void socket.leave(room(channelId));
+  let specChanged = false;
+  for (const d of duels.values()) if (d.channelId === channelId && d.spectators.delete(socket.id)) specChanged = true;
+  if (specChanged) pushLobby(io, channelId);
   if (socketsOf(channelId, userId).length) return; // still open in another tab
   if (removeWaiting(channelId, userId)) pushLobby(io, channelId);
   const d = duelOf(userId, channelId);
@@ -279,6 +318,13 @@ export function registerMatchDuelGateway(io: IOServer, socket: Socket) {
       board: b,
       combo: typeof combo === "number" ? Math.min(99, Math.max(0, Math.round(combo))) : undefined,
     });
+    toSpectators(io, d, SocketEvents.MatchSpectateUpdate, {
+      duelId: d.id,
+      userId,
+      score: d.scores[userId],
+      board: b,
+      combo: typeof combo === "number" ? Math.min(99, Math.max(0, Math.round(combo))) : undefined,
+    });
     pushLobby(io, d.channelId);
     // Шметрис: topped out → the other one wins
     if (out === true && d.kind === "blocks") void finish(io, d, userId, "out");
@@ -290,11 +336,30 @@ export function registerMatchDuelGateway(io: IOServer, socket: Socket) {
     if ((kind === "garbage") !== (d.kind === "blocks")) return;
     const p = Math.min(kind === "garbage" ? 12 : 3, Math.max(1, Math.round(Number(power) || 1)));
     emitTo(io, d.channelId, otherOf(d, userId).userId, SocketEvents.MatchDuelAttacked, { duelId: d.id, kind, power: p });
+    toSpectators(io, d, SocketEvents.MatchSpectateEvent, { duelId: d.id, from: userId, type: "attack", kind, power: p } satisfies DuelSpectateEventDTO);
   });
 
   socket.on(SocketEvents.MatchDuelBlock, ({ duelId }: { duelId: string }) => {
     const d = myDuel(duelId);
-    if (d) emitTo(io, d.channelId, otherOf(d, userId).userId, SocketEvents.MatchDuelBlocked, { duelId: d.id });
+    if (!d) return;
+    emitTo(io, d.channelId, otherOf(d, userId).userId, SocketEvents.MatchDuelBlocked, { duelId: d.id });
+    toSpectators(io, d, SocketEvents.MatchSpectateEvent, { duelId: d.id, from: userId, type: "block" } satisfies DuelSpectateEventDTO);
+  });
+
+  // 👁 watch a duel in a channel you have open (not your own)
+  socket.on(SocketEvents.MatchSpectate, ({ channelId, duelId }: { channelId: string; duelId: string }) => {
+    if (typeof channelId !== "string" || typeof duelId !== "string" || !watching.has(channelId)) return;
+    const d = duels.get(duelId);
+    if (!d || d.over || d.channelId !== channelId || d.players.some((p) => p.userId === userId)) return;
+    for (const other of duels.values()) if (other !== d) other.spectators.delete(socket.id);
+    d.spectators.add(socket.id);
+    socket.emit(SocketEvents.MatchSpectateState, spectateState(d));
+    pushLobby(io, channelId);
+  });
+
+  socket.on(SocketEvents.MatchSpectateStop, ({ duelId }: { duelId: string }) => {
+    const d = typeof duelId === "string" ? duels.get(duelId) : undefined;
+    if (d?.spectators.delete(socket.id)) pushLobby(io, d.channelId);
   });
 
   socket.on(SocketEvents.MatchDuelForfeit, ({ duelId }: { duelId: string }) => {

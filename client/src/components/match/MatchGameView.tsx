@@ -20,7 +20,7 @@ import "../blocks/blocks.css";
 import { Gem, GemDefs, GEM_COLORS } from "./Gems";
 import { MatchBoard, SIZE, feverOf, type MoveResult, type Pos, type Special, type Step, type Tile } from "./engine";
 import { matchSound } from "./sounds";
-import { ATTACK_ICON, AttackHelp, DuelLobby, OpponentCard, attackName } from "./DuelPanel";
+import { ATTACK_ICON, AttackHelp, DuelLobby, DuelSpectator, LiveDuels, MiniBoard, OpponentCard, attackName } from "./DuelPanel";
 import "./match.css";
 
 /** 🍬 Шмиксер — the screen of a "match" channel: solo match-3 (4 minutes / 60 moves), ⚔️ duels
@@ -229,6 +229,8 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
   movesRef.current = movesLeft;
   // ⚔️ duel
   const [lobby, setLobby] = useState<DuelLobbyDTO | null>(null);
+  /** 👁 the duel this person is watching */
+  const [spectating, setSpectating] = useState<string | null>(null);
   const [duel, setDuel] = useState<Duel | null>(resumed?.duel ?? null);
   const duelRef = useRef(duel);
   duelRef.current = duel;
@@ -554,6 +556,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
       }
     };
     const onStart = (st: DuelStartDTO) => {
+      if (st.channelId === channelId) setSpectating(null);
       if (st.channelId !== channelId) return;
       const off = Date.now() - st.serverNow;
       const d: Duel = { id: st.duelId, opponent: st.opponent, startsAt: st.startsAt + off, endsAt: st.endsAt + off };
@@ -589,6 +592,8 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
       setPhase("playing");
       lastInput.current = Date.now();
       sfx("warn");
+      // the opponent and 👁 spectators see the board from the start, not only after the first move
+      socket.emit(SocketEvents.MatchDuelUpdate, { duelId: d.id, score: board.score, board: board.codes(), combo: 0 });
     };
     const onOpp = (o: DuelOpponentDTO) => {
       if (o.duelId !== duelRef.current?.id) return;
@@ -861,6 +866,15 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
 
   return (
     <div className={`blk-view mx-view ${resizing ? "resizing" : ""}`}>
+      {spectating && (
+        <DuelSpectator
+          channelId={channelId}
+          duelId={spectating}
+          gameName="🍬 Шмиксер"
+          renderBoard={(codes) => <MiniBoard codes={codes} />}
+          onClose={() => setSpectating(null)}
+        />
+      )}
       <GemDefs />
       <div className="blk-side blk-left">
         <div className="blk-box blk-stats">
@@ -1085,12 +1099,15 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
                       🔁 {tr("Реванш", "Rematch")}
                     </button>
                   )}
-                  <DuelLobby lobby={lobby} meId={me?.id} onSeek={seek} onCancel={() => getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId })} />
+                  <DuelLobby lobby={lobby} meId={me?.id} onSeek={seek} onSpectate={setSpectating} onCancel={() => getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId })} />
                 </>
               ) : (
-                <button className="blk-start" onClick={start}>
-                  {result ? tr("Нова игра", "New game") : tr("Играй", "Play")}
-                </button>
+                <>
+                  <button className="blk-start" onClick={start}>
+                    {result ? tr("Нова игра", "New game") : tr("Играй", "Play")}
+                  </button>
+                  <LiveDuels lobby={lobby} meId={me?.id} onSpectate={setSpectating} />
+                </>
               )}
             </div>
           )}
