@@ -270,6 +270,13 @@ export function registerVoiceGateway(io: IOServer, socket: Socket) {
               encoderPref: stats.encoderPref === "cpu" ? "cpu" : stats.encoderPref === "gpu" ? "gpu" : undefined,
               gpu: typeof stats.gpu === "string" ? stats.gpu.slice(0, 80) : "",
               desktop: stats.desktop === true,
+              ...(typeof stats.sendLossPercent === "number"
+                ? {
+                    sendLossPercent: Math.round(num(stats.sendLossPercent, 100) * 10) / 10,
+                    capKbps: Math.round(num(stats.capKbps, 1_000_000)),
+                    lossLimited: stats.lossLimited === true,
+                  }
+                : {}),
             }
           : null;
       socket.to(roomName(voiceChannelId)).emit(SocketEvents.VoiceStreamStats, { socketId: socket.id, stats: clean });

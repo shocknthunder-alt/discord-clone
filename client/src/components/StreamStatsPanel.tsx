@@ -29,6 +29,13 @@ function adviceFor(stats: ScreenShareStats, targetFps: number, own: boolean): st
       ? tr("Компютърът не смогва да кодира стрима. Избери Light (720p) в Настройки → Screen Share Quality или затвори тежки програми.", "The PC can't keep up encoding the stream. Pick Light (720p) in Settings → Streaming → Quality or close heavy programs.")
       : tr(`${who} не смогва да кодира стрима (процесор/видеокарта).`, `${who} can't keep up encoding the stream (processor/graphics card).`);
   }
+  // Packets lost on the way up — the viewers see smears/freezes; the bitrate is already cut.
+  if (stats.lossLimited || (stats.sendLossPercent ?? 0) >= 4) {
+    const cap = stats.capKbps ? ` ${(stats.capKbps / 1000).toFixed(1)} Mbps` : "";
+    return own
+      ? tr(`Връзката ти губи пакети при качване (${stats.sendLossPercent ?? 0}%) — свалих битрейта автоматично до${cap}. Кабел вместо Wi-Fi, спрян ъплоуд на заден план (Steam, OneDrive) или Light/Standard качество помагат.`, `Your connection loses packets on upload (${stats.sendLossPercent ?? 0}%) — the bitrate was lowered automatically to${cap}. A cable instead of Wi-Fi, stopping background uploads (Steam, OneDrive) or Light/Standard quality help.`)
+      : tr(`Връзката на стриймъра губи пакети при качване (${stats.sendLossPercent ?? 0}%) — битрейтът му е свален автоматично до${cap}. Кабел вместо Wi-Fi би помогнал.`, `The streamer's connection loses packets on upload (${stats.sendLossPercent ?? 0}%) — their bitrate was lowered automatically to${cap}. A cable instead of Wi-Fi would help.`);
+  }
   // At 6+ Mbps "bandwidth" just means the browser is still probing for more — not a weak link.
   if (stats.limitation === "bandwidth" && stats.kbps > 0 && stats.kbps < 6000) {
     return own
@@ -193,7 +200,16 @@ function StatsPill({ title, stats, own, userId }: { title: string; stats: Remote
               </>
             )}
             <dt>{tr("Битрейт", "Bitrate")}</dt>
-            <dd>{(stats.kbps / 1000).toFixed(2)} Mbps</dd>
+            <dd>
+              {(stats.kbps / 1000).toFixed(2)} Mbps
+              {stats.capKbps ? ` (${tr("таван", "ceiling")} ${(stats.capKbps / 1000).toFixed(1)}${stats.lossLimited ? tr(" — свален заради загуби", " — lowered for losses") : ""})` : ""}
+            </dd>
+            {stats.sendLossPercent !== undefined && (
+              <>
+                <dt>{tr("Загуби при качване", "Upload loss")}</dt>
+                <dd>{stats.sendLossPercent}%</dd>
+              </>
+            )}
             <dt>{tr("Кодек", "Codec")}</dt>
             <dd title={stats.encoder || undefined}>
               {stats.codec || "?"} {stats.hardware ? tr("· видеокарта", "· graphics card") : tr("· процесор", "· processor")}

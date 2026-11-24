@@ -75,6 +75,8 @@ export class SfuMediaManager {
   private statsInterval: ReturnType<typeof setInterval> | null = null;
   private knownUserIds = new Set<string>();
   private screenAdaptTimer: ReturnType<typeof setInterval> | null = null;
+  /** Upload loss + the bitrate ceiling the adaptation settled on (for the 📊 panel). */
+  private screenAdaptInfo: { lossPercent: number; capKbps: number; lossLimited: boolean } | null = null;
 
   constructor(
     private socket: Socket,
@@ -567,33 +569,91 @@ export class SfuMediaManager {
     const topRate = Math.max(0, ...baseRates);
     if (topRate <= 0) return;
     const floor = topRate * 0.3;
+    // Packet loss on the way up (Wi-Fi, a busy upload): the browser's estimate often stays high
+    // while 5-10% of the packets never reach the media server — measured: a share swinging between
+    // 2 and 26 Mbps with ~1000 lost packets per 5 s, every viewer seeing smears and freezes. A
+    // separate, slowly recovering ceiling for that: cut on real losses, +15% after 30 s clean.
+    const lossFloor = Math.min(topRate, Math.max(2_500_000, topRate * 0.15));
+    let lossCeiling = topRate;
+    let lossStreak = 0;
+    let cleanStreak = 0;
+    let prevPackets: { sent: number; lost: number; bytes: number; at: number } | null = null;
     let cap = topRate;
     let lowStreak = 0;
     const startedAt = Date.now();
+    this.screenAdaptInfo = { lossPercent: 0, capKbps: Math.round(cap / 1000), lossLimited: false };
 
     this.screenAdaptTimer = setInterval(() => {
       void (async () => {
-        if (producer.closed || !this.sendTransport || Date.now() - startedAt < 12_000) return; // let the estimate warm up
+        if (producer.closed || !this.sendTransport) return;
+        // Loss = packets the media server reports missing (RTCP receiver reports) over packets sent.
+        let sent = 0;
+        let lost = 0;
+        let bytes = 0;
+        const senderReport = await producer.getStats().catch(() => null);
+        senderReport?.forEach((stat: any) => {
+          if (stat.type === "outbound-rtp" && stat.kind === "video") {
+            sent += Number(stat.packetsSent ?? 0);
+            bytes += Number(stat.bytesSent ?? 0);
+          }
+          if (stat.type === "remote-inbound-rtp" && stat.kind === "video") lost += Math.max(0, Number(stat.packetsLost ?? 0));
+        });
+        const now = Date.now();
+        let lossRate = 0;
+        let sentBps = 0;
+        if (prevPackets && sent > prevPackets.sent) {
+          lossRate = Math.max(0, lost - prevPackets.lost) / (sent - prevPackets.sent);
+          sentBps = ((bytes - prevPackets.bytes) * 8 * 1000) / Math.max(1, now - prevPackets.at);
+        }
+        prevPackets = { sent, lost, bytes, at: now };
+        if (now - startedAt < 12_000) return; // let the estimate warm up
+
+        if (lossRate >= 0.04) {
+          lossStreak++;
+          cleanStreak = 0;
+          // 8%+ at once, or 4%+ twice in a row — not a single blip.
+          if (lossRate >= 0.08 || lossStreak >= 2) {
+            const base = sentBps > 0 ? Math.min(cap, sentBps) : cap;
+            lossCeiling = Math.max(lossFloor, Math.min(lossCeiling, base * 0.8));
+            lossStreak = 0;
+          }
+        } else {
+          lossStreak = 0;
+          if (lossRate < 0.015) {
+            cleanStreak++;
+            if (cleanStreak >= 10 && lossCeiling < topRate) {
+              lossCeiling = Math.min(topRate, lossCeiling * 1.15);
+              cleanStreak = 0;
+            }
+          }
+        }
+        const limit = Math.min(topRate, lossCeiling);
+
         let available: number | null = null;
         const report = await this.sendTransport.getStats();
         report.forEach((stat: any) => {
           if (stat.type !== "candidate-pair" || !(stat.state === "succeeded" || stat.nominated)) return;
           if (typeof stat.availableOutgoingBitrate === "number") available = stat.availableOutgoingBitrate;
         });
-        if (available === null) return;
         // Chrome's estimate never climbs far above the cap we set, so it can't be compared with a
         // margin on both sides (85% of an estimate pinned at the cap is always "below" the cap — that
         // spiralled every share down to the floor after one blip). Hysteresis instead: cut only on a
         // clear shortfall, and when the estimate reaches the cap the link is carrying it — step up.
         let next = cap;
-        if (available < cap * 0.8) {
+        if (available !== null && available < cap * 0.8) {
           lowStreak++;
-          if (lowStreak >= 2) next = Math.max(floor, available * 0.85); // two readings in a row, not a blip
+          if (lowStreak >= 2) next = Math.max(Math.min(floor, limit), available * 0.85); // two readings in a row, not a blip
         } else {
           lowStreak = 0;
-          if (available >= cap * 0.95 && cap < topRate) next = Math.min(topRate, cap * 1.25);
+          if ((available === null || available >= cap * 0.95) && cap < limit) next = Math.min(limit, cap * 1.25);
         }
-        if (Math.abs(next - cap) < cap * 0.05) return;
+        if (next > limit) next = limit;
+        this.screenAdaptInfo = {
+          lossPercent: Math.round(lossRate * 1000) / 10,
+          capKbps: Math.round(next / 1000),
+          lossLimited: lossCeiling < topRate * 0.97,
+        };
+        if (Math.abs(next - cap) < cap * 0.05 && !(next === limit && cap > limit)) return;
         cap = next;
         const params = sender.getParameters();
         params.encodings?.forEach((enc, i) => {
@@ -607,6 +667,7 @@ export class SfuMediaManager {
   private stopScreenBitrateAdaptation() {
     if (this.screenAdaptTimer) clearInterval(this.screenAdaptTimer);
     this.screenAdaptTimer = null;
+    this.screenAdaptInfo = null;
   }
 
   /** Streams already arriving from this person (to re-attach after they re-appear in the roster). */
@@ -676,6 +737,13 @@ export class SfuMediaManager {
       encoderPref: getScreenShareEncoder(),
       gpu: gpuName(),
       desktop: !!window.shmirkaDesktop,
+      ...(this.screenAdaptInfo
+        ? {
+            sendLossPercent: this.screenAdaptInfo.lossPercent,
+            capKbps: this.screenAdaptInfo.capKbps,
+            lossLimited: this.screenAdaptInfo.lossLimited,
+          }
+        : {}),
     };
   }
 
@@ -896,6 +964,12 @@ export interface ScreenShareStats {
   gpu?: string;
   /** Streaming from the desktop app (vs a browser). */
   desktop?: boolean;
+  /** Packets lost on the way UP to the media server, % over the last 3 s. */
+  sendLossPercent?: number;
+  /** Bitrate ceiling the adaptation currently allows (kbps). */
+  capKbps?: number;
+  /** The ceiling was lowered because of upload packet loss. */
+  lossLimited?: boolean;
 }
 
 let cachedGpu: string | null = null;
