@@ -72,6 +72,40 @@ export const matchSound = {
     notes.forEach((f, i) => bell(f, 320, 0.04, 150 + i * 65));
     if (big) tone(80, 600, { type: "sine", vol: 0.12, slide: -40, at: 100 });
   },
+  /** ⚔️ Your attack flies off to the opponent. */
+  attack() {
+    noise(300, { vol: 0.06, type: "bandpass", freq: 900, freqTo: 5000, q: 1.5 });
+    tone(330, 260, { type: "sawtooth", vol: 0.03, slide: 660 });
+    bell(1318.51, 260, 0.03, 180);
+  },
+  /** ⚠️ An attack is coming: an alarm. */
+  warn() {
+    for (let i = 0; i < 3; i++) tone(i % 2 ? 740 : 988, 110, { type: "square", vol: 0.03, at: i * 130 });
+  },
+  /** The attack lands on your board. */
+  hit(kind: string) {
+    if (kind === "ice") {
+      noise(500, { vol: 0.05, type: "highpass", freq: 5000, freqTo: 9000 });
+      [2637, 2093, 3136].forEach((f, i) => bell(f, 300, 0.025, i * 60));
+    } else if (kind === "stone") {
+      tone(70, 400, { type: "sine", vol: 0.15, slide: -30 });
+      noise(350, { vol: 0.08, type: "lowpass", freq: 900, freqTo: 100 });
+    } else if (kind === "fog") {
+      noise(900, { vol: 0.05, type: "lowpass", freq: 700, freqTo: 300, q: 0.5 });
+    } else this.shuffle();
+  },
+  /** 🛡 You blocked the incoming attack. */
+  block() {
+    tone(196, 120, { type: "square", vol: 0.05 });
+    [783.99, 1174.66, 1567.98].forEach((f, i) => bell(f, 380, 0.045, 60 + i * 70));
+  },
+  /** ⚔️ Duel won / lost. */
+  win() {
+    [523.25, 659.25, 783.99, 1046.5, 783.99, 1046.5, 1318.51].forEach((f, i) => tone(f, i === 6 ? 600 : 140, { type: "square", vol: 0.03, at: i * 120, send: 0.3 }));
+  },
+  lose() {
+    [392, 369.99, 349.23, 293.66].forEach((f, i) => tone(f, i === 3 ? 700 : 260, { type: "triangle", vol: 0.05, at: i * 240, slide: i === 3 ? -40 : 0 }));
+  },
   shuffle() {
     for (let i = 0; i < 8; i++) tone(500 + Math.random() * 900, 50, { type: "triangle", vol: 0.02, at: i * 40 });
   },

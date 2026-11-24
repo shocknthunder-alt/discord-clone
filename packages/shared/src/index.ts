@@ -5,5 +5,6 @@ export * from "./events.js";
 export * from "./permissions.js";
 export * from "./mentions.js";
 export * from "./draw.js";
+export * from "./matchDuel.js";
 export * from "./textStyle.js";
 export * from "./personalLooks.js";

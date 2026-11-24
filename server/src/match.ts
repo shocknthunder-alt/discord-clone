@@ -4,14 +4,16 @@ import { requireAuth } from "./middleware/auth.js";
 
 /**
  * 🍬 Шмиксер — a solo match-3 game in channels of type "match". The game runs in the browser; the
- * server keeps each person's best per server and mode ("time" = 4 minutes, "moves" = 30 moves) and
- * serves the top lists. Friends-only app: only a sanity ceiling, not real anti-cheat.
+ * server keeps each person's best per server and mode ("time" = 4 minutes, "moves" = 60 moves, since
+ * 2026-11-26; before that 30) and serves the top lists. "duel" rows are written by matchDuel.ts
+ * (best = wins, bestCombo = best duel score). Friends-only app: only a sanity ceiling, not real anti-cheat.
  */
 export const matchRouter = Router();
 matchRouter.use(requireAuth);
 
 const MODES = ["time", "moves"] as const;
-type Mode = (typeof MODES)[number];
+type Mode = (typeof MODES)[number] | "duel";
+const LIST_MODES: Mode[] = [...MODES, "duel"];
 
 async function matchChannel(req: Request, res: Response) {
   const ch = await prisma.textChannel.findUnique({ where: { id: req.params.channelId } });
@@ -47,7 +49,7 @@ async function top(serverId: string, mode: Mode) {
 async function lists(serverId: string, userId: string) {
   const mine = await prisma.matchScore.findMany({ where: { serverId, userId } });
   const out: Record<string, unknown> = {};
-  for (const mode of MODES) {
+  for (const mode of LIST_MODES) {
     const m = mine.find((r) => r.mode === mode);
     out[mode] = { top: await top(serverId, mode), mine: m ? { best: m.best, games: m.games, combo: m.bestCombo } : null };
   }

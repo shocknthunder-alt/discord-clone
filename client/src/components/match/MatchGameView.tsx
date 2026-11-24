@@ -1,5 +1,18 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
+import {
+  DUEL_SECONDS,
+  DUEL_WARN_MS,
+  SocketEvents,
+  type DuelAttackDTO,
+  type DuelAttackKind,
+  type DuelLobbyDTO,
+  type DuelOpponentDTO,
+  type DuelOverDTO,
+  type DuelPlayerDTO,
+  type DuelStartDTO,
+} from "@discord-clone/shared";
 import { http } from "../../api/http";
+import { getSocket } from "../../socket/socket";
 import { tr } from "../../i18n";
 import { useAuthStore } from "../../store/authStore";
 import { matchMusic } from "../blocks/music";
@@ -7,16 +20,18 @@ import "../blocks/blocks.css";
 import { Gem, GemDefs, GEM_COLORS } from "./Gems";
 import { MatchBoard, SIZE, feverOf, type MoveResult, type Pos, type Special, type Step, type Tile } from "./engine";
 import { matchSound } from "./sounds";
+import { ATTACK_ICON, AttackHelp, DuelLobby, OpponentCard, attackName } from "./DuelPanel";
 import "./match.css";
 
-/** 🍬 Шмиксер — the screen of a "match" channel: solo match-3 + the server's top lists. */
+/** 🍬 Шмиксер — the screen of a "match" channel: solo match-3 (4 minutes / 60 moves), ⚔️ duels
+ *  against another person (combos send attacks), + the server's top lists. */
 
-type Mode = "time" | "moves";
+type Mode = "time" | "moves" | "duel";
 const TIME_S = 240;
 const SIZE_KEY = "matchBoardSize";
 const MIN_W = 260;
 const MAX_W = 1600;
-const MOVES = 30;
+const MOVES = 60;
 
 interface TopRow {
   userId: string;
@@ -56,11 +71,19 @@ interface Fx {
   big?: boolean;
 }
 
+interface Duel {
+  id: string;
+  opponent: DuelPlayerDTO;
+  /** local clock */
+  startsAt: number;
+  endsAt: number;
+}
 interface Saved {
   board: MatchBoard;
   mode: Mode;
   timeLeft: number;
   movesLeft: number;
+  duel?: Duel | null;
 }
 /** An unfinished game survives leaving the channel (kept paused per channel). */
 const savedGames = new Map<string, Saved>();
@@ -71,10 +94,10 @@ const POP_MS = 230;
 const FALL_MS = 280;
 
 /** One tile: memoised, so a change of one tile (or the clock) doesn't re-render all 64 gems. */
-const TileView = memo(function TileView({ cls, r, c, color, special }: { cls: string; r: number; c: number; color: number; special: Special | null }) {
+const TileView = memo(function TileView({ cls, r, c, color, special, ice }: { cls: string; r: number; c: number; color: number; special: Special | null; ice?: boolean }) {
   return (
     <div className={cls} style={{ transform: `translate3d(${c * 100}%, ${r * 100}%, 0)` }}>
-      <Gem color={color} special={special} />
+      <Gem color={color} special={special} ice={ice} />
     </div>
   );
 });
@@ -170,7 +193,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
   const [resumed] = useState(() => savedGames.get(channelId) ?? null);
   const boardRef = useRef<MatchBoard | null>(resumed?.board ?? null);
   const [phase, setPhase] = useState<"idle" | "playing" | "over">(resumed ? "playing" : "idle");
-  const [paused, setPaused] = useState(!!resumed);
+  const [paused, setPaused] = useState(!!resumed && resumed.mode !== "duel");
   const [mode, setMode] = useState<Mode>(resumed?.mode ?? ((localStorage.getItem("matchMode") as Mode) || "time"));
   const [tiles, setTiles] = useState<Record<number, ViewTile>>(() => (resumed ? viewOf(resumed.board) : {}));
   const [fx, setFx] = useState<Fx[]>([]);
@@ -204,6 +227,20 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
   useEffect(() => () => sparks.current.stop(), []);
   const movesRef = useRef(movesLeft);
   movesRef.current = movesLeft;
+  // ⚔️ duel
+  const [lobby, setLobby] = useState<DuelLobbyDTO | null>(null);
+  const [duel, setDuel] = useState<Duel | null>(resumed?.duel ?? null);
+  const duelRef = useRef(duel);
+  duelRef.current = duel;
+  const [opp, setOpp] = useState<{ score: number; board: number[] | null; combo: number }>({ score: 0, board: null, combo: 0 });
+  const [countdown, setCountdown] = useState(0);
+  const [duelDone, setDuelDone] = useState(false); // my time is up, waiting for the result
+  const [duelResult, setDuelResult] = useState<DuelOverDTO | null>(null);
+  const [incoming, setIncoming] = useState<(DuelAttackDTO & { key: number; landsAt: number }) | null>(null);
+  const incomingRef = useRef(incoming);
+  incomingRef.current = incoming;
+  const [fogUntil, setFogUntil] = useState(0);
+  const lastOpp = useRef<DuelPlayerDTO | null>(null);
   const sfx = <K extends keyof typeof matchSound>(k: K, ...a: Parameters<(typeof matchSound)[K]>) => {
     if (soundRef.current) (matchSound[k] as (...x: unknown[]) => void)(...a);
   };
@@ -223,8 +260,20 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     setTimeout(() => setFx((cur) => cur.filter((f) => !ids.has(f.id))), ms);
   };
 
+  const resetDuel = () => {
+    setDuel(null);
+    setDuelDone(false);
+    setDuelResult(null);
+    setIncoming(null);
+    setFogUntil(0);
+    setCountdown(0);
+  };
+
   const start = () => {
     (document.activeElement as HTMLElement | null)?.blur?.();
+    if (mode === "duel") return;
+    getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId });
+    resetDuel();
     const board = new MatchBoard();
     boardRef.current = board;
     savedGames.delete(channelId);
@@ -247,7 +296,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
 
   const finish = useCallback(() => {
     const board = boardRef.current;
-    if (!board) return;
+    if (!board || mode === "duel") return;
     setPhase("over");
     savedGames.delete(channelId);
     sfx("over");
@@ -257,7 +306,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     http
       .post<Lists & { record: boolean }>(`/api/text-channels/${channelId}/match/score`, { mode, score: board.score, combo: board.bestCombo, moves: board.moves })
       .then((r) => {
-        setLists({ time: r.data.time, moves: r.data.moves });
+        setLists({ time: r.data.time, moves: r.data.moves, duel: r.data.duel });
         setResult({ ...res, record: r.data.record, saved: true });
         if (r.data.record) sfx("record");
       })
@@ -368,7 +417,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
 
   const trySwap = async (a: Pos, b: Pos) => {
     const board = boardRef.current;
-    if (!board || busy.current || phase !== "playing" || paused) return;
+    if (!board || busy.current || phase !== "playing" || paused || duelLocked()) return;
     if (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) return;
     busy.current = true;
     setSelected(null);
@@ -390,6 +439,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     if (mode === "moves") setMovesLeft((m) => m - 1);
     for (const st of res.steps) await playStep(st);
     afterMove(res);
+    if (mode === "duel") duelAfterMove(res, board);
     if (res.shuffled) {
       sfx("shuffle");
       addFx([{ kind: "score", r: 3.5, c: 3.5, text: tr("Разбъркване!", "Shuffle!"), big: true }], 1100);
@@ -399,6 +449,235 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     busy.current = false;
     lastInput.current = Date.now();
     if ((mode === "moves" && movesRef.current <= 0) || (mode === "time" && timeRef.current <= 0)) finish();
+  };
+
+  /** ⚔️ No moves before the countdown ends / after my duel time is up. */
+  const duelLocked = () => {
+    const d = duelRef.current;
+    return mode === "duel" && (!d || Date.now() < d.startsAt || Date.now() >= d.endsAt);
+  };
+
+  const sendUpdate = (board: MatchBoard, combo = 0) => {
+    const d = duelRef.current;
+    if (d) getSocket()?.emit(SocketEvents.MatchDuelUpdate, { duelId: d.id, score: board.score, board: board.codes(), combo });
+  };
+
+  /** Which attack a move sends (the strongest one; null = none). */
+  const attackOf = (res: MoveResult): { kind: DuelAttackKind; power: number } | null => {
+    const kinds = new Set(res.steps.flatMap((st) => st.blasts.map((b) => b.kind)));
+    let a: { kind: DuelAttackKind; power: number } | null = null;
+    if (kinds.has("allColor") || kinds.has("board")) a = { kind: "scramble", power: kinds.has("board") ? 2 : 1 };
+    else if (kinds.has("bigBomb")) a = { kind: "stone", power: 3 };
+    else if (kinds.has("bomb")) a = { kind: "stone", power: 1 };
+    else if (kinds.has("cross")) a = { kind: "fog", power: 2 };
+    else if (kinds.has("rowRocket") || kinds.has("colRocket")) a = { kind: "fog", power: 1 };
+    else if (res.steps.length >= 4 || kinds.has("firefly")) a = { kind: "ice", power: Math.min(3, Math.max(1, res.steps.length - 3)) };
+    if (a && (res.fever ?? 1) >= 2) a.power = Math.min(3, a.power + 1);
+    return a;
+  };
+
+  const duelAfterMove = (res: MoveResult, board: MatchBoard) => {
+    const d = duelRef.current;
+    if (!d) return;
+    sendUpdate(board, res.steps.length);
+    const atk = attackOf(res);
+    if (!atk) return;
+    const inc = incomingRef.current;
+    if (inc && Date.now() < inc.landsAt) {
+      // 🛡 a strong move while an attack is on its way blocks it (yours is spent on the block)
+      setIncoming(null);
+      getSocket()?.emit(SocketEvents.MatchDuelBlock, { duelId: d.id });
+      sfx("block");
+      addFx([{ kind: "score", r: 3.4, c: 3.5, text: `🛡 ${tr("Блокира!", "Blocked!")}`, big: true }], 1300);
+      return;
+    }
+    getSocket()?.emit(SocketEvents.MatchDuelAttack, { duelId: d.id, kind: atk.kind, power: atk.power });
+    sfx("attack");
+    addFx([{ kind: "score", r: 1.2, c: 3.5, text: `⚔️ ${ATTACK_ICON[atk.kind]} ${attackName(atk.kind)} → ${d.opponent.username}`, big: true }], 1300);
+  };
+
+  /** An incoming attack lands (once no move is running). */
+  const landAttack = (a: DuelAttackDTO) => {
+    const board = boardRef.current;
+    if (!board) return;
+    sfx("hit", a.kind);
+    setHint([]);
+    if (a.kind === "ice") board.freeze(2 + a.power * 2);
+    else if (a.kind === "stone") board.stones(1 + a.power);
+    else if (a.kind === "scramble") board.scramble();
+    else setFogUntil(Date.now() + 2500 + a.power * 1500);
+    if (a.kind !== "fog") {
+      setTiles(viewOf(board));
+      setShake(false);
+      requestAnimationFrame(() => setShake(true));
+      window.clearTimeout(shakeTimer.current);
+      shakeTimer.current = window.setTimeout(() => setShake(false), 420);
+      sendUpdate(board);
+    }
+    addFx([{ kind: "score", r: 3.4, c: 3.5, text: `${ATTACK_ICON[a.kind]} ${attackName(a.kind)}!`, big: true }], 1200);
+  };
+
+  // incoming attacks land after the warning (if not blocked), waiting for a running move to finish
+  useEffect(() => {
+    if (!incoming) return;
+    const t = window.setInterval(() => {
+      const inc = incomingRef.current;
+      if (!inc || Date.now() < inc.landsAt || busy.current) return;
+      setIncoming(null);
+      if (phaseRef.current === "playing" && duelRef.current && Date.now() < duelRef.current.endsAt) landAttack(inc);
+    }, 80);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incoming?.key]);
+  useEffect(() => {
+    if (!fogUntil) return;
+    const t = window.setTimeout(() => setFogUntil(0), Math.max(0, fogUntil - Date.now()));
+    return () => window.clearTimeout(t);
+  }, [fogUntil]);
+
+  // ⚔️ the duel over the socket: lobby, start, the opponent's score, attacks, the result
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    const watch = () => socket.emit(SocketEvents.MatchWatch, { channelId });
+    const onLobby = (l: DuelLobbyDTO) => {
+      if (l.channelId !== channelId) return;
+      setLobby(l);
+      // came back after the duel ended while away
+      const d = duelRef.current;
+      if (d && !duelResultRef.current && Date.now() > d.startsAt && !l.playing.some((p) => p.a.userId === me?.id || p.b.userId === me?.id)) {
+        setDuelDone(true);
+        setPhase("over");
+        setDuelResult({ duelId: d.id, channelId, you: boardRef.current?.score ?? 0, them: oppRef.current.score, winnerId: null, reason: "left", wins: 0, games: 0 });
+        savedGames.delete(channelId);
+        load();
+      }
+    };
+    const onStart = (st: DuelStartDTO) => {
+      if (st.channelId !== channelId) return;
+      const off = Date.now() - st.serverNow;
+      const d: Duel = { id: st.duelId, opponent: st.opponent, startsAt: st.startsAt + off, endsAt: st.endsAt + off };
+      lastOpp.current = st.opponent;
+      if (duelRef.current?.id === st.duelId && boardRef.current) {
+        // reconnected: same duel, same board
+        setDuel(d);
+        if (st.opponentScore !== undefined) setOpp((o) => ({ ...o, score: st.opponentScore!, board: st.opponentBoard ?? o.board }));
+        return;
+      }
+      const board = new MatchBoard();
+      if (st.yourScore) board.score = st.yourScore;
+      boardRef.current = board;
+      savedGames.delete(channelId);
+      setMode("duel");
+      setTab("duel");
+      setDuel(d);
+      setDuelDone(false);
+      setDuelResult(null);
+      setIncoming(null);
+      setFogUntil(0);
+      setOpp({ score: st.opponentScore ?? 0, board: st.opponentBoard ?? null, combo: 0 });
+      setTiles(viewOf(board));
+      setScore(board.score);
+      setStreak(0);
+      timeRef.current = Math.max(0, (d.endsAt - Math.max(Date.now(), d.startsAt)) / 1000);
+      setTimeLeft(timeRef.current);
+      setResult(null);
+      setSelected(null);
+      setHint([]);
+      setPaused(false);
+      matchMusic.stop();
+      setPhase("playing");
+      lastInput.current = Date.now();
+      sfx("warn");
+    };
+    const onOpp = (o: DuelOpponentDTO) => {
+      if (o.duelId !== duelRef.current?.id) return;
+      setOpp((cur) => ({ score: o.score, board: o.board ?? cur.board, combo: o.combo ?? 0 }));
+    };
+    const onAttacked = (a: DuelAttackDTO) => {
+      if (a.duelId !== duelRef.current?.id) return;
+      // a second one while one is on its way: the stronger one wins
+      const cur = incomingRef.current;
+      if (cur && cur.power >= a.power && Date.now() < cur.landsAt) return;
+      sfx("warn");
+      setIncoming({ ...a, key: Date.now(), landsAt: Date.now() + DUEL_WARN_MS });
+    };
+    const onBlocked = (b: { duelId: string }) => {
+      if (b.duelId !== duelRef.current?.id) return;
+      addFx([{ kind: "score", r: 1.2, c: 3.5, text: `🛡 ${duelRef.current?.opponent.username} ${tr("блокира атаката ти", "blocked your attack")}` }], 1400);
+    };
+    const onOver = (o: DuelOverDTO) => {
+      if (o.channelId !== channelId || o.duelId !== duelRef.current?.id) return;
+      setDuelResult(o);
+      setDuelDone(true);
+      setIncoming(null);
+      setFogUntil(0);
+      setPhase("over");
+      savedGames.delete(channelId);
+      matchMusic.stop();
+      if (o.winnerId === me?.id) sfx("win");
+      else if (o.winnerId) sfx("lose");
+      else sfx("over");
+      load();
+    };
+    watch();
+    socket.on("connect", watch);
+    socket.on(SocketEvents.MatchLobby, onLobby);
+    socket.on(SocketEvents.MatchDuelStart, onStart);
+    socket.on(SocketEvents.MatchDuelOpponent, onOpp);
+    socket.on(SocketEvents.MatchDuelAttacked, onAttacked);
+    socket.on(SocketEvents.MatchDuelBlocked, onBlocked);
+    socket.on(SocketEvents.MatchDuelOver, onOver);
+    return () => {
+      socket.emit(SocketEvents.MatchUnwatch, { channelId });
+      socket.off("connect", watch);
+      socket.off(SocketEvents.MatchLobby, onLobby);
+      socket.off(SocketEvents.MatchDuelStart, onStart);
+      socket.off(SocketEvents.MatchDuelOpponent, onOpp);
+      socket.off(SocketEvents.MatchDuelAttacked, onAttacked);
+      socket.off(SocketEvents.MatchDuelBlocked, onBlocked);
+      socket.off(SocketEvents.MatchDuelOver, onOver);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, me?.id]);
+  const duelResultRef = useRef(duelResult);
+  duelResultRef.current = duelResult;
+  const oppRef = useRef(opp);
+  oppRef.current = opp;
+
+  // ⚔️ the duel clock: from the shared end time (no pause in a duel), the countdown before it
+  useEffect(() => {
+    if (phase !== "playing" || mode !== "duel" || !duel) return;
+    const t = window.setInterval(() => {
+      const now = Date.now();
+      const cd = Math.ceil((duel.startsAt - now) / 1000);
+      setCountdown((c) => (c !== Math.max(0, cd) ? Math.max(0, cd) : c));
+      const v = timeRef.current;
+      const nv = Math.max(0, Math.min(DUEL_SECONDS, (duel.endsAt - Math.max(now, duel.startsAt)) / 1000));
+      timeRef.current = nv;
+      if (Math.ceil(nv) !== Math.ceil(v)) {
+        if (nv <= 10 && nv > 0) sfx("tick", nv <= 5);
+        setTimeLeft(nv);
+      }
+      if (nv <= 0 && !duelDone && !busy.current && boardRef.current) {
+        setDuelDone(true);
+        sendUpdate(boardRef.current); // the final score
+      }
+    }, 100);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, mode, duel, duelDone]);
+
+  const seek = (withId?: string) => getSocket()?.emit(SocketEvents.MatchDuelSeek, { channelId, ...(withId ? { with: withId } : {}) });
+  const forfeit = () => {
+    const d = duelRef.current;
+    if (d) getSocket()?.emit(SocketEvents.MatchDuelForfeit, { duelId: d.id });
+  };
+
+  /** 🔄 Start over (the current game is dropped, no score saved). */
+  const restart = () => {
+    if (mode === "duel") return;
+    start();
   };
 
   // ⏱ the clock (time mode), paused with the game
@@ -438,7 +717,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
 
   // pause when the window loses focus / the tab is hidden
   useEffect(() => {
-    if (phase !== "playing") return;
+    if (phase !== "playing" || mode === "duel") return;
     const pause = () => setPaused(true);
     const vis = () => document.hidden && pause();
     window.addEventListener("blur", pause);
@@ -452,13 +731,14 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
       document.removeEventListener("visibilitychange", vis);
       window.removeEventListener("keydown", key);
     };
-  }, [phase]);
+  }, [phase, mode]);
 
   // leaving the channel keeps an unfinished game (paused)
   useEffect(
     () => () => {
       const board = boardRef.current;
-      if (board && phaseRef.current === "playing") savedGames.set(channelId, { board, mode: modeRef.current, timeLeft: timeRef.current, movesLeft: movesRef.current });
+      if (board && phaseRef.current === "playing")
+        savedGames.set(channelId, { board, mode: modeRef.current, timeLeft: timeRef.current, movesLeft: movesRef.current, duel: duelRef.current });
       matchMusic.stop();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -488,12 +768,12 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
   }, []);
 
   // 🎵 music: playful; the last 20 s / last 5 moves are faster
-  const hurry = phase === "playing" && (mode === "time" ? timeLeft <= 20 : movesLeft <= 5);
+  const hurry = phase === "playing" && (mode === "moves" ? movesLeft <= 5 : timeLeft <= 20);
   useEffect(() => {
-    if (phase === "playing" && musicOn && !paused) matchMusic.play(hurry);
+    if (phase === "playing" && musicOn && !paused && !duelDone) matchMusic.play(hurry);
     else if (phase === "over") matchMusic.stop();
     else matchMusic.pause();
-  }, [phase, musicOn, paused, hurry]);
+  }, [phase, musicOn, paused, hurry, duelDone]);
   useEffect(() => matchMusic.setVolume(musicVol / 100), [musicVol]);
 
   // input: tap one gem then a neighbour, or drag a gem towards a neighbour
@@ -507,7 +787,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
     return c >= 0 && c < SIZE && rr >= 0 && rr < SIZE ? { r: rr, c } : null;
   };
   const onDown = (e: React.PointerEvent) => {
-    if (phase !== "playing" || paused || busy.current) return;
+    if (phase !== "playing" || paused || busy.current || duelLocked()) return;
     const p = cellAt(e.clientX, e.clientY);
     if (!p) return;
     e.preventDefault();
@@ -572,7 +852,10 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
   };
 
   const cur = lists?.[tab];
-  const mine = lists?.[mode]?.mine;
+  const mine = mode === "duel" ? null : lists?.[mode]?.mine;
+  const myDuels = lists?.duel?.mine;
+  const inDuel = mode === "duel" && phase === "playing" && !!duel;
+  const oppPlayer = duel?.opponent ?? lastOpp.current;
   const myRank = me && cur ? cur.top.findIndex((r) => r.userId === me.id) : -1;
   const pct = (n: number) => `${(n / SIZE) * 100}%`;
 
@@ -583,9 +866,9 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
         <div className="blk-box blk-stats">
           <div className="blk-label">{tr("Точки", "Score")}</div>
           <div className="blk-score">{fmt(score)}</div>
-          {mode === "time" ? (
+          {mode !== "moves" ? (
             <div className={`mx-clock ${phase === "playing" && timeLeft <= 10 ? "urgent" : ""}`}>
-              ⏱ {Math.floor(Math.ceil(timeLeft) / 60)}:{String(Math.ceil(timeLeft) % 60).padStart(2, "0")}
+              ⏱ {(() => { const t = Math.ceil(mode === "duel" && phase !== "playing" ? DUEL_SECONDS : timeLeft); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`; })()}
             </div>
           ) : (
             <div className={`mx-clock ${phase === "playing" && movesLeft <= 5 ? "urgent" : ""}`}>
@@ -613,7 +896,44 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               <b>{fmt(mine.best)}</b>
             </div>
           )}
+          {mode === "duel" && myDuels && (
+            <div className="blk-stat-row blk-best">
+              <span>{tr("Победи в дуели", "Duel wins")}</span>
+              <b>
+                {myDuels.best} / {myDuels.games}
+              </b>
+            </div>
+          )}
+          {phase === "playing" && (
+            <div className="mx-controls">
+              {inDuel ? (
+                <button onClick={forfeit} disabled={duelDone} title={tr("Предаваш се — противникът печели", "Give up — the opponent wins")}>
+                  🏳️ {tr("Предай се", "Give up")}
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => setPaused((p) => !p)} title="P">
+                    {paused ? "▶" : "⏸"} {paused ? tr("Продължи", "Resume") : tr("Пауза", "Pause")}
+                  </button>
+                  <button onClick={restart} title={tr("Нова игра отначало (точките се губят)", "Start over (the score is dropped)")}>
+                    🔄 {tr("Отначало", "Restart")}
+                  </button>
+                  <button onClick={finish} title={tr("Край — точките се записват", "End — the score is saved")}>
+                    ⏹ {tr("Край", "End")}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
+        {mode === "duel" && oppPlayer && (phase === "playing" || duelResult) && (
+          <OpponentCard opp={oppPlayer} score={opp.score} board={opp.board} myScore={score} combo={opp.combo} />
+        )}
+        {mode === "duel" ? (
+          <div className="blk-box blk-keys mx-help">
+            <AttackHelp />
+          </div>
+        ) : (
         <div className="blk-box blk-keys mx-help">
           <div>{tr("Размени две съседни камъчета — 3+ еднакви се пръсват.", "Swap two neighbours — 3+ alike pop.")}</div>
           <div>
@@ -635,6 +955,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
             <kbd>P</kbd> {tr("пауза", "pause")}
           </div>
         </div>
+        )}
       </div>
 
       <div className="blk-center">
@@ -655,6 +976,7 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               c={v.c}
               color={v.tile.color}
               special={v.tile.special}
+              ice={v.tile.ice}
             />
           ))}
           <canvas ref={(el) => void (sparks.current.canvas = el)} className="mx-sparks" />
@@ -686,6 +1008,30 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               </span>
             ),
           )}
+          {fogUntil > 0 && phase === "playing" && <div className="mx-fog" />}
+          {incoming && phase === "playing" && (
+            <div key={incoming.key} className="mx-incoming" style={{ ["--warn" as string]: `${DUEL_WARN_MS}ms` }}>
+              ⚠️ {ATTACK_ICON[incoming.kind]} {attackName(incoming.kind)}
+              {incoming.power > 1 ? ` ×${incoming.power}` : ""} — {tr("силен ход блокира!", "a strong move blocks it!")}
+              <i />
+            </div>
+          )}
+          {inDuel && countdown > 0 && (
+            <div className="blk-overlay mx-countdown">
+              <div className="mx-vs">
+                ⚔️ {me?.username} <span>vs</span> {duel!.opponent.username}
+              </div>
+              <div key={countdown} className="mx-count">
+                {countdown}
+              </div>
+            </div>
+          )}
+          {inDuel && duelDone && (
+            <div className="blk-overlay">
+              <div className="blk-paused">⏱ {tr("Времето свърши!", "Time is up!")}</div>
+              <div className="blk-muted">{tr("Чакаме резултата…", "Waiting for the result…")}</div>
+            </div>
+          )}
           {combo && combo.n >= 2 && phase === "playing" && (
             <div key={combo.key} className={`mx-combo c${Math.min(7, combo.n)}`}>
               {comboName(combo.n)} ×{combo.n}
@@ -695,7 +1041,24 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
           {phase !== "playing" && (
             <div className="blk-overlay">
               <div className="mx-title">🍬 Шмиксер</div>
-              {result && (
+              {mode === "duel" && duelResult && (
+                <div className="blk-result">
+                  <div className={`mx-duel-verdict ${duelResult.winnerId === me?.id ? "win" : duelResult.winnerId ? "lose" : ""}`}>
+                    {duelResult.winnerId === me?.id ? `🏆 ${tr("Победа!", "Victory!")}` : duelResult.winnerId ? tr("Загуба", "Defeat") : tr("Равенство", "Draw")}
+                  </div>
+                  <div className="mx-duel-score">
+                    {fmt(duelResult.you)} : {fmt(duelResult.them)}
+                  </div>
+                  {duelResult.reason === "forfeit" && <div>{duelResult.winnerId === me?.id ? tr("противникът се предаде", "the opponent gave up") : tr("предаде се", "you gave up")}</div>}
+                  {duelResult.reason === "left" && <div>{duelResult.winnerId === me?.id ? tr("противникът излезе", "the opponent left") : tr("дуелът приключи, докато те нямаше", "the duel ended while you were away")}</div>}
+                  {duelResult.games > 0 && (
+                    <div>
+                      {tr("Победи", "Wins")}: {duelResult.wins} / {duelResult.games}
+                    </div>
+                  )}
+                </div>
+              )}
+              {mode !== "duel" && result && (
                 <div className="blk-result">
                   <div className="blk-result-score">{fmt(result.score)}</div>
                   <div>
@@ -709,12 +1072,26 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
                   ⏱ {tr("4 минути", "4 minutes")}
                 </button>
                 <button className={mode === "moves" ? "on" : ""} onClick={() => setMode("moves")}>
-                  👆 {tr("30 хода", "30 moves")}
+                  👆 {tr("60 хода", "60 moves")}
+                </button>
+                <button className={mode === "duel" ? "on" : ""} onClick={() => setMode("duel")}>
+                  ⚔️ {tr("Дуел", "Duel")}
                 </button>
               </div>
-              <button className="blk-start" onClick={start}>
-                {result ? tr("Нова игра", "New game") : tr("Играй", "Play")}
-              </button>
+              {mode === "duel" ? (
+                <>
+                  {duelResult && oppPlayer && (
+                    <button className="blk-start" onClick={() => seek(lobby?.waiting.some((p) => p.userId === oppPlayer.userId) ? oppPlayer.userId : undefined)}>
+                      🔁 {tr("Реванш", "Rematch")}
+                    </button>
+                  )}
+                  <DuelLobby lobby={lobby} meId={me?.id} onSeek={seek} onCancel={() => getSocket()?.emit(SocketEvents.MatchDuelCancel, { channelId })} />
+                </>
+              ) : (
+                <button className="blk-start" onClick={start}>
+                  {result ? tr("Нова игра", "New game") : tr("Играй", "Play")}
+                </button>
+              )}
             </div>
           )}
           <div
@@ -735,6 +1112,9 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               >
                 {tr("Продължи", "Resume")}
               </button>
+              <button className="blk-quit" onClick={restart}>
+                🔄 {tr("Започни отначало", "Start over")}
+              </button>
               <button className="blk-quit" onClick={finish}>
                 {tr("Край на играта", "End game")}
               </button>
@@ -751,7 +1131,10 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
               ⏱ 4 {tr("мин", "min")}
             </button>
             <button className={tab === "moves" ? "on" : ""} onClick={() => setTab("moves")}>
-              👆 30 {tr("хода", "moves")}
+              👆 60 {tr("хода", "moves")}
+            </button>
+            <button className={tab === "duel" ? "on" : ""} onClick={() => setTab("duel")}>
+              ⚔️ {tr("Дуели", "Duels")}
             </button>
           </div>
           {!cur || cur.top.length === 0 ? (
@@ -763,14 +1146,14 @@ export default function MatchGameView({ channelId }: { channelId: string }) {
                   <span className="blk-rank">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</span>
                   {r.avatarUrl ? <img src={r.avatarUrl} alt="" /> : <span className="blk-ava">{r.username[0]?.toUpperCase()}</span>}
                   <span className="blk-name">{r.username}</span>
-                  <b>{fmt(r.best)}</b>
+                  <b>{tab === "duel" ? `${r.best} 🏆` : fmt(r.best)}</b>
                 </li>
               ))}
             </ol>
           )}
           {myRank < 0 && cur?.mine && (
             <div className="blk-muted">
-              {tr("Твоят рекорд", "Your best")}: {fmt(cur.mine.best)}
+              {tab === "duel" ? `${tr("Твоите победи", "Your wins")}: ${cur.mine.best} / ${cur.mine.games}` : `${tr("Твоят рекорд", "Your best")}: ${fmt(cur.mine.best)}`}
             </div>
           )}
         </div>

@@ -16,6 +16,7 @@ import { serversRouter } from "./routes/servers.routes.js";
 import { broadcastPresence, registerChatGateway } from "./sockets/chat.gateway.js";
 import { registerDmGateway } from "./sockets/dm.gateway.js";
 import { registerDrawGateway } from "./draw/game.js";
+import { registerMatchDuelGateway } from "./matchDuel.js";
 import { registerMusicGateway } from "./sockets/music.gateway.js";
 import { setActivity } from "./presence/activity.js";
 import { registerPolls } from "./polls.js";
@@ -72,6 +73,7 @@ io.on("connection", (socket) => {
   registerMusicGateway(io, socket);
   registerPolls(io, socket);
   registerDrawGateway(io, socket);
+  registerMatchDuelGateway(io, socket);
 
   socket.on(SocketEvents.ClientVisibility, (p: { visible?: unknown }) => {
     setSocketVisible(socket.id, p?.visible !== false);

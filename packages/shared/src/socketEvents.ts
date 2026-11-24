@@ -144,6 +144,22 @@ export const SocketEvents = {
   DrawState: "draw:state", // server → one socket: DrawStateDTO (personalised)
   DrawCanvas: "draw:canvas", // server → room: { channelId, ops } (whole picture, after undo/clear/late join)
   DrawChat: "draw:chat", // server → socket: DrawChatLine
+
+  // ⚔️ Шмиксер duel (channels with type "match"); see matchDuel.ts for the payloads.
+  MatchWatch: "match:watch", // client → server: { channelId } (the channel is on screen)
+  MatchUnwatch: "match:unwatch", // { channelId }
+  MatchLobby: "match:lobby", // server → room: DuelLobbyDTO
+  MatchDuelSeek: "match:duel-seek", // { channelId, with?: userId } — wait for an opponent / accept someone waiting
+  MatchDuelCancel: "match:duel-cancel", // { channelId }
+  MatchDuelStart: "match:duel-start", // server → both: DuelStartDTO
+  MatchDuelUpdate: "match:duel-update", // player → server: { duelId, score, board, combo }
+  MatchDuelOpponent: "match:duel-opponent", // server → the other: DuelOpponentDTO
+  MatchDuelAttack: "match:duel-attack", // player → server: { duelId, kind, power }
+  MatchDuelAttacked: "match:duel-attacked", // server → the other: DuelAttackDTO
+  MatchDuelBlock: "match:duel-block", // defender → server: { duelId } (blocked the incoming attack)
+  MatchDuelBlocked: "match:duel-blocked", // server → the attacker: { duelId }
+  MatchDuelForfeit: "match:duel-forfeit", // { duelId }
+  MatchDuelOver: "match:duel-over", // server → both: DuelOverDTO
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];

@@ -218,6 +218,97 @@ const leadGuitar: Voice = (g, f, t, dur, vel) => {
   o.stop(t + dur + 0.2);
 };
 
+let heavyCurve: Float32Array<ArrayBuffer> | null = null;
+function heavyDrive(g: G) {
+  const ws = g.ctx.createWaveShaper();
+  if (!heavyCurve) {
+    heavyCurve = new Float32Array(2048);
+    // asymmetric soft clip: a warmer, "tube" kind of crunch
+    for (let i = 0; i < 2048; i++) {
+      const x = (i / 2047) * 2 - 1;
+      heavyCurve[i] = x >= 0 ? Math.tanh(x * 14) * 0.75 : Math.tanh(x * 10) * 0.68;
+    }
+  }
+  ws.curve = heavyCurve;
+  ws.oversample = "4x";
+  return ws;
+}
+
+/**
+ * Rock rhythm guitar: a power chord (root + fifth + octave) through a hot drive and a speaker-cabinet
+ * EQ, played twice (left / right, slightly different) like a double-tracked recording.
+ * Short notes are palm-muted chugs (dark and tight), long ones ring open.
+ */
+const rockGuitar: Voice = (g, f, t, dur, vel) => {
+  const muted = dur < 0.16;
+  for (const [pan, det, delay] of [[-0.7, -5, 0], [0.7, 6, 0.009]] as const) {
+    const pre = g.ctx.createGain();
+    pre.gain.value = 0.9;
+    const t0 = t + delay;
+    oscs(g, t0, t0 + dur + 0.1, f, [{ type: "sawtooth", detune: det }, { type: "sawtooth", mult: 1.4983, detune: -det }, { type: "square", mult: 2, detune: det * 0.5 }], pre);
+    const hp = filter(g, "highpass", 95, 0.7);
+    const drive = heavyDrive(g);
+    const mid = filter(g, "peaking", 900, 0.9);
+    mid.gain.value = 5;
+    const scoop = filter(g, "peaking", 420, 1.2);
+    scoop.gain.value = -4;
+    const cab = filter(g, "lowpass", muted ? 1100 : 4300, 0.8);
+    const amp = g.ctx.createGain();
+    env(amp, t0, (muted ? 0.03 : 0.026) * vel, 0.003, dur, muted ? 0.05 : 0.14, muted ? 0.5 : 0.8);
+    const p = g.ctx.createStereoPanner();
+    p.pan.value = pan;
+    pre.connect(hp).connect(drive).connect(scoop).connect(mid).connect(cab).connect(amp).connect(p);
+    out(g, p, muted ? 0 : 0.08);
+  }
+};
+
+// Picked electric bass: saw + sub, a little drive, the filter snaps shut after the pick.
+const rockBass: Voice = (g, f, t, dur, vel) => {
+  const pre = g.ctx.createGain();
+  pre.gain.value = 0.5;
+  oscs(g, t, t + dur + 0.08, f, [{ type: "sawtooth" }, { type: "triangle", mult: 0.5 }], pre);
+  const lp = filter(g, "lowpass", 1800, 2);
+  lp.frequency.setValueAtTime(1800, t);
+  lp.frequency.exponentialRampToValueAtTime(520, t + 0.12);
+  const amp = g.ctx.createGain();
+  env(amp, t, 0.11 * vel, 0.004, dur, 0.06, 0.75);
+  pre.connect(distortion(g)).connect(lp).connect(amp);
+  out(g, amp);
+};
+
+// Rock lead guitar: hot drive, every longer note bends up into pitch, vibrato on held notes.
+const rockLead: Voice = (g, f, t, dur, vel) => {
+  const o = g.ctx.createOscillator();
+  o.type = "sawtooth";
+  o.frequency.value = f;
+  if (dur > 0.2) {
+    o.detune.setValueAtTime(-140, t);
+    o.detune.linearRampToValueAtTime(0, t + 0.07);
+  }
+  if (dur > 0.3) vibrato(g, o, t + 0.15, t + dur + 0.2, 22, 5.8);
+  const o2 = g.ctx.createOscillator();
+  o2.type = "square";
+  o2.frequency.value = f * 2;
+  o2.detune.value = 4;
+  const g2 = g.ctx.createGain();
+  g2.gain.value = 0.25;
+  o2.connect(g2);
+  const pre = g.ctx.createGain();
+  pre.gain.value = 0.8;
+  o.connect(pre);
+  g2.connect(pre);
+  const hp = filter(g, "highpass", 300, 0.7);
+  const cab = filter(g, "lowpass", 3800, 1.4);
+  const amp = g.ctx.createGain();
+  env(amp, t, 0.02 * vel, 0.005, dur, 0.18, 0.85);
+  pre.connect(hp).connect(heavyDrive(g)).connect(cab).connect(amp);
+  out(g, amp, 0.35);
+  o.start(t);
+  o2.start(t);
+  o.stop(t + dur + 0.25);
+  o2.stop(t + dur + 0.25);
+};
+
 // Reese: two detuned saws + a sub, growling low-pass.
 const reese: Voice = (g, f, t, dur, vel) => {
   const lp = filter(g, "lowpass", 520, 2);
@@ -397,7 +488,15 @@ export interface Style {
   comp: string; // when the chord plays: x hit, "-" hold
   compVoice: Voice;
   /** Drum lanes; each lane is a list of one-bar patterns (cycled per bar). */
-  drums: { k?: string[]; s?: string[]; h?: string[]; o?: string[]; c?: string[]; r?: string[] };
+  drums: { k?: string[]; s?: string[]; h?: string[]; o?: string[]; c?: string[]; r?: string[]; z?: string[] };
+  /** Rock: a guitar riff (on top of `comp`): 4 bars × 16 steps — a note = power chord on that root,
+   *  "x" = palm-muted chug on the bar's root (chords[bar][0]), "-" hold, "." rest. */
+  riff?: string[];
+  riffVoice?: Voice;
+  /** the bass plays the riff an octave down (instead of `bass`) */
+  bassFollowsRiff?: boolean;
+  /** the lead plays only every n-th time round (the others are the riff alone) */
+  leadEvery?: number;
   snare: "normal" | "gated" | "rim" | "clap";
   hardKick?: boolean;
   arp?: boolean; // 16th arpeggio of the chord
@@ -601,44 +700,130 @@ const STYLES: Style[] = [
   },
 ];
 
-// 🍬 Шмиксер: energetic pop-punk rock in D (power-chord chugs, lead guitar, driving drums);
-// level 2 = hurry (last seconds / last moves): faster, busier, a semitone up.
-const MATCH_STYLE: Style = {
-  name: "Шмиксер рок",
-  bpm: 150,
-  bpmStep: 0,
-  swing: 0,
-  tone: 14000,
-  chords: [
-    ["D2", "D3"],
-    ["A1", "A2"],
-    ["B1", "B2"],
-    ["G1", "G2"],
-  ],
-  lead: [
-    "F#5 . A5 . D6 - - . A5 . F#5 . E5 . D5 .",
-    "E5 . A5 . C#6 - - . B5 . A5 . E5 - - .",
-    "F#5 . B5 . D6 - - . C#6 . B5 . F#5 . D5 .",
-    "G5 . B5 . D6 - E6 . D6 . B5 . A5 - - -",
-  ],
-  leadVoice: leadGuitar,
-  bass: "R . R R . R R . R . R R . R O .",
-  bassVoice: funkBass,
-  comp: "x . x x . x x . x . x x . x x .",
-  compVoice: guitar,
-  drums: {
-    k: ["x . . . . . x . x . . . . . . .", "x . . . . . x . x . x . . . x ."],
-    s: [". . . . x . . . . . . . x . . ."],
-    h: ["x . x . x . x . x . x . x . x ."],
+// 🍬 Шмиксер: three rock songs of our own that take turns (each plays 4 times round: riff, riff +
+// lead, ...): a heavy gallop in E, fast punk in D, a shuffling hard-rock riff in A. Level 2 = hurry
+// (last seconds / last moves): faster, busier, a semitone up.
+const NONE = ". . . . . . . . . . . . . . . .";
+const CRASH_ONCE = ["x . . . . . . . . . . . . . . .", NONE, NONE, NONE];
+const MATCH_STYLES: Style[] = [
+  {
+    name: "Галоп",
+    bpm: 146,
+    bpmStep: 0,
+    swing: 0,
+    tone: 15000,
+    chords: [["E2"], ["E2"], ["E2"], ["B1"]],
+    riff: [
+      "E2 . x x E2 . x x D3 - - . E2 . x x",
+      "E2 . x x E2 . x x G2 - A2 - B2 - - .",
+      "E2 . x x E2 . x x D3 - - . C3 - - .",
+      "B2 - - . B2 - - . A2 - . G2 - . F#2 -",
+    ],
+    riffVoice: rockGuitar,
+    bassFollowsRiff: true,
+    lead: [
+      "B4 - - - D5 - E5 - G5 - - - E5 - D5 -",
+      "E5 - - - - - . . D5 E5 G5 - A5 - B5 -",
+      "B5 - - - A5 - G5 - E5 - G5 - A5 - - -",
+      "F#5 - - - - - - - D#5 - - - B4 - - -",
+    ],
+    leadVoice: rockLead,
+    leadEvery: 2,
+    bass: NONE,
+    bassVoice: rockBass,
+    comp: NONE,
+    compVoice: rockGuitar,
+    drums: {
+      k: ["x . . . . . . x x . x . . . . .", "x . . . . . . x x . x . . . x ."],
+      s: [". . . . x . . . . . . . x . . ."],
+      h: ["x . x . x . x . x . x . x . x ."],
+      z: CRASH_ONCE,
+    },
+    snare: "normal",
+    hardKick: true,
+    fill: true,
   },
-  snare: "normal",
-  hardKick: true,
-  fill: true,
-};
-const MATCH_SET = {
-  styles: [MATCH_STYLE],
+  {
+    name: "Пънк",
+    bpm: 176,
+    bpmStep: 0,
+    swing: 0,
+    tone: 15000,
+    chords: [["D3"], ["A2"], ["B2"], ["G2"]],
+    riff: [
+      "D3 - D3 - D3 - D3 x D3 - D3 - D3 - D3 x",
+      "A2 - A2 - A2 - A2 x A2 - A2 - C#3 - E3 -",
+      "B2 - B2 - B2 - B2 x B2 - B2 - B2 - B2 x",
+      "G2 - G2 - G2 - G2 x A2 - A2 - A2 - - -",
+    ],
+    riffVoice: rockGuitar,
+    bassFollowsRiff: true,
+    lead: [
+      "F#5 - - - E5 - D5 - A5 - - - F#5 - E5 -",
+      "E5 - - - C#5 - E5 - A5 - - - - - . .",
+      "F#5 - - - B5 - A5 - F#5 - - - E5 - D5 -",
+      "D5 - - - E5 - - - F#5 - - - - - . .",
+    ],
+    leadVoice: rockLead,
+    leadEvery: 2,
+    bass: NONE,
+    bassVoice: rockBass,
+    comp: NONE,
+    compVoice: rockGuitar,
+    drums: {
+      // the fast "skate" beat: kick on the beat, snare on every off-beat
+      k: ["x . . . x . . . x . . . x . . ."],
+      s: [". . x . . . x . . . x . . . x ."],
+      h: ["x . x . x . x . x . x . x . x ."],
+      z: ["x . . . . . . . . . . . . . . .", NONE, "x . . . . . . . . . . . . . . .", NONE],
+    },
+    snare: "normal",
+    hardKick: true,
+    fill: true,
+  },
+  {
+    name: "Хард рок",
+    bpm: 128,
+    bpmStep: 0,
+    swing: 0.16,
+    tone: 15000,
+    chords: [["A2"], ["A2"], ["A2"], ["F2"]],
+    riff: [
+      "A2 - - . C3 . D3 - - . A2 - G2 . A2 .",
+      "A2 - - . C3 . D3 - - . F3 - E3 - - .",
+      "A2 - - . C3 . D3 - - . A2 - G2 . A2 .",
+      "F2 - - - - - G2 - - - - - E2 - - -",
+    ],
+    riffVoice: rockGuitar,
+    bassFollowsRiff: true,
+    lead: [
+      "A4 - C5 - D5 - E5 - G5 - E5 - D5 - C5 -",
+      "D5 - - - - - E5 - A5 - - - G5 - E5 -",
+      "A5 - - - G5 - E5 - D5 - E5 - C5 - A4 -",
+      "C5 - - - - - D5 - - - - - E5 - - -",
+    ],
+    leadVoice: rockLead,
+    leadEvery: 2,
+    bass: NONE,
+    bassVoice: rockBass,
+    comp: NONE,
+    compVoice: rockGuitar,
+    drums: {
+      k: ["x . . . . . . . x . x . . . . .", "x . . . . . . . x . x . . . x ."],
+      s: [". . . . x . . . . . . . x . . ."],
+      h: ["x . x . x . x . x . x . x . x ."],
+      z: CRASH_ONCE,
+    },
+    snare: "normal",
+    hardKick: true,
+    fill: true,
+  },
+];
+const MATCH_SET: StyleSet = {
+  styles: MATCH_STYLES,
   tier: () => 0,
-  bpm: (level: number) => (level >= 2 ? 172 : 150),
+  rotate: 4,
+  bpm: (level, st) => (st?.bpm ?? 150) + (level >= 2 ? 16 : 0),
   busy: (level: number) => level >= 2,
   transpose: (level: number) => (level >= 2 ? Math.pow(2, 1 / 12) : 1),
 };
@@ -658,7 +843,9 @@ function bpmFor(level: number): number {
 export interface StyleSet {
   styles: Style[];
   tier: (level: number) => number;
-  bpm: (level: number) => number;
+  bpm: (level: number, style?: Style) => number;
+  /** take turns through `styles`: the next one after this many times round (instead of `tier`) */
+  rotate?: number;
   busy: (level: number) => boolean;
   transpose: (level: number) => number;
 }
@@ -678,6 +865,8 @@ export class MusicPlayer {
   private busy = false; // second level of a style: extra layers
   private transpose = 1; // frequency factor
   private step = 0; // 0..63
+  private loop = 0; // times round the 4 bars
+  private song = 0; // with set.rotate
   private nextTime = 0;
   private timer: number | null = null;
   private pendingLevel: number | null = null;
@@ -689,8 +878,8 @@ export class MusicPlayer {
 
   private apply(level: number) {
     this.level = level;
-    this.style = this.set.styles[this.set.tier(level)]!;
-    this.bpm = this.set.bpm(level);
+    this.style = this.set.styles[this.set.rotate ? this.song % this.set.styles.length : this.set.tier(level)]!;
+    this.bpm = this.set.bpm(level, this.style);
     this.busy = this.set.busy(level);
     this.transpose = this.set.transpose(level);
     const g = audioGraph();
@@ -766,11 +955,18 @@ export class MusicPlayer {
         this.step = 0;
         crash(g, this.nextTime, 1.2);
       }
+      if (this.step === 0 && this.set.rotate && this.loop >= this.set.rotate) {
+        // the next song
+        this.song++;
+        this.loop = 0;
+        this.apply(this.level);
+      }
       const stepLen = 60 / this.bpm / 4;
       const swing = this.step % 2 === 1 ? this.style.swing * stepLen : 0;
       this.playStep(g, this.step, this.nextTime + swing, stepLen);
       this.nextTime += stepLen;
       this.step = (this.step + 1) % 64;
+      if (this.step === 0) this.loop++;
     }
   }
 
@@ -791,7 +987,8 @@ export class MusicPlayer {
     // lead (doubled an octave up, quietly, on the busier level)
     const lead = split(st.lead[bar]!);
     const tok = lead[s]!;
-    if (tok !== "." && tok !== "-") {
+    const leadNow = !st.leadEvery || this.loop % st.leadEvery === st.leadEvery - 1;
+    if (leadNow && tok !== "." && tok !== "-") {
       const f = freqOf(tok) * tr;
       const dur = stepLen * holdLen(lead, s) * 0.95;
       st.leadVoice(g, f, t, dur, 1);
@@ -806,10 +1003,22 @@ export class MusicPlayer {
       else for (const f of voicing) st.compVoice(g, f, t, dur, 1);
     }
 
+    // rock riff (+ the bass an octave down)
+    if (st.riff) {
+      const riff = split(st.riff[bar]!);
+      const rt = riff[s]!;
+      if (rt !== "." && rt !== "-") {
+        const f = (rt === "x" ? freqOf(chord[0]!) : freqOf(rt)) * tr;
+        const dur = rt === "x" ? stepLen * 0.85 : stepLen * holdLen(riff, s) * 0.95;
+        (st.riffVoice ?? guitar)(g, f, t, dur, rt === "x" ? 0.85 : 1);
+        if (st.bassFollowsRiff) st.bassVoice(g, f / 2, t, dur, rt === "x" ? 0.8 : 1);
+      }
+    }
+
     // bass
     const bass = split(st.bass);
     const b = bass[s]!;
-    if (b !== "." && b !== "-") {
+    if (!st.bassFollowsRiff && b !== "." && b !== "-") {
       const f = b === "O" ? root * 2 : b === "F" ? root * 1.5 : root;
       st.bassVoice(g, f, t, stepLen * holdLen(bass, s) * 0.9, 1);
     }
@@ -840,6 +1049,7 @@ export class MusicPlayer {
     }
     else if (this.busy && !lane("o")) hat(g, t, 0.45);
     if (lane("o")) hat(g, t, 1, true);
+    if (lane("z")) crash(g, t, 0.9);
     if (fillNow) tom(g, t, [220, 180, 150, 110][s - 12]!, 1);
 
     // a nervous heartbeat when the stack is near the top

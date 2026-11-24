@@ -12,17 +12,23 @@
  * Fever: strong moves in a row (a cascade or a special going off) → ×1.5 (3) / ×2 (5) / ×3 (8).
  * Move bonuses: two+ specials made in one move ("Двоен удар"), 30+ gems in one move ("Мега ход");
  * long combos give extra seconds in the time mode.
+ * Duel attacks (from the other player): 🧊 ice = a gem can't be moved (it still matches / pops),
+ * 🪨 stone = a block that never matches and can't be moved; a match next to it or a blast breaks it.
  */
 
 export const SIZE = 8;
 export const COLORS = 6;
 
-export type Special = "rowRocket" | "colRocket" | "bomb" | "prism" | "firefly";
+export type Special = "rowRocket" | "colRocket" | "bomb" | "prism" | "firefly" | "stone";
 export interface Tile {
   id: number;
-  color: number; // 0..5 (-1 for a prism)
+  color: number; // 0..5 (-1 for a prism, -2 for a stone)
   special: Special | null;
+  /** 🧊 frozen by the opponent: can't be swapped */
+  ice?: boolean;
 }
+/** Tiles that can't be swapped (stones, frozen gems). */
+const stuck = (t: Tile | null | undefined) => !t || t.special === "stone" || !!t.ice;
 export type Grid = (Tile | null)[][]; // [row][col]
 export interface Pos {
   r: number;
@@ -115,10 +121,10 @@ export class MatchBoard {
 
   /** Mix the colours (specials stay) until there is no match and some move exists. */
   shuffle() {
-    const tiles = this.grid.flat().filter((t): t is Tile => !!t);
+    const tiles = this.grid.flat().filter((t): t is Tile => !!t && t.special !== "prism" && t.special !== "stone");
     for (let tries = 0; tries < 200; tries++) {
       const colors = tiles.map((t) => t.color).sort(() => Math.random() - 0.5);
-      tiles.forEach((t, i) => (t.color = t.special === "prism" ? -1 : colors[i]! < 0 ? rnd(COLORS) : colors[i]!));
+      tiles.forEach((t, i) => (t.color = colors[i]!));
       if (this.findMatches().length === 0 && this.findMove()) return;
     }
     this.fill();
@@ -137,6 +143,7 @@ export class MatchBoard {
           if (!inside(b.r, b.c)) continue;
           const ta = this.at(a)!;
           const tb = this.at(b)!;
+          if (stuck(ta) || stuck(tb)) continue;
           if (ta.special === "prism" || tb.special === "prism" || (ta.special && tb.special)) return [a, b];
           this.swapRaw(a, b);
           const ok = this.findMatches().length > 0;
@@ -224,6 +231,7 @@ export class MatchBoard {
     if (!inside(a.r, a.c) || !inside(b.r, b.c) || Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) return { ok: false, steps: [], shuffled: false };
     const ta = this.at(a)!;
     const tb = this.at(b)!;
+    if (stuck(ta) || stuck(tb)) return { ok: false, steps: [], shuffled: false };
     this.swapRaw(a, b);
     // a and b now hold each other's tiles: tb sits at a, ta sits at b
     const steps: Step[] = [];
@@ -285,7 +293,7 @@ export class MatchBoard {
         const t = this.grid[rr]![cc];
         if (!t) continue;
         options.push({ r: rr, c: cc });
-        if (t.special && t.special !== "firefly") specials.push({ r: rr, c: cc });
+        if (t.special && t.special !== "firefly") specials.push({ r: rr, c: cc }); // (stones too: it breaks them)
       }
     const pool = specials.length && Math.random() < 0.5 ? specials : options;
     return pool.length ? pool[rnd(pool.length)]! : null;
@@ -322,7 +330,7 @@ export class MatchBoard {
       for (let r = 0; r < SIZE; r++)
         for (let c = 0; c < SIZE; c++) {
           const t = this.grid[r]![c]!;
-          if (t.color === other.color && t.special !== "prism") {
+          if (t.color === other.color && t.color >= 0 && t.special !== "prism") {
             // prism + special: every gem of that colour becomes that special and goes off
             if (other.special && other.special !== "prism" && !t.special)
               t.special =
@@ -395,6 +403,12 @@ export class MatchBoard {
   /** Pop the cells (specials among them go off, chaining), drop the rest, fill from the top. */
   private resolve(plan: { clear: Set<string>; blasts: Step["blasts"]; made: Step["made"] }, combo: number): Step {
     const { clear, blasts, made } = plan;
+    // 🪨 a stone next to a popped gem breaks
+    for (const k of [...clear]) {
+      const [r, c] = k.split(",").map(Number) as [number, number];
+      for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const)
+        if (this.grid[r + dr]?.[c + dc]?.special === "stone") clear.add(this.key(r + dr, c + dc));
+    }
     // chain: specials inside the clear area go off too
     const queue = [...clear];
     const fired = new Set<string>();
@@ -403,7 +417,7 @@ export class MatchBoard {
       if (fired.has(k)) continue;
       const [r, c] = k.split(",").map(Number) as [number, number];
       const t = this.grid[r]![c];
-      if (!t?.special) continue;
+      if (!t?.special || t.special === "stone") continue;
       fired.add(k);
       const push = (rr: number, cc: number) => {
         if (!inside(rr, cc)) return;
@@ -465,5 +479,50 @@ export class MatchBoard {
       }
     }
     return { popped, blasts: [...blasts], made, falls, spawned, combo, points };
+  }
+
+  /** Plain gems (no special, not frozen) — candidates for an attack. */
+  private plain(): Tile[] {
+    return this.grid.flat().filter((t): t is Tile => !!t && !t.special && !t.ice);
+  }
+
+  /** Make sure a move is left after an attack (otherwise mix the colours). */
+  private keepPlayable() {
+    if (this.findMatches().length || !this.findMove()) this.shuffle();
+  }
+
+  /** ⚔️ 🧊 freeze n random gems (they can't be moved). Returns their ids. */
+  freeze(n: number): number[] {
+    const pool = this.plain().sort(() => Math.random() - 0.5).slice(0, n);
+    for (const t of pool) t.ice = true;
+    this.keepPlayable();
+    return pool.map((t) => t.id);
+  }
+
+  /** ⚔️ 🪨 turn n random gems (top half first) into stones. Returns their ids. */
+  stones(n: number): number[] {
+    const top = this.grid.slice(0, SIZE / 2).flat().filter((t): t is Tile => !!t && !t.special && !t.ice);
+    const pool = (top.length >= n ? top : this.plain()).sort(() => Math.random() - 0.5).slice(0, n);
+    for (const t of pool) {
+      t.special = "stone";
+      t.color = -2;
+    }
+    this.keepPlayable();
+    return pool.map((t) => t.id);
+  }
+
+  /** ⚔️ 🌀 the opponent mixed your board (specials, ice and stones stay where they are). */
+  scramble() {
+    this.shuffle();
+  }
+
+  /** A tiny picture of the board for the opponent: 0..5 colour, 6 prism, 7 stone; +10 special, +20 ice. */
+  codes(): number[] {
+    return this.grid.flat().map((t) => {
+      if (!t) return 0;
+      if (t.special === "stone") return 7;
+      if (t.special === "prism") return 6;
+      return t.color + (t.special ? 10 : 0) + (t.ice ? 20 : 0);
+    });
   }
 }

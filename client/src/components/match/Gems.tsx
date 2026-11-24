@@ -109,7 +109,29 @@ export function GemDefs() {
   );
 }
 
-export function Gem({ color, special }: { color: number; special: string | null }) {
+export function Gem({ color, special, ice }: { color: number; special: string | null; ice?: boolean }) {
+  if (special === "stone")
+    return (
+      <svg viewBox="0 0 100 100" className="mx-gem-svg mx-stone">
+        <path d="M22 18 L60 10 L86 30 L90 66 L70 90 L30 88 L10 62 L12 34 Z" fill="#6b6672" stroke="#2a2730" strokeWidth="4" strokeLinejoin="round" />
+        <path d="M22 18 L60 10 L86 30 L56 38 L30 40 Z" fill="#8d8896" />
+        <path d="M30 40 L56 38 L86 30 L90 66 L60 62 Z" fill="#78737f" />
+        <path d="M44 40 L50 56 L40 70 M50 56 L66 60 M24 52 L34 60" fill="none" stroke="#2a2730" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="70" cy="76" r="3" fill="#2a2730" opacity="0.5" />
+        <circle cx="26" cy="72" r="2" fill="#2a2730" opacity="0.5" />
+      </svg>
+    );
+  if (ice)
+    return (
+      <div className="mx-iced">
+        <Gem color={color} special={special} />
+        <svg viewBox="0 0 100 100" className="mx-gem-svg mx-ice">
+          <rect x="6" y="6" width="88" height="88" rx="14" fill="#bfe9ff" fillOpacity="0.45" stroke="#e9f8ff" strokeWidth="4" />
+          <path d="M18 30 L34 16 M66 86 L84 70 M20 76 L40 60 L36 48 M62 20 L70 36 L84 40" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" opacity="0.9" />
+          <path d="M14 14 L38 14 L14 38 Z" fill="#fff" opacity="0.5" />
+        </svg>
+      </div>
+    );
   if (special === "prism")
     return (
       <svg viewBox="0 0 100 100" className="mx-gem-svg mx-prism">

@@ -23,7 +23,7 @@ async function playOneMove(page: Page) {
 }
 
 test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
-  test("раздел „Игри“ се сгъва; 30 хода до край → рекорд в класацията; сървърът отказва глупости", async ({ browser }) => {
+  test("раздел „Игри“ се сгъва; 60 хода, 🔄 отначало, ⏹ край → рекорд в класацията; сървърът отказва глупости", async ({ browser }) => {
     const ana = await register("ana");
     const server = await serverWith(ana);
     const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиксер", type: "match" });
@@ -51,27 +51,40 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await openTextChannel(a.page, "шмиксер");
     const overlay = a.page.locator(".mx-board .blk-overlay");
     await expect(overlay).toContainText("Играй");
-    await a.page.locator(".mx-modes button", { hasText: "30 хода" }).click();
+    await a.page.locator(".mx-modes button", { hasText: "60 хода" }).click();
     await a.page.getByRole("button", { name: /Играй/ }).click();
     await expect(overlay).toHaveCount(0);
     await expect(a.page.locator(".mx-tile")).toHaveCount(64);
-    await expect(a.page.locator(".mx-clock")).toContainText("30");
+    await expect(a.page.locator(".mx-clock")).toContainText("60");
 
-    // невалиден ход (две еднакви на едно място не правят нищо) → броят ходове не намалява
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 3; i++) {
       await playOneMove(a.page);
       if (i === 0) {
-        await expect(a.page.locator(".mx-clock")).toContainText("29");
+        await expect(a.page.locator(".mx-clock")).toContainText("59");
         await expect.poll(async () => Number((await a.page.locator(".blk-score").innerText()).replace(/\D/g, ""))).toBeGreaterThan(0);
       }
-      if (i === 5) await a.page.locator(".mx-view").screenshot({ path: "explore/match-playing.png" });
     }
+    await expect(a.page.locator(".mx-clock")).toContainText("57");
+    await a.page.locator(".mx-view").screenshot({ path: "explore/match-playing.png" });
+    // 🔄 отначало: нова дъска, 0 точки, пак 60 хода
+    await expect.poll(() => a.page.evaluate(() => (window as unknown as { __matchBusy?: () => boolean }).__matchBusy?.())).toBe(false);
+    await a.page.locator(".mx-controls button", { hasText: "Отначало" }).click();
+    await expect(a.page.locator(".mx-clock")).toContainText("60");
+    await expect(a.page.locator(".blk-score")).toHaveText("0");
+    // ⏸ пауза от бутона
+    await a.page.locator(".mx-controls button", { hasText: "Пауза" }).click();
+    await expect(a.page.locator(".blk-paused")).toBeVisible();
+    await a.page.getByRole("button", { name: /Продължи/ }).first().click();
+    for (let i = 0; i < 4; i++) await playOneMove(a.page);
+    await expect.poll(() => a.page.evaluate(() => (window as unknown as { __matchBusy?: () => boolean }).__matchBusy?.())).toBe(false);
+    // ⏹ край → точките се записват
+    await a.page.locator(".mx-controls button", { hasText: "Край" }).click();
     await expect(overlay).toContainText("Нова игра", { timeout: 15_000 });
     await expect(a.page.locator(".mx-tile")).toHaveCount(64); // the board is always full
     const score = Number((await a.page.locator(".blk-result-score").innerText()).replace(/\D/g, ""));
     expect(score).toBeGreaterThan(0);
     await expect(a.page.locator(".blk-record")).toContainText("Нов личен рекорд");
-    await a.page.locator(".mx-tabs button", { hasText: "30" }).click();
+    await a.page.locator(".mx-tabs button", { hasText: "60" }).click();
     await expect(a.page.locator(".blk-top li.me")).toContainText(ana.username);
     await a.page.locator(".mx-view").screenshot({ path: "explore/match-over.png" });
 
@@ -98,7 +111,7 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await a.page.addInitScript(() => localStorage.setItem("matchMusic", "off"));
     await openServer(a.page, server.name);
     await openTextChannel(a.page, "шмиксер");
-    await a.page.locator(".mx-modes button", { hasText: "30 хода" }).click();
+    await a.page.locator(".mx-modes button", { hasText: "60 хода" }).click();
     await a.page.getByRole("button", { name: /Играй/ }).click();
     type B = { grid: { color: number; special: string | null }[][]; streak: number };
     const setup = (code: string) =>
@@ -150,6 +163,69 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await closeAll(a.context);
   });
 
+  test("⚔️ дуел: търси / приеми, броене, точки на противника, атака 🪨, предаване → победа", async ({ browser }) => {
+    const ana = await register("ana");
+    const bob = await register("bob");
+    const server = await serverWith(ana, bob);
+    const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиксер", type: "match" });
+    const a = await openAs(browser, ana);
+    const b = await openAs(browser, bob);
+    for (const p of [a.page, b.page]) {
+      await p.addInitScript(() => localStorage.setItem("matchMusic", "off"));
+      await openServer(p, server.name);
+      await openTextChannel(p, "шмиксер");
+      await p.locator(".mx-modes button", { hasText: "Дуел" }).click();
+    }
+    await a.page.getByRole("button", { name: /Търси противник/ }).click();
+    await expect(a.page.locator(".mx-waiting")).toBeVisible();
+    // bob sees ana waiting
+    await expect(b.page.getByRole("button", { name: new RegExp(`Играй срещу ${ana.username}`) })).toBeVisible();
+    await b.page.locator(".mx-view").screenshot({ path: "explore/match-duel-lobby.png" });
+    await b.page.getByRole("button", { name: new RegExp(`Играй срещу ${ana.username}`) }).click();
+    for (const p of [a.page, b.page]) await expect(p.locator(".mx-count")).toBeVisible();
+    await expect(a.page.locator(".mx-opp")).toContainText(bob.username);
+    await expect(b.page.locator(".mx-opp")).toContainText(ana.username);
+    await expect(a.page.locator(".mx-count")).toHaveCount(0, { timeout: 8_000 });
+    await expect(a.page.locator(".mx-clock")).toContainText("2:0");
+    // a move of ana → bob sees her score
+    await playOneMove(a.page);
+    await expect.poll(async () => Number((await b.page.locator(".mx-opp-score").innerText()).replace(/\D/g, ""))).toBeGreaterThan(0);
+    await expect(b.page.locator(".mx-mini i")).toHaveCount(64);
+    // two bombs together → 🪨 stones for bob (after the warning)
+    await expect.poll(() => a.page.evaluate(() => (window as unknown as { __matchBusy?: () => boolean }).__matchBusy?.())).toBe(false);
+    await a.page.evaluate(() => {
+      const w = window as unknown as { __matchBoard: () => { grid: { special: string | null }[][] }; __matchSync: () => void };
+      const g = w.__matchBoard().grid;
+      g[7]![0]!.special = "bomb";
+      g[7]![1]!.special = "bomb";
+      w.__matchSync();
+    });
+    const box = (await a.page.locator(".mx-board").boundingBox())!;
+    const cell = box.width / 8;
+    await a.page.mouse.move(box.x + 0.5 * cell, box.y + 7.5 * cell);
+    await a.page.mouse.down();
+    await a.page.mouse.move(box.x + 1.5 * cell, box.y + 7.5 * cell, { steps: 4 });
+    await a.page.mouse.up();
+    await expect(b.page.locator(".mx-incoming")).toContainText("Камъни");
+    await b.page.locator(".mx-view").screenshot({ path: "explore/match-duel-incoming.png" });
+    await expect.poll(() => b.page.locator(".mx-tile .mx-stone").count(), { timeout: 8_000 }).toBeGreaterThan(0);
+    await b.page.locator(".mx-view").screenshot({ path: "explore/match-duel-stones.png" });
+    // bob gives up → ana wins
+    await b.page.locator(".mx-controls button", { hasText: "Предай се" }).click();
+    await expect(a.page.locator(".mx-duel-verdict")).toContainText("Победа");
+    await expect(b.page.locator(".mx-duel-verdict")).toContainText("Загуба");
+    await expect(a.page.locator(".blk-result")).toContainText("противникът се предаде");
+    await a.page.locator(".mx-view").screenshot({ path: "explore/match-duel-over.png" });
+    const lists = await api(ana.token, "GET", `/text-channels/${textChannel.id}/match`);
+    expect(lists.duel.mine.best).toBe(1);
+    expect(lists.duel.mine.games).toBe(1);
+    await a.page.locator(".mx-tabs button", { hasText: "Дуели" }).click();
+    await expect(a.page.locator(".blk-top li.me")).toContainText("1 🏆");
+    expectNoCrashes(a.page);
+    expectNoCrashes(b.page);
+    await closeAll(a.context, b.context);
+  });
+
   test("излизане от канала по време на игра → връщаш се на пауза със същите точки", async ({ browser }) => {
     const ana = await register("ana");
     const server = await serverWith(ana);
@@ -167,7 +243,7 @@ test.describe("🍬 Шмиксер + 🎮 раздел Игри", () => {
     await openTextChannel(a.page, "шмиксер");
     await expect(a.page.locator(".blk-paused")).toBeVisible();
     await expect(a.page.locator(".blk-score")).toHaveText(score);
-    await a.page.getByRole("button", { name: /Продължи/ }).click();
+    await a.page.locator(".blk-overlay .blk-start", { hasText: "Продължи" }).click();
     await playOneMove(a.page);
     expectNoCrashes(a.page);
     await closeAll(a.context);
