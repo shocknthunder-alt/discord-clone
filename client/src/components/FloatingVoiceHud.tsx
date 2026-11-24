@@ -11,7 +11,7 @@ import { tr } from "../i18n";
 
 // Starting layout: a vertical rail of its own (.voice-rail, a real column between the channel list
 // and the chat/voice view — so the buttons never cover anything, whatever the window size):
-//   top:    ping · mute · deafen · camera · LIVE · soundboard · settings
+//   top:    ping · mute · deafen · camera · LIVE · soundboard (🥁) · settings
 //   bottom: hang up · lock
 // Only used until an icon is dragged (Unlock layout — each dragged icon keeps its own spot).
 // Computed fresh from where the rail actually is (FloatingIcon re-checks undragged icons).
@@ -113,9 +113,9 @@ export default function FloatingVoiceHud() {
         <button
           className={`hud-icon-button ${showSoundboard ? "active" : ""}`}
           onClick={() => setShowSoundboard((v) => !v)}
-          title="Soundboard"
+          title={tr("Звуци за всички (soundboard)", "Soundboard — sounds for everyone")}
         >
-          🔊
+          🥁
         </button>
       </FloatingIcon>
 

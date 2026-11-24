@@ -1,4 +1,5 @@
 import { formatTime } from "../utils/appPrefs";
+import { CallIcon, HangupIcon } from "./HudIcons";
 import MobileNavButton from "./MobileNavButton";
 import { SocketEvents, type DirectMessageDTO } from "@discord-clone/shared";
 import ChatImage from "./ChatImage";
@@ -195,7 +196,15 @@ export default function DmChatView({ conversationId }: Props) {
         <MobileNavButton />
         <span className="chat-header-title">@ {conversation?.otherUser.username ?? ""}</span>
         <button className="server-settings-button" onClick={handleCallToggle} title={tr("Обади се", "Call")}>
-          {inThisCall ? "📞 Hang up" : "📞 Call"}
+          {inThisCall ? (
+            <>
+              <HangupIcon size={14} color="#f23f43" /> {tr("Затвори", "Hang up")}
+            </>
+          ) : (
+            <>
+              <CallIcon size={14} /> {tr("Обади се", "Call")}
+            </>
+          )}
         </button>
       </div>
 

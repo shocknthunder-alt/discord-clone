@@ -35,7 +35,7 @@ export default function MobileVoiceBar({ onOpenVoice }: { onOpenVoice: () => voi
           <CameraIcon off={!isCameraOn} size={22} />
         </button>
         <button type="button" className={`hud-icon-button ${showSoundboard ? "active" : ""}`} onClick={() => setShowSoundboard((v) => !v)} aria-label="Soundboard">
-          🔊
+          🥁
         </button>
         <button type="button" className="hud-icon-button" onClick={() => setShowSettings(true)} aria-label={tr("Настройки", "Settings")}>
           ⚙️

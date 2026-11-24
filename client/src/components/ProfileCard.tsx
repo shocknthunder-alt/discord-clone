@@ -1,4 +1,5 @@
 import { Perm, SocketEvents, hasPerm, type MemberDTO } from "@discord-clone/shared";
+import { CallIcon } from "./HudIcons";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { startConversationWith } from "../api/dm.api";
@@ -336,8 +337,9 @@ export default function ProfileCard({ member, x, y, onClose, onJoinVoice, peerSo
                   onCall(member.userId);
                   onClose();
                 }}
+                className="pc-call"
               >
-                📞
+                <CallIcon size={18} />
               </button>
             )}
           </div>

@@ -244,7 +244,7 @@ test.describe("Менюта и бутони", () => {
     await p.getByTitle("Включи звука").click();
     await expect(p.getByTitle("Заглуши всички")).toBeVisible();
 
-    await p.getByTitle("Soundboard").first().click();
+    await p.getByTitle(/soundboard/i).first().click();
     await expect(p.getByTitle("Затвори (Esc)").first()).toBeVisible();
     await p.keyboard.press("Escape");
 

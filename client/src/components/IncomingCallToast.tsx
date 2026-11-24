@@ -1,4 +1,5 @@
 import { useDmStore } from "../store/dmStore";
+import { CallIcon } from "./HudIcons";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import { tr } from "../i18n";
 
@@ -18,7 +19,8 @@ export default function IncomingCallToast() {
 
   return (
     <div className="incoming-call-toast">
-      <div>📞 {incomingRing.callerUsername} {tr("те търси…", "is calling…")}</div>
+      <div>
+        <CallIcon size={16} /> {incomingRing.callerUsername} {tr("те търси…", "is calling…")}</div>
       <div className="incoming-call-toast-actions">
         <button className="modal-create-button" onClick={handleJoin}>
           {tr("Влез", "Join")}
