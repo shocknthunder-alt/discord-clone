@@ -260,6 +260,8 @@ interface Draft {
   eventReminders: boolean;
   eventReminderMinutes: number;
   clipBuffer: boolean;
+  clipVoices: boolean;
+  clipMyMic: boolean;
   gameOverlay: boolean;
   overlayCorner: "tl" | "tr" | "bl" | "br";
   overlayMessages: boolean;
@@ -316,6 +318,8 @@ function readCurrent(): Draft {
     eventReminders: p.eventReminders,
     eventReminderMinutes: p.eventReminderMinutes,
     clipBuffer: p.clipBuffer,
+    clipVoices: p.clipVoices,
+    clipMyMic: p.clipMyMic,
     gameOverlay: p.gameOverlay,
     overlayCorner: p.overlayCorner,
     overlayMessages: p.overlayMessages,
@@ -507,6 +511,8 @@ export default function UserSettingsModal({ onClose }: Props) {
         eventReminders: d.eventReminders,
         eventReminderMinutes: d.eventReminderMinutes,
         clipBuffer: d.clipBuffer,
+        clipVoices: d.clipVoices,
+        clipMyMic: d.clipMyMic,
         gameOverlay: d.gameOverlay,
         overlayCorner: d.overlayCorner,
         overlayMessages: d.overlayMessages,
@@ -982,6 +988,18 @@ export default function UserSettingsModal({ onClose }: Props) {
                     hint={t("Използва малко памет и видеокартата, докато гледаш. Изключи го, ако компютърът е слаб.", "Uses a little memory and the graphics card while you watch. Turn it off on a weak PC.")}
                     checked={draft.clipBuffer}
                     onChange={(on) => edit({ clipBuffer: on })}
+                  />
+                  <Toggle
+                    label={t("Записвай и гласовете от разговора", "Also record the voices of the call")}
+                    hint={t("В клипа се чуват и хората от гласовия канал в ШмиркаТа, не само звукът на играта.", "The clip also has the people in the ШмиркаТа voice channel, not just the game sound.")}
+                    checked={draft.clipVoices}
+                    onChange={(on) => edit({ clipVoices: on })}
+                  />
+                  <Toggle
+                    label={t("И моят микрофон", "And my microphone")}
+                    hint={t("Твоят глас в клипа (само когато не си заглушен).", "Your own voice in the clip (only while not muted).")}
+                    checked={draft.clipMyMic}
+                    onChange={(on) => edit({ clipMyMic: on })}
                   />
                 </Card>
               </>

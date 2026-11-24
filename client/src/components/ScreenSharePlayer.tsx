@@ -3,6 +3,7 @@ import { canPopOutWindows, closePopout, popOutStream, usePopoutStore } from "../
 import { cancelControl, requestControl, sendControlInput, useControlStore } from "../webrtc/remoteControl";
 import { tr } from "../i18n";
 import { ClipBuffer, clipsSupported } from "../webrtc/clipBuffer";
+import { getClipVoiceTracks } from "../webrtc/useVoiceChannel";
 import { useHotkeyTarget } from "../hotkeys/hotkeys";
 import { useAppPrefs } from "../utils/appPrefs";
 import ClipDialog from "./ClipDialog";
@@ -47,7 +48,11 @@ const ScreenSharePlayer = forwardRef<HTMLVideoElement, Props>(function ScreenSha
   const [clipping, setClipping] = useState(false);
   useEffect(() => {
     if (!clipEnabled) return;
-    const b = new ClipBuffer(stream);
+    // + the voices of the call (Settings → Клипове), not only the game sound the stream carries.
+    const b = new ClipBuffer(stream, () => {
+      const p = useAppPrefs.getState();
+      return getClipVoiceTracks({ others: p.clipVoices, mine: p.clipMyMic });
+    });
     b.start();
     clipBuf.current = b;
     return () => {

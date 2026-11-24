@@ -29,6 +29,10 @@ export interface AppPrefs {
   eventReminderMinutes: number;
   /** Keep the last 30 s of streams you watch so you can clip them (🎬). */
   clipBuffer: boolean;
+  /** Clips also carry the voices of the voice channel (everyone else). */
+  clipVoices: boolean;
+  /** ...and your own microphone. */
+  clipMyMic: boolean;
   /** Desktop app: show who's talking (and new messages) over games. */
   gameOverlay: boolean;
   /** Overlay corner: tl / tr / bl / br. */
@@ -62,6 +66,8 @@ const DEFAULTS: AppPrefs = {
   eventReminders: true,
   eventReminderMinutes: 15,
   clipBuffer: true,
+  clipVoices: true,
+  clipMyMic: true,
   gameOverlay: true,
   overlayCorner: "tl",
   overlayMessages: true,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { SocketEvents } from "@discord-clone/shared";
 import { tr } from "../i18n";
@@ -19,8 +19,14 @@ export default function ClipDialog({
   streamerName: string;
   onClose: () => void;
 }) {
-  const url = useMemo(() => URL.createObjectURL(blob), [blob]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  // Made and revoked by the same effect (a memo + a revoking cleanup broke under StrictMode's
+  // double effects: the URL was revoked and never made again).
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    const u = URL.createObjectURL(blob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [blob]);
   const channels = useServerStore((s) => s.textChannels);
   const activeTextChannelId = useServerStore((s) => s.activeTextChannelId);
   const postable = channels.filter((c) => c.type !== "trivia" && c.type !== "draw" && c.type !== "blocks" && c.type !== "match");
@@ -58,7 +64,7 @@ export default function ClipDialog({
     <div className="modal-overlay" onClick={() => progress === null && onClose()}>
       <div className="modal-card clip-dialog" onClick={(e) => e.stopPropagation()}>
         <h1 className="modal-title">🎬 {tr("Клип", "Clip")} — {streamerName}</h1>
-        <video className="clip-preview" src={url} controls autoPlay muted playsInline />
+        {url && <video className="clip-preview" src={url} controls autoPlay muted playsInline />}
         <p className="modal-hint">
           {tr(`Последните ~${seconds} секунди · ${sizeMb} MB`, `The last ~${seconds} seconds · ${sizeMb} MB`)}
         </p>

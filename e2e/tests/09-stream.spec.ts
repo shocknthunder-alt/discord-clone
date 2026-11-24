@@ -131,6 +131,41 @@ test.describe("📺 Стрийм на екрана", () => {
     await closeAll(a.context, b.context);
   });
 
+  test("✂️ клипът носи и гласовете от разговора (стриймът е без звук — чува се микрофонът на ana)", async ({ browser }) => {
+    const { a, b } = await live(browser);
+    await goLive(a.page);
+    await b.page.locator(".participant-watch").click();
+    await expect.poll(() => videoRate(b.page), { timeout: 25_000 }).toBeGreaterThan(20_000);
+    const supported = await b.page.evaluate(() => "MediaStreamTrackProcessor" in window && "VideoEncoder" in window);
+    test.skip(!supported, "няма WebCodecs в този браузър");
+    await b.page.waitForTimeout(8000); // буферът се пълни
+    await b.page.locator(".stream-clip-btn").click({ force: true });
+    const preview = b.page.locator("video.clip-preview");
+    await expect(preview).toBeVisible({ timeout: 15_000 });
+    const info = await preview.evaluate(async (el) => {
+      const buf = await (await fetch((el as HTMLVideoElement).src)).arrayBuffer();
+      const text = new TextDecoder("latin1").decode(new Uint8Array(buf));
+      let rms = 0;
+      try {
+        const ctx = new OfflineAudioContext(1, 48000, 48000);
+        const audio = await ctx.decodeAudioData(buf.slice(0));
+        const ch = audio.getChannelData(0);
+        let sum = 0;
+        for (let i = 0; i < ch.length; i++) sum += ch[i] * ch[i];
+        rms = Math.sqrt(sum / Math.max(1, ch.length));
+      } catch {
+        rms = -1;
+      }
+      return { bytes: buf.byteLength, opus: text.includes("A_OPUS"), rms };
+    });
+    console.log("  клип:", info);
+    expect(info.opus, "клипът няма аудио писта").toBe(true);
+    if (info.rms !== -1) expect(info.rms, "аудиото в клипа е тишина").toBeGreaterThan(0.001);
+    expectNoCrashes(a.page);
+    expectNoCrashes(b.page);
+    await closeAll(a.context, b.context);
+  });
+
   test("📊 диагностика при стриймъра и 🔄 нов енкодер — зрителят продължава да гледа", async ({ browser }) => {
     const { a, b } = await live(browser);
     await goLive(a.page);

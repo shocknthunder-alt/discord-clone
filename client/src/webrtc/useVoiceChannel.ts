@@ -308,6 +308,15 @@ export function getScreenShareStats() {
   return activeMediaManager?.getScreenStats() ?? Promise.resolve(null);
 }
 
+/** Voice tracks of the call for a clip: the others' mics and/or your own (processed, silent when muted). */
+export function getClipVoiceTracks(opts: { others: boolean; mine: boolean }): MediaStreamTrack[] {
+  const out: MediaStreamTrack[] = [];
+  if (opts.others && activeMediaManager) out.push(...activeMediaManager.voiceAudioTracks());
+  const mine = activeMicProcessing?.outputTrack;
+  if (opts.mine && mine && mine.readyState === "live") out.push(mine);
+  return out;
+}
+
 /** New encoder for your running screen share, same capture; viewers keep watching. */
 export function refreshScreenShare(): Promise<boolean> {
   return activeMediaManager?.refreshScreenVideo() ?? Promise.resolve(false);

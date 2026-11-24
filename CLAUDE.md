@@ -90,6 +90,11 @@ Owner pronouns unknown: use they/them.
   - ✂️ Клип (last 30 s): `webrtc/clipBuffer.ts` → worker `clipWorker.ts` (MediaStreamTrackProcessor on cloned
     tracks → WebCodecs H.264 with a keyframe every 1 s we request + Opus, ~35 s kept) → `webmMux.ts` (own
     WebM writer, checked with ffprobe). MediaRecorder ignored keyframe requests → 5 s clips. Setting `clipBuffer`.
+    Clip audio (2026-11-24) = `ClipAudioMix` (WebAudio, 48 kHz + limiter): the stream's sound + the call's voices
+    (`getClipVoiceTracks`: others' mic consumers, own processed mic — silent when muted), re-synced every 2 s;
+    prefs `clipVoices` / `clipMyMic` (Settings → Клипове).
+  - Screen-share adaptation also cuts on UPLOAD packet loss (remote-inbound-rtp; 8% once / 4% twice → 80% of the
+    sent rate, +15% after 30 s clean); 📊 shows "Загуби при качване" + the ceiling.
   - 📺 in the music player: the synced YouTube iframe box (never moved in the DOM) is repositioned
     over `MusicVideoWindow`.
   - Desktop 1.8.0 `overlay.js`/`overlay.html`: click-through always-on-top window, shown only when the

@@ -670,6 +670,13 @@ export class SfuMediaManager {
     this.screenAdaptInfo = null;
   }
 
+  /** Everyone's voice (mic) tracks arriving here — for mixing into clips. */
+  voiceAudioTracks(): MediaStreamTrack[] {
+    const out: MediaStreamTrack[] = [];
+    for (const s of this.remoteAudioStreams.values()) for (const t of s.getAudioTracks()) if (t.readyState === "live") out.push(t);
+    return out;
+  }
+
   /** Streams already arriving from this person (to re-attach after they re-appear in the roster). */
   mediaFor(userId: string): { audioStream?: MediaStream; screenStream?: MediaStream; cameraStream?: MediaStream } {
     const out: { audioStream?: MediaStream; screenStream?: MediaStream; cameraStream?: MediaStream } = {};
