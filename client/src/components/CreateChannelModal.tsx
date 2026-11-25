@@ -14,7 +14,7 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
   useEscapeKey(onClose);
   const { addTextChannel, addVoiceChannel } = useServerStore();
   const [name, setName] = useState("");
-  const [kind, setKind] = useState<"text" | "trivia" | "forum" | "draw" | "blocks" | "match">("text");
+  const [kind, setKind] = useState<"text" | "trivia" | "forum" | "draw" | "blocks" | "match" | "survivors">("text");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,6 +83,10 @@ export default function CreateChannelModal({ serverId, type, onClose }: Props) {
             <label className="modal-checkbox-label">
               <input type="radio" name="channel-kind" checked={kind === "match"} onChange={() => setKind("match")} />
               🍬 {tr("Шмиксер (подреди 3 еднакви, класация на сървъра)", "Shmixer (match 3, server top list)")}
+            </label>
+            <label className="modal-checkbox-label">
+              <input type="radio" name="channel-kind" checked={kind === "survivors"} onChange={() => setKind("survivors")} />
+              🧟 {tr("Шмиркленд (оцелей срещу ордите, сам или кооп)", "Shmirkland (survive the hordes, solo or co-op)")}
             </label>
           </div>
         )}

@@ -32,6 +32,7 @@ model User {
   drawScores           DrawScore[]
   blockScores          BlockScore[]
   matchScores          MatchScore[]
+  survivorProfile      SurvivorProfile?
   eventRsvps           EventRsvp[]
   dmConversationsAsA   DmConversation[] @relation("DmUserA")
   dmConversationsAsB   DmConversation[] @relation("DmUserB")
@@ -402,4 +403,16 @@ model Role {
   members Membership[]
 
   @@index([serverId])
+}
+
+/// 🧟 Шмиркленд: gold, shop upgrades ({key: level}), unlocked heroes (ids) and stats (SurvStats) of a person.
+model SurvivorProfile {
+  userId    String   @id
+  gold      Int      @default(0)
+  upgrades  Json     @default("{}")
+  heroes    Json     @default("[]")
+  stats     Json     @default("{}")
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

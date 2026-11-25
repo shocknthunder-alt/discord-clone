@@ -22,6 +22,8 @@ import { setActivity } from "./presence/activity.js";
 import { registerPolls } from "./polls.js";
 import { blocksRouter } from "./blocks.js";
 import { matchRouter } from "./match.js";
+import { survivorsRouter } from "./survivors.js";
+import { registerSurvivorsCoopGateway } from "./survivorsCoop.js";
 import { SocketEvents } from "@discord-clone/shared";
 import { forgetSocket, setSocketVisible } from "./push/push.js";
 import { pushRouter } from "./routes/push.routes.js";
@@ -47,6 +49,7 @@ app.use("/api", channelsRouter);
 app.use("/api", messagesRouter);
 app.use("/api", blocksRouter);
 app.use("/api", matchRouter);
+app.use("/api", survivorsRouter);
 
 app.use(errorHandler);
 
@@ -74,6 +77,7 @@ io.on("connection", (socket) => {
   registerPolls(io, socket);
   registerDrawGateway(io, socket);
   registerMatchDuelGateway(io, socket);
+  registerSurvivorsCoopGateway(io, socket);
 
   socket.on(SocketEvents.ClientVisibility, (p: { visible?: unknown }) => {
     setSocketVisible(socket.id, p?.visible !== false);

@@ -374,6 +374,41 @@ const tremolo: Voice = (g, f, t, dur, vel) => {
 
 /* ───────────── drums ───────────── */
 
+/** 🧟 Шмиркленд: a gaida (bagpipe chanter) — nasal, with a grace note on every note and a bit of vibrato. */
+const gaida: Voice = (g, f, t, dur, vel) => {
+  const end = t + dur;
+  const amp = g.ctx.createGain();
+  env(amp, t, 0.02 * vel, 0.012, dur, 0.06, 0.9);
+  const hp = filter(g, "highpass", 320);
+  const bp = filter(g, "bandpass", 1500, 1.1);
+  for (const [type, det] of [
+    ["sawtooth", 0],
+    ["square", 7],
+  ] as const) {
+    const o = g.ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f * 1.122, t); // the grace note, a tone above
+    o.frequency.setValueAtTime(f, t + 0.028);
+    o.detune.value = det;
+    vibrato(g, o, t, end, 9, 6.2);
+    o.connect(hp);
+    o.start(t);
+    o.stop(end + 0.1);
+  }
+  hp.connect(bp).connect(amp);
+  out(g, amp, 0.22);
+};
+
+/** The gaida's drone pipe: a steady buzzing low note. */
+const drone: Voice = (g, f, t, dur, vel) => {
+  const amp = g.ctx.createGain();
+  env(amp, t, 0.009 * vel, 0.08, dur, 0.15, 1);
+  const lp = filter(g, "lowpass", 950);
+  oscs(g, t, t + dur + 0.15, f, [{ type: "sawtooth" }, { type: "sawtooth", detune: 6 }], lp);
+  lp.connect(amp);
+  out(g, amp);
+};
+
 function noiseHit(g: G, t: number, dur: number, vol: number, type: BiquadFilterType, freq: number, q = 0.8, send = 0) {
   const src = g.ctx.createBufferSource();
   src.buffer = g.noise;
@@ -828,6 +863,103 @@ const MATCH_SET: StyleSet = {
   transpose: (level: number) => (level >= 2 ? Math.pow(2, 1 / 12) : 1),
 };
 
+/** 🧟 Шмиркленд: two own folk-rock songs (gaida + tapan + guitars) taking turns; a boss = faster + a semitone up. */
+const SURV_STYLES: Style[] = [
+  {
+    name: "Право хоро",
+    bpm: 150,
+    bpmStep: 0,
+    swing: 0,
+    tone: 14000,
+    chords: [
+      ["D2", "D3", "A3"],
+      ["G2", "D3", "A3"],
+      ["C3", "D3", "A3"],
+      ["D2", "D3", "A3"],
+    ],
+    riff: [
+      "D3 - . D3 x x D3 - . D3 x x C3 - D3 -",
+      "G2 - . G2 x x G2 - . G2 x x A2 - Bb2 -",
+      "C3 - . C3 x x C3 - . C3 x x Bb2 - A2 -",
+      "D3 - . D3 x x D3 - Eb3 - D3 - C3 - D3 -",
+    ],
+    riffVoice: rockGuitar,
+    bassFollowsRiff: true,
+    lead: [
+      "D5 Eb5 F#5 G5 A5 - G5 F#5 G5 - F#5 Eb5 D5 - - .",
+      "A5 Bb5 A5 G5 F#5 G5 A5 - Bb5 A5 G5 F#5 G5 - - .",
+      "D6 C6 Bb5 A5 G5 A5 Bb5 A5 G5 F#5 Eb5 F#5 G5 - F#5 -",
+      "Eb5 D5 Eb5 F#5 G5 F#5 Eb5 D5 Eb5 - D5 - - - . .",
+    ],
+    leadVoice: gaida,
+    leadEvery: 2,
+    bass: NONE,
+    bassVoice: rockBass,
+    comp: "x - - - - - - - x - - - - - - -",
+    compVoice: drone,
+    drums: {
+      // the tapan: a heavy beat on 1, a lighter one before 3
+      k: ["x . . . . . x . x . . . . . . .", "x . . . . . x . x . . . . . x ."],
+      s: [". . . . x . . . . . . . x . . ."],
+      h: ["x . x . x . x . x . x . x . x ."],
+      z: CRASH_ONCE,
+    },
+    snare: "normal",
+    hardKick: true,
+    fill: true,
+  },
+  {
+    name: "Ратаево",
+    bpm: 132,
+    bpmStep: 0,
+    swing: 0.12,
+    tone: 14000,
+    chords: [
+      ["A1", "A2", "E3"],
+      ["Bb1", "A2", "E3"],
+      ["F1", "A2", "E3"],
+      ["A1", "A2", "E3"],
+    ],
+    riff: [
+      "A2 - x x A2 - x x Bb2 - A2 - x x A2 -",
+      "Bb2 - x x Bb2 - x x C3 - Bb2 - x x Bb2 -",
+      "F2 - x x F2 - x x G2 - F2 - x x E2 -",
+      "A2 - x x A2 - x x Bb2 - C#3 - D3 - C#3 -",
+    ],
+    riffVoice: rockGuitar,
+    bassFollowsRiff: true,
+    lead: [
+      "A4 - Bb4 C#5 D5 - E5 - F5 E5 D5 C#5 D5 - - .",
+      "E5 - F5 E5 D5 C#5 Bb4 C#5 D5 - C#5 Bb4 A4 - - .",
+      "A5 - G5 F5 E5 - F5 G5 A5 - Bb5 A5 G5 F5 E5 -",
+      "F5 E5 D5 C#5 Bb4 - A4 - Bb4 C#5 D5 C#5 A4 - - -",
+    ],
+    leadVoice: gaida,
+    leadEvery: 2,
+    bass: NONE,
+    bassVoice: rockBass,
+    comp: "x - - - - - - - - - - - - - - -",
+    compVoice: drone,
+    drums: {
+      k: ["x . . . . . . . x . x . . . . .", "x . . . . . . . x . x . . . x ."],
+      s: [". . . . x . . . . . . . x . . ."],
+      h: ["x . x . x . x . x . x . x . x ."],
+      z: CRASH_ONCE,
+    },
+    snare: "normal",
+    hardKick: true,
+    fill: true,
+  },
+];
+const SURV_SET: StyleSet = {
+  styles: SURV_STYLES,
+  tier: () => 0,
+  rotate: 4,
+  bpm: (level, st) => (st?.bpm ?? 140) + (level >= 2 ? 14 : 0),
+  busy: (level: number) => level >= 2,
+  transpose: (level: number) => (level >= 2 ? Math.pow(2, 1 / 12) : 1),
+};
+
 const tierOf = (level: number) => Math.min(STYLES.length - 1, Math.floor((Math.max(1, level) - 1) / 2));
 
 function bpmFor(level: number): number {
@@ -1115,6 +1247,28 @@ export const matchMusic = {
   stop() {
     matchPlayer?.pause();
     matchPlayer = null;
+  },
+  setVolume(v: number) {
+    setMusicVolume(v);
+  },
+};
+
+let survPlayer: MusicPlayer | null = null;
+
+/** 🧟 Шмиркленд background music: play (boss = the faster, busier version), pause, stop. */
+export const survMusic = {
+  play(boss: boolean) {
+    const level = boss ? 2 : 1;
+    if (!survPlayer) survPlayer = new MusicPlayer(level, SURV_SET);
+    else survPlayer.setLevel(level);
+    survPlayer.play();
+  },
+  pause() {
+    survPlayer?.pause();
+  },
+  stop() {
+    survPlayer?.pause();
+    survPlayer = null;
   },
   setVolume(v: number) {
     setMusicVolume(v);

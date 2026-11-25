@@ -170,7 +170,7 @@ function InviteRow({ code }: { code: string }) {
   );
 }
 
-const GAME_TYPES = new Set(["trivia", "draw", "blocks", "match"]);
+const GAME_TYPES = new Set(["trivia", "draw", "blocks", "match", "survivors"]);
 const isGameChannel = (type: string | undefined) => !!type && GAME_TYPES.has(type);
 
 export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
@@ -373,7 +373,7 @@ export default function ChannelList({ onSelectText, onSelectVoice }: Props) {
                 }}
               >
                 <span className="channel-item-name">
-                  {channel.type === "trivia" ? "🎲" : channel.type === "forum" ? "🗂️" : channel.type === "draw" ? "🎨" : channel.type === "blocks" ? "🧱" : channel.type === "match" ? "🍬" : "#"} {channel.name}
+                  {channel.type === "trivia" ? "🎲" : channel.type === "forum" ? "🗂️" : channel.type === "draw" ? "🎨" : channel.type === "blocks" ? "🧱" : channel.type === "match" ? "🍬" : channel.type === "survivors" ? "🧟" : "#"} {channel.name}
                   {isMutedHere(mutes, activeServerId, channel.id) && <span className="muted-icon" title={tr("Заглушен", "Muted")}> 🔕</span>}
                 </span>
                 {!!mentionCounts[channel.id] && channel.id !== activeTextChannelId && (

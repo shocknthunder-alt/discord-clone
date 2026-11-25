@@ -42,9 +42,10 @@ export interface TextChannelDTO {
   position: number;
   /**
    * "trivia" channels are handled by the Trivia Bot; "forum" = a list of topics, each its own thread;
-   * "draw" = the 🎨 draw-and-guess game; "blocks" = 🧱 Шметрис (solo falling blocks + server top list); "match" = 🍬 Шмиксер (solo match-3 + top list).
+   * "draw" = the 🎨 draw-and-guess game; "blocks" = 🧱 Шметрис (solo falling blocks + server top list); "match" = 🍬 Шмиксер (solo match-3 + top list);
+   * "survivors" = 🧟 Шмиркленд (survive the hordes, solo / co-op).
    */
-  type: "text" | "trivia" | "forum" | "draw" | "blocks" | "match";
+  type: "text" | "trivia" | "forum" | "draw" | "blocks" | "match" | "survivors";
   /** Newest message by a person (not the trivia bot), for unread markers. Missing on old servers. */
   lastMessageAt?: string | null;
 }

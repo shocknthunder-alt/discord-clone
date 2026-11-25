@@ -27,7 +27,7 @@ export function registerPolls(io: IOServer, socket: Socket) {
       if (!textChannelId || !question || options.length < 2) return;
       const hours = Math.max(0, Math.min(Number(p?.hours) || 0, 24 * 14));
       const channel = await prisma.textChannel.findUnique({ where: { id: textChannelId } });
-      if (!channel || channel.type === "trivia" || channel.type === "draw" || channel.type === "blocks" || channel.type === "match") return;
+      if (!channel || channel.type === "trivia" || channel.type === "draw" || channel.type === "blocks" || channel.type === "match" || channel.type === "survivors") return;
       const membership = await prisma.membership.findUnique({ where: { userId_serverId: { userId, serverId: channel.serverId } } });
       if (!membership) return;
 

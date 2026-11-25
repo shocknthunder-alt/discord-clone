@@ -167,6 +167,25 @@ export const SocketEvents = {
   MatchSpectateUpdate: "match:spectate-update", // server → spectators: DuelSpectateUpdateDTO
   MatchSpectateEvent: "match:spectate-event", // server → spectators: DuelSpectateEventDTO (attack / block)
   MatchSpectateOver: "match:spectate-over", // server → spectators: DuelSpectateOverDTO
+  // 🧟 Шмиркленд co-op (channels with type "survivors"); see survivors.ts for the payloads.
+  SurvWatch: "surv:watch", // client → server: { channelId } (the channel is on screen)
+  SurvUnwatch: "surv:unwatch", // { channelId }
+  SurvLobby: "surv:lobby", // server → room: SurvLobbyDTO
+  SurvCreate: "surv:create", // { channelId, hero, curses } → you host a new party
+  SurvJoin: "surv:join", // { partyId, hero }
+  SurvLeave: "surv:leave", // { partyId }
+  SurvSetup: "surv:setup", // { partyId, hero?, curses? } (curses: host only)
+  SurvStart: "surv:start", // host: { partyId }
+  SurvStarted: "surv:started", // server → members / spectator: SurvStartDTO
+  SurvState: "surv:state", // host → server → guests + spectators (volatile): SurvRelayDTO (snapshot)
+  SurvInput: "surv:input", // guest → server → host (volatile): SurvRelayDTO
+  SurvMsg: "surv:msg", // reliable, both ways: SurvRelayDTO (offers, picks, events)
+  SurvMember: "surv:member", // server → host: SurvMemberEventDTO (a guest left / came back)
+  SurvProgress: "surv:progress", // host → server: { partyId, seconds, kills } (for the lobby)
+  SurvEnd: "surv:end", // host → server: { partyId, seconds, kills }
+  SurvOver: "surv:over", // server → members + spectators: SurvOverDTO
+  SurvSpectate: "surv:spectate", // { partyId }
+  SurvSpectateStop: "surv:spectate-stop", // { partyId }
 } as const;
 
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
