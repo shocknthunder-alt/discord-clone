@@ -28,6 +28,13 @@
 .dr-shadow { transform-origin: 112px 206px; }
 .dr-blink { transform-origin: 148px 63px; }
 .dr-fire { transform-origin: 190px 87px; }
+/* the grown-up fantasy dragon (DragonFierce, stages 3–5): head higher, wing roots at the shoulder */
+.dr-fierce .dr-head { transform-origin: 136px 80px; }
+.dr-fierce .dr-wing-near { transform-origin: 104px 114px; }
+.dr-fierce .dr-wing-far { transform-origin: 96px 106px; }
+.dr-fierce .dr-blink { transform-origin: 155px 59px; }
+.dr-fierce .dr-fire { transform-origin: 194px 77px; }
+.dr-fierce .dr-arm { transform-origin: 130px 128px; }
 .dr-stage-5 .dr-svg { filter: drop-shadow(0 0 8px rgba(255, 212, 59, 0.35)) drop-shadow(0 6px 10px rgba(0, 0, 0, 0.45)); }
 .dr-runes { animation: dr-rune 2.4s ease-in-out infinite; }
 @keyframes dr-rune { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }

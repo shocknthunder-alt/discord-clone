@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./dragon.css";
+import { DragonFierce } from "./DragonFierce";
 
 /**
  * 🐉 The Шметрис pet: our own little dragon next to the well, in profile looking at it. Every game
@@ -155,7 +156,13 @@ export default function Dragon({
         </div>
       )}
       <svg key={`s${cheerKey}${mood === "grow" ? "g" : ""}`} className="dr-svg" viewBox="0 0 220 220" role="img">
-        {s === 0 ? <Egg mood={mood} progress={progress} /> : <Beast mood={mood} s={s} c={dragonColor(color)} />}
+        {s === 0 ? (
+          <Egg mood={mood} progress={progress} />
+        ) : s >= 3 ? (
+          <DragonFierce mood={mood} s={s} p={DRAGON_COLORS[dragonColor(color)]!} id={`${s}-${dragonColor(color)}`} />
+        ) : (
+          <Beast mood={mood} s={s} c={dragonColor(color)} />
+        )}
         {mood === "sleep" && (
           <g className="dr-zzz" fill="#cfe3ff" stroke="none" fontWeight={900} fontFamily="system-ui, sans-serif">
             <text className="z1" x={s === 0 ? 150 : 176} y={s === 0 ? 96 : 60} fontSize="13">z</text>
