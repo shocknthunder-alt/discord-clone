@@ -735,7 +735,7 @@ export default function UserSettingsModal({ onClose }: Props) {
                   <p className="set-hint">{t("В браузъра работи само когато прозорецът е на фокус; в десктоп приложението — винаги.", "In the browser it only works while the window is focused; in the desktop app — always.")}</p>
                 </Card>
 
-                <Card title="Soundboard" hint={t("Кратките звуци, които хората пускат в гласовия канал (бутон 🥁).", "The short sounds people play in the voice channel (🥁 button).")}>
+                <Card title="Soundboard" hint={t("Кратките звуци, които хората пускат в гласовия канал (бутонът с квадратчетата до ⚙️).", "The short sounds people play in the voice channel (the pad-grid button next to ⚙️).")}>
                   <Toggle
                     label={t("Чувай soundboard звуците", "Hear soundboard sounds")}
                     checked={draft.soundboardEnabled}

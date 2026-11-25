@@ -102,6 +102,19 @@ export function ScreenShareIcon({ size = 16, color = "#ffffff" }: IconProps) {
   );
 }
 
+/** Soundboard: a 2×2 pad grid, one pad lit (theme accent) with a little sound wave inside. */
+export function SoundboardIcon({ size = 16, color = "#ffffff" }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="2.5" y="2.5" width="8.5" height="8.5" rx="2.2" stroke={color} strokeWidth="1.7" />
+      <rect x="2.5" y="13" width="8.5" height="8.5" rx="2.2" stroke={color} strokeWidth="1.7" />
+      <rect x="13" y="13" width="8.5" height="8.5" rx="2.2" stroke={color} strokeWidth="1.7" />
+      <rect x="12.6" y="2.1" width="9.3" height="9.3" rx="2.4" fill="var(--accent, #5865f2)" />
+      <path d="M14.9 6.75v.01M16.55 5.2v3.1M18.2 4.2v5.1M19.85 5.6v2.3" stroke="#ffffff" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function CameraIcon({ size = 16, color = "#ffffff", off = false }: IconProps & { off?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>

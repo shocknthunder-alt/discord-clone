@@ -3,7 +3,7 @@ import { useLayoutLockStore } from "../store/layoutLockStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
 import FloatingIcon from "./FloatingIcon";
-import { CameraIcon, HangupIcon, HeadphoneIcon, LockIcon, MicIcon } from "./HudIcons";
+import { CameraIcon, HangupIcon, HeadphoneIcon, LockIcon, MicIcon, SoundboardIcon } from "./HudIcons";
 import SoundboardPanel from "./SoundboardPanel";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
@@ -11,7 +11,7 @@ import { tr } from "../i18n";
 
 // Starting layout: a vertical rail of its own (.voice-rail, a real column between the channel list
 // and the chat/voice view — so the buttons never cover anything, whatever the window size):
-//   top:    ping · mute · deafen · camera · LIVE · soundboard (🥁) · settings
+//   top:    ping · mute · deafen · camera · LIVE · soundboard · settings
 //   bottom: hang up · lock
 // Only used until an icon is dragged (Unlock layout — each dragged icon keeps its own spot).
 // Computed fresh from where the rail actually is (FloatingIcon re-checks undragged icons).
@@ -115,7 +115,7 @@ export default function FloatingVoiceHud() {
           onClick={() => setShowSoundboard((v) => !v)}
           title={tr("Звуци за всички (soundboard)", "Soundboard — sounds for everyone")}
         >
-          🥁
+          <SoundboardIcon size={20} />
         </button>
       </FloatingIcon>
 

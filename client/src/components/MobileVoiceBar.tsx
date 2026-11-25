@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useVoiceChannel } from "../webrtc/useVoiceChannel";
-import { CameraIcon, HangupIcon, HeadphoneIcon, MicIcon } from "./HudIcons";
+import { CameraIcon, HangupIcon, HeadphoneIcon, MicIcon, SoundboardIcon } from "./HudIcons";
 import SoundboardPanel from "./SoundboardPanel";
 import UserSettingsModal from "./UserSettingsModal";
 import { SignalIcon } from "./VoiceStatusBar";
@@ -35,7 +35,7 @@ export default function MobileVoiceBar({ onOpenVoice }: { onOpenVoice: () => voi
           <CameraIcon off={!isCameraOn} size={22} />
         </button>
         <button type="button" className={`hud-icon-button ${showSoundboard ? "active" : ""}`} onClick={() => setShowSoundboard((v) => !v)} aria-label="Soundboard">
-          🥁
+          <SoundboardIcon size={22} />
         </button>
         <button type="button" className="hud-icon-button" onClick={() => setShowSettings(true)} aria-label={tr("Настройки", "Settings")}>
           ⚙️

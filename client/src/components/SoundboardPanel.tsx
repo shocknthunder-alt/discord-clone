@@ -10,6 +10,7 @@ import { useAuthStore } from "../store/authStore";
 import { useServerStore } from "../store/serverStore";
 import { useVoiceStore } from "../store/voiceStore";
 import { useAppPrefs } from "../utils/appPrefs";
+import { SoundboardIcon } from "./HudIcons";
 import { playSoundboardClip } from "../utils/soundboardPlayer";
 import "./soundboard.css";
 import WaveformTrimmer, { encodeSelectionWav } from "./WaveformTrimmer";
@@ -47,7 +48,7 @@ interface Editing {
 
 const EMPTY: Editing = { id: null, name: "", emoji: "🔊", volume: 80, file: null, buffer: null, start: 0, end: 0 };
 
-/** The 🥁 soundboard panel: click a tile to play it for everyone in the voice channel. */
+/** The soundboard panel: click a tile to play it for everyone in the voice channel. */
 export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
   useEscapeKey(onClose);
   // In a DM call there is no server: only the built-in clips.
@@ -149,7 +150,9 @@ export default function SoundboardPanel({ onClose }: { onClose: () => void }) {
   return createPortal(
     <div className={`sb-panel ${editing && !editing.id ? "wide" : ""}`} role="dialog" aria-label="Soundboard">
       <header className="sb-head">
-        <span>🥁 Soundboard</span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <SoundboardIcon size={16} /> Soundboard
+        </span>
         <button className="sb-x" onClick={onClose} title={tr("Затвори (Esc)", "Close (Esc)")}>
           ✕
         </button>
