@@ -796,7 +796,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     const s = sessRef.current;
     const o = offersRef.current;
     if (!s || !o) return;
-    if (i >= o.offers.length) return;
+    // -1 = skip (+3 gold); any other index must be one of the cards (keys 1–4 past the end do nothing)
+    if (i !== -1 && (i < 0 || i >= o.offers.length)) return;
     setOffers(null);
     if (s.world) s.world.pick(myId, i);
     else if (s.partyId) getSocket()?.emit(SocketEvents.SurvMsg, { partyId: s.partyId, d: { k: "pick", i } satisfies GuestMsg });
@@ -1810,7 +1811,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             <button onClick={reroll} disabled={offers.rerolls <= 0}>
               🎲 Пак ({offers.rerolls})
             </button>
-            <button onClick={() => pick(99)}>Пропусни (+3 🪙)</button>
+            <button onClick={() => pick(-1)}>Пропусни (+3 🪙)</button>
           </div>
         </div>
       )}
