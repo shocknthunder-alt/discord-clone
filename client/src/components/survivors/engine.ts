@@ -395,7 +395,7 @@ const PLAYER_R = 14;
 const BASE_SPEED = 170;
 /** picking up gems from this far (× the magnet stat) */
 const BASE_MAGNET = 140;
-const SPAWN_R = 720;
+const SPAWN_R = 770;
 const DESPAWN_R = 1350;
 const MAX_ENEMIES = 460;
 const MAX_GEMS = 260;
@@ -727,7 +727,14 @@ export class World {
   }
   private hpMul() {
     const w = this.w;
-    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul;
+    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp();
+  }
+  /** the gods' gifts make heroes much stronger: the hordes toughen up with them (+5% per gift level, on average per hero) */
+  private giftHp() {
+    const ps = this.players.filter((p) => !p.gone);
+    if (!ps.length) return 1;
+    const lv = ps.reduce((s, p) => s + Object.values(p.gifts).reduce((a, b) => a + (b ?? 0), 0), 0) / ps.length;
+    return 1 + 0.05 * lv;
   }
   private dmgMul() {
     return (1 + this.w * 0.115) * this.mapDef.dmgMul;
@@ -850,7 +857,7 @@ export class World {
       for (let k = 0; k < count; k++) {
         const type = this.nextBossType();
         const [x, y] = this.spawnPoint(undefined, 600);
-        const hp = ENEMIES[type].hp * (1 + 0.12 * w) * (1 + 0.6 * this.bossCycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
+        const hp = 1.5 * ENEMIES[type].hp * (1 + 0.12 * w) * this.mapDef.hpMul * this.giftHp() * (1 + 0.6 * this.bossCycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
         const b = this.spawn(type, x, y, { boss: true, hp });
         this.waveBosses.push(b);
         this.boss = b;
@@ -1301,7 +1308,7 @@ export class World {
     this.missionPhase = 2;
     this.marks = this.marks.filter((m) => m.kind !== MK.portal);
     const type = this.mapDef.final;
-    const hp = ENEMIES[type].hp * (1 + 0.04 * this.wave) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (late ? 1.4 : 1);
+    const hp = 1.8 * ENEMIES[type].hp * (1 + 0.04 * this.wave) * this.giftHp() * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (late ? 1.4 : 1);
     const b = this.spawn(type, x, y, { boss: true, hp });
     this.finalBoss = b;
     this.boss = b;

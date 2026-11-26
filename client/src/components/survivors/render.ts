@@ -111,6 +111,8 @@ export interface DrawOpts {
 }
 
 /** World units visible at least (the zoom fits this into the canvas). */
+/** in 3D the camera stands further back */
+const THREE_ZOOM = 0.78;
 const VIEW_W = 920;
 const VIEW_H = 540;
 
@@ -120,6 +122,8 @@ export class Renderer {
   private h = 1;
   private dpr = 1;
   zoom = 1;
+  /** the zoom the last frame used (the 3D layer follows it) */
+  zNow = 1;
   private particles: Particle[] = [];
   private texts: FloatText[] = [];
   private bolts: Bolt[] = [];
@@ -306,7 +310,9 @@ export class Renderer {
     const main = this.c;
     let c = main;
     this.clock += dt;
-    const z = this.zoom;
+    // 3D: a bit further out (the models are bigger than the old pictures); both layers use the same zoom
+    const z = this.zoom * (o.three ? THREE_ZOOM : 1);
+    this.zNow = z;
     let camX = o.camX;
     let camY = o.camY;
     this.shakeX = 0;

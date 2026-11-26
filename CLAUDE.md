@@ -257,7 +257,11 @@ Owner pronouns unknown: use they/them.
   the old 2D pictures (`bbSet`); props instanced per map set. 3D ANIMALS (2026-11-27): CC0 `a_*.glb` (oosawak/cc0-monsters, built by
   `tools/surv3d/animals.mjs`) — rat, vampire bat, wolf, bear, werewolf (own clips baked as VAT; models without clips bob +
   squash; `Enemy3D.clip` = clip name, `yaw` offset, `lift` for fliers) and bosses wolfking / bearking / zmey / lamia
-  (`BossObj.own` clips). Spider, raven, fire spirit, pot stay upright pictures (the free 3D ones looked worse). Toggle 🧊/🖼️ in the HUD (localStorage `survGfx`, phones default 2D).
+  (`BossObj.own` clips). Spider, raven, fire spirit, pot stay upright pictures (the free 3D ones looked worse). Files can hold extra copies
+  (rat.glb = 3 rats, vampire bat = static copies + a ground plane): `Enemy3D.only` keeps the named parts; the wolf model
+  faces ±X (`yaw: -π/2`). 3D zooms out by `THREE_ZOOM` 0.78 (`Renderer.zNow` is passed to the 3D layer); SPAWN_R 770.
+  Balance after the gods: `giftHp()` = +5% enemy/boss hp per gift level (average per hero), wave bosses ×1.5 (and the map's
+  hpMul), mission giants ×1.8. Toggle 🧊/🖼️ in the HUD (localStorage `survGfx`, phones default 2D).
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

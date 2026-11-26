@@ -201,6 +201,8 @@ interface Enemy3D {
   yaw?: number;
   /** flies this many px above the ground */
   lift?: number;
+  /** only these parts of the file */
+  only?: string[];
 }
 const EN3D: Partial<Record<EnemyId, Enemy3D>> = {
   zombie: { m: "skeleton_minion", clip: "Walking_D_Skeletons", h: 46, tint: "#a8c890" },
@@ -212,9 +214,9 @@ const EN3D: Partial<Record<EnemyId, Enemy3D>> = {
   kuker: { m: "skeleton_warrior", clip: "Walking_D_Skeletons", h: 54, tint: "#fff2e0" },
   blatnik: { m: "skeleton_warrior", clip: "Walking_D_Skeletons", h: 74, tint: "#7aa858", sp: 0.8 },
   // animals
-  rat: { m: "a_rat", clip: null, h: 18, tint: "#b8b0a8", yaw: Math.PI },
-  bat: { m: "a_vbat", clip: "Bat_Flying", h: 10, tint: "#c0a0d0", lift: 26, sp: 1 },
-  wolf: { m: "a_wolf", clip: "Walking", h: 30, tint: "#c8c4c0", sp: 2 },
+  rat: { m: "a_rat", clip: null, h: 18, tint: "#b8b0a8", yaw: Math.PI, only: ["Rat2"] },
+  bat: { m: "a_vbat", clip: "Bat_Flying", only: ["Bat_LP_Anim"], h: 10, tint: "#c0a0d0", lift: 26, sp: 1 },
+  wolf: { m: "a_wolf", clip: "Walking", h: 30, tint: "#c8c4c0", sp: 2, yaw: -Math.PI / 2 },
   bear: { m: "a_bear", clip: null, h: 50, tint: "#9a6a44", yaw: Math.PI },
   werewolf: { m: "a_werewolf", clip: "run", h: 58, tint: "#d0b8a0", sp: 1.2 },
 };
@@ -239,7 +241,7 @@ const BOSS3D: Partial<Record<EnemyId, Boss3D>> = {
   kukerchief: { m: "barbarian", h: 124, tint: "#e8dccb", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"] },
   ghostking: { m: "skeleton_rogue", h: 114, tint: "#cfe2ff", alpha: 0.6 },
   hala: { m: "skeleton_mage", h: 114, tint: "#a8b8d0" },
-  wolfking: { m: "a_wolf", h: 90, tint: "#5a5560" },
+  wolfking: { m: "a_wolf", h: 90, tint: "#5a5560", yaw: -Math.PI / 2 },
   bearking: { m: "a_bear", h: 120, tint: "#6a4a30", yaw: Math.PI },
   zmey: { m: "a_dragon", h: 130, tint: "#d86040", lift: 30, yaw: Math.PI },
   lamia: { m: "a_dragon", h: 120, tint: "#6aa050", yaw: Math.PI },
@@ -283,11 +285,14 @@ const VAT_FRAMES = 20;
 const VAT_W = 2048;
 
 /** clip = null: a model without animation (one frame; the renderer bobs it) */
-function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip | null): Vat {
+function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip | null, only?: string[]): Vat {
   const root = skClone(src);
   const meshes: THREE.Mesh[] = [];
   root.traverse((o) => {
-    if ((o as THREE.Mesh).isMesh && o.visible) meshes.push(o as THREE.Mesh);
+    if (!(o as THREE.Mesh).isMesh || !o.visible) return;
+    // some files hold several copies / a ground plane: keep only the named parts
+    if (only && !only.includes(o.name) && !only.includes(o.parent?.name ?? "")) return;
+    meshes.push(o as THREE.Mesh);
   });
   const FR = clip ? VAT_FRAMES : 1;
   const mixer = new THREE.AnimationMixer(root);
@@ -864,11 +869,11 @@ export class Renderer3D {
 
     // humanoid enemies
     for (const [type, cfg] of Object.entries(EN3D) as [EnemyId, Enemy3D][]) {
-      const ck = `${cfg.m}:${cfg.clip}`;
+      const ck = `${cfg.m}:${cfg.clip}:${cfg.only?.join(",") ?? ""}`;
       let vat = this.vatCache.get(ck);
       if (!vat) {
         const clip = cfg.clip ? (a.models[cfg.m].animations.find((c) => c.name === cfg.clip) ?? a.clips.get(cfg.clip) ?? null) : null;
-        vat = bakeVat(a.models[cfg.m].scene, clip);
+        vat = bakeVat(a.models[cfg.m].scene, clip, cfg.only);
         this.vatCache.set(ck, vat);
       }
       const mats = vat.mats.map((_, i) => vatMaterial(vat!, i, this.uTime, cfg.alpha ?? 1));

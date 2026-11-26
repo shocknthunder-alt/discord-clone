@@ -1016,7 +1016,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         const night = s.curses.includes("night");
         const me = s.mode === "spec" ? null : myId;
         r.draw(view, { me, night, numbers: numbersRef.current, fxAlpha: fxAlphaRef.current, camX, camY, three, map: s.map }, dt);
-        if (three) g3!.render(view, { me, camX: camX + r.shakeX, camY: camY + r.shakeY, zoom: r.zoom, night, map: s.map }, dt);
+        if (three) g3!.render(view, { me, camX: camX + r.shakeX, camY: camY + r.shakeY, zoom: r.zNow, night, map: s.map }, dt);
       }
 
       // music follows the boss
