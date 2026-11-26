@@ -277,6 +277,18 @@ Owner pronouns unknown: use they/them.
   `WEAPON_IDS[wi]`), timed in `stepCombos`; damage index -5; banner via `announceCombos`; card hints `combosOf`.
   Skills buffed (owner said weak): Киро 6 s vortex (pull 400, grind 190, ring every s, speed buff, end 320 blast + stun);
   Спаска = feast (60% heal/revive, `buffs.cheers` 8 s for all, 3 widening banitsa rings via `volley`).
+  🎒 GEAR + ☠️ DIFFICULTY (2026-11-27, `packages/shared/src/survItems.ts`): items are PERMANENT in SurvivorProfile.extra
+  `items` (≤ 80) + `gear` {hero: {weapon|armor|amulet: itemId}}; bases `SURV_ITEM_BASES` (weapons = 2 per hero, armour /
+  amulets anyone), rarity 0..3 = 1..4 stats (`survRollItem`, legendary may get +1 projectile), names in content.ts
+  `ITEM_TEXT`. In a game: bosses 50%+4%/diff (+5%/diff a second), elites 3%, the giant gives 2 straight to everyone
+  (`giveItem`); pickup `GK.item + rarity` (10..13), everyone gets one (`Player.loot` rarities, net index 29). The run
+  POST sends `loot` rarities, the SERVER rolls the items (cap `survLootCap`), full bag = weakest unworn salvaged.
+  POST `/survivors/equip` {hero, slot, item|null}, `/survivors/salvage` {items}. Gear stats → `PlayerSetup.gear` (solo
+  from the profile, co-op `SurvMemberDTO.gear` from `survGearOf`); `heroWeapon` = +% to the hero's own weapon, `skillDmg`,
+  `skillCd`. Difficulty 0..10 per map (`extra.diffs`, `survDiffOpen`): winning the mission at d opens d+1; server clamps
+  the played diff; ×(1+0.25d) gold. Engine: hp +20%/d, dmg +12%/d, waves + cap +15%/d, bosses learn `DIFF_MOVES` one per
+  level (names `DIFF_SPELL_NAMES`), rage at 70% from d3, cast faster. Party `diff` (host sets; clamped to the host's).
+  Menu tab 🎒 Снаряжение; picker `.sv-diff`. e2e 15 test 4.
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

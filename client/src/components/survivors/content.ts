@@ -493,6 +493,84 @@ export const BOSS_MOVE_DESC: Record<BossMove, string> = {
   wall: "стена от снаряди с една пролука",
   acid: "отровни локви падат около теб (зелени кръгове)",
 };
+/** ☠️ each difficulty level teaches every boss one more spell, in this order (missing ones only) */
+export const DIFF_MOVES: BossMove[] = ["nova", "wall", "meteors", "spiral", "summon", "firering", "acid", "blink", "leap", "shield"];
+export const DIFF_SPELL_NAMES: Record<BossMove, string> = {
+  leap: "☠️ Скок на гнева",
+  firering: "☠️ Пъкленият обръч",
+  meteors: "☠️ Звезден дъжд",
+  shield: "☠️ Каменна кожа",
+  summon: "☠️ Зов на ордата",
+  nova: "☠️ Взрив на мрака",
+  spiral: "☠️ Черна вихрушка",
+  blink: "☠️ Сянка",
+  wall: "☠️ Стената",
+  acid: "☠️ Отровен дъжд",
+};
+export const DIFF_NAMES = ["Нормално", "Трудно I", "Трудно II", "Трудно III", "Кошмар I", "Кошмар II", "Кошмар III", "Пъкъл I", "Пъкъл II", "Пъкъл III", "Пъкъл IV"];
+/** what a difficulty does (shown in the menu) */
+export const diffText = (d: number) =>
+  d === 0
+    ? "Обичайната игра."
+    : `Врагове +${20 * d}% живот, +${12 * d}% щети, +${15 * d}% повече; босовете знаят ${d} нови магии${d >= 3 ? ", побесняват при 70%" : ""}. Награда: ×${(1 + 0.25 * d).toFixed(2)} злато, повече и по-редки предмети.`;
+
+/* ───────────── 🎒 gear texts ───────────── */
+
+export const RARITY: { name: string; color: string }[] = [
+  { name: "Обикновен", color: "#c8c8c8" },
+  { name: "Рядък", color: "#4aa8ff" },
+  { name: "Епичен", color: "#b67cff" },
+  { name: "Легендарен", color: "#ffb02e" },
+];
+export const ITEM_TEXT: Record<string, { name: string; icon: string }> = {
+  gega: { name: "Овчарска гега", icon: "🦯" },
+  hlopka: { name: "Медна хлопка", icon: "🔔" },
+  maratonki: { name: "Златни маратонки", icon: "👟" },
+  kasket: { name: "Брейк каскет", icon: "🧢" },
+  bobina: { name: "Тесла бобина", icon: "🌀" },
+  kreda: { name: "Тебешир на даскала", icon: "🖍️" },
+  tava: { name: "Медна тава", icon: "🍳" },
+  tochilka: { name: "Точилка", icon: "🥖" },
+  dvuraka: { name: "Двуръка брадва", icon: "🪓" },
+  kolan: { name: "Борчески колан", icon: "🥋" },
+  venets: { name: "Самодивски венец", icon: "💐" },
+  pesen: { name: "Самодивска песен", icon: "🎵" },
+  kozagaida: { name: "Козя гайда", icon: "🎶" },
+  maska: { name: "Кукерска маска", icon: "👹" },
+  hidrokrik: { name: "Хидравличен крик", icon: "🔧" },
+  klyuch: { name: "Гаечен ключ", icon: "🔩" },
+  hurka: { name: "Знахарска хурка", icon: "🪄" },
+  bilki: { name: "Торба билки", icon: "🌿" },
+  kozhuh: { name: "Кожух", icon: "🧥" },
+  elek: { name: "Шит елек", icon: "🦺" },
+  poyas: { name: "Тъкан пояс", icon: "🎗️" },
+  yamurluk: { name: "Ямурлук", icon: "🧶" },
+  muska: { name: "Муска", icon: "🧿" },
+  sinchets: { name: "Синчец", icon: "🌼" },
+  monista: { name: "Мониста", icon: "🪙" },
+  oko: { name: "Синьо око", icon: "👁️" },
+  pero: { name: "Змейово перо", icon: "🪶" },
+};
+export const SLOT_TEXT = { weapon: "Оръжие", armor: "Броня", amulet: "Амулет" } as const;
+export const GEAR_STAT_TEXT: Record<string, (v: number) => string> = {
+  might: (v) => `+${v}% щети`,
+  maxHp: (v) => `+${v}% живот`,
+  armor: (v) => `+${v} броня`,
+  regen: (v) => `+${v} живот/с`,
+  cooldown: (v) => `+${v}% презареждане`,
+  area: (v) => `+${v}% обхват`,
+  speed: (v) => `+${v}% бързина`,
+  magnet: (v) => `+${v}% събиране`,
+  luck: (v) => `+${v}% късмет`,
+  crit: (v) => `+${v}% крит`,
+  xp: (v) => `+${v}% опит`,
+  greed: (v) => `+${v}% злато`,
+  skillDmg: (v) => `+${v}% сила на умението`,
+  skillCd: (v) => `−${v}% време за умението`,
+  heroWeapon: (v) => `+${v}% щети на основното оръжие`,
+  amount: () => `+1 снаряд`,
+};
+
 /** every boss has its own two spells (with its own names) */
 export const BOSS_SPELLS: Partial<Record<EnemyId, [BossMove, string][]>> = {
   karak: [["leap", "⤴️ Скок от гроба"], ["summon", "⚰️ Гробищна свита"]],

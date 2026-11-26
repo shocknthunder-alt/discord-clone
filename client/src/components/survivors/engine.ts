@@ -1,4 +1,5 @@
-import type { SurvCurseId, SurvHeroId, SurvMapId, SurvMetaKey, SurvRuneId, SurvSkinId } from "@discord-clone/shared";
+import type { SurvCurseId, SurvGearStat, SurvHeroId, SurvMapId, SurvMetaKey, SurvRuneId, SurvSkinId } from "@discord-clone/shared";
+import { survRollRarity } from "@discord-clone/shared";
 import {
   AFFIXES,
   GIFTS,
@@ -9,6 +10,9 @@ import {
   MAPS,
   MISSION_ALTARS,
   MISSION_SECONDS,
+  DIFF_MOVES,
+  DIFF_SPELL_NAMES,
+  RARITY,
   RELICS,
   TEMPERS,
   TEMPER_IDS,
@@ -174,7 +178,9 @@ const ZONES = new Set<number>([PK.poison, PK.tornado]);
 const NO_HITS = new Set<number>([PK.cauldron, PK.jack, PK.scarecrow]);
 
 /** gem kinds */
-export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8, relic: 9 } as const;
+export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8, relic: 9, item: 10 } as const;
+/** 🎒 an item pickup is k = GK.item + rarity (10..13) */
+export const isItemGem = (k: number) => k >= GK.item && k <= GK.item + 3;
 /** map marks */
 export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5, acid: 6, portal: 7 } as const;
 
@@ -287,6 +293,9 @@ export interface Player extends RPlayer {
   bellT: number;
   /** 🔨 temper cards taken; 🔗 combo timers */
   tempers: Partial<Record<TemperId, number>>;
+  /** 🎒 gear stats; rarities of the items picked up this game */
+  gear: Partial<Record<SurvGearStat, number>>;
+  loot: number[];
   comboT: { svatba: number; prolet: number; roy: number; krik: number };
 }
 
@@ -394,9 +403,13 @@ export interface PlayerSetup {
   remote: boolean;
   /** (2026-11-27+) worn runes */
   runes?: Partial<Record<SurvRuneId, number>>;
+  /** (2026-11-27+) 🎒 summed stats of the gear the hero wears */
+  gear?: Partial<Record<SurvGearStat, number>>;
 }
 
 export interface WorldOpts {
+  /** ☠️ difficulty 0..10 */
+  diff?: number;
   map?: SurvMapId;
   /** 🎯 the mission: 5 sanctuaries → call the giant → win */
   mission?: boolean;
@@ -537,6 +550,8 @@ export class World {
   private lastThemes: number[] = [];
   private bossQueue: EnemyId[] = [];
   private bossCycle = 0;
+  /** ☠️ difficulty 0..10 */
+  readonly diff: number = 0;
   private sinceHit = 0;
   /** Вела's dance: frozen enemies take double damage while this runs */
   private shatterT = 0;
@@ -567,6 +582,7 @@ export class World {
     this.pauseOnLevel = setup.length <= 1;
     this.map = opts.map && MAPS[opts.map] ? opts.map : "polyana";
     this.mission = !!opts.mission;
+    this.diff = Math.max(0, Math.min(10, Math.floor(opts.diff ?? 0)));
     setup.forEach((s, i) => {
       const a = (i / Math.max(1, setup.length)) * Math.PI * 2;
       const p: Player = {
@@ -625,6 +641,8 @@ export class World {
         heartUsed: false,
         bellT: 6,
         tempers: {},
+        gear: s.gear ?? {},
+        loot: [],
         comboT: { svatba: 4, prolet: 6, roy: 3, krik: 0 },
       };
       p.weapons.push({ id: HEROES[s.hero].weapon, lvl: 1, evo: false, t: 0.5, t2: 0, on: false });
@@ -724,6 +742,21 @@ export class World {
     s.area += g("dazh_wheel") * 0.08;
     s.projSpeed += g("dazh_wheel") * 0.08;
     s.slayer += g("dazh_dawn") * 0.1;
+    // 🎒 gear (percent numbers, armor / regen / amount flat)
+    const gr = (k: SurvGearStat) => p.gear?.[k] ?? 0;
+    s.might += gr("might") / 100;
+    s.maxHp *= 1 + gr("maxHp") / 100;
+    s.armor += gr("armor");
+    s.regen += gr("regen");
+    s.cooldown += gr("cooldown") / 100;
+    s.area += gr("area") / 100;
+    s.speed += gr("speed") / 100;
+    s.magnet += gr("magnet") / 100;
+    s.luck += gr("luck") / 100;
+    s.crit += gr("crit") / 100;
+    s.xp += gr("xp") / 100;
+    s.greed += gr("greed") / 100;
+    s.amount += Math.min(1, gr("amount"));
     // 🔨 tempers
     const te = (id: TemperId) => temperEff(p.tempers?.[id] ?? 0) * TEMPERS[id].per;
     s.might += te("might");
@@ -772,7 +805,7 @@ export class World {
   }
   private hpMul() {
     const w = this.w;
-    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp();
+    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp() * (1 + 0.2 * this.diff);
   }
   /** the gods' gifts make heroes much stronger: the hordes toughen up with them (+5% per gift level, on average per hero) */
   private giftHp() {
@@ -782,7 +815,7 @@ export class World {
     return 1 + 0.05 * lv;
   }
   private dmgMul() {
-    return (1 + this.w * 0.115) * this.mapDef.dmgMul;
+    return (1 + this.w * 0.115) * this.mapDef.dmgMul * (1 + 0.12 * this.diff);
   }
   private speedMul() {
     return (1.05 + Math.min(0.5, this.w * 0.02)) * (this.curses.has("wolves") ? 1.25 : 1);
@@ -849,6 +882,11 @@ export class World {
     if (e.boss) {
       // two extra moves, fixed per kind of boss (so you can learn them)
       e.moves = (BOSS_SPELLS[type] ?? [["nova", ""], ["summon", ""]]).map((m) => m[0]);
+      // ☠️ every difficulty level teaches the bosses one more spell
+      for (const m of DIFF_MOVES) {
+        if (e.moves.length >= 2 + this.diff) break;
+        if (!e.moves.includes(m)) e.moves.push(m);
+      }
     }
     this.enemies.push(e);
     return e;
@@ -890,7 +928,7 @@ export class World {
       this.waveMix = (["rat", "bat", "wolf", "raven", "spider"] as EnemyId[]).filter(open);
       this.theme = "Рояк";
     }
-    this.waveTotal = Math.round((40 + w * 14 + w * w * 0.6) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1));
+    this.waveTotal = Math.round((40 + w * 14 + w * w * 0.6) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1) * (1 + 0.15 * this.diff));
     this.waveLeft = this.waveTotal;
     this.waveElites = w >= 3 ? 1 + Math.floor(w / 5) : 0;
     this.waveEvent = !isBossWave(w) && w >= 2 && Math.random() < 0.45;
@@ -1011,7 +1049,7 @@ export class World {
     this.waveT += dt;
     const w = this.wave;
     const pf = 1 + 0.6 * (this.pf - 1);
-    const cap = Math.min(MAX_ENEMIES, (48 + w * 16) * pf * (this.curses.has("horde") ? 1.4 : 1));
+    const cap = Math.min(MAX_ENEMIES, (48 + w * 16) * pf * (this.curses.has("horde") ? 1.4 : 1) * (1 + 0.15 * this.diff));
     // most of the wave arrives in the first 70% of it
     const rate = this.waveTotal / (WAVE_SECONDS * 0.7);
     this.spawnAcc += dt * rate;
@@ -1386,6 +1424,8 @@ export class World {
       this.fx.push([FX.banner, `🏆 ПОБЕДА! ${ENEMIES[e.type].name} падна — ${this.mapDef.name} е свободна!`, 2]);
       for (const q of this.enemies) if (!q.dead && q !== e && !q.boss && q.type !== "pot") q.hp = 0, q.dead = true;
       for (let i = 0; i < 16; i++) this.gems.push({ x: e.x + rand(-90, 90), y: e.y + rand(-90, 90), k: GK.bag, v: 8, mag: true, sp: 0 });
+      // 🎒 the giant's treasure: 2 items for everyone (at least rare), straight into the bag
+      for (let i = 0; i < 2; i++) this.giveItem(Math.max(1, survRollRarity(Math.random, this.diff, p?.st.luck ?? 0)));
       return;
     }
     if (p && e.type !== "pot") {
@@ -1436,9 +1476,12 @@ export class World {
       this.bossLoot(e);
       this.gems.push({ x: e.x - 30, y: e.y + 10, k: GK.food, v: 0, mag: false, sp: 0 });
       this.dropGem(e.x + 20, e.y, e.xp);
+      if (Math.random() < 0.5 + 0.04 * this.diff) this.dropItem(e.x + 30, e.y + 30, p);
+      if (Math.random() < 0.05 * this.diff) this.dropItem(e.x - 40, e.y - 20, p);
       return;
     }
     if (e.elite) {
+      if (Math.random() < 0.03 + 0.006 * this.diff) this.dropItem(e.x + 10, e.y + 10, p);
       if (Math.random() < 0.35 + luck) this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
       else this.dropGem(e.x, e.y, e.xp);
       for (let i = 0; i < 3; i++) this.gems.push({ x: e.x + rand(-30, 30), y: e.y + rand(-30, 30), k: GK.coin, v: 1, mag: false, sp: 0 });
@@ -1454,6 +1497,22 @@ export class World {
       else if (r2 < 0.08) this.gems.push({ x: e.x, y: e.y, k: GK.magnet, v: 0, mag: false, sp: 0 });
       else if (r2 < 0.095) this.gems.push({ x: e.x, y: e.y, k: GK.bomb, v: 0, mag: false, sp: 0 });
     }
+  }
+
+  /** 🎒 an item on the ground (its rarity is rolled now; the server rolls the item itself after the game) */
+  private dropItem(x: number, y: number, p: Player | null) {
+    const r = survRollRarity(Math.random, this.diff, p?.st.luck ?? 0);
+    this.gems.push({ x, y, k: GK.item + r, v: r, mag: false, sp: 0 });
+    if (r >= 2) this.fx.push([FX.text, Math.round(x), Math.round(y - 30), `🎒 ${RARITY[r]!.name}!`, RARITY[r]!.color]);
+  }
+
+  /** 🎒 everyone in the party gets an item of that rarity */
+  private giveItem(r: number) {
+    this.players.forEach((p, pi) => {
+      if (p.gone) return;
+      p.loot.push(r);
+      this.fx.push([FX.chest, pi, [`🎒 ${RARITY[r]!.name} предмет!`, "ще го намериш в Снаряжение след играта"]]);
+    });
   }
 
   /** 💰 gold rain (more from a dark boss) + 💎 a chance of the boss's relic */
@@ -1949,13 +2008,13 @@ export class World {
   }
 
   private skillDmg(p: Player, base: number) {
-    return base * p.st.might * (1 + this.wave * 0.14);
+    return base * p.st.might * (1 + this.wave * 0.14) * (1 + (p.gear.skillDmg ?? 0) / 100);
   }
 
   castSkill(p: Player) {
     if (p.dead || p.skillCd > 0) return;
     const def = HEROES[p.hero].skill;
-    p.skillCd = def.cd;
+    p.skillCd = def.cd * Math.max(0.5, 1 - (p.gear.skillCd ?? 0) / 100);
     const pi = this.players.indexOf(p);
     this.fx.push([FX.skill, pi, Math.round(p.x), Math.round(p.y), HEROES_ORDER.indexOf(p.hero)]);
     this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 40), `✨ ${def.name}!`, "#ffe27a"]);
@@ -2227,7 +2286,7 @@ export class World {
   private bossExtras(e: Enemy, tgt: Player, dt: number): boolean {
     e.shieldT = Math.max(0, e.shieldT - dt);
     e.shield = e.shieldT > 0;
-    if (!e.rage && e.hp < e.maxHp * 0.5) {
+    if (!e.rage && e.hp < e.maxHp * (this.diff >= 3 ? 0.7 : 0.5)) {
       e.rage = true;
       e.speed *= 1.35;
       this.fx.push([FX.banner, `😡 ${ENEMIES[e.type].name} побесня!`, 1]);
@@ -2280,10 +2339,10 @@ export class World {
     e.exT -= dt;
     if (e.exT > 0) return false;
     // the first bosses cast less often (you learn them first)
-    e.exT = (e.rage ? 4 : 6.5) + rand(0, 1.5) + (this.wave <= 10 ? 2.5 : 0);
+    e.exT = ((e.rage ? 4 : 6.5) + rand(0, 1.5) + (this.wave <= 10 ? 2.5 : 0)) * (1 - 0.035 * this.diff);
     const spells = BOSS_SPELLS[e.type] ?? [];
     const move = pickOne(e.moves);
-    const name = spells.find((m) => m[0] === move)?.[1] || "💥";
+    const name = spells.find((m) => m[0] === move)?.[1] || DIFF_SPELL_NAMES[move] || "💥";
     this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 24), `${name}!`, "#ff8a6a"]);
     switch (move) {
       case "spiral":
@@ -2730,7 +2789,7 @@ export class World {
       const s = weaponStats(w.id, w.lvl);
       const cd = s.cd * Math.max(0.35, 1 - p.st.cooldown);
       const amount = s.amount + p.st.amount;
-      const dmg = s.dmg * p.st.might;
+      const dmg = s.dmg * p.st.might * (w.id === HEROES[p.hero].weapon ? 1 + (p.gear.heroWeapon ?? 0) / 100 : 1);
       const area = s.area * p.st.area;
       const wi = WEAPON_IDS.indexOf(w.id);
       const face = Math.atan2(p.dirY, p.dirX);
@@ -3326,7 +3385,7 @@ export class World {
         }
       }
       if (!tgt) continue;
-      const big = g.k === GK.chest || g.k === GK.relic ? 0.35 : 1;
+      const big = g.k === GK.chest || g.k === GK.relic || isItemGem(g.k) ? 0.35 : 1;
       if (!g.mag && best < (BASE_MAGNET * tgt.st.magnet * big) ** 2) g.mag = true;
       if (g.mag) {
         g.sp = Math.min(1000, g.sp + dt * 1300);
@@ -3374,6 +3433,12 @@ export class World {
         break;
       case GK.chest:
         this.openChest(p);
+        break;
+      case GK.item:
+      case GK.item + 1:
+      case GK.item + 2:
+      case GK.item + 3:
+        this.giveItem(g.k - GK.item);
         break;
       case GK.relic: {
         const id = RELIC_IDS[g.v];

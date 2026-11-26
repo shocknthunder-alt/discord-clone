@@ -1347,3 +1347,118 @@
   background: rgba(0, 0, 0, 0.3);
   cursor: help;
 }
+
+/* ☠️ difficulty + 🎒 gear (2026-11-27) */
+.sv-diffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.sv-diff {
+  min-width: 34px;
+  padding: 4px 6px;
+}
+.sv-diff.on {
+  background: #7a1f1f;
+  border-color: #ff5a4a;
+  color: #fff;
+}
+.sv-diff.locked {
+  opacity: 0.45;
+}
+.sv-diff-info {
+  margin: 6px 0 10px;
+  font-size: 13px;
+  opacity: 0.9;
+}
+.sv-diff-info.d1 b { color: #ffb02e; }
+.sv-diff-info.d2 b { color: #ff6a3a; }
+.sv-diff-info.d3 b { color: #ff3a5a; }
+.sv-gear {
+  padding: 8px 4px;
+}
+.sv-gear-heroes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.sv-gear-heroes button {
+  padding: 2px;
+  width: 52px;
+  height: 52px;
+}
+.sv-gear-heroes button.on {
+  border-color: #ffd34d;
+  box-shadow: 0 0 8px rgba(255, 210, 80, 0.6);
+}
+.sv-gear-heroes img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.sv-gear-slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+.sv-gear-slot > small {
+  display: block;
+  opacity: 0.7;
+  margin-bottom: 2px;
+}
+.sv-gear-total {
+  margin: 8px 0;
+  font-size: 13px;
+  color: #ffe08a;
+}
+.sv-inv {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 6px;
+}
+.sv-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 8px;
+  border: 1px solid var(--rc);
+  border-radius: 8px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc) 16%, rgba(20, 16, 12, 0.9)), rgba(20, 16, 12, 0.9));
+}
+.sv-item.r3 {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 60%, transparent);
+}
+.sv-item-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+.sv-item-body {
+  flex: 1;
+  min-width: 0;
+}
+.sv-item-body b {
+  color: var(--rc);
+}
+.sv-item-body small {
+  display: block;
+  opacity: 0.75;
+}
+.sv-item-body ul {
+  margin: 3px 0 0;
+  padding-left: 16px;
+  font-size: 12px;
+}
+.sv-item-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+.sv-item-btns em {
+  font-size: 11px;
+  color: #7cff8a;
+}
+.sv-loot {
+  margin: 10px 0;
+}

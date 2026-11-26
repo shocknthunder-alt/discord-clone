@@ -29,11 +29,22 @@ import {
   type SurvRunDTO,
   type SurvRunResultDTO,
   type SurvStartDTO,
+  SURV_GEAR_SLOTS,
+  SURV_INV_MAX,
+  SURV_DIFF_MAX,
+  survDiffOpen,
+  survGearStats,
+  survItemBase,
+  survItemFits,
+  survSalvageGold,
+  type SurvGearSlot,
+  type SurvItem,
 } from "@discord-clone/shared";
 import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
+import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_TEXT, RARITY, SLOT_TEXT, diffText } from "./content";
 import { COMBOS, COMBO_IDS, TEMPERS, TIER_ROMAN, comboTier, combosOf, type TemperId } from "./content";
 import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
@@ -69,6 +80,8 @@ interface Session {
   /** 🗺️ the map, 🎯 mission or endless */
   map: SurvMapId;
   mission: boolean;
+  /** ☠️ difficulty */
+  diff: number;
   world?: World;
   prev: Snapshot | null;
   cur: Snapshot | null;
@@ -144,7 +157,11 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const me = useAuthStore((s) => s.user);
   const myId = me?.id ?? "";
   const [phase, setPhase] = useState<"menu" | "playing" | "over">(() => (savedGames.has(channelId) ? "playing" : "menu"));
-  const [tab, setTab] = useState<"play" | "shop" | "runes" | "top" | "ach">("play");
+  const [tab, setTab] = useState<"play" | "shop" | "runes" | "gear" | "top" | "ach">("play");
+  const [diffSel, setDiffSel] = useState<Partial<Record<SurvMapId, number>>>(() => load("survDiff", {}));
+  useEffect(() => localStorage.setItem("survDiff", JSON.stringify(diffSel)), [diffSel]);
+  const [gearHero, setGearHero] = useState<SurvHeroId | null>(null);
+  const [gearAll, setGearAll] = useState(false);
   const [mapSel, setMapSel] = useState<SurvMapId>(() => load<SurvMapId>("survMap", "polyana"));
   const [missionSel, setMissionSel] = useState<boolean>(() => load<boolean>("survMission", true));
   useEffect(() => localStorage.setItem("survMap", JSON.stringify(mapSel)), [mapSel]);
@@ -248,6 +265,11 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const openMaps = survMapsOpen(profile?.missions);
   const mapNow: SurvMapId = openMaps.includes(mapSel) ? mapSel : "polyana";
   const runeSlots = profile ? survRuneSlots(profile.stats, profile.missions) : 2;
+  /** ☠️ the highest difficulty open on this map, the one picked (a guest follows the host's) */
+  const diffOpen = survDiffOpen(profile?.diffs, mapNow);
+  const diffNow = myParty && myParty.hostId !== myId ? (myParty.diff ?? 0) : Math.min(diffSel[mapNow] ?? 0, diffOpen);
+  /** 🎒 what my hero wears, summed */
+  const myGear = (h: SurvHeroId) => survGearStats(profile?.items, profile?.gear?.[h], h);
   /** the runes I wear, with their levels */
   const myRunes = (): Partial<Record<SurvRuneId, number>> => Object.fromEntries((profile?.equipped ?? []).map((r) => [r, profile?.runes?.[r] ?? 0]));
   const skinOf = (h: SurvHeroId): SurvSkinId => {
@@ -358,6 +380,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     hero,
     map: "polyana",
     mission: false,
+    diff: 0,
     prev: null,
     cur: null,
     curAt: 0,
@@ -393,14 +416,14 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     resetUi();
     survMusic.stop();
     savedGames.delete(channelId);
-    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), remote: false }], curses, { map: mapNow, mission: missionSel });
-    sessRef.current = newSession("solo", { world, curses, hero, map: mapNow, mission: missionSel });
+    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), gear: myGear(hero), remote: false }], curses, { map: mapNow, mission: missionSel, diff: diffNow });
+    sessRef.current = newSession("solo", { world, curses, hero, map: mapNow, mission: missionSel, diff: diffNow });
     setMode("solo");
     setPhase("playing");
   };
 
   const postRun = useCallback(
-    (s: Session, snap: { t: number; kills: number; level: number; gold: number; bosses: number; wave: number; streak: number; evolutions: number; tasks: number; bossTypes: string[]; won: boolean }, reason?: string) => {
+    (s: Session, snap: { t: number; kills: number; level: number; gold: number; bosses: number; wave: number; streak: number; evolutions: number; tasks: number; bossTypes: string[]; won: boolean; loot: number[] }, reason?: string) => {
       if (s.mode === "spec") {
         setResult({ ...(lists as SurvListsDTO), record: false, goldEarned: 0, newHeroes: [], seconds: Math.floor(snap.t), kills: snap.kills, level: snap.level, reason });
         return;
@@ -422,6 +445,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         map: s.map,
         mission: s.mission,
         won: s.mission && snap.won,
+        diff: s.diff,
+        loot: snap.loot,
       };
       setResult({ ...(lists as SurvListsDTO), record: false, goldEarned: 0, newHeroes: [], seconds: run.seconds, kills: run.kills, level: run.level, reason });
       if (run.seconds < 5) return;
@@ -467,6 +492,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             tasks: w.tasksDone,
             bossTypes: [...w.bossTypes],
             won: w.won,
+            loot: w.players.find((p) => p.uid === myId)?.loot ?? [],
           },
           reason,
         );
@@ -487,6 +513,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             tasks: c.tasksDone,
             bossTypes: c.bossTypes,
             won: c.won,
+            loot: c.view.players.find((p) => p.uid === myId)?.loot ?? [],
           },
           reason,
         );
@@ -533,7 +560,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       if (st.resume && cur && !cur.ended && cur.partyId === st.partyId) return; // reconnected, same game
       if (st.spectator) {
         resetUi();
-        sessRef.current = newSession("spec", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, map: st.map ?? "polyana", mission: !!st.mission });
+        sessRef.current = newSession("spec", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, map: st.map ?? "polyana", mission: !!st.mission, diff: st.diff ?? 0 });
         setMode("spec");
         setPhase("playing");
         return;
@@ -550,16 +577,16 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         survMusic.stop();
         const metaOf = (uid: string) => (uid === myId ? (profileRef.current?.upgrades ?? {}) : (st.players.find((p) => p.userId === uid)?.meta ?? {}));
         const world = new World(
-          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, remote: p.userId !== myId })),
+          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, gear: p.gear ?? {}, remote: p.userId !== myId })),
           st.curses,
-          { map: st.map ?? "polyana", mission: !!st.mission },
+          { map: st.map ?? "polyana", mission: !!st.mission, diff: st.diff ?? 0 },
         );
-        sessRef.current = newSession("host", { world, partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero, map: st.map ?? "polyana", mission: !!st.mission });
+        sessRef.current = newSession("host", { world, partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero, map: st.map ?? "polyana", mission: !!st.mission, diff: st.diff ?? 0 });
         setMode("host");
       } else {
         resetUi();
         survMusic.stop();
-        sessRef.current = newSession("guest", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero, map: st.map ?? "polyana", mission: !!st.mission });
+        sessRef.current = newSession("guest", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero, map: st.map ?? "polyana", mission: !!st.mission, diff: st.diff ?? 0 });
         setMode("guest");
       }
       setPhase("playing");
@@ -1104,11 +1131,50 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       .then((r) => setLists(r.data))
       .catch(() => setError("Не стига златото."));
 
-  const createParty = () => getSocket()?.emit(SocketEvents.SurvCreate, { channelId, hero, curses, meta: profile?.upgrades ?? {}, skin: skinOf(hero), map: mapNow, mission: missionSel });
+  const createParty = () => getSocket()?.emit(SocketEvents.SurvCreate, { channelId, hero, curses, meta: profile?.upgrades ?? {}, skin: skinOf(hero), map: mapNow, mission: missionSel, diff: diffNow });
   const chooseMap = (m: SurvMapId, mission: boolean) => {
     setMapSel(m);
     setMissionSel(mission);
-    if (myParty && myParty.hostId === myId && myParty.state === "lobby") getSocket()?.emit(SocketEvents.SurvSetup, { partyId: myParty.id, map: m, mission });
+    if (myParty && myParty.hostId === myId && myParty.state === "lobby") getSocket()?.emit(SocketEvents.SurvSetup, { partyId: myParty.id, map: m, mission, diff: Math.min(diffSel[m] ?? 0, survDiffOpen(profile?.diffs, m)) });
+  };
+  const chooseDiff = (d: number) => {
+    setDiffSel((m) => ({ ...m, [mapNow]: d }));
+    if (myParty && myParty.hostId === myId && myParty.state === "lobby") getSocket()?.emit(SocketEvents.SurvSetup, { partyId: myParty.id, diff: d });
+  };
+  const equip = (h: SurvHeroId, slot: SurvGearSlot, item: string | null) =>
+    http
+      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/equip`, { hero: h, slot, item })
+      .then((r) => setLists(r.data))
+      .catch(() => setError("Не става."));
+  const salvage = (it: SurvItem) => {
+    if (it.r >= 2 && !window.confirm(`Да разглобя ${ITEM_TEXT[it.b]?.name ?? "предмета"} (${RARITY[it.r]!.name}) за ${survSalvageGold(it)} злато?`)) return;
+    http
+      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/salvage`, { items: [it.id] })
+      .then((r) => setLists(r.data))
+      .catch(() => setError("Не става."));
+  };
+  const itemView = (it: SurvItem, extra?: React.ReactNode) => {
+    const b = survItemBase(it.b);
+    const t = ITEM_TEXT[it.b] ?? { name: it.b, icon: "❔" };
+    return (
+      <div key={it.id} className={`sv-item r${it.r}`} style={{ ["--rc" as string]: RARITY[it.r]!.color }}>
+        <span className="sv-item-icon">{t.icon}</span>
+        <div className="sv-item-body">
+          <b>{t.name}</b>
+          <small>
+            {RARITY[it.r]!.name} · {SLOT_TEXT[b?.slot ?? "armor"]}
+            {b?.hero ? ` · само за ${HEROES[b.hero].name}` : ""}
+            {it.d ? ` · ☠️${it.d}` : ""}
+          </small>
+          <ul>
+            {it.s.map(([k, v], i) => (
+              <li key={i}>{GEAR_STAT_TEXT[k]?.(v) ?? k}</li>
+            ))}
+          </ul>
+        </div>
+        {extra}
+      </div>
+    );
   };
   const buyRune = (id: SurvRuneId) =>
     http
@@ -1183,6 +1249,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         </button>
         <button className={tab === "runes" ? "on" : ""} onClick={() => setTab("runes")}>
           ᚱ Руни
+        </button>
+        <button className={tab === "gear" ? "on" : ""} onClick={() => setTab("gear")}>
+          🎒 Снаряжение {profile?.items?.length ? `(${profile.items.length})` : ""}
         </button>
         <button className={tab === "top" ? "on" : ""} onClick={() => setTab("top")}>
           🏆 Класация
@@ -1273,6 +1342,25 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 ♾️ Безкрайно
                 <small>Вълна след вълна, докато паднеш.</small>
               </button>
+            </div>
+            <h3>
+              ☠️ Трудност <span className="sv-dim">(всяка спечелена мисия отваря следващата на тази карта)</span>
+            </h3>
+            <div className="sv-diffs">
+              {Array.from({ length: SURV_DIFF_MAX + 1 }, (_, d) => (
+                <button
+                  key={d}
+                  className={`sv-diff ${diffNow === d ? "on" : ""} ${d > diffOpen ? "locked" : ""}`}
+                  disabled={d > diffOpen || (!!myParty && myParty.hostId !== myId)}
+                  onClick={() => chooseDiff(d)}
+                  title={d > diffOpen ? "Спечели мисията на предишната трудност" : diffText(d)}
+                >
+                  {d === 0 ? "😊" : d > diffOpen ? "🔒" : d}
+                </button>
+              ))}
+            </div>
+            <div className={`sv-diff-info d${Math.min(3, Math.ceil(diffNow / 3))}`}>
+              <b>{DIFF_NAMES[diffNow]}</b> — {diffText(diffNow)}
             </div>
             <h3>
               Проклятия <span className="sv-dim">(по-трудно, повече злато: ×{goldMul.toFixed(2)})</span>
@@ -1482,6 +1570,73 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         </div>
       )}
 
+      {tab === "gear" && profile && (() => {
+        const gh = gearHero ?? hero;
+        const worn = profile.gear?.[gh] ?? {};
+        const wornIds = new Set(Object.values(profile.gear ?? {}).flatMap((g) => Object.values(g ?? {})));
+        const total = survGearStats(profile.items, worn, gh);
+        const items = [...(profile.items ?? [])]
+          .filter((it) => gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl)))
+          .sort((a, b) => b.r - a.r || b.d - a.d);
+        return (
+          <div className="sv-gear">
+            <div className="sv-gear-heroes">
+              {HERO_IDS.map((h) => (
+                <button key={h} className={gh === h ? "on" : ""} onClick={() => setGearHero(h)} title={HEROES[h].name}>
+                  <img src={heroIcon(h, skinOf(h))} alt="" />
+                </button>
+              ))}
+            </div>
+            <h3>
+              🎒 {HEROES[gh].name} носи <span className="sv-dim">(предметите падат от босове и елитни, по-редки на по-висока трудност)</span>
+            </h3>
+            <div className="sv-gear-slots">
+              {SURV_GEAR_SLOTS.map((slot) => {
+                const it = profile.items?.find((i) => i.id === worn[slot]);
+                return (
+                  <div key={slot} className="sv-gear-slot">
+                    <small>{SLOT_TEXT[slot]}</small>
+                    {it ? itemView(it, <button onClick={() => equip(gh, slot, null)}>Свали</button>) : <i className="sv-dim">празно</i>}
+                  </div>
+                );
+              })}
+            </div>
+            {Object.keys(total).length > 0 && (
+              <div className="sv-gear-total">
+                Общо:{" "}
+                {Object.entries(total)
+                  .map(([k, v]) => GEAR_STAT_TEXT[k]?.(Math.round(v * 100) / 100) ?? k)
+                  .join(" · ")}
+              </div>
+            )}
+            <h3>
+              Торба ({profile.items?.length ?? 0}/{SURV_INV_MAX}){" "}
+              <label className="sv-dim">
+                <input type="checkbox" checked={gearAll} onChange={(e) => setGearAll(e.target.checked)} /> покажи и чуждите
+              </label>
+            </h3>
+            {!items.length && <div className="sv-dim">Празно. Повали бос и вземи раницата 🎒, която пуска.</div>}
+            <div className="sv-inv">
+              {items.map((it) => {
+                const slot = SURV_GEAR_SLOTS.find((sl) => survItemFits(it, gh, sl));
+                const on = worn[slot ?? "armor"] === it.id;
+                return itemView(
+                  it,
+                  <div className="sv-item-btns">
+                    {slot && !on && <button onClick={() => equip(gh, slot, it.id)}>Сложи</button>}
+                    {on && <em>носи го</em>}
+                    {!wornIds.has(it.id) && (
+                      <button className="sv-dim" onClick={() => salvage(it)} title="Разглоби за злато">
+                        🔨 {survSalvageGold(it)}
+                      </button>
+                    )}
+                  </div>,
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
       {tab === "top" && (
         <div className="sv-top">
           <div className="sv-tabs small">
@@ -1940,6 +2095,18 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           <span>{ACH_TEXT[a].icon}</span> Подвиг: {ACH_TEXT[a].name}! <em>+{SURV_ACHIEVEMENTS.find((x) => x.id === a)?.gold} 🪙</em>
         </div>
       ))}
+      {result.newDiff ? (
+        <div className="sv-unlock ach">
+          <span>☠️</span> Отключи трудност {DIFF_NAMES[result.newDiff]} на тази карта!
+        </div>
+      ) : null}
+      {result.newItems && result.newItems.length > 0 && (
+        <div className="sv-loot">
+          <div className="sv-dmg-title">🎒 Донесе {result.newItems.length} предмета (Снаряжение)</div>
+          <div className="sv-inv">{result.newItems.map((it) => itemView(it))}</div>
+          {result.salvaged ? <small className="sv-dim">Торбата е пълна: най-слабите са разглобени за {result.salvaged} 🪙</small> : null}
+        </div>
+      )}
       {result.newHeroes?.map((h) => (
         <div key={h} className="sv-unlock">
           <img src={heroIcon(h)} alt="" /> Отключи {HEROES[h].title} {HEROES[h].name}!

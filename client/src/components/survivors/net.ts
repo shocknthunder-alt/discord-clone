@@ -29,6 +29,8 @@ export interface NetPlayer extends RPlayer {
   relics: RelicId[];
   /** 🔨 temper cards taken */
   tempers: Partial<Record<TemperId, number>>;
+  /** 🎒 rarities of the items picked up */
+  loot: number[];
 }
 
 export interface Snapshot {
@@ -157,6 +159,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     Object.entries(x.gifts).map(([id, l]) => [GIFT_IDS.indexOf(id as GiftId), l]),
     x.relics.map((id) => RELIC_IDS.indexOf(id)),
     Object.entries(x.tempers).map(([id, n]) => [TEMPER_IDS.indexOf(id as TemperId), n]),
+    x.loot,
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -269,6 +272,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       evos: (a[25] as number | undefined) ?? 0,
       gifts: Object.fromEntries(((a[26] as number[][] | undefined) ?? []).map(([id, l]) => [GIFT_IDS[id!]!, l!]).filter(([id]) => id)),
       relics: ((a[27] as number[] | undefined) ?? []).map((i) => RELIC_IDS[i]!).filter(Boolean),
+      loot: ((a[29] as number[] | undefined) ?? []).filter((r) => typeof r === "number"),
       tempers: Object.fromEntries(((a[28] as number[][] | undefined) ?? []).map(([id, n]) => [TEMPER_IDS[id!]!, n!]).filter(([id]) => id)),
     } as NetPlayer & { gone: boolean; shield: boolean };
   });

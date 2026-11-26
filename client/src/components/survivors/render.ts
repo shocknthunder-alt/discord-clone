@@ -491,7 +491,19 @@ export class Renderer {
 
     // 💎 relics: a pillar of light (also over the 3D layer)
     for (const g of v.gems) {
-      if (g.k !== GK.relic || !onScreen(g.x, g.y, 40)) continue;
+      const item = g.k >= GK.item && g.k <= GK.item + 3;
+      if ((g.k !== GK.relic && !(item && g.k >= GK.item + 1)) || !onScreen(g.x, g.y, 40)) continue;
+      if (item) {
+        // 🎒 a rare+ item: a short pillar in its rarity colour
+        const col = ["", "74,168,255", "182,124,255", "255,176,46"][g.k - GK.item]!;
+        const h = 90 + Math.sin(this.clock * 3 + g.x) * 8;
+        const gr = c.createLinearGradient(0, g.y - h, 0, g.y);
+        gr.addColorStop(0, `rgba(${col},0)`);
+        gr.addColorStop(1, `rgba(${col},0.5)`);
+        c.fillStyle = gr;
+        c.fillRect(g.x - 6, g.y - h, 12, h);
+        continue;
+      }
       const h = 150 + Math.sin(this.clock * 3) * 12;
       const gr = c.createLinearGradient(0, g.y - h, 0, g.y);
       gr.addColorStop(0, "rgba(190,120,255,0)");
@@ -1237,6 +1249,7 @@ export class Renderer {
     };
     for (const g of v.gems) if (g.k === GK.chest) arrow(g.x, g.y, "#ffd34d", "📦");
     for (const g of v.gems) if (g.k === GK.relic) arrow(g.x, g.y, "#c890ff", "💎");
+    for (const g of v.gems) if (g.k >= GK.item && g.k <= GK.item + 3) arrow(g.x, g.y, ["#c8c8c8", "#4aa8ff", "#b67cff", "#ffb02e"][g.k - GK.item]!, "🎒");
     for (const m of v.marks) if (m.kind === MK.shrine) arrow(m.x, m.y, "#ffe27a", "🕯️");
     for (const m of v.marks) if (m.kind === MK.portal) arrow(m.x, m.y, "#c890ff", "🌀");
     for (const e of v.enemies) if (e.type === "altar") arrow(e.x, e.y, "#ffb02a", "🗿");

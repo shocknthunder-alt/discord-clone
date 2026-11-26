@@ -9,3 +9,4 @@ export * from "./matchDuel.js";
 export * from "./textStyle.js";
 export * from "./personalLooks.js";
 export * from "./survivors.js";
+export * from "./survItems.js";

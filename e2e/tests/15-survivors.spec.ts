@@ -329,4 +329,62 @@ test.describe("🧟 Шмиркленд", () => {
     expectNoCrashes(a.page);
     await closeAll(a.context);
   });
+
+  test("🎒 предмети + ☠️ трудност: мисия → нова трудност и предмети, слагане, разглобяване, по-трудни врагове", async ({ browser }) => {
+    test.setTimeout(120_000);
+    const bo = await register("gear");
+    const server = await serverWith(bo);
+    const { textChannel } = await api(bo.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиркленд", type: "survivors" });
+    const url = `/text-channels/${textChannel.id}/survivors/run`;
+    const base = { seconds: 600, kills: 900, level: 30, gold: 50, bosses: 2, coop: false, hero: "strahil", curses: [], wave: 20, map: "polyana", mission: true };
+    // asks for difficulty 5 without having it: played as 0; a won mission opens 1, the loot comes back as items
+    const r1 = await api(bo.token, "POST", url, { ...base, won: true, diff: 5, loot: [3, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] });
+    expect(r1.newDiff).toBe(1);
+    expect(r1.profile.diffs).toEqual({ polyana: 1 });
+    // cap: 2 bosses × 2 + 600/150 + 3 + 3 = 14
+    expect(r1.newItems).toHaveLength(14);
+    expect(r1.newItems.filter((it: { r: number }) => it.r === 3)).toHaveLength(1);
+    const legendary = r1.newItems.find((it: { r: number }) => it.r === 3);
+    expect(legendary.s.length).toBeGreaterThanOrEqual(4);
+    // difficulty 1 won → 2 opens, gold ×1.25
+    const r2 = await api(bo.token, "POST", url, { ...base, won: true, diff: 1, loot: [] });
+    expect(r2.newDiff).toBe(2);
+    // (50 picked + 600/10) × 1.25 + the map's 500 × 1.25
+    expect(r2.goldEarned).toBe(763);
+    // put on: an armour fits anyone, a weapon only its hero
+    const items = r2.profile.items as { id: string; b: string; r: number }[];
+    const armor = items.find((it) => ["kozhuh", "elek", "poyas", "yamurluk"].includes(it.b))!;
+    const weapon = items.find((it) => ["dvuraka", "kolan"].includes(it.b))!;
+    const eq = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "armor", item: armor.id });
+    expect(eq.profile.gear.peyo.armor).toBe(armor.id);
+    await expect(api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "weapon", item: weapon.id })).rejects.toThrow();
+    await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "strahil", slot: "weapon", item: weapon.id });
+    // break one down: gold up, item gone, and taken off the hero
+    const before = (await api(bo.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile;
+    const sv = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/salvage`, { items: [armor.id] });
+    expect(sv.profile.gold).toBeGreaterThan(before.gold);
+    expect(sv.profile.items.some((it: { id: string }) => it.id === armor.id)).toBe(false);
+    expect(sv.profile.gear.peyo?.armor).toBeUndefined();
+
+    // the game: difficulty 2 picked → harder world, bosses know 2 more spells, the gear is worn
+    const b = await openAs(browser, bo);
+    await quiet(b.page);
+    await openServer(b.page, server.name);
+    await openTextChannel(b.page, "шмиркленд");
+    await b.page.locator(".sv-tabs button", { hasText: "Снаряжение" }).click();
+    await expect(b.page.locator(".sv-gear-slot .sv-item")).toHaveCount(0);
+    await b.page.locator(".sv-gear-heroes button").nth(4).click();
+    await expect(b.page.locator(".sv-gear-slot .sv-item")).toHaveCount(1);
+    await b.page.locator(".sv-tabs button", { hasText: "Игра" }).click();
+    await b.page.locator(".sv-hero").nth(4).click().catch(() => {});
+    await b.page.locator(".sv-diff", { hasText: "2" }).click();
+    await expect(b.page.locator(".sv-diff-info")).toContainText("Трудно II");
+    await b.page.getByRole("button", { name: /Играй сам/ }).click();
+    const W = (fn: string) => b.page.evaluate(`(${fn})(window.__survWorld())`);
+    await expect.poll(() => W("(w) => w.diff")).toBe(2);
+    expect(await W("(w) => Object.keys(w.players[0].gear).length")).toBeGreaterThan(0);
+    expect(await W("(w) => { const p = w.players[0]; const b = w.spawn(\"karak\", p.x + 400, p.y, { boss: true, hp: 99999 }); return b.moves.length; }")).toBe(4);
+    expectNoCrashes(b.page);
+    await closeAll(b.context);
+  });
 });

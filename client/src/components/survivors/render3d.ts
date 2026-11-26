@@ -942,8 +942,8 @@ export class Renderer3D {
       "gems",
       () => {
         const cells: HTMLCanvasElement[] = [];
-        for (let k = 0; k <= GK.relic; k++) cells.push(pickupSprite(k) ?? document.createElement("canvas"));
-        return { cells, cols: 10, w: 20, h: 20 };
+        for (let k = 0; k <= GK.item + 3; k++) cells.push(pickupSprite(k) ?? document.createElement("canvas"));
+        return { cells, cols: 14, w: 20, h: 20 };
       },
       1500,
     );

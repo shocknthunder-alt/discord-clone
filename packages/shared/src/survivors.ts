@@ -1,3 +1,4 @@
+import type { SurvGearSlot, SurvGearStat, SurvItem } from "./survItems.js";
 /**
  * 🧟 Шмиркленд — our own "survive the hordes" game (channels with type "survivors"): Bulgarian folklore
  * monsters, folk weapons (цървул, прасе, Тесла…), endless — it gets harder until you fall, a boss every
@@ -288,6 +289,10 @@ export interface SurvProfileDTO {
   runes?: Partial<Record<SurvRuneId, number>>;
   equipped?: SurvRuneId[];
   missions?: Partial<Record<SurvMapId, number>>;
+  /** (2026-11-27+) 🎒 items owned, what each hero wears (slot → item id), ☠️ highest difficulty open per map */
+  items?: SurvItem[];
+  gear?: Partial<Record<SurvHeroId, Partial<Record<SurvGearSlot, string>>>>;
+  diffs?: Partial<Record<SurvMapId, number>>;
 }
 
 export interface SurvTopRow {
@@ -329,6 +334,9 @@ export interface SurvRunDTO {
   map?: SurvMapId;
   mission?: boolean;
   won?: boolean;
+  /** (2026-11-27+) ☠️ difficulty played, 🎒 rarities of the items picked up (the server rolls the items) */
+  diff?: number;
+  loot?: number[];
 }
 
 export interface SurvRunResultDTO extends SurvListsDTO {
@@ -338,6 +346,10 @@ export interface SurvRunResultDTO extends SurvListsDTO {
   newHeroes: SurvHeroId[];
   /** (2026-11-26+) achievements earned by this game (their gold is in goldEarned) */
   newAchievements?: SurvAchId[];
+  /** (2026-11-27+) items this game brought home, gold from items that didn't fit, difficulty newly opened */
+  newItems?: SurvItem[];
+  salvaged?: number;
+  newDiff?: number;
 }
 
 /* ───────────── co-op over the socket ───────────── */
@@ -353,6 +365,8 @@ export interface SurvMemberDTO {
   meta?: Partial<Record<SurvMetaKey, number>>;
   /** (2026-11-27+) the runes they wear (levels) */
   runes?: Partial<Record<SurvRuneId, number>>;
+  /** (2026-11-27+) 🎒 the summed stats of the gear their hero wears */
+  gear?: Partial<Record<SurvGearStat, number>>;
 }
 
 export function cleanSurvMeta(v: unknown): Partial<Record<SurvMetaKey, number>> {
@@ -374,6 +388,8 @@ export interface SurvPartyDTO {
   /** (2026-11-27+) the map + mission mode the host picked */
   map?: SurvMapId;
   mission?: boolean;
+  /** (2026-11-27+) ☠️ difficulty */
+  diff?: number;
   state: "lobby" | "playing";
   /** while playing (sent by the host now and then) */
   seconds?: number;
@@ -394,6 +410,7 @@ export interface SurvStartDTO {
   curses: SurvCurseId[];
   map?: SurvMapId;
   mission?: boolean;
+  diff?: number;
   /** back after a reload: the game goes on */
   resume?: boolean;
   /** 👁 joined as a spectator */

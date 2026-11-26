@@ -19,7 +19,7 @@ import {
 } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "./db.js";
-import { survOwnsSkinOf, survRunesOf } from "./survivors.js";
+import { survDiffOf, survGearOf, survOwnsSkinOf, survRunesOf } from "./survivors.js";
 
 /**
  * 🧟 Шмиркленд co-op. The HOST's browser runs the whole game; the server only keeps parties (lobby per
@@ -41,6 +41,7 @@ interface Party {
   curses: SurvCurseId[];
   map: SurvMapId;
   mission: boolean;
+  diff: number;
   state: "lobby" | "playing";
   seconds: number;
   kills: number;
@@ -90,6 +91,7 @@ function dto(p: Party): SurvPartyDTO {
     curses: p.curses,
     map: p.map,
     mission: p.mission,
+    diff: p.diff,
     state: p.state,
     ...(p.state === "playing" ? { seconds: p.seconds, kills: p.kills } : {}),
     spectators: p.spectators.size,
@@ -103,7 +105,7 @@ function pushLobby(io: IOServer, channelId: string) {
 }
 
 function startDto(p: Party, extra: Partial<SurvStartDTO> = {}): SurvStartDTO {
-  return { partyId: p.id, channelId: p.channelId, hostId: p.hostId, players: p.players, curses: p.curses, map: p.map, mission: p.mission, ...extra };
+  return { partyId: p.id, channelId: p.channelId, hostId: p.hostId, players: p.players, curses: p.curses, map: p.map, mission: p.mission, diff: p.diff, ...extra };
 }
 
 function endParty(io: IOServer, p: Party, reason: SurvOverDTO["reason"]) {
@@ -221,10 +223,10 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     typeof skin === "string" && (await survOwnsSkinOf(userId, hero, skin as SurvSkinId)) ? (skin as SurvSkinId) : "classic";
   const me = async (hero: SurvHeroId, meta: unknown, skin: unknown): Promise<SurvMemberDTO | null> => {
     const u = await prisma.user.findUnique({ where: { id: userId }, select: { username: true, avatarUrl: true } });
-    return u ? { userId, username: u.username, avatarUrl: u.avatarUrl, hero, meta: cleanSurvMeta(meta), skin: await skinOf(hero, skin), runes: await survRunesOf(userId) } : null;
+    return u ? { userId, username: u.username, avatarUrl: u.avatarUrl, hero, meta: cleanSurvMeta(meta), skin: await skinOf(hero, skin), runes: await survRunesOf(userId), gear: await survGearOf(userId, hero) } : null;
   };
 
-  socket.on(SocketEvents.SurvCreate, async ({ channelId, hero, curses, meta, skin, map, mission }: { channelId: string; hero: unknown; curses: unknown; meta?: unknown; skin?: unknown; map?: unknown; mission?: unknown }) => {
+  socket.on(SocketEvents.SurvCreate, async ({ channelId, hero, curses, meta, skin, map, mission, diff }: { channelId: string; hero: unknown; curses: unknown; meta?: unknown; skin?: unknown; map?: unknown; mission?: unknown; diff?: unknown }) => {
     const h = cleanHero(hero);
     if (typeof channelId !== "string" || !watching.has(channelId) || !h) return;
     const old = partyOf(userId);
@@ -242,6 +244,7 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
       curses: cleanSurvCurses(curses),
       map: isSurvMap(map) ? map : "polyana",
       mission: mission === true,
+      diff: typeof diff === "number" ? Math.max(0, Math.min(Math.floor(diff), await survDiffOf(userId, isSurvMap(map) ? map : "polyana"))) : 0,
       state: "lobby",
       seconds: 0,
       kills: 0,
@@ -273,17 +276,22 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     if (p) dropMember(io, p, userId);
   });
 
-  socket.on(SocketEvents.SurvSetup, async ({ partyId, hero, curses, skin, map, mission }: { partyId: string; hero?: unknown; curses?: unknown; skin?: unknown; map?: unknown; mission?: unknown }) => {
+  socket.on(SocketEvents.SurvSetup, async ({ partyId, hero, curses, skin, map, mission, diff }: { partyId: string; hero?: unknown; curses?: unknown; skin?: unknown; map?: unknown; mission?: unknown; diff?: unknown }) => {
     const p = myParty(partyId);
     if (!p || p.state !== "lobby") return;
     const h = cleanHero(hero);
     if (h) {
       const sk = await skinOf(h, skin);
-      p.players = p.players.map((m) => (m.userId === userId ? { ...m, hero: h, skin: sk } : m));
+      const gear = await survGearOf(userId, h);
+      p.players = p.players.map((m) => (m.userId === userId ? { ...m, hero: h, skin: sk, gear } : m));
     }
     if (curses !== undefined && p.hostId === userId) p.curses = cleanSurvCurses(curses);
     if (p.hostId === userId && isSurvMap(map)) p.map = map;
     if (p.hostId === userId && typeof mission === "boolean") p.mission = mission;
+    if (p.hostId === userId && (typeof diff === "number" || isSurvMap(map))) {
+      const want = typeof diff === "number" ? Math.floor(diff) : p.diff;
+      p.diff = Math.max(0, Math.min(want, await survDiffOf(userId, p.map)));
+    }
     pushLobby(io, p.channelId);
   });
 

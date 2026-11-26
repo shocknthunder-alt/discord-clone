@@ -2116,6 +2116,70 @@ const PICK_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
       poly(c, [0, -2, 5, 3, 0, 4], "rgba(255,255,255,0.55)");
     },
   },
+  [GK.item + 0]: {
+    w: 30,
+    h: 30,
+    draw: (c) => {
+      // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
+      const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
+      gl.addColorStop(0, "#d8d8d8cc");
+      gl.addColorStop(1, "#d8d8d800");
+      c.fillStyle = gl;
+      c.fillRect(-15, -12, 30, 28);
+      ell(c, 0, 4, 9, 8, "#b8946a", OUT);
+      poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
+      line(c, [-8, 0, 8, 0], "#d8d8d8", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#d8d8d8", "#555555", 1);
+    },
+  },
+  [GK.item + 1]: {
+    w: 30,
+    h: 30,
+    draw: (c) => {
+      // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
+      const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
+      gl.addColorStop(0, "#4aa8ffcc");
+      gl.addColorStop(1, "#4aa8ff00");
+      c.fillStyle = gl;
+      c.fillRect(-15, -12, 30, 28);
+      ell(c, 0, 4, 9, 8, "#b8946a", OUT);
+      poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
+      line(c, [-8, 0, 8, 0], "#4aa8ff", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#4aa8ff", "#1a3a70", 1);
+    },
+  },
+  [GK.item + 2]: {
+    w: 30,
+    h: 30,
+    draw: (c) => {
+      // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
+      const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
+      gl.addColorStop(0, "#b67cffcc");
+      gl.addColorStop(1, "#b67cff00");
+      c.fillStyle = gl;
+      c.fillRect(-15, -12, 30, 28);
+      ell(c, 0, 4, 9, 8, "#b8946a", OUT);
+      poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
+      line(c, [-8, 0, 8, 0], "#b67cff", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#b67cff", "#4a1a80", 1);
+    },
+  },
+  [GK.item + 3]: {
+    w: 30,
+    h: 30,
+    draw: (c) => {
+      // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
+      const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
+      gl.addColorStop(0, "#ffb02ecc");
+      gl.addColorStop(1, "#ffb02e00");
+      c.fillStyle = gl;
+      c.fillRect(-15, -12, 30, 28);
+      ell(c, 0, 4, 9, 8, "#b8946a", OUT);
+      poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
+      line(c, [-8, 0, 8, 0], "#ffb02e", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#ffb02e", "#7a4a00", 1);
+    },
+  },
   [GK.bomb]: {
     w: 24,
     h: 26,
