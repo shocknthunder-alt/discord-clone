@@ -119,7 +119,7 @@ function readProfile(row: { gold: number; upgrades: unknown; heroes: unknown; st
       for (const slot of SURV_GEAR_SLOTS) {
         const id = (w as Record<string, unknown>)[slot];
         const it = typeof id === "string" ? items.find((i) => i.id === id) : undefined;
-        if (it && survItemFits(it, h as SurvHeroId, slot)) slotsOf[slot] = it.id;
+        if (it && survItemFits(it, h as SurvHeroId, slot) && !Object.values(slotsOf).includes(it.id)) slotsOf[slot] = it.id;
       }
       if (Object.keys(slotsOf).length) gear[h as SurvHeroId] = slotsOf;
     }
@@ -347,6 +347,8 @@ survivorsRouter.post("/text-channels/:channelId/survivors/equip", async (req, re
   else {
     const it = (p.items ?? []).find((i) => i.id === req.body?.item);
     if (!it || !survItemFits(it, hero, slot)) return res.status(400).json({ error: "Doesn't fit" });
+    // the same ring can't sit on both fingers
+    for (const k of SURV_GEAR_SLOTS) if (mine[k] === it.id) delete mine[k];
     mine[slot] = it.id;
   }
   gear[hero] = mine;

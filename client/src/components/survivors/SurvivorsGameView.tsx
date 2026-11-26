@@ -44,7 +44,7 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
-import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_TEXT, RARITY, SLOT_TEXT, diffText } from "./content";
+import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_TEXT, RARITY, SLOT_ICON, SLOT_TEXT, diffText } from "./content";
 import { COMBOS, COMBO_IDS, TEMPERS, TIER_ROMAN, comboTier, combosOf, type TemperId } from "./content";
 import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
@@ -162,6 +162,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   useEffect(() => localStorage.setItem("survDiff", JSON.stringify(diffSel)), [diffSel]);
   const [gearHero, setGearHero] = useState<SurvHeroId | null>(null);
   const [gearAll, setGearAll] = useState(false);
+  /** the slot picked on the hero (the bag then shows what fits there) */
+  const [gearSlot, setGearSlot] = useState<SurvGearSlot | null>(null);
   const [mapSel, setMapSel] = useState<SurvMapId>(() => load<SurvMapId>("survMap", "polyana"));
   const [missionSel, setMissionSel] = useState<boolean>(() => load<boolean>("survMission", true));
   useEffect(() => localStorage.setItem("survMap", JSON.stringify(mapSel)), [mapSel]);
@@ -196,11 +198,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   });
   /** 🧊 graphics: 3D models (WebGL) or the old 2D pictures */
   const [gfx, setGfx] = useState<"3d" | "2d">(() => {
-    const v = localStorage.getItem("survGfx");
-    if (v === "2d" || v === "3d") return v === "3d" && !canWebGL2() ? "2d" : v;
-    // phones start with the light 2D pictures (3D is one tap away)
-    const phone = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
-    return canWebGL2() && !phone ? "3d" : "2d";
+    // 2D is the default (2026-11-27, new key so everyone starts there once); 3D is one tap away (🖼️ → 🧊)
+    const v = localStorage.getItem("survGfx2");
+    return v === "3d" && canWebGL2() ? "3d" : "2d";
   });
   const [topTab, setTopTab] = useState<"solo" | "coop">("solo");
   const [error, setError] = useState<string | null>(null);
@@ -241,7 +241,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   useEffect(() => localStorage.setItem("survNumbers", numbers ? "1" : "0"), [numbers]);
   useEffect(() => localStorage.setItem("survFxAlpha", String(fxAlpha)), [fxAlpha]);
   useEffect(() => localStorage.setItem("survMouseMove", mouseMove), [mouseMove]);
-  useEffect(() => localStorage.setItem("survGfx", gfx), [gfx]);
+  useEffect(() => localStorage.setItem("survGfx2", gfx), [gfx]);
 
   const reload = useCallback(() => {
     http
@@ -1576,8 +1576,31 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         const wornIds = new Set(Object.values(profile.gear ?? {}).flatMap((g) => Object.values(g ?? {})));
         const total = survGearStats(profile.items, worn, gh);
         const items = [...(profile.items ?? [])]
-          .filter((it) => gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl)))
+          .filter((it) => (gearSlot ? survItemFits(it, gh, gearSlot) : gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl))))
           .sort((a, b) => b.r - a.r || b.d - a.d);
+        /** where an item goes: the picked slot, else its own (a ring: the free finger first) */
+        const target = (it: SurvItem): SurvGearSlot | undefined => {
+          if (gearSlot && survItemFits(it, gh, gearSlot)) return gearSlot;
+          const fits = SURV_GEAR_SLOTS.filter((sl) => survItemFits(it, gh, sl));
+          return fits.find((sl) => !worn[sl]) ?? fits[0];
+        };
+        const slotBox = (slot: SurvGearSlot) => {
+          const it = profile.items?.find((i) => i.id === worn[slot]);
+          const t = it ? (ITEM_TEXT[it.b] ?? { name: it.b, icon: "❔" }) : null;
+          return (
+            <button
+              key={slot}
+              className={`sv-doll-slot s-${slot} ${gearSlot === slot ? "on" : ""} ${it ? `r${it.r}` : "empty"}`}
+              style={it ? { ["--rc" as string]: RARITY[it.r]!.color } : undefined}
+              onClick={() => setGearSlot(gearSlot === slot ? null : slot)}
+              title={it ? `${t!.name} (${RARITY[it.r]!.name})\n${it.s.map(([k, v]) => GEAR_STAT_TEXT[k]?.(v) ?? k).join("\n")}` : `${SLOT_TEXT[slot]} — празно`}
+            >
+              <span className="sv-doll-icon">{t ? t.icon : SLOT_ICON[slot]}</span>
+              <small>{t ? t.name : SLOT_TEXT[slot]}</small>
+            </button>
+          );
+        };
+        const picked = gearSlot ? profile.items?.find((i) => i.id === worn[gearSlot]) : undefined;
         return (
           <div className="sv-gear">
             <div className="sv-gear-heroes">
@@ -1590,17 +1613,24 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             <h3>
               🎒 {HEROES[gh].name} носи <span className="sv-dim">(предметите падат от босове и елитни, по-редки на по-висока трудност)</span>
             </h3>
-            <div className="sv-gear-slots">
-              {SURV_GEAR_SLOTS.map((slot) => {
-                const it = profile.items?.find((i) => i.id === worn[slot]);
-                return (
-                  <div key={slot} className="sv-gear-slot">
-                    <small>{SLOT_TEXT[slot]}</small>
-                    {it ? itemView(it, <button onClick={() => equip(gh, slot, null)}>Свали</button>) : <i className="sv-dim">празно</i>}
-                  </div>
-                );
-              })}
+            <div className="sv-doll">
+              <div className="sv-doll-col">{(["helmet", "shoulders", "armor", "gloves", "weapon"] as SurvGearSlot[]).map(slotBox)}</div>
+              <div className="sv-doll-hero">
+                <img src={heroIcon(gh, skinOf(gh))} alt="" />
+                <b>{HEROES[gh].name}</b>
+                <small className="sv-dim">{SURV_GEAR_SLOTS.filter((sl) => worn[sl]).length}/{SURV_GEAR_SLOTS.length} слота</small>
+              </div>
+              <div className="sv-doll-col">{(["amulet", "ring1", "ring2", "pants", "boots"] as SurvGearSlot[]).map(slotBox)}</div>
             </div>
+            {gearSlot && (
+              <div className="sv-gear-picked">
+                <b>{SLOT_TEXT[gearSlot]}:</b>{" "}
+                {picked ? itemView(picked, <button onClick={() => equip(gh, gearSlot, null)}>Свали</button>) : <span className="sv-dim">празно — избери от торбата отдолу</span>}
+                <button className="sv-dim" onClick={() => setGearSlot(null)}>
+                  ✕ всички
+                </button>
+              </div>
+            )}
             {Object.keys(total).length > 0 && (
               <div className="sv-gear-total">
                 Общо:{" "}
@@ -1610,7 +1640,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               </div>
             )}
             <h3>
-              Торба ({profile.items?.length ?? 0}/{SURV_INV_MAX}){" "}
+              Торба ({profile.items?.length ?? 0}/{SURV_INV_MAX}){gearSlot ? ` · само ${SLOT_TEXT[gearSlot]}` : ""}{" "}
               <label className="sv-dim">
                 <input type="checkbox" checked={gearAll} onChange={(e) => setGearAll(e.target.checked)} /> покажи и чуждите
               </label>
@@ -1618,12 +1648,12 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             {!items.length && <div className="sv-dim">Празно. Повали бос и вземи раницата 🎒, която пуска.</div>}
             <div className="sv-inv">
               {items.map((it) => {
-                const slot = SURV_GEAR_SLOTS.find((sl) => survItemFits(it, gh, sl));
-                const on = worn[slot ?? "armor"] === it.id;
+                const slot = target(it);
+                const on = Object.values(worn).includes(it.id);
                 return itemView(
                   it,
                   <div className="sv-item-btns">
-                    {slot && !on && <button onClick={() => equip(gh, slot, it.id)}>Сложи</button>}
+                    {slot && !on && <button onClick={() => equip(gh, slot, it.id)}>Сложи{slot.startsWith("ring") ? ` (${slot === "ring1" ? "ляв" : "десен"})` : ""}</button>}
                     {on && <em>носи го</em>}
                     {!wornIds.has(it.id) && (
                       <button className="sv-dim" onClick={() => salvage(it)} title="Разглоби за злато">

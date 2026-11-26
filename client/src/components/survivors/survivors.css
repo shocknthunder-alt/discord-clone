@@ -1462,3 +1462,92 @@
 .sv-loot {
   margin: 10px 0;
 }
+
+/* 🎒 the hero with the slots around (2026-11-27) */
+.sv-doll {
+  display: grid;
+  grid-template-columns: minmax(150px, 210px) minmax(140px, 220px) minmax(150px, 210px);
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 10px;
+}
+.sv-doll-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.sv-doll-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 12px;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 210, 120, 0.18), rgba(0, 0, 0, 0) 70%);
+}
+.sv-doll-hero img {
+  width: 100%;
+  max-width: 180px;
+  image-rendering: auto;
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+}
+.sv-doll-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  min-height: 46px;
+  text-align: left;
+  border: 1px solid var(--rc, rgba(255, 255, 255, 0.18));
+  border-radius: 8px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rc, #444) 18%, rgba(20, 16, 12, 0.92)), rgba(20, 16, 12, 0.92));
+}
+.sv-doll-slot.empty {
+  border-style: dashed;
+  opacity: 0.7;
+}
+.sv-doll-slot.empty .sv-doll-icon {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+.sv-doll-slot.r3 {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--rc) 60%, transparent);
+}
+.sv-doll-slot.on {
+  outline: 2px solid #ffd34d;
+  outline-offset: 1px;
+}
+.sv-doll-slot small {
+  color: var(--rc, inherit);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sv-doll-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+.sv-gear-picked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.sv-gear-picked .sv-item {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+@media (max-width: 640px) {
+  .sv-doll {
+    grid-template-columns: 1fr 1fr;
+  }
+  .sv-doll-hero {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+  .sv-doll-hero img {
+    max-width: 110px;
+  }
+}

@@ -246,7 +246,7 @@ test.describe("🧟 Шмиркленд", () => {
     const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиркленд", type: "survivors" });
     const a = await openAs(browser, ana);
     await quiet(a.page);
-    await a.page.addInitScript(() => localStorage.setItem("survGfx", "2d"));
+    await a.page.addInitScript(() => localStorage.setItem("survGfx2", "2d"));
     await a.page.reload();
     await openServer(a.page, server.name);
     await openTextChannel(a.page, "шмиркленд");
@@ -353,18 +353,30 @@ test.describe("🧟 Шмиркленд", () => {
     expect(r2.goldEarned).toBe(763);
     // put on: an armour fits anyone, a weapon only its hero
     const items = r2.profile.items as { id: string; b: string; r: number }[];
-    const armor = items.find((it) => ["kozhuh", "elek", "poyas", "yamurluk"].includes(it.b))!;
+    // any piece that isn't a weapon or a ring (10 kinds drop now) — and the slot it goes to
+    const KIND: Record<string, string> = { kozhuh: "armor", elek: "armor", poyas: "armor", yamurluk: "armor", muska: "amulet", sinchets: "amulet", monista: "amulet", oko: "amulet", pero: "amulet", kalpak: "helmet", shlem: "helmet", kachulka: "helmet", naplechnitsi: "shoulders", valcha: "shoulders", pelerina: "shoulders", kovashki: "gloves", pleteni: "gloves", strelets: "gloves", poturi: "pants", benevretsi: "pants", shalvari: "pants", botushi: "boots", bivolski: "boots", krilati: "boots" };
+    const armor = items.find((it) => KIND[it.b])!;
+    const armorSlot = KIND[armor.b]!;
     const weapon = items.find((it) => ["dvuraka", "kolan"].includes(it.b))!;
-    const eq = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "armor", item: armor.id });
-    expect(eq.profile.gear.peyo.armor).toBe(armor.id);
+    const eq = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: armorSlot, item: armor.id });
+    expect(eq.profile.gear.peyo[armorSlot]).toBe(armor.id);
     await expect(api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "weapon", item: weapon.id })).rejects.toThrow();
     await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "strahil", slot: "weapon", item: weapon.id });
+    // a ring goes on either finger, never on both
+    const ring = items.find((it) => ["srebaren", "venchalen", "rubin", "pechat", "zmiya"].includes(it.b));
+    if (ring) {
+      await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "ring1", item: ring.id });
+      const both = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "ring2", item: ring.id });
+      expect(both.profile.gear.peyo.ring2).toBe(ring.id);
+      expect(both.profile.gear.peyo.ring1).toBeUndefined();
+      await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "ring2", item: null });
+    }
     // break one down: gold up, item gone, and taken off the hero
     const before = (await api(bo.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile;
     const sv = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/salvage`, { items: [armor.id] });
     expect(sv.profile.gold).toBeGreaterThan(before.gold);
     expect(sv.profile.items.some((it: { id: string }) => it.id === armor.id)).toBe(false);
-    expect(sv.profile.gear.peyo?.armor).toBeUndefined();
+    expect(sv.profile.gear.peyo?.[armorSlot]).toBeUndefined();
 
     // the game: difficulty 2 picked → harder world, bosses know 2 more spells, the gear is worn
     const b = await openAs(browser, bo);
@@ -372,9 +384,17 @@ test.describe("🧟 Шмиркленд", () => {
     await openServer(b.page, server.name);
     await openTextChannel(b.page, "шмиркленд");
     await b.page.locator(".sv-tabs button", { hasText: "Снаряжение" }).click();
-    await expect(b.page.locator(".sv-gear-slot .sv-item")).toHaveCount(0);
+    // 10 slots around the hero; Пейо has nothing on (his armour was broken down), Баткан his weapon
+    await expect(b.page.locator(".sv-doll-slot")).toHaveCount(10);
+    await expect(b.page.locator(".sv-doll-slot:not(.empty)")).toHaveCount(0);
     await b.page.locator(".sv-gear-heroes button").nth(4).click();
-    await expect(b.page.locator(".sv-gear-slot .sv-item")).toHaveCount(1);
+    await expect(b.page.locator(".sv-doll-slot:not(.empty)")).toHaveCount(1);
+    await expect(b.page.locator(".sv-doll-slot.s-weapon")).not.toHaveClass(/empty/);
+    // a slot picked → the bag shows only what fits there
+    await b.page.locator(".sv-doll-slot.s-weapon").click();
+    await expect(b.page.locator(".sv-gear-picked")).toContainText("Оръжие");
+    await b.page.locator(".sv-doll-slot.s-weapon").click();
+    await b.page.locator(".sv-gear").screenshot({ path: "explore/surv-gear.png" });
     await b.page.locator(".sv-tabs button", { hasText: "Игра" }).click();
     await b.page.locator(".sv-hero").nth(4).click().catch(() => {});
     await b.page.locator(".sv-diff", { hasText: "2" }).click();

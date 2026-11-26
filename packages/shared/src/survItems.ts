@@ -7,8 +7,12 @@ import type { SurvHeroId, SurvMapId } from "./survivors.js";
  * Difficulty 0..10 per map: winning a map's mission at difficulty d opens d+1 there.
  */
 
-export type SurvGearSlot = "weapon" | "armor" | "amulet";
-export const SURV_GEAR_SLOTS: SurvGearSlot[] = ["weapon", "armor", "amulet"];
+/** where a hero wears things (armor = the chest); two ring fingers (2026-11-27: 10 slots, was 3) */
+export type SurvGearSlot = "weapon" | "helmet" | "shoulders" | "armor" | "gloves" | "pants" | "boots" | "amulet" | "ring1" | "ring2";
+export const SURV_GEAR_SLOTS: SurvGearSlot[] = ["weapon", "helmet", "shoulders", "armor", "gloves", "pants", "boots", "amulet", "ring1", "ring2"];
+/** what kind of thing an item is ("ring" fits either ring slot) */
+export type SurvItemKind = Exclude<SurvGearSlot, "ring1" | "ring2"> | "ring";
+export const slotKind = (slot: SurvGearSlot): SurvItemKind => (slot === "ring1" || slot === "ring2" ? "ring" : slot);
 
 export type SurvGearStat =
   | "might"
@@ -55,7 +59,7 @@ export const SURV_RARITY_COUNT = 4;
 
 export interface SurvItemBase {
   id: string;
-  slot: SurvGearSlot;
+  slot: SurvItemKind;
   /** weapons belong to one hero */
   hero?: SurvHeroId;
   /** always rolled first */
@@ -93,6 +97,27 @@ export const SURV_ITEM_BASES: SurvItemBase[] = [
   { id: "monista", slot: "amulet", main: "greed" },
   { id: "oko", slot: "amulet", main: "xp" },
   { id: "pero", slot: "amulet", main: "might" },
+  // (2026-11-27) helmets, shoulders, gloves, trousers, boots, rings — anyone
+  { id: "kalpak", slot: "helmet", main: "maxHp" },
+  { id: "shlem", slot: "helmet", main: "armor" },
+  { id: "kachulka", slot: "helmet", main: "skillCd" },
+  { id: "naplechnitsi", slot: "shoulders", main: "armor" },
+  { id: "valcha", slot: "shoulders", main: "might" },
+  { id: "pelerina", slot: "shoulders", main: "area" },
+  { id: "kovashki", slot: "gloves", main: "might" },
+  { id: "pleteni", slot: "gloves", main: "crit" },
+  { id: "strelets", slot: "gloves", main: "cooldown" },
+  { id: "poturi", slot: "pants", main: "maxHp" },
+  { id: "benevretsi", slot: "pants", main: "speed" },
+  { id: "shalvari", slot: "pants", main: "regen" },
+  { id: "botushi", slot: "boots", main: "speed" },
+  { id: "bivolski", slot: "boots", main: "armor" },
+  { id: "krilati", slot: "boots", main: "magnet" },
+  { id: "srebaren", slot: "ring", main: "might" },
+  { id: "venchalen", slot: "ring", main: "luck" },
+  { id: "rubin", slot: "ring", main: "crit" },
+  { id: "pechat", slot: "ring", main: "cooldown" },
+  { id: "zmiya", slot: "ring", main: "skillDmg" },
 ];
 export const survItemBase = (id: string) => SURV_ITEM_BASES.find((b) => b.id === id);
 
@@ -148,17 +173,18 @@ export function survRollItem(rand: () => number, baseId: string, rarity: number,
   return { id, b: base.id, r, s, d: Math.max(0, Math.min(SURV_DIFF_MAX, diff)) };
 }
 
-/** what drops: the hero's weapons half of the time, else armour or an amulet */
+/** what drops: one of the 9 kinds of thing (the weapon = the hero's own) */
+const DROP_KINDS: SurvItemKind[] = ["weapon", "helmet", "shoulders", "armor", "gloves", "pants", "boots", "amulet", "ring", "ring"];
 export function survRollDrop(rand: () => number, hero: SurvHeroId, rarity: number, diff: number, id: string): SurvItem | null {
-  const x = rand();
-  const pool = SURV_ITEM_BASES.filter((b) => (x < 0.5 ? b.slot === "weapon" && b.hero === hero : x < 0.75 ? b.slot === "armor" : b.slot === "amulet"));
+  const kind = DROP_KINDS[Math.floor(rand() * DROP_KINDS.length)]!;
+  const pool = SURV_ITEM_BASES.filter((b) => b.slot === kind && (!b.hero || b.hero === hero));
   const base = pool[Math.floor(rand() * pool.length)] ?? SURV_ITEM_BASES.find((b) => b.slot === "armor")!;
   return survRollItem(rand, base.id, rarity, diff, id);
 }
 
 export const survItemFits = (item: SurvItem, hero: SurvHeroId, slot: SurvGearSlot) => {
   const b = survItemBase(item.b);
-  return !!b && b.slot === slot && (!b.hero || b.hero === hero);
+  return !!b && b.slot === slotKind(slot) && (!b.hero || b.hero === hero);
 };
 
 /** gold for breaking an item down */
@@ -167,9 +193,11 @@ export const survSalvageGold = (item: SurvItem) => Math.round([12, 35, 90, 220][
 /** the sum of the stats of what a hero wears */
 export function survGearStats(items: SurvItem[] | undefined, worn: Partial<Record<SurvGearSlot, string>> | undefined, hero: SurvHeroId): Partial<Record<SurvGearStat, number>> {
   const out: Partial<Record<SurvGearStat, number>> = {};
+  const used = new Set<string>();
   for (const slot of SURV_GEAR_SLOTS) {
     const it = items?.find((i) => i.id === worn?.[slot]);
-    if (!it || !survItemFits(it, hero, slot)) continue;
+    if (!it || used.has(it.id) || !survItemFits(it, hero, slot)) continue;
+    used.add(it.id);
     for (const [k, v] of it.s) out[k] = (out[k] ?? 0) + v;
   }
   return out;
@@ -180,8 +208,8 @@ export function cleanSurvGearStats(v: unknown): Partial<Record<SurvGearStat, num
   if (!v || typeof v !== "object") return out;
   for (const k of Object.keys(SURV_GEAR_STATS) as SurvGearStat[]) {
     const x = (v as Record<string, unknown>)[k];
-    // three items at most: legendary at difficulty 10 ≈ 15 × 2.6 × 1.6 × 3
-    if (typeof x === "number" && Number.isFinite(x) && x > 0) out[k] = Math.min(k === "amount" ? 3 : 250, x);
+    // ten items, legendary at difficulty 10 ≈ 15 × 2.6 × 1.6 each
+    if (typeof x === "number" && Number.isFinite(x) && x > 0) out[k] = Math.min(k === "amount" ? 3 : 600, x);
   }
   return out;
 }

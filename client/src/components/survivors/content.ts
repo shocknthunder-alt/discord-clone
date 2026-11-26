@@ -511,8 +511,8 @@ export const DIFF_NAMES = ["Нормално", "Трудно I", "Трудно I
 /** what a difficulty does (shown in the menu) */
 export const diffText = (d: number) =>
   d === 0
-    ? "Обичайната игра."
-    : `Врагове +${20 * d}% живот, +${12 * d}% щети, +${15 * d}% повече; босовете знаят ${d} нови магии${d >= 3 ? ", побесняват при 70%" : ""}. Награда: ×${(1 + 0.25 * d).toFixed(2)} злато, повече и по-редки предмети.`;
+    ? "Обичайната игра (вече не е лесна)."
+    : `Врагове +${30 * d}% живот, +${15 * d}% щети, +${18 * d}% повече и по-бързи, още елитни; босовете +${30 * d}% живот и знаят ${d} нови магии${d >= 3 ? ", побесняват при 70%" : ""}. Награда: ×${(1 + 0.25 * d).toFixed(2)} злато, повече и по-редки предмети.`;
 
 /* ───────────── 🎒 gear texts ───────────── */
 
@@ -550,8 +550,42 @@ export const ITEM_TEXT: Record<string, { name: string; icon: string }> = {
   monista: { name: "Мониста", icon: "🪙" },
   oko: { name: "Синьо око", icon: "👁️" },
   pero: { name: "Змейово перо", icon: "🪶" },
+  kalpak: { name: "Калпак", icon: "🎩" },
+  shlem: { name: "Шлем на юнак", icon: "🪖" },
+  kachulka: { name: "Знахарска качулка", icon: "🧙" },
+  naplechnitsi: { name: "Кожени наплечници", icon: "🛡️" },
+  valcha: { name: "Вълча кожа", icon: "🐺" },
+  pelerina: { name: "Самодивска пелерина", icon: "🧣" },
+  kovashki: { name: "Ковашки ръкавици", icon: "🧤" },
+  pleteni: { name: "Плетени ръкавици", icon: "🧶" },
+  strelets: { name: "Ръкавици на стрелец", icon: "🏹" },
+  poturi: { name: "Потури", icon: "👖" },
+  benevretsi: { name: "Беневреци", icon: "🩳" },
+  shalvari: { name: "Шалвари", icon: "🩲" },
+  botushi: { name: "Ботуши на хайдутин", icon: "🥾" },
+  bivolski: { name: "Цървули от бивол", icon: "👞" },
+  krilati: { name: "Крилати опинци", icon: "🪽" },
+  srebaren: { name: "Сребърен пръстен", icon: "💍" },
+  venchalen: { name: "Венчален пръстен", icon: "💍" },
+  rubin: { name: "Пръстен с рубин", icon: "♦️" },
+  pechat: { name: "Печат на царя", icon: "🔱" },
+  zmiya: { name: "Змийски пръстен", icon: "🐍" },
 };
-export const SLOT_TEXT = { weapon: "Оръжие", armor: "Броня", amulet: "Амулет" } as const;
+export const SLOT_TEXT = {
+  weapon: "Оръжие",
+  helmet: "Шапка / шлем",
+  shoulders: "Рамене",
+  armor: "Гърди",
+  gloves: "Ръкавици",
+  pants: "Гащи",
+  boots: "Обувки",
+  amulet: "Амулет",
+  ring: "Пръстен",
+  ring1: "Пръстен",
+  ring2: "Пръстен",
+} as const;
+/** an empty slot shows this */
+export const SLOT_ICON: Record<string, string> = { weapon: "⚔️", helmet: "🪖", shoulders: "🦺", armor: "🧥", gloves: "🧤", pants: "👖", boots: "🥾", amulet: "📿", ring1: "💍", ring2: "💍" };
 export const GEAR_STAT_TEXT: Record<string, (v: number) => string> = {
   might: (v) => `+${v}% щети`,
   maxHp: (v) => `+${v}% живот`,
