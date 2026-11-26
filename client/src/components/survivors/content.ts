@@ -118,8 +118,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     id: "chesan",
     name: "Чесън",
     desc: "Вампирите го мразят: вреди на всеки, който се доближи.",
-    base: { dmg: 5, cd: 0.6, amount: 1, area: 1, speed: 0, pierce: 999, dur: 0 },
-    ups: [{ area: 0.2 }, { dmg: 3 }, { cd: 0.08 }, { area: 0.2 }, { dmg: 3 }, { cd: 0.08 }, { area: 0.2 }],
+    base: { dmg: 13, cd: 0.5, amount: 1, area: 1, speed: 0, pierce: 999, dur: 0 },
+    ups: [{ area: 0.2 }, { dmg: 6 }, { cd: 0.07 }, { area: 0.2 }, { dmg: 8 }, { cd: 0.07 }, { area: 0.25 }],
     evo: { passive: "boza", name: "Венец от чесън", desc: "По-голям и те лекува, докато има врагове в него." },
   },
   rakia: {

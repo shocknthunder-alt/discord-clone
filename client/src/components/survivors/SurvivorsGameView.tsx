@@ -610,7 +610,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
 
   useEffect(() => {
     if (phase !== "playing") return;
-    const typing = (t: EventTarget | null) => t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLElement && !(t instanceof HTMLInputElement && t.type === "range") && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
     const MOVE = new Set(["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
     const down = (e: KeyboardEvent) => {
       if (typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -818,7 +819,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           }
         }
         // co-op: nobody waits forever for a slow picker
-        if (w.choosing && s.mode === "host" && now - s.roundAt > 30000) {
+        if (w.choosing && s.mode === "host" && now - s.roundAt > 15000) {
           for (const q of w.players) if (!w.picked.has(q.uid)) w.pick(q.uid, 0);
           if (offersRef.current) setOffers(null);
         }
@@ -870,7 +871,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         if (s.mode === "guest") {
           const mine = s.cur.view.players.find((p) => p.uid === myId);
           const L = s.local;
-          if (mine && !mine.dead && L.init && !s.cur.choosing) {
+          if (mine && !mine.dead && L.init) {
             L.dashCd = Math.max(0, L.dashCd - dt);
             if (L.lastDash < 0) L.lastDash = inp.dash;
             if (inp.dash > L.lastDash) {
@@ -1428,7 +1429,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             <div className="sv-buttons" onPointerDown={(e) => e.stopPropagation()}>
               <label className="sv-fxa" title="Колко се виждат моите атаки (за да личат атаките на враговете)">
                 <span>{fxAlpha < 0.05 ? "🙈" : "✨"}</span>
-                <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} />
+                <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
               </label>
               {!touch && (
                 <button
@@ -1563,7 +1564,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           </div>
         </div>
       )}
-      {!offers && hud?.choosing && mode !== "solo" && hud.waiting.length > 0 && <div className="sv-wait">⏳ Чакаме: {hud.waiting.join(", ")}</div>}
+      {!offers && hud?.choosing && mode !== "solo" && hud.waiting.length > 0 && <div className="sv-wait">🃏 Избира карти: {hud.waiting.join(", ")}</div>}
       {paused && mode === "solo" && (
         <div className="sv-pause" onPointerDown={(e) => e.stopPropagation()}>
           <h3>⏸ Пауза</h3>

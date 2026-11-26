@@ -225,6 +225,10 @@ export interface Player extends RPlayer {
   lastDash: number;
   lastSkill: number;
   remote: boolean;
+  /** a guest's last reported position (the host glides towards it) */
+  netX: number;
+  netY: number;
+  netInit: boolean;
   gone: boolean;
   /** Буря: lightning strikes still to come */
   storm: number;
@@ -423,8 +427,10 @@ export class World {
   bosses = 0;
   over = false;
 
-  /** level-up: the game waits until everyone picked */
+  /** level-up: cards are out (solo: the game waits; co-op: it goes on, the ones picking are shielded) */
   choosing = false;
+  /** solo pauses for the cards, co-op doesn't */
+  pauseOnLevel = true;
   pendingLevels = 0;
   offers = new Map<string, Offer[]>();
   picked = new Set<string>();
@@ -475,6 +481,7 @@ export class World {
 
   constructor(setup: PlayerSetup[], curses: SurvCurseId[]) {
     this.curses = new Set(curses);
+    this.pauseOnLevel = setup.length <= 1;
     setup.forEach((s, i) => {
       const a = (i / Math.max(1, setup.length)) * Math.PI * 2;
       const p: Player = {
@@ -511,6 +518,9 @@ export class World {
         buffs: { might: 0, speed: 0, shield: 0, herbs: 0, cheers: 0 },
         lastDash: 0,
         lastSkill: 0,
+        netX: 0,
+        netY: 0,
+        netInit: false,
         remote: s.remote,
         gone: false,
         storm: 0,
@@ -582,7 +592,7 @@ export class World {
     if (p.maxHp > before && !p.dead) p.hp += p.maxHp - before;
     p.hp = Math.min(p.hp, p.maxHp);
     const g = p.weapons.find((w) => w.id === "chesan");
-    p.auraR = g ? 62 * weaponStats("chesan", g.lvl).area * p.st.area * (g.evo ? 1.4 : 1) : 0;
+    p.auraR = g ? 95 * weaponStats("chesan", g.lvl).area * p.st.area * (g.evo ? 1.4 : 1) : 0;
     p.auraEvo = !!g?.evo;
   }
 
@@ -1105,8 +1115,13 @@ export class World {
     const p = this.players.find((q) => q.uid === uid);
     if (!p || p.dead || p.gone) return;
     if (Number.isFinite(x) && Number.isFinite(y)) {
-      p.x = x;
-      p.y = y;
+      if (!p.netInit || Math.hypot(x - p.x, y - p.y) > 300) {
+        p.x = x;
+        p.y = y;
+      }
+      p.netX = x;
+      p.netY = y;
+      p.netInit = true;
     }
     p.face = face < 0 ? -1 : 1;
     p.moving = moving;
@@ -1138,8 +1153,12 @@ export class World {
   /* ───────── the step ───────── */
 
   step(dt: number, inputs: Map<string, Input>) {
-    if (this.over || this.choosing) return;
+    if (this.over || (this.choosing && this.pauseOnLevel)) return;
     dt = Math.min(dt, 0.05);
+    if (this.choosing) {
+      // co-op: whoever still has cards open can't be hurt meanwhile
+      for (const p of this.players) if (!p.gone && !p.dead && !this.picked.has(p.uid)) p.buffs.shield = Math.max(p.buffs.shield, 0.2);
+    }
     this.t += dt;
     this.shatterT = Math.max(0, this.shatterT - dt);
     if (this.streakT > 0) {
@@ -1176,7 +1195,7 @@ export class World {
         this.xpNext = xpFor(this.level, this.players.length);
       }
       this.fx.push([FX.level, this.level]);
-      this.openOffers();
+      if (!this.choosing) this.openOffers();
     }
   }
 
@@ -1267,6 +1286,17 @@ export class World {
       }
     } else if (p.remote) {
       p.dashT = Math.max(0, p.dashT - dt);
+      if (p.netInit) {
+        // predict along the way it walks, then glide towards it
+        if (p.moving) {
+          const sp = p.dashT > 0 ? 900 : BASE_SPEED * p.st.speed;
+          p.netX += p.dirX * sp * dt;
+          p.netY += p.dirY * sp * dt;
+        }
+        const k = Math.min(1, dt * 14);
+        p.x += (p.netX - p.x) * k;
+        p.y += (p.netY - p.y) * k;
+      }
     }
 
     // skill effects over time

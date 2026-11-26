@@ -64,6 +64,16 @@ test.describe("🧟 Шмиркленд", () => {
     await expect.poll(async () => (await state(a.page)).level).toBe(2);
     await expect(a.page.locator(".sv-xp")).toContainText("Ниво 2");
 
+    // the ✨ slider for our own attacks can be dragged
+    const fxa = a.page.locator(".sv-fxa input");
+    const box = (await fxa.boundingBox())!;
+    await a.page.mouse.move(box.x + box.width - 3, box.y + box.height / 2);
+    await a.page.mouse.down();
+    await a.page.mouse.move(box.x + 3, box.y + box.height / 2, { steps: 5 });
+    await a.page.mouse.up();
+    expect(Number(await fxa.inputValue())).toBeLessThan(0.2);
+    await fxa.fill("1");
+
     // pause
     await a.page.keyboard.press("KeyP");
     await expect(a.page.locator(".sv-pause")).toBeVisible();
@@ -174,12 +184,11 @@ test.describe("🧟 Шмиркленд", () => {
     await a.page.locator(".sv-card").first().click();
     await expect(a.page.locator(".sv-wait")).toContainText(bob.username);
     const tWait = (await state(a.page)).t;
-    await a.page.waitForTimeout(400);
-    expect((await state(a.page)).t).toBeCloseTo(tWait, 1); // paused while bob picks
+    // co-op doesn't stop while bob picks (he's shielded meanwhile)
+    await expect.poll(async () => (await state(a.page)).t).toBeGreaterThan(tWait + 0.5);
     await b.page.locator(".sv-card").nth(1).click();
     await expect(b.page.locator(".sv-card")).toHaveCount(0);
     await expect.poll(async () => (await state(a.page)).choosing).toBe(false);
-    await expect.poll(async () => (await state(a.page)).t).toBeGreaterThan(tWait + 0.5);
     await expect.poll(async () => (await state(b.page)).level).toBe(2);
 
     // 👁 carl watches from the lobby list

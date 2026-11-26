@@ -397,7 +397,9 @@
   align-items: flex-start;
   pointer-events: none;
 }
-.sv-hud-top button {
+.sv-hud-top button,
+.sv-hud-top label,
+.sv-hud-top input {
   pointer-events: auto;
 }
 .sv-loadout {
