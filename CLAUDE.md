@@ -213,6 +213,13 @@ Owner pronouns unknown: use they/them.
   Heroes keep their ids but are now: tseko = Киро Брейка (b-boy), gitsa = Спаска, strahil = Баткан (брадва, ground
   punch), gosho = Бай Гошууу, mitko = Митьо Крика (крик). Angular detailed hero art via `figure()` in sprites.ts.
   `SurvStats.bestWave`, `SurvRunDTO.wave` (optional, additive).
+  **v3 (2026-11-26, owner: "more 3D, less emoji", better animations, big two-handed axes, harder, Пейо → Бай Шмирко)**:
+  no real 3D (would need a WebGL engine + models for 400 enemies) — "2.5D" instead: heroes are rigged (`rig()` joints,
+  frames 0..7 walk cycle, 8..9 breathing; `tube()` cylinder-shaded limbs, `shaded()` gradient shapes, shaded `head()`),
+  sprite keys `h3:`; enemies / projectiles get a volume pass in `make(…, volume)` (keys `e:` / `p:`); renderer bobs and
+  squashes walking enemies, Киро spins upside down, motion trails for spinning projectiles (`SPIN_TRAIL`, `lastPos`),
+  garlic aura = wavy mist + circling garlic heads, gaida = wavy sound ring with notes, yoke swoosh + water drops, bee wing
+  flaps. Брадва = a 64-px double-bladed axe thrown low through the crowd, curving, pierce ∞.
 - **🎮 Games section** (2026-11-24): ChannelList puts channels of type trivia/draw/blocks/match/survivors (`GAME_TYPES`) in a folding "🎮 Игри (N)" section under the text channels (localStorage `gamesSectionOpen`; collapsed = only the open game + a dot for unread/mentions). New game types must be added to `GAME_TYPES`.
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
   channel to every server + `DrawScore`, 20261120180000 renames it "paint wars"; owner asked for

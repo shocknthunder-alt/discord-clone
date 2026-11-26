@@ -541,13 +541,13 @@ export class World {
   }
   private hpMul() {
     const w = this.w;
-    return (1 + w * 0.17 + w * w * 0.013) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1);
+    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1);
   }
   private dmgMul() {
-    return 1 + this.w * 0.09;
+    return 1 + this.w * 0.115;
   }
   private speedMul() {
-    return (1 + Math.min(0.45, this.w * 0.018)) * (this.curses.has("wolves") ? 1.25 : 1);
+    return (1.05 + Math.min(0.5, this.w * 0.02)) * (this.curses.has("wolves") ? 1.25 : 1);
   }
 
   /* ───────── spawning ───────── */
@@ -626,9 +626,9 @@ export class World {
     // every 4th normal wave is a swarm of the small fast ones
     const swarm = w >= 7 && w % 4 === 3;
     if (swarm) this.waveMix = (["rat", "bat", "wolf"] as EnemyId[]).filter((id) => ENEMIES[id].from <= w);
-    this.waveTotal = Math.round((34 + w * 12 + w * w * 0.5) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1));
+    this.waveTotal = Math.round((40 + w * 14 + w * w * 0.6) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1));
     this.waveLeft = this.waveTotal;
-    this.waveElites = w >= 3 ? 1 + Math.floor(w / 6) : 0;
+    this.waveElites = w >= 3 ? 1 + Math.floor(w / 5) : 0;
     this.waveEvent = !isBossWave(w) && w >= 2 && Math.random() < 0.45;
     this.waveBosses = [];
     this.spawnAcc = 0;
@@ -662,7 +662,7 @@ export class World {
     this.waveT += dt;
     const w = this.wave;
     const pf = 1 + 0.6 * (this.pf - 1);
-    const cap = Math.min(MAX_ENEMIES, (40 + w * 14) * pf * (this.curses.has("horde") ? 1.4 : 1));
+    const cap = Math.min(MAX_ENEMIES, (48 + w * 16) * pf * (this.curses.has("horde") ? 1.4 : 1));
     // most of the wave arrives in the first 70% of it
     const rate = this.waveTotal / (WAVE_SECONDS * 0.7);
     this.spawnAcc += dt * rate;
@@ -1754,17 +1754,24 @@ export class World {
           break;
         }
         case "bradva": {
-          const n = amount;
-          for (let i = 0; i < n; i++) {
-            const sp = s.speed * p.st.projSpeed;
-            const vx = rand(-150, 150) + p.dirX * 70 + (i - (n - 1) / 2) * 60;
-            this.addProj(p, w.evo ? PK.bigAxe : PK.axe, p.x, p.y - 10, vx, -sp * rand(0.9, 1.08), {
+          // big two-handed axes hurled at the enemies: low through the crowd, curving, spinning
+          const near = this.within(p.x, p.y, 520).sort((a, b) => dist2(a.x, a.y, p.x, p.y) - dist2(b.x, b.y, p.x, p.y));
+          const sp = s.speed * p.st.projSpeed;
+          for (let i = 0; i < amount; i++) {
+            const t = near.length ? near[Math.min(near.length - 1, i * 2 + Math.floor(Math.random() * 2))]! : null;
+            const base = t ? Math.atan2(t.y - p.y, t.x - p.x) : face + (i - (amount - 1) / 2) * 0.5;
+            const curve = i % 2 ? -1 : 1;
+            const a = base - curve * 0.35;
+            const d = t ? Math.hypot(t.x - p.x, t.y - p.y) : 300;
+            this.addProj(p, w.evo ? PK.bigAxe : PK.axe, p.x, p.y - 8, Math.cos(a) * sp, Math.sin(a) * sp, {
               dmg: dmg * (w.evo ? 2 : 1),
-              pierce: w.evo ? 999 : s.pierce,
-              life: s.dur,
-              r: 14 * area * (w.evo ? 2 : 1),
-              hitCd: w.evo ? 0.5 : 999,
-              knock: 90,
+              pierce: 999,
+              life: Math.min(1.4, d / sp + 0.55),
+              r: 20 * area * (w.evo ? 1.8 : 1),
+              hitCd: w.evo ? 0.4 : 999,
+              knock: 170,
+              stun: 0.25,
+              d: [curve, curve],
               weapon: wi,
             });
           }
@@ -1911,12 +1918,23 @@ export class World {
           q.a = q.d[0]! + (q.kind === PK.bigSlash ? (1 - q.life / q.maxLife) * Math.PI * 2 : 0);
           break;
         case PK.axe:
-        case PK.bigAxe:
-          q.vy += 950 * dt;
+        case PK.bigAxe: {
+          // curve a little to the side, slow down at the end of the throw
+          const turn = (q.d[0] ?? 1) * 0.9 * dt;
+          const c0 = Math.cos(turn);
+          const s0 = Math.sin(turn);
+          const vx = q.vx * c0 - q.vy * s0;
+          q.vy = q.vx * s0 + q.vy * c0;
+          q.vx = vx;
+          if (q.life < 0.35) {
+            q.vx *= 1 - dt * 4;
+            q.vy *= 1 - dt * 4;
+          }
           q.x += q.vx * dt;
           q.y += q.vy * dt;
-          q.a += dt * 12;
+          q.a += dt * 19 * (q.d[1] ?? 1);
           break;
+        }
         case PK.bee: {
           if (!p) break;
           // fly at the nearest enemy around the owner, otherwise buzz around them

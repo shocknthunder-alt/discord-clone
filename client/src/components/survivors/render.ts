@@ -1,6 +1,6 @@
 import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, type EnemyId } from "./content";
 import { FX, GK, MK, PK, type Fx, type RView } from "./engine";
-import { decorSprite, enemySize, enemySprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
+import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
 // 🧟 Шмиркленд — draws a view (the host's world, or a guest's snapshot) onto the canvas: meadow, scenery,
 // marks, gems, everything sorted by height, effects (particles, bolts, blasts, numbers), arrows to
@@ -63,13 +63,15 @@ const PROJ_BASE: Record<number, number> = {
   [PK.mart]: 9,
   [PK.bullet]: 6,
   [PK.sheep]: 22,
-  [PK.axe]: 14,
-  [PK.bigAxe]: 14,
+  [PK.axe]: 20,
+  [PK.bigAxe]: 20,
   [PK.note]: 8,
   [PK.bee]: 6,
 };
 /** drawn upright (not turned with the flight direction) */
 const UPRIGHT = new Set<number>([PK.cauldron, PK.scarecrow, PK.jack, PK.note]);
+/** spinning things leave a blurred trail */
+const SPIN_TRAIL = new Set<number>([PK.axe, PK.bigAxe, PK.tsarvul, PK.bigTsarvul, PK.banitsa]);
 /** turned left/right only */
 const SIDEWAYS = new Set<number>([PK.pig, PK.boar, PK.sheep]);
 
@@ -98,6 +100,7 @@ export class Renderer {
   private booms: Boom[] = [];
   private shake = 0;
   private trails = new Map<string, { x: number; y: number; t: number }[]>();
+  private lastPos = new Map<number, { x: number; y: number; a: number }>();
   private pattern: CanvasPattern | null = null;
   private clock = 0;
 
@@ -289,16 +292,42 @@ export class Renderer {
     // auras + fire on the ground
     for (const p of v.players) {
       if (p.dead || !p.auraR) continue;
-      const g = c.createRadialGradient(p.x, p.y, p.auraR * 0.3, p.x, p.y, p.auraR);
+      const R = p.auraR;
+      const g = c.createRadialGradient(p.x, p.y, R * 0.2, p.x, p.y, R);
       g.addColorStop(0, "rgba(255,255,235,0)");
-      g.addColorStop(1, p.auraEvo ? "rgba(190,255,170,0.28)" : "rgba(250,245,220,0.22)");
+      g.addColorStop(0.7, p.auraEvo ? "rgba(190,255,170,0.12)" : "rgba(250,245,220,0.1)");
+      g.addColorStop(1, p.auraEvo ? "rgba(190,255,170,0.3)" : "rgba(250,245,220,0.24)");
       c.fillStyle = g;
+      // a wavy misty edge, not a plain circle
       c.beginPath();
-      c.arc(p.x, p.y, p.auraR, 0, Math.PI * 2);
+      for (let i = 0; i <= 48; i++) {
+        const a = (i / 48) * Math.PI * 2;
+        const rr = R * (1 + Math.sin(a * 6 + this.clock * 3) * 0.04 + Math.sin(a * 11 - this.clock * 2) * 0.025);
+        if (i === 0) c.moveTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.92);
+        else c.lineTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.92);
+      }
+      c.closePath();
       c.fill();
-      c.strokeStyle = p.auraEvo ? "rgba(180,255,150,0.35)" : "rgba(255,250,230,0.25)";
-      c.lineWidth = 1.5;
-      c.stroke();
+      // garlic heads circling slowly + wisps rising
+      const gs = garlicSprite();
+      const n = p.auraEvo ? 8 : 5;
+      for (let i = 0; i < n; i++) {
+        const a = this.clock * 0.9 + (i / n) * Math.PI * 2;
+        const gx = p.x + Math.cos(a) * R * 0.86;
+        const gy = p.y + Math.sin(a) * R * 0.8;
+        const bob = Math.sin(this.clock * 4 + i) * 2;
+        c.drawImage(gs, gx - gs.width / 4, gy - gs.height / 4 + bob, gs.width / 2, gs.height / 2);
+      }
+      for (let i = 0; i < 6; i++) {
+        const k = (this.clock * 0.5 + i / 6) % 1;
+        const a = i * 1.9 + Math.floor(this.clock * 0.5 + i / 6) * 2.3;
+        c.globalAlpha = (1 - k) * 0.35;
+        c.fillStyle = p.auraEvo ? "#d8ffc8" : "#fffbe8";
+        c.beginPath();
+        c.arc(p.x + Math.cos(a) * R * 0.6, p.y + Math.sin(a) * R * 0.5 - k * 30, 4 + k * 6, 0, Math.PI * 2);
+        c.fill();
+      }
+      c.globalAlpha = 1;
     }
     for (const q of v.projs) {
       if (!onScreen(q.x, q.y, q.r + 20)) continue;
@@ -387,10 +416,15 @@ export class Renderer {
             c.lineWidth = 2;
             c.stroke();
           }
-          const sp = enemySprite(e.type, e.frozenT > 0 ? 0 : frame, e.flash > 0 ? 1 : e.frozenT > 0 ? 2 : 0, e.face < 0);
-          const w = (sp.width / 2) * scale;
-          const h = (sp.height / 2) * scale;
-          c.drawImage(sp, e.x - w / 2, e.y - h / 2, w, h);
+          const still = e.frozenT > 0 || e.type === "pot";
+          const sp = enemySprite(e.type, still ? 0 : frame, e.flash > 0 ? 1 : e.frozenT > 0 ? 2 : 0, e.face < 0);
+          // a little bounce and squash with every step
+          const ph = this.clock * (boss ? 5 : 9) + e.id * 1.7;
+          const sq = still ? 0 : Math.sin(ph) * 0.045;
+          const hop = still ? 0 : Math.abs(Math.sin(ph)) * (boss ? 2 : 2.5);
+          const w = (sp.width / 2) * scale * (1 + sq);
+          const h = (sp.height / 2) * scale * (1 - sq);
+          c.drawImage(sp, e.x - w / 2, e.y - h / 2 - hop + ((sp.height / 2) * scale - h) / 2, w, h);
           if (e.elite && e.affix >= 0) {
             const af = AFFIX_TEXT[AFFIXES[e.affix]!];
             c.font = "bold 11px system-ui, sans-serif";
@@ -417,7 +451,7 @@ export class Renderer {
         draw: () => {
           for (const s of trail) {
             c.globalAlpha = Math.max(0, s.t) * 1.6;
-            const sp = heroSprite(p.hero, 0, 2, p.face < 0);
+            const sp = heroSprite(p.hero, 3, 2, p.face < 0);
             c.drawImage(sp, s.x - sp.width / 4, s.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
           }
           c.globalAlpha = 1;
@@ -453,10 +487,26 @@ export class Renderer {
               c.stroke();
             }
           } else {
-            const f = p.moving ? 1 + (Math.floor(this.clock * 8) % 2) : 0;
+            const f = p.moving ? Math.floor(this.clock * 13) % 8 : 8 + (Math.floor(this.clock * 1.4) % 2);
             const blink = p.invulnT > 0 && p.dashT <= 0 && Math.floor(this.clock * 20) % 2 === 0;
             const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0);
-            if (!blink || p.hurtT > 0) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
+            const spin = p.skillT > 0 && p.hero === "tseko";
+            if (spin) {
+              // Брейк на главата: upside down, spinning, with swirl lines
+              c.save();
+              c.translate(p.x, p.y - 6);
+              c.rotate(Math.PI);
+              c.scale(Math.cos(this.clock * 22), 1);
+              c.drawImage(sp, -sp.width / 4, -sp.height / 4 + 4, sp.width / 2, sp.height / 2);
+              c.restore();
+              for (let i = 0; i < 3; i++) {
+                c.beginPath();
+                c.ellipse(p.x, p.y + 14 - i * 12, 26 - i * 4, 7 - i, 0, this.clock * 14 + i, this.clock * 14 + i + 3.6);
+                c.strokeStyle = `rgba(255,200,120,${0.7 - i * 0.18})`;
+                c.lineWidth = 2;
+                c.stroke();
+              }
+            } else if (!blink || p.hurtT > 0) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
             if ((p as { shield?: boolean }).shield || p.skillT > 0) {
               c.beginPath();
               c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 115 : 30, 0, Math.PI * 2);
@@ -487,6 +537,26 @@ export class Renderer {
     for (const a of actors) a.draw();
 
     // projectiles
+    const seen = new Map<number, { x: number; y: number; a: number }>();
+    // a swoosh along the circle each orbiting yoke travels
+    for (const q of v.projs) {
+      if (q.kind !== PK.kob) continue;
+      const owner = v.players.reduce<RView["players"][number] | null>((best, p) => (!best || Math.hypot(p.x - q.x, p.y - q.y) < Math.hypot(best.x - q.x, best.y - q.y) ? p : best), null);
+      if (!owner) continue;
+      const R = Math.hypot(q.x - owner.x, q.y - owner.y);
+      const a = Math.atan2(q.y - owner.y, q.x - owner.x);
+      const g = c.createConicGradient ? c.createConicGradient(a - 1.1, owner.x, owner.y) : null;
+      c.beginPath();
+      c.arc(owner.x, owner.y, R, a - 1.1, a);
+      if (g) {
+        g.addColorStop(0, "rgba(255,240,200,0)");
+        g.addColorStop(1.1 / (Math.PI * 2), "rgba(255,240,200,0.45)");
+        g.addColorStop(1, "rgba(255,240,200,0)");
+        c.strokeStyle = g;
+      } else c.strokeStyle = "rgba(255,240,200,0.25)";
+      c.lineWidth = 10;
+      c.stroke();
+    }
     for (const q of v.projs) {
       if (q.kind === PK.fire || q.kind === PK.bigFire || q.kind === PK.poison) continue;
       if (!onScreen(q.x, q.y, q.r + 30)) continue;
@@ -516,21 +586,58 @@ export class Renderer {
         continue;
       }
       if (q.kind === PK.ring || q.kind === PK.bigRing) {
+        const big = q.kind === PK.bigRing;
         for (let i = 0; i < 3; i++) {
+          const R = Math.max(1, q.r - i * 10);
           c.beginPath();
-          c.arc(q.x, q.y, Math.max(1, q.r - i * 9), 0, Math.PI * 2);
-          c.strokeStyle = q.kind === PK.bigRing ? `rgba(190,140,255,${0.7 - i * 0.2})` : `rgba(255,236,160,${0.65 - i * 0.2})`;
-          c.lineWidth = 3 - i;
+          for (let k = 0; k <= 64; k++) {
+            const a = (k / 64) * Math.PI * 2;
+            const rr = R + Math.sin(a * 14 + this.clock * 18 + i * 2) * (3 - i);
+            if (k === 0) c.moveTo(q.x + Math.cos(a) * rr, q.y + Math.sin(a) * rr * 0.9);
+            else c.lineTo(q.x + Math.cos(a) * rr, q.y + Math.sin(a) * rr * 0.9);
+          }
+          c.closePath();
+          c.strokeStyle = big ? `rgba(200,150,255,${0.75 - i * 0.22})` : `rgba(255,236,160,${0.7 - i * 0.22})`;
+          c.lineWidth = 3.5 - i;
           c.stroke();
+        }
+        const note = projSprite(PK.note, 0);
+        if (note) {
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2 + q.id;
+            c.globalAlpha = 0.85;
+            c.drawImage(note, q.x + Math.cos(a) * q.r - 5, q.y + Math.sin(a) * q.r * 0.9 - 6, 10, 11);
+          }
+          c.globalAlpha = 1;
         }
         continue;
       }
-      const sp = projSprite(q.kind, SIDEWAYS.has(q.kind) ? frame : 0);
+      if (q.kind === PK.kob) {
+        // drops of water flying off the buckets
+        if (Math.random() < 0.25) this.particles.push({ x: q.x + (Math.random() - 0.5) * 20, y: q.y + 6, vx: (Math.random() - 0.5) * 80, vy: -40 - Math.random() * 60, life: 0.45, max: 0.45, col: "#7cc8ff", size: 2.2 });
+      }
+      const sp = projSprite(q.kind, SIDEWAYS.has(q.kind) ? frame : q.kind === PK.bee ? Math.floor(this.clock * 30 + q.id) % 2 : 0);
       if (!sp) continue;
       const base = PROJ_BASE[q.kind];
       const scale = base ? Math.max(0.6, q.r / base) : 1;
       const w = (sp.width / 2) * scale;
       const h = (sp.height / 2) * scale;
+      // motion trail for spinning things: earlier positions + angles, fading
+      if (SPIN_TRAIL.has(q.kind)) {
+        const last = this.lastPos.get(q.id);
+        if (last) {
+          for (let k = 3; k >= 1; k--) {
+            const t = k / 4;
+            c.save();
+            c.globalAlpha = 0.22 * (1 - t);
+            c.translate(q.x + (last.x - q.x) * t * 2.2, q.y + (last.y - q.y) * t * 2.2);
+            c.rotate(q.a - (q.a - last.a) * t * 2.2);
+            c.drawImage(sp, -w / 2, -h / 2, w, h);
+            c.restore();
+          }
+        }
+        seen.set(q.id, { x: q.x, y: q.y, a: q.a });
+      }
       c.save();
       c.translate(q.x, q.y);
       if (SIDEWAYS.has(q.kind)) {
@@ -540,6 +647,7 @@ export class Renderer {
       c.drawImage(sp, -w / 2, -h / 2, w, h);
       c.restore();
     }
+    this.lastPos = seen;
 
     // particles
     for (let i = this.particles.length - 1; i >= 0; i--) {

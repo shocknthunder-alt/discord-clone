@@ -157,9 +157,9 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   bradva: {
     id: "bradva",
     name: "Брадва",
-    desc: "Хвърля се високо и пада върху враговете. Тежка и болезнена.",
-    base: { dmg: 24, cd: 1.7, amount: 1, area: 1, speed: 430, pierce: 3, dur: 2 },
-    ups: [{ dmg: 8 }, { amount: 1 }, { pierce: 2 }, { dmg: 10 }, { amount: 1 }, { area: 0.25 }, { dmg: 14 }],
+    desc: "Голяма двуръчна брадва, мятана по дъга право в тълпата. Върти се и сече всичко по пътя.",
+    base: { dmg: 26, cd: 1.6, amount: 1, area: 1, speed: 520, pierce: 999, dur: 1 },
+    ups: [{ dmg: 8 }, { amount: 1 }, { area: 0.2 }, { dmg: 10 }, { amount: 1 }, { area: 0.25 }, { dmg: 14 }],
     evo: { passive: "kozhuh", name: "Секирата на Крали Марко", desc: "Огромни брадви, които минават през всичко." },
   },
   kaval: {
@@ -285,7 +285,7 @@ export interface HeroDef {
 export const HEROES: Record<SurvHeroId, HeroDef> = {
   peyo: {
     id: "peyo",
-    name: "Пейо",
+    name: "Бай Шмирко",
     title: "Овчарят",
     weapon: "prase",
     bonus: "+20% живот",
