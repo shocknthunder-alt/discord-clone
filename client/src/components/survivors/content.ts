@@ -300,7 +300,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tsarvul",
     bonus: "+1 броня, +10% бързина",
     stats: { armor: 1, speed: 0.1 },
-    skill: { name: "Брейк на главата", desc: "5 секунди се върти на главата — нищо не го лови, наоколо гори, накрая взрив.", cd: 20 },
+    skill: { name: "Брейк на главата", desc: "6 секунди се върти на главата по-бързо — нищо не го лови, засмуква тълпата, мели и удря на всяка секунда, накрая огромен взрив, който зашеметява.", cd: 20 },
     look: { body: "#2457c7", trim: "#ffffff", hat: "#d9262e", skin: "#d9a57c" },
   },
   nikola: {
@@ -320,7 +320,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "banitsa",
     bonus: "+0.4 живот в секунда",
     stats: { regen: 0.4 },
-    skill: { name: "Тава баница", desc: "Лекува всички с 40%, вдига падналите и хвърля 16 горещи баници наоколо.", cd: 20 },
+    skill: { name: "Тава баница", desc: "Пир: лекува всички с 60%, вдига падналите, +60% щети и +30% бързина за 8 с, и три все по-широки кръга горещи баници.", cd: 20 },
     look: { body: "#2a1d2e", trim: "#f4efe4", hat: "#c62f3a", skin: "#efc6a4" },
   },
   strahil: {
@@ -626,6 +626,55 @@ export type GiftId =
   | "dazh_dawn";
 export const GIFT_MAX = 3;
 
+/* ───────────── 🔨 temper cards (after the build is full) + combos ───────────── */
+
+export type TemperId = "might" | "hp" | "haste" | "crit" | "area" | "speed";
+export const TEMPERS: Record<TemperId, { name: string; icon: string; desc: string; per: number }> = {
+  might: { name: "Закалка: Сила", icon: "💪", desc: "+5% щети", per: 0.05 },
+  hp: { name: "Закалка: Живот", icon: "❤️", desc: "+6% живот", per: 0.06 },
+  haste: { name: "Закалка: Бързи ръце", icon: "⚡", desc: "+3% по-бързо презареждане", per: 0.03 },
+  crit: { name: "Закалка: Око", icon: "🎯", desc: "+3% критичен удар", per: 0.03 },
+  area: { name: "Закалка: Размах", icon: "🌀", desc: "+5% обхват на атаките", per: 0.05 },
+  speed: { name: "Закалка: Крака", icon: "🏃", desc: "+3% бързина", per: 0.03 },
+};
+export const TEMPER_IDS = Object.keys(TEMPERS) as TemperId[];
+/** stacks → effective stacks (each one is worth a bit less): 10 → 8, 20 → 13, 40 → 20 */
+export const temperEff = (n: number) => n / (1 + n / 40);
+
+/** 🔗 two specific weapons together wake a combo: both level 4+ = I, both level 8 (or evolved) = II */
+export type ComboId = "gorburya" | "chesanprase" | "svatba" | "zakuska" | "zhatva" | "haiduti" | "prolet" | "roy" | "gramkrik" | "ognenkazan";
+export interface ComboDef {
+  name: string;
+  icon: string;
+  a: WeaponId;
+  b: WeaponId;
+  desc: (t: number) => string;
+}
+export const COMBOS: Record<ComboId, ComboDef> = {
+  gorburya: { name: "Горяща буря", icon: "🔥⚡", a: "tesla", b: "rakia", desc: (t) => `мълниите на Теслата с ${20 + 15 * t}% шанс подпалват земята под врага` },
+  chesanprase: { name: "Прасе с чесън", icon: "🐖🧄", a: "prase", b: "chesan", desc: (t) => `прасето трови и забавя всичко, което блъсне (${10 * t} отрова/с)` },
+  svatba: { name: "Сватба", icon: "🎶", a: "gaida", b: "kaval", desc: (t) => `на всеки ${t === 1 ? 8 : 5} с хоро от звук отблъсква и удря всичко наоколо` },
+  zakuska: { name: "Закуска", icon: "🥧🫘", a: "banitsa", b: "kazan", desc: (t) => `баниците и бобът се пръскат по съседите (${t === 1 ? "+50%" : "+100%"} площ)` },
+  zhatva: { name: "Жътва", icon: "🌾🪓", a: "sarp", b: "bradva", desc: (t) => `сърпът и брадвата посичат обикновени врагове под ${t === 1 ? 15 : 25}% живот` },
+  haiduti: { name: "Хайдути", icon: "🔫👞", a: "pishtov", b: "tsarvul", desc: (t) => `куршумите и цървулите зашеметяват (${t === 1 ? "0.4" : "0.8"} с) и отблъскват силно` },
+  prolet: { name: "Пролет", icon: "🌸💧", a: "martenitsa", b: "kobilitsa", desc: (t) => `на всеки ${t === 1 ? 10 : 6} с лекува ${t === 1 ? 6 : 10}% и забавя враговете наоколо` },
+  roy: { name: "Рояк", icon: "🐝🎃", a: "kosher", b: "plashilo", desc: (t) => `на всеки ${t === 1 ? 4 : 2.5} с облак пчели трови враговете около теб` },
+  gramkrik: { name: "Гръмовен крик", icon: "📣⚡", a: "krik", b: "tesla", desc: (t) => `ударите на Крика пускат мълнии към ${t === 1 ? 3 : 5} врага наоколо` },
+  ognenkazan: { name: "Огнен казан", icon: "🫘🔥", a: "kazan", b: "rakia", desc: (t) => `бобът с ${25 + 15 * t}% шанс избухва в пламъци` },
+};
+export const COMBO_IDS = Object.keys(COMBOS) as ComboId[];
+export function comboTier(weapons: readonly { id: WeaponId; lvl: number; evo: boolean }[] | undefined, id: ComboId): number {
+  const c = COMBOS[id];
+  const a = weapons?.find((w) => w.id === c.a);
+  const b = weapons?.find((w) => w.id === c.b);
+  if (!a || !b) return 0;
+  const top = (w: { lvl: number; evo: boolean }) => w.evo || w.lvl >= 8;
+  if (top(a) && top(b)) return 2;
+  return a.lvl >= 4 && b.lvl >= 4 ? 1 : 0;
+}
+/** combos a weapon belongs to (for the card hints) */
+export const combosOf = (w: WeaponId) => COMBO_IDS.filter((c) => COMBOS[c].a === w || COMBOS[c].b === w);
+export const TIER_ROMAN = ["", "I", "II", "III"];
 /* ───────────── 💎 boss relics (for this game only) ───────────── */
 
 /** a relic is named after the boss that drops it */

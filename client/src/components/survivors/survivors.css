@@ -1237,6 +1237,27 @@
   background: radial-gradient(circle, rgba(170, 100, 255, 0.35), rgba(20, 12, 30, 0.85) 75%);
   box-shadow: 0 0 8px rgba(180, 120, 255, 0.7);
 }
+.sv-slot.combo {
+  border-color: #ff9a3a;
+  box-shadow: 0 0 8px rgba(255, 150, 60, 0.7);
+}
+.sv-slot.combo i {
+  font-size: 0.8em;
+  letter-spacing: -0.2em;
+}
+.sv-slot.temper {
+  border-color: #8a8a8a;
+}
+.sv-combo-hint {
+  display: block;
+  font-size: 11px;
+  opacity: 0.6;
+  color: #ffb86b;
+}
+.sv-combo-hint.on {
+  opacity: 1;
+  font-weight: 600;
+}
 .sv-card.gift {
   border-color: var(--god);
   background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--god) 28%, #1a1610), #1a1610 70%);

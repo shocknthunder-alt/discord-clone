@@ -34,6 +34,7 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
+import { COMBOS, COMBO_IDS, TEMPERS, TIER_ROMAN, comboTier, combosOf, type TemperId } from "./content";
 import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
 import { FX, World, isBossWave, offerTitle, type Fx, type Input, type MissionView, type Offer, type RView } from "./engine";
@@ -1600,6 +1601,25 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                   ))}
                 </div>
               )}
+              {me_ && (COMBO_IDS.some((c) => comboTier(me_.weapons, c) > 0) || Object.keys(me_.tempers ?? {}).length > 0) && (
+                <div className="sv-weapons">
+                  {COMBO_IDS.filter((c) => comboTier(me_.weapons, c) > 0).map((c) => {
+                    const t = comboTier(me_.weapons, c);
+                    return (
+                      <div key={c} className="sv-slot small combo" title={`🔗 ${COMBOS[c].name} ${TIER_ROMAN[t]} — ${COMBOS[c].desc(t)}`}>
+                        <i>{COMBOS[c].icon}</i>
+                        <span>{TIER_ROMAN[t]}</span>
+                      </div>
+                    );
+                  })}
+                  {(Object.entries(me_.tempers ?? {}) as [TemperId, number][]).map(([id, n]) => (
+                    <div key={id} className="sv-slot small temper" title={`${TEMPERS[id].name} ×${n}`}>
+                      <i>{TEMPERS[id].icon}</i>
+                      <span>{n}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
               {me_ && (me_.relics?.length ?? 0) > 0 && (
                 <div className="sv-weapons">
                   {me_.relics.map((id) => (
@@ -1790,13 +1810,13 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 ) : o.kind === "weapon" ? (
                   <img src={weaponIcon(o.id)} alt="" />
                 ) : (
-                  <span className="sv-card-emoji">{o.kind === "passive" ? PASSIVES[o.id].icon : o.kind === "gold" ? "🪙" : "🍞"}</span>
+                  <span className="sv-card-emoji">{o.kind === "passive" ? PASSIVES[o.id].icon : o.kind === "temper" ? TEMPERS[o.id].icon : o.kind === "gold" ? "🪙" : "🍞"}</span>
                 )}
                 {o.kind !== "gift" && (
                   <>
-                    <b>{o.kind === "weapon" ? WEAPONS[o.id].name : o.kind === "passive" ? PASSIVES[o.id].name : offerTitle(o)}</b>
+                    <b>{o.kind === "weapon" ? WEAPONS[o.id].name : o.kind === "passive" ? PASSIVES[o.id].name : o.kind === "temper" ? TEMPERS[o.id].name : offerTitle(o)}</b>
                     <span className={`sv-card-lvl ${(o.kind === "weapon" || o.kind === "passive") && o.lvl === 1 ? "new" : ""}`}>
-                      {o.kind === "weapon" || o.kind === "passive" ? (o.lvl === 1 ? "Ново!" : `Ниво ${o.lvl}`) : ""}
+                      {o.kind === "weapon" || o.kind === "passive" ? (o.lvl === 1 ? "Ново!" : `Ниво ${o.lvl}`) : o.kind === "temper" ? `×${o.n}` : ""}
                     </span>
                     <small>
                       {o.kind === "weapon"
@@ -1805,13 +1825,25 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                           : weaponUpText(o.id, o.lvl)
                         : o.kind === "passive"
                           ? PASSIVES[o.id].desc
-                          : o.kind === "gold"
+                          : o.kind === "temper"
+                            ? `${TEMPERS[o.id].desc} (безкрайно, всяка следваща малко по-слаба)`
+                            : o.kind === "gold"
                             ? "Нищо ново не остана — вземи злато."
                             : "Възстановява половината живот."}
                     </small>
                   </>
                 )}
                 {o.kind === "weapon" && <em className="sv-evo-hint">🌟 + {PASSIVES[WEAPONS[o.id].evo.passive].icon} {PASSIVES[WEAPONS[o.id].evo.passive].name}</em>}
+                {o.kind === "weapon" &&
+                  combosOf(o.id).map((c) => {
+                    const other = COMBOS[c].a === o.id ? COMBOS[c].b : COMBOS[c].a;
+                    const has = me_?.weapons.some((w) => w.id === other);
+                    return (
+                      <em key={c} className={`sv-combo-hint ${has ? "on" : ""}`} title={COMBOS[c].desc(1)}>
+                        🔗 + {WEAPONS[other].name} → {COMBOS[c].name}
+                      </em>
+                    );
+                  })}
                 {o.kind === "passive" && <em className="sv-evo-hint">{evoFor(o.id)}</em>}
               </button>
             ))}
@@ -1891,8 +1923,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             const total = endInfo.dmg.reduce((a, [, x]) => a + x, 0) || 1;
             return (
               <div key={wi} className="sv-dmg-row">
-                {id ? <img src={weaponIcon(id)} alt="" /> : <i>{wi === -3 ? "⚡" : wi === -4 ? "💎" : "✨"}</i>}
-                <span>{id ? WEAPONS[id].name : wi === -3 ? "Дарове от боговете" : wi === -4 ? "Реликви" : "Умение и други"}</span>
+                {id ? <img src={weaponIcon(id)} alt="" /> : <i>{wi === -3 ? "⚡" : wi === -4 ? "💎" : wi === -5 ? "🔗" : "✨"}</i>}
+                <span>{id ? WEAPONS[id].name : wi === -3 ? "Дарове от боговете" : wi === -4 ? "Реликви" : wi === -5 ? "Съчетания" : "Умение и други"}</span>
                 <div className="sv-dmg-bar">
                   <div style={{ width: `${(v / endInfo.dmg[0]![1]) * 100}%` }} />
                 </div>

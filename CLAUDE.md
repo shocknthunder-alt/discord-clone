@@ -271,6 +271,12 @@ Owner pronouns unknown: use they/them.
   the game ends): pickup `GK.relic` 9 (v = `RELIC_IDS` index, light pillar + 💎 arrow in render.ts), whoever touches it, EVERY
   player gets their own (`takeRelic`, FX.chest popup); `Player.relics`, effects in statsOf / hurt / hurtPlayer / dashEnd /
   `stepRelics`; damage index -4 = relics; net player index 27. Card "Пропусни" = `pick(-1)` (+3 gold).
+  🔨 TEMPER cards (`TEMPERS`, endless, `temperEff` diminishing; net index 28): a full build (no `candidates`) offers tempers +
+  🍞 bread always; a chest with nothing to give = 1 temper. 🔗 COMBOS = pairs of specific WEAPONS (`COMBOS`, `comboTier(weapons)`:
+  both lvl 4+ = I, both 8/evolved = II; computed from weapons so guests need nothing extra): on-hit in `comboHit` (by
+  `WEAPON_IDS[wi]`), timed in `stepCombos`; damage index -5; banner via `announceCombos`; card hints `combosOf`.
+  Skills buffed (owner said weak): Киро 6 s vortex (pull 400, grind 190, ring every s, speed buff, end 320 blast + stun);
+  Спаска = feast (60% heal/revive, `buffs.cheers` 8 s for all, 3 widening banitsa rings via `volley`).
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

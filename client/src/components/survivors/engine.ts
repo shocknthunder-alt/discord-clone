@@ -10,6 +10,15 @@ import {
   MISSION_ALTARS,
   MISSION_SECONDS,
   RELICS,
+  TEMPERS,
+  TEMPER_IDS,
+  COMBOS,
+  COMBO_IDS,
+  TIER_ROMAN,
+  comboTier,
+  temperEff,
+  type TemperId,
+  type ComboId,
   RELIC_IDS,
   RELIC_CHANCE,
   RELIC_CHANCE_DARK,
@@ -276,6 +285,9 @@ export interface Player extends RPlayer {
   relics: RelicId[];
   heartUsed: boolean;
   bellT: number;
+  /** 🔨 temper cards taken; 🔗 combo timers */
+  tempers: Partial<Record<TemperId, number>>;
+  comboT: { svatba: number; prolet: number; roy: number; krik: number };
 }
 
 /** 🎯 the wave's task */
@@ -361,6 +373,7 @@ export type Offer =
   | { kind: "weapon"; id: WeaponId; lvl: number }
   | { kind: "passive"; id: PassiveId; lvl: number }
   | { kind: "gift"; id: GiftId; lvl: number }
+  | { kind: "temper"; id: TemperId; n: number }
   | { kind: "gold" }
   | { kind: "heal" };
 
@@ -611,6 +624,8 @@ export class World {
         relics: [],
         heartUsed: false,
         bellT: 6,
+        tempers: {},
+        comboT: { svatba: 4, prolet: 6, roy: 3, krik: 0 },
       };
       p.weapons.push({ id: HEROES[s.hero].weapon, lvl: 1, evo: false, t: 0.5, t2: 0, on: false });
       // god runes: start with one of that god's gifts
@@ -709,6 +724,14 @@ export class World {
     s.area += g("dazh_wheel") * 0.08;
     s.projSpeed += g("dazh_wheel") * 0.08;
     s.slayer += g("dazh_dawn") * 0.1;
+    // 🔨 tempers
+    const te = (id: TemperId) => temperEff(p.tempers?.[id] ?? 0) * TEMPERS[id].per;
+    s.might += te("might");
+    s.maxHp *= 1 + te("hp");
+    s.cooldown += te("haste");
+    s.crit += te("crit");
+    s.area += te("area");
+    s.speed += te("speed");
     // 💎 relics
     const rl = (id: RelicId) => p.relics?.includes(id) ?? false;
     if (rl("lamia")) (s.armor += 3), (s.maxHp *= 1.15);
@@ -1157,6 +1180,7 @@ export class World {
       e.ky += (ky / len) * k;
     }
     if (d >= 3 || crit) this.fx.push([FX.dmg, Math.round(e.x), Math.round(e.y - e.r), Math.round(d), crit ? 1 : 0]);
+    if (p && wi >= 0 && e.type !== "pot") this.comboHit(p, e, d, wi);
     if (e.hp <= 0) this.kill(e, p);
     else if (crit && p && p.gifts.perun_crit && wi !== -3) {
       // Перунов знак: a crit jumps to a neighbour as lightning
@@ -1165,6 +1189,53 @@ export class World {
         this.fx.push([FX.bolt, Math.round(e.x), Math.round(e.y), Math.round(n.x), Math.round(n.y)]);
         this.hurt(n, d * 0.5 * (p.blessed.has("perun") ? 1.5 : 1), p, 0, 0, 0, 1, -3);
       }
+    }
+  }
+
+  /** 🔗 weapon combos that fire when a weapon hits (their own damage is index -5, so they never chain) */
+  private comboHit(p: Player, e: Enemy, d: number, wi: number) {
+    const wid = WEAPON_IDS[wi];
+    if (!wid) return;
+    const t = (c: ComboId) => comboTier(p.weapons, c);
+    const grow = 1 + this.wave * 0.05;
+    let k = 0;
+    if (wid === "tesla" && (k = t("gorburya")) && Math.random() < 0.2 + 0.15 * k) {
+      this.addProj(p, PK.fire, e.x, e.y, 0, 0, { dmg: 6 * k * p.st.might * grow, pierce: 999, life: 2, r: 38 * p.st.area, hitCd: 0.4, weapon: -5 });
+    }
+    if (wid === "prase" && (k = t("chesanprase")) && e.type !== "altar") {
+      e.poisonT = 3;
+      e.poisonD = Math.max(e.poisonD, 10 * k * p.st.might * grow);
+      e.poisonBy = this.players.indexOf(p);
+      if (!e.boss) e.slowT = Math.max(e.slowT, 1.2);
+    }
+    if ((wid === "banitsa" || wid === "kazan") && (k = t("zakuska")) && Math.random() < 0.5) {
+      this.explode(p, e.x, e.y, (35 + 30 * k) * p.st.area, d * 0.5, 0, -5);
+    }
+    if ((wid === "sarp" || wid === "bradva") && (k = t("zhatva")) && !e.boss && !e.elite && e.type !== "altar" && e.hp > 0 && e.hp < e.maxHp * (k === 1 ? 0.15 : 0.25)) {
+      p.dmgBy[-5] = (p.dmgBy[-5] ?? 0) + e.hp;
+      e.hp = 0;
+      this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 8), "🌾", "#ffe08a"]);
+    }
+    if ((wid === "pishtov" || wid === "tsarvul") && (k = t("haiduti")) && !e.boss && e.type !== "altar") {
+      e.stunT = Math.max(e.stunT, 0.4 * k);
+      const dx = e.x - p.x;
+      const dy = e.y - p.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const kb = (e.elite ? 60 : 200) * k;
+      e.kx += (dx / len) * kb;
+      e.ky += (dy / len) * kb;
+    }
+    if (wid === "krik" && (k = t("gramkrik")) && p.comboT.krik <= 0) {
+      p.comboT.krik = 0.4;
+      const near = this.within(e.x, e.y, 280).filter((q) => q !== e && q.type !== "pot");
+      near.sort(() => Math.random() - 0.5);
+      for (const q of near.slice(0, k === 1 ? 3 : 5)) {
+        this.fx.push([FX.bolt, Math.round(e.x), Math.round(e.y), Math.round(q.x), Math.round(q.y)]);
+        this.hurt(q, this.skillDmg(p, 14 * k), p, 0, 0, 0, 2, -5);
+      }
+    }
+    if (wid === "kazan" && (k = t("ognenkazan")) && Math.random() < 0.25 + 0.15 * k) {
+      this.explode(p, e.x, e.y, 65 * p.st.area, this.skillDmg(p, 10 * k), 3, -5);
     }
   }
 
@@ -1215,8 +1286,61 @@ export class World {
     this.stepRelics(p, dt);
   }
 
+  /** 🔗 combos that run by themselves */
+  private stepCombos(p: Player, dt: number) {
+    const T = p.comboT;
+    T.krik = Math.max(0, T.krik - dt);
+    if (p.dead) return;
+    const grow = 1 + this.wave * 0.05;
+    let k = comboTier(p.weapons, "svatba");
+    if (k && (T.svatba -= dt) <= 0) {
+      T.svatba = k === 1 ? 8 : 5;
+      this.explode(p, p.x, p.y, 240 * p.st.area, this.skillDmg(p, 30 * k), 5, -5, 0.5);
+      for (const e of this.within(p.x, p.y, 240 * p.st.area)) {
+        if (e.boss || e.type === "altar" || e.type === "pot") continue;
+        const dx = e.x - p.x;
+        const dy = e.y - p.y;
+        const len = Math.hypot(dx, dy) || 1;
+        e.kx += (dx / len) * 260;
+        e.ky += (dy / len) * 260;
+      }
+      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 50), "🎶", "#ffe08a"]);
+    }
+    k = comboTier(p.weapons, "prolet");
+    if (k && (T.prolet -= dt) <= 0) {
+      T.prolet = k === 1 ? 10 : 6;
+      this.heal(p, p.maxHp * (k === 1 ? 0.06 : 0.1));
+      for (const e of this.within(p.x, p.y, 300)) if (!e.boss) e.slowT = Math.max(e.slowT, 2);
+      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 50), "🌸", "#ff9ad0"]);
+    }
+    k = comboTier(p.weapons, "roy");
+    if (k && (T.roy -= dt) <= 0) {
+      T.roy = k === 1 ? 4 : 2.5;
+      const r = 160 * p.st.area;
+      this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(r), 6]);
+      for (const e of this.within(p.x, p.y, r)) {
+        if (e.type === "pot" || e.type === "altar") continue;
+        e.poisonT = 3;
+        e.poisonD = Math.max(e.poisonD, 8 * k * p.st.might * grow);
+        e.poisonBy = this.players.indexOf(p);
+      }
+    }
+  }
+
+  /** 🔗 a weapon levelled / evolved: say which combos just woke up */
+  private announceCombos(p: Player, before: number[]) {
+    COMBO_IDS.forEach((c, i) => {
+      const t = comboTier(p.weapons, c);
+      if (t <= before[i]!) return;
+      const C = COMBOS[c];
+      this.fx.push([FX.banner, `🔗 Съчетание ${C.icon} ${C.name} ${TIER_ROMAN[t]}${this.players.length > 1 ? ` (${p.name})` : ""}: ${C.desc(t)}`, 2]);
+      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 50), `🔗 ${C.name} ${TIER_ROMAN[t]}`, "#ffb86b"]);
+    });
+  }
+
   /** 💎 relics that run by themselves */
   private stepRelics(p: Player, dt: number) {
+    this.stepCombos(p, dt);
     if (!p.relics.length || p.dead) return;
     if (p.relics.includes("swampking")) {
       for (const e of this.within(p.x, p.y, 160 * p.st.area)) if (!e.boss) e.slowT = Math.max(e.slowT, 0.3);
@@ -1631,8 +1755,13 @@ export class World {
           });
         }
       } else if (p.hero === "tseko") {
-        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 220, 0]);
-        for (const e of this.within(p.x, p.y, 220)) this.hurt(e, this.skillDmg(p, 110), p, e.x - p.x, e.y - p.y, 500);
+        const r = 320 * p.st.area;
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(r), 5]);
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(r * 0.6), 0]);
+        for (const e of this.within(p.x, p.y, r)) {
+          this.hurt(e, this.skillDmg(p, 220), p, e.x - p.x, e.y - p.y, 600);
+          if (!e.boss) e.stunT = Math.max(e.stunT, 1.2);
+        }
       }
     }
     const b = p.buffs;
@@ -1741,10 +1870,42 @@ export class World {
       }
     }
     if (p.skillT > 0 && p.hero === "tseko") {
-      // Брейк на главата: everything close burns
-      this.grid.each(p.x, p.y, 130, (e) => {
-        if (dist2(e.x, e.y, p.x, p.y) < 130 * 130 && Math.random() < dt * 5) this.hurt(e, this.skillDmg(p, 40), p, e.x - p.x, e.y - p.y, 120);
+      // Брейк на главата: a vortex — pulls the crowd in, grinds what's close, a shock ring every second
+      const inner = 190 * p.st.area;
+      const outer = 400 * p.st.area;
+      const dmg = this.skillDmg(p, 60);
+      this.grid.each(p.x, p.y, outer, (e) => {
+        const d2 = dist2(e.x, e.y, p.x, p.y);
+        if (d2 > outer * outer) return;
+        if (d2 < inner * inner) {
+          if (Math.random() < dt * 6) this.hurt(e, dmg, p, e.x - p.x, e.y - p.y, 60);
+        } else if (!e.boss && e.type !== "altar" && e.type !== "pot") {
+          const d = Math.sqrt(d2) || 1;
+          e.x += ((p.x - e.x) / d) * 190 * dt;
+          e.y += ((p.y - e.y) / d) * 190 * dt;
+        }
       });
+      if (Math.floor(p.skillT) !== Math.floor(p.skillT + dt)) {
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(inner * 1.3), 5]);
+        for (const e of this.within(p.x, p.y, inner * 1.3)) this.hurt(e, this.skillDmg(p, 70), p, e.x - p.x, e.y - p.y, 160);
+      }
+    }
+    if (p.volley > 0 && p.hero === "gitsa") {
+      // Тава баница: rings of hot banitsas, each one wider
+      p.volleyT -= dt;
+      if (p.volleyT <= 0) {
+        const ring = 3 - p.volley;
+        p.volley--;
+        p.volleyT = 0.55;
+        const n = 16 + ring * 4;
+        const R = (230 + ring * 130) * p.st.area;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + ring * 0.2;
+          const tx = p.x + Math.cos(a) * R;
+          const ty = p.y + Math.sin(a) * R;
+          this.addProj(p, PK.banitsa, p.x, p.y, 0, 0, { dmg: this.skillDmg(p, 110), pierce: 999, life: 1.1, r: 20, d: [p.x, p.y, tx, ty, 110 * p.st.area, 0], hitCd: 0.3 });
+        }
+      }
     }
     if (p.skillT > 0 && p.hero === "strahil") {
       // Вихър от брадви: grinds everything close, pulls the rest in
@@ -1809,24 +1970,25 @@ export class World {
         break;
       }
       case "tseko":
-        p.skillT = 5;
+        p.skillT = 6;
+        p.buffs.speed = Math.max(p.buffs.speed, 6);
+        this.refreshStats(p);
         break;
       case "nikola":
         p.storm = 30;
         p.stormT = 0;
         break;
       case "gitsa":
+        // a feast: everyone healed / back up, +60% damage and +30% speed for 8 s, three rings of banitsas
         for (const q of this.players) {
           if (q.gone) continue;
-          if (q.dead) this.revive(q, 0.4);
-          else this.heal(q, q.maxHp * 0.4);
+          if (q.dead) this.revive(q, 0.6);
+          else this.heal(q, q.maxHp * 0.6);
+          q.buffs.cheers = Math.max(q.buffs.cheers, 8);
+          this.refreshStats(q);
         }
-        for (let i = 0; i < 16; i++) {
-          const a = (i / 16) * Math.PI * 2;
-          const tx = p.x + Math.cos(a) * 320;
-          const ty = p.y + Math.sin(a) * 320;
-          this.addProj(p, PK.banitsa, p.x, p.y, 0, 0, { dmg: this.skillDmg(p, 80), pierce: 999, life: 1.1, r: 18, d: [p.x, p.y, tx, ty, 90, 0], hitCd: 0.3 });
-        }
+        p.volley = 3;
+        p.volleyT = 0;
         break;
       case "strahil":
         // Вихър от брадви: 5 s of spinning with two big axes (see stepPlayer), 12 axes at the end
@@ -3226,6 +3388,7 @@ export class World {
     const pi = this.players.indexOf(p);
     const texts: string[] = [];
     const ready = p.weapons.find((w) => !w.evo && w.lvl >= MAX_WEAPON_LEVEL && (p.passives[WEAPONS[w.id].evo.passive] ?? 0) > 0);
+    const combosBefore = COMBO_IDS.map((c) => comboTier(p.weapons, c));
     if (ready) {
       ready.evo = true;
       p.evos++;
@@ -3238,8 +3401,9 @@ export class World {
       for (let i = 0; i < n; i++) {
         const opts = this.candidates(p, true);
         if (!opts.length) {
-          this.gold += 10;
-          texts.push("🪙 +10 злато");
+          const o = this.temperOffers(p, 1)[0]!;
+          this.apply(p, o);
+          texts.push(offerTitle(o));
           continue;
         }
         const o = pickOne(opts);
@@ -3248,6 +3412,7 @@ export class World {
       }
     }
     this.gold += 5;
+    this.announceCombos(p, combosBefore);
     this.fx.push([FX.chest, pi, texts]);
   }
 
@@ -3389,7 +3554,26 @@ export class World {
       const g = this.giftOffers(p, 1)[0];
       if (g) out[out.length - 1] = g;
     }
-    if (!out.length) out.push({ kind: "gold" }, { kind: "heal" });
+    // a full build: temper cards, and the bread always among them
+    if (!out.length) out.push(...this.temperOffers(p, n - 1), { kind: "heal" });
+    return out;
+  }
+
+  /** 🔨 temper cards (endless, a little less each): the ones you're building come more often */
+  temperOffers(p: Player, n: number): Offer[] {
+    const pool = TEMPER_IDS.map((id) => ({ id, w: 1 + (p.tempers[id] ?? 0) * 0.12 }));
+    const out: Offer[] = [];
+    while (out.length < n && pool.length) {
+      let r = Math.random() * pool.reduce((a, x) => a + x.w, 0);
+      let i = 0;
+      for (; i < pool.length - 1; i++) {
+        r -= pool[i]!.w;
+        if (r <= 0) break;
+      }
+      const id = pool[i]!.id;
+      out.push({ kind: "temper", id, n: (p.tempers[id] ?? 0) + 1 });
+      pool.splice(i, 1);
+    }
     return out;
   }
 
@@ -3440,14 +3624,18 @@ export class World {
 
   apply(p: Player, o: Offer) {
     if (o.kind === "weapon") {
+      const before = COMBO_IDS.map((c) => comboTier(p.weapons, c));
       const w = p.weapons.find((x) => x.id === o.id);
       if (w) w.lvl = Math.min(MAX_WEAPON_LEVEL, w.lvl + 1);
       else if (p.weapons.length < MAX_WEAPONS) p.weapons.push({ id: o.id, lvl: 1, evo: false, t: 0.3, t2: 0, on: false });
+      this.announceCombos(p, before);
     } else if (o.kind === "passive") {
       p.passives[o.id] = Math.min(PASSIVES[o.id].max, (p.passives[o.id] ?? 0) + 1);
     } else if (o.kind === "gift") {
       p.gifts[o.id] = Math.min(GIFT_MAX, Math.max(p.gifts[o.id] ?? 0, o.lvl));
       this.checkBlessings(p);
+    } else if (o.kind === "temper") {
+      p.tempers[o.id] = (p.tempers[o.id] ?? 0) + 1;
     } else if (o.kind === "gold") {
       this.gold += 25;
     } else {
@@ -3467,5 +3655,6 @@ export function offerTitle(o: Offer): string {
   if (o.kind === "gift") return `${GIFTS[o.id].icon} ${GIFTS[o.id].name}${o.lvl > 1 ? ` ${o.lvl}` : ""}`;
   if (o.kind === "weapon") return `${WEAPONS[o.id].name}${o.lvl > 1 ? ` ${o.lvl}` : ""}`;
   if (o.kind === "passive") return `${PASSIVES[o.id].icon} ${PASSIVES[o.id].name}${o.lvl > 1 ? ` ${o.lvl}` : ""}`;
+  if (o.kind === "temper") return `${TEMPERS[o.id].icon} ${TEMPERS[o.id].name} ×${o.n}`;
   return o.kind === "gold" ? "🪙 +25 злато" : "❤️ Хляб и сол (+50% живот)";
 }
