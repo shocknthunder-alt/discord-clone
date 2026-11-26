@@ -2096,6 +2096,26 @@ const PICK_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
       rr(c, -2.5, 0, 5, 6, 1, "#f2c230", OUT, 1);
     },
   },
+  [GK.relic]: {
+    w: 30,
+    h: 34,
+    draw: (c) => {
+      // 💎 a relic: a gold amulet with a glowing violet stone
+      c.beginPath();
+      c.arc(0, -8, 7, Math.PI * 1.1, Math.PI * 1.9);
+      c.strokeStyle = "#e8c25a";
+      c.lineWidth = 1.6;
+      c.stroke();
+      const gl = c.createRadialGradient(0, 4, 1, 0, 4, 14);
+      gl.addColorStop(0, "rgba(220,170,255,0.9)");
+      gl.addColorStop(1, "rgba(160,90,255,0)");
+      c.fillStyle = gl;
+      c.fillRect(-15, -10, 30, 28);
+      poly(c, [0, -6, 9, 2, 6, 12, -6, 12, -9, 2], "#f2c230", OUT, 1.4);
+      poly(c, [0, -2, 5, 3, 3, 9, -3, 9, -5, 3], "#a650ff", "#4a1a80", 1);
+      poly(c, [0, -2, 5, 3, 0, 4], "rgba(255,255,255,0.55)");
+    },
+  },
   [GK.bomb]: {
     w: 24,
     h: 26,

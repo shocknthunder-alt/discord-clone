@@ -1232,6 +1232,11 @@
   border-color: var(--god);
   box-shadow: 0 0 6px color-mix(in srgb, var(--god) 60%, transparent);
 }
+.sv-slot.relic {
+  border-color: #b67cff;
+  background: radial-gradient(circle, rgba(170, 100, 255, 0.35), rgba(20, 12, 30, 0.85) 75%);
+  box-shadow: 0 0 8px rgba(180, 120, 255, 0.7);
+}
 .sv-card.gift {
   border-color: var(--god);
   background: radial-gradient(circle at 50% 20%, color-mix(in srgb, var(--god) 28%, #1a1610), #1a1610 70%);

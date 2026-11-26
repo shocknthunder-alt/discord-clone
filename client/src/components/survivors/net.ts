@@ -1,5 +1,5 @@
 import type { SurvHeroId, SurvSkinId } from "@discord-clone/shared";
-import { ENEMY_IDS, GIFT_IDS, WEAPON_IDS, PASSIVE_IDS, type GiftId, type PassiveId, type WeaponId } from "./content";
+import { ENEMY_IDS, GIFT_IDS, RELIC_IDS, WEAPON_IDS, PASSIVE_IDS, type GiftId, type RelicId, type PassiveId, type WeaponId } from "./content";
 import { FX, type Fx, type MissionView, type Offer, type REnemy, type RGem, type RMark, type RPlayer, type RProj, type RView, type World } from "./engine";
 
 // 🧟 Шмиркленд co-op: the host sends ~12 snapshots a second. Enemies / projectiles / gems are packed
@@ -25,6 +25,8 @@ export interface NetPlayer extends RPlayer {
   evos: number;
   /** ⚡ gods' gifts */
   gifts: Partial<Record<GiftId, number>>;
+  /** 💎 boss relics */
+  relics: RelicId[];
 }
 
 export interface Snapshot {
@@ -151,6 +153,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     x.skin ?? "classic",
     x.evos,
     Object.entries(x.gifts).map(([id, l]) => [GIFT_IDS.indexOf(id as GiftId), l]),
+    x.relics.map((id) => RELIC_IDS.indexOf(id)),
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -262,6 +265,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       skin: (a[24] as SurvSkinId | undefined) ?? "classic",
       evos: (a[25] as number | undefined) ?? 0,
       gifts: Object.fromEntries(((a[26] as number[][] | undefined) ?? []).map(([id, l]) => [GIFT_IDS[id!]!, l!]).filter(([id]) => id)),
+      relics: ((a[27] as number[] | undefined) ?? []).map((i) => RELIC_IDS[i]!).filter(Boolean),
     } as NetPlayer & { gone: boolean; shield: boolean };
   });
   const [level, xp, xpNext, kills, gold, bosses, wave, waveT, breakT, waveLeft, waveTotal, streak] = w.h;

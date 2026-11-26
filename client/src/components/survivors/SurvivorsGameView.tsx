@@ -34,7 +34,7 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
-import { GIFTS, GODS, MAPS, RUNE_TEXT, MISSION_ALTARS, type GiftId } from "./content";
+import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
 import { FX, World, isBossWave, offerTitle, type Fx, type Input, type MissionView, type Offer, type RView } from "./engine";
 import { SNAP_HZ, decodeSnapshot, encodeSnapshot, lerpView, type GuestInput, type GuestMsg, type HostMsg, type NetPlayer, type Snapshot } from "./net";
@@ -1532,7 +1532,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 className="sv-beast"
                 title={
                   ENEMIES[id].boss
-                    ? `бос — магии:\n${(BOSS_SPELLS[id] ?? []).map(([m, n]) => `${n}: ${BOSS_MOVE_DESC[m]}`).join("\n")}`
+                    ? `бос — магии:\n${(BOSS_SPELLS[id] ?? []).map(([m, n]) => `${n}: ${BOSS_MOVE_DESC[m]}`).join("\n")}${isRelic(id) ? `\n💎 може да изпусне: ${RELICS[id].name} — ${RELICS[id].desc}` : ""}`
                     : `от ${ENEMIES[id].from < 100 ? `${ENEMIES[id].from} мин` : "събитие"}`
                 }
               >
@@ -1596,6 +1596,15 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                     <div key={id} className="sv-slot small gift" title={`${GODS[GIFTS[id].god].name}: ${GIFTS[id].name} ${l} — ${GIFTS[id].desc(l)}`} style={{ ["--god" as string]: GODS[GIFTS[id].god].color }}>
                       <i>{GIFTS[id].icon}</i>
                       <span>{l}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {me_ && (me_.relics?.length ?? 0) > 0 && (
+                <div className="sv-weapons">
+                  {me_.relics.map((id) => (
+                    <div key={id} className="sv-slot small relic" title={`💎 ${RELICS[id].name} — ${RELICS[id].desc}`}>
+                      <i>{RELICS[id].icon}</i>
                     </div>
                   ))}
                 </div>
@@ -1882,8 +1891,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             const total = endInfo.dmg.reduce((a, [, x]) => a + x, 0) || 1;
             return (
               <div key={wi} className="sv-dmg-row">
-                {id ? <img src={weaponIcon(id)} alt="" /> : <i>{wi === -3 ? "⚡" : "✨"}</i>}
-                <span>{id ? WEAPONS[id].name : wi === -3 ? "Дарове от боговете" : "Умение и други"}</span>
+                {id ? <img src={weaponIcon(id)} alt="" /> : <i>{wi === -3 ? "⚡" : wi === -4 ? "💎" : "✨"}</i>}
+                <span>{id ? WEAPONS[id].name : wi === -3 ? "Дарове от боговете" : wi === -4 ? "Реликви" : "Умение и други"}</span>
                 <div className="sv-dmg-bar">
                   <div style={{ width: `${(v / endInfo.dmg[0]![1]) * 100}%` }} />
                 </div>

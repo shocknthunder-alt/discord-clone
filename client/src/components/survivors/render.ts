@@ -489,6 +489,21 @@ export class Renderer {
       c.globalAlpha = 1;
     }
 
+    // 💎 relics: a pillar of light (also over the 3D layer)
+    for (const g of v.gems) {
+      if (g.k !== GK.relic || !onScreen(g.x, g.y, 40)) continue;
+      const h = 150 + Math.sin(this.clock * 3) * 12;
+      const gr = c.createLinearGradient(0, g.y - h, 0, g.y);
+      gr.addColorStop(0, "rgba(190,120,255,0)");
+      gr.addColorStop(1, "rgba(200,140,255,0.55)");
+      c.fillStyle = gr;
+      c.fillRect(g.x - 9, g.y - h, 18, h);
+      c.beginPath();
+      c.ellipse(g.x, g.y, 26 + Math.sin(this.clock * 5) * 3, 11, 0, 0, Math.PI * 2);
+      c.fillStyle = "rgba(190,120,255,0.25)";
+      c.fill();
+    }
+
     // gems & pickups
     if (!T) for (const g of v.gems) {
       if (!onScreen(g.x, g.y, 20)) continue;
@@ -1221,6 +1236,7 @@ export class Renderer {
       c.fillText(label, ax - Math.cos(a) * 18, ay - Math.sin(a) * 18 + 5);
     };
     for (const g of v.gems) if (g.k === GK.chest) arrow(g.x, g.y, "#ffd34d", "📦");
+    for (const g of v.gems) if (g.k === GK.relic) arrow(g.x, g.y, "#c890ff", "💎");
     for (const m of v.marks) if (m.kind === MK.shrine) arrow(m.x, m.y, "#ffe27a", "🕯️");
     for (const m of v.marks) if (m.kind === MK.portal) arrow(m.x, m.y, "#c890ff", "🌀");
     for (const e of v.enemies) if (e.type === "altar") arrow(e.x, e.y, "#ffb02a", "🗿");

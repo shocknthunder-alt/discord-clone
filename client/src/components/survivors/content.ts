@@ -625,6 +625,47 @@ export type GiftId =
   | "dazh_wheel"
   | "dazh_dawn";
 export const GIFT_MAX = 3;
+
+/* ───────────── 💎 boss relics (for this game only) ───────────── */
+
+/** a relic is named after the boss that drops it */
+export type RelicId =
+  | "karak"
+  | "mora"
+  | "lamia"
+  | "zmey"
+  | "hala"
+  | "chuma"
+  | "wolfking"
+  | "vampking"
+  | "ispolin"
+  | "samqueen"
+  | "swampking"
+  | "kukerchief"
+  | "ghostking"
+  | "bearking";
+export const RELICS: Record<RelicId, { name: string; icon: string; desc: string }> = {
+  karak: { name: "Рогът на Караконджула", icon: "🔥", desc: "претъркулването завършва с огнен взрив" },
+  mora: { name: "Огледалото на Мора", icon: "🪞", desc: "1 от 5 удара по теб се отразява (не те наранява)" },
+  lamia: { name: "Люспа от Ламята", icon: "🐍", desc: "+3 броня, +15% живот" },
+  zmey: { name: "Сърцето на Змея", icon: "❤️‍🔥", desc: "веднъж: вместо да паднеш, ставаш с половин живот и огън наоколо" },
+  hala: { name: "Окото на Хала", icon: "🌪️", desc: "+20% обхват, +10% бързина" },
+  chuma: { name: "Торбата на Баба Чума", icon: "☠️", desc: "всеки твой удар трови врага" },
+  wolfking: { name: "Зъбът на Вълчия цар", icon: "🐺", desc: "+20% бързина; всяко 10-о убийство лекува 4%" },
+  vampking: { name: "Короната на Цар Вампир", icon: "🧛", desc: "2% от щетите ти те лекуват" },
+  ispolin: { name: "Юмрукът на Исполина", icon: "👊", desc: "+20% сила, +10% живот" },
+  samqueen: { name: "Венецът на Самодивската царица", icon: "🌸", desc: "+12% по-бързо презареждане, +0.5 живот/с" },
+  swampking: { name: "Тинята на Блатния цар", icon: "🟢", desc: "враговете около теб са забавени" },
+  kukerchief: { name: "Звънецът на Кукерския вожд", icon: "🔔", desc: "на всеки 6 с звън отблъсква и удря всичко наоколо" },
+  ghostking: { name: "Плащът на Таласъмския цар", icon: "👻", desc: "+1 снаряд за всички оръжия" },
+  bearking: { name: "Кожата на Мечия цар", icon: "🐻", desc: "+40% живот, +2 броня" },
+};
+export const RELIC_IDS = Object.keys(RELICS) as RelicId[];
+export const isRelic = (id: string): id is RelicId => id in RELICS;
+/** chance that a boss drops its relic (a "dark" boss of a later cycle: more) */
+export const RELIC_CHANCE = 0.25;
+export const RELIC_CHANCE_DARK = 0.4;
+
 export const GIFTS: Record<GiftId, { god: GodId; name: string; icon: string; desc: (lvl: number) => string }> = {
   perun_strike: { god: "perun", name: "Гръмотевица", icon: "🌩️", desc: (l) => `на всеки ${(4 - 0.7 * l).toFixed(1)} с мълния удря ${1 + l} врага (${25 + 20 * l} щети)` },
   perun_crit: { god: "perun", name: "Перунов знак", icon: "ᛉ", desc: (l) => `+${7 * l}% критичен удар; критичните удари пускат мълния към съсед` },

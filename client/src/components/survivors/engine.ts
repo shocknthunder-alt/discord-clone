@@ -9,6 +9,12 @@ import {
   MAPS,
   MISSION_ALTARS,
   MISSION_SECONDS,
+  RELICS,
+  RELIC_IDS,
+  RELIC_CHANCE,
+  RELIC_CHANCE_DARK,
+  isRelic,
+  type RelicId,
   type GiftId,
   type GodId,
   BOSS_EASY,
@@ -159,7 +165,7 @@ const ZONES = new Set<number>([PK.poison, PK.tornado]);
 const NO_HITS = new Set<number>([PK.cauldron, PK.jack, PK.scarecrow]);
 
 /** gem kinds */
-export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8 } as const;
+export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8, relic: 9 } as const;
 /** map marks */
 export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5, acid: 6, portal: 7 } as const;
 
@@ -266,6 +272,10 @@ export interface Player extends RPlayer {
   veilN: number;
   /** Мокош's blessing saved you already */
   saved: boolean;
+  /** 💎 boss relics (this game), the dragon's heart used, the bell timer */
+  relics: RelicId[];
+  heartUsed: boolean;
+  bellT: number;
 }
 
 /** 🎯 the wave's task */
@@ -598,6 +608,9 @@ export class World {
         gT: { strike: 2, flare: 3, veil: 0, storm: 0 },
         veilN: 0,
         saved: false,
+        relics: [],
+        heartUsed: false,
+        bellT: 6,
       };
       p.weapons.push({ id: HEROES[s.hero].weapon, lvl: 1, evo: false, t: 0.5, t2: 0, on: false });
       // god runes: start with one of that god's gifts
@@ -696,6 +709,15 @@ export class World {
     s.area += g("dazh_wheel") * 0.08;
     s.projSpeed += g("dazh_wheel") * 0.08;
     s.slayer += g("dazh_dawn") * 0.1;
+    // 💎 relics
+    const rl = (id: RelicId) => p.relics?.includes(id) ?? false;
+    if (rl("lamia")) (s.armor += 3), (s.maxHp *= 1.15);
+    if (rl("hala")) (s.area += 0.2), (s.speed += 0.1);
+    if (rl("wolfking")) s.speed += 0.2;
+    if (rl("ispolin")) (s.might += 0.2), (s.maxHp *= 1.1);
+    if (rl("samqueen")) (s.cooldown += 0.12), (s.regen += 0.5);
+    if (rl("ghostking")) s.amount += 1;
+    if (rl("bearking")) (s.maxHp *= 1.4), (s.armor += 2);
     if (this.curses.has("glass")) s.maxHp *= 0.5;
     if (this.curses.has("nomagnet")) s.magnet *= 0.5;
     if (this.curses.has("winter")) s.regen *= 0.5;
@@ -1102,6 +1124,11 @@ export class World {
         e.poisonD = Math.max(e.poisonD, (3 + 4 * vp) * p.st.might * (p.blessed.has("veles") ? 2 : 1));
         e.poisonBy = this.players.indexOf(p);
       }
+      if (p.relics.includes("chuma") && e.type !== "altar" && e.type !== "pot") {
+        e.poisonT = 3;
+        e.poisonD = Math.max(e.poisonD, 6 * p.st.might * (1 + this.wave * 0.05));
+        e.poisonBy = this.players.indexOf(p);
+      }
     }
     if (e.type === "altar" && e.state === 0) {
       // the sanctuary's guards wake up
@@ -1117,7 +1144,10 @@ export class World {
     if (e.affix >= 0 && AFFIXES[e.affix] === "armored") d *= 0.5;
     if (e.shieldT > 0) d *= 0.2;
     if (this.shatterT > 0 && e.frozenT > 0) d *= 2;
-    if (p) p.dmgBy[wi] = (p.dmgBy[wi] ?? 0) + Math.min(d, Math.max(0, e.hp));
+    if (p) {
+      p.dmgBy[wi] = (p.dmgBy[wi] ?? 0) + Math.min(d, Math.max(0, e.hp));
+      if (p.relics.includes("vampking") && e.type !== "pot") this.heal(p, Math.min(2, Math.min(d, Math.max(0, e.hp)) * 0.02));
+    }
     e.hp -= d;
     e.flash = 0.12;
     if (knock && (kx || ky) && e.type !== "pot" && e.type !== "altar") {
@@ -1182,6 +1212,23 @@ export class World {
       }
     }
     p.veil = p.veilN > 0;
+    this.stepRelics(p, dt);
+  }
+
+  /** 💎 relics that run by themselves */
+  private stepRelics(p: Player, dt: number) {
+    if (!p.relics.length || p.dead) return;
+    if (p.relics.includes("swampking")) {
+      for (const e of this.within(p.x, p.y, 160 * p.st.area)) if (!e.boss) e.slowT = Math.max(e.slowT, 0.3);
+    }
+    if (p.relics.includes("kukerchief")) {
+      p.bellT -= dt;
+      if (p.bellT <= 0) {
+        p.bellT = 6;
+        this.explode(p, p.x, p.y, 170 * p.st.area, this.skillDmg(p, 28), 5, -4, 0.6);
+        this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 46), "🔔", "#ffe08a"]);
+      }
+    }
   }
 
   /** a gift picked: does a god's blessing (3 of their gifts) come with it? */
@@ -1231,7 +1278,10 @@ export class World {
       return;
     }
     this.kills++;
-    if (p) p.kills++;
+    if (p) {
+      p.kills++;
+      if (p.relics.includes("wolfking") && p.kills % 10 === 0) this.heal(p, p.maxHp * 0.04);
+    }
     this.streak++;
     this.streakT = 2.5;
     this.taskStep("kill", 1, e.type);
@@ -1259,6 +1309,7 @@ export class World {
       this.fx.push([FX.banner, `🏆 ${ENEMIES[e.type].name} е повален!`, 2]);
       this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
       for (let i = 0; i < 8; i++) this.gems.push({ x: e.x + rand(-60, 60), y: e.y + rand(-60, 60), k: GK.bag, v: 5, mag: false, sp: 0 });
+      this.bossLoot(e);
       this.gems.push({ x: e.x - 30, y: e.y + 10, k: GK.food, v: 0, mag: false, sp: 0 });
       this.dropGem(e.x + 20, e.y, e.xp);
       return;
@@ -1279,6 +1330,40 @@ export class World {
       else if (r2 < 0.08) this.gems.push({ x: e.x, y: e.y, k: GK.magnet, v: 0, mag: false, sp: 0 });
       else if (r2 < 0.095) this.gems.push({ x: e.x, y: e.y, k: GK.bomb, v: 0, mag: false, sp: 0 });
     }
+  }
+
+  /** 💰 gold rain (more from a dark boss) + 💎 a chance of the boss's relic */
+  private bossLoot(e: Enemy) {
+    const dark = this.bossCycle > 0;
+    const m = dark ? 2 : 1;
+    const coins = (8 + Math.floor(Math.random() * 8)) * m;
+    for (let i = 0; i < coins; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = rand(30, 130);
+      this.gems.push({ x: e.x + Math.cos(a) * r, y: e.y + Math.sin(a) * r, k: GK.coin, v: 1, mag: false, sp: 0 });
+    }
+    this.gems.push({ x: e.x + 30, y: e.y - 20, k: GK.bag, v: 15 * m, mag: false, sp: 0 });
+    this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 30), `💰 Златен дъжд${dark ? " ×2" : ""}!`, "#ffd34d"]);
+    if (!isRelic(e.type)) return;
+    const id = e.type;
+    const ps = this.players.filter((p) => !p.gone);
+    if (ps.every((p) => p.relics.includes(id))) return;
+    if (this.gems.some((g) => g.k === GK.relic && RELIC_IDS[g.v] === id)) return;
+    const luck = Math.max(0, ...ps.map((p) => p.st.luck));
+    if (Math.random() >= (dark ? RELIC_CHANCE_DARK : RELIC_CHANCE) + luck * 0.1) return;
+    this.gems.push({ x: e.x - 20, y: e.y + 30, k: GK.relic, v: RELIC_IDS.indexOf(id), mag: false, sp: 0 });
+    this.fx.push([FX.banner, `💎 ${ENEMIES[e.type].name} изпусна реликва: ${RELICS[id].name}!`, 2]);
+  }
+
+  /** 💎 a relic picked up: everyone in the party gets their own */
+  private takeRelic(id: RelicId) {
+    const r = RELICS[id];
+    this.players.forEach((p, pi) => {
+      if (p.gone || p.relics.includes(id)) return;
+      p.relics.push(id);
+      this.refreshStats(p);
+      this.fx.push([FX.chest, pi, [`💎 ${r.icon} ${r.name}`, r.desc]]);
+    });
   }
 
   /** 🗿 a sanctuary fell: gods' gifts for everyone, and when all are down the portal opens */
@@ -1349,6 +1434,11 @@ export class World {
       this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 40), "🧶", "#f2c86a"]);
       return;
     }
+    if (p.relics.includes("mora") && Math.random() < 0.2) {
+      p.invulnT = 0.4;
+      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 40), "🪞", "#c8a8ff"]);
+      return;
+    }
     let d = Math.max(1, dmg - p.st.armor);
     if (p.skillT > 0 && p.hero === "strahil") d *= 0.5;
     if (p.gifts.perun_storm && p.gT.storm <= 0) {
@@ -1360,6 +1450,15 @@ export class World {
       p.hp = p.maxHp;
       p.invulnT = 2;
       this.fx.push([FX.banner, `🌾 Мокош закриля ${p.name}!`, 2]);
+      this.fx.push([FX.revive, this.players.indexOf(p)]);
+      return;
+    }
+    if (p.relics.includes("zmey") && !p.heartUsed && p.hp - d <= 0) {
+      p.heartUsed = true;
+      p.hp = p.maxHp * 0.5;
+      p.invulnT = 2;
+      this.explode(p, p.x, p.y, 220 * p.st.area, this.skillDmg(p, 60), 3, -4, 0.8);
+      this.fx.push([FX.banner, `❤️‍🔥 Сърцето на Змея връща ${p.name}!`, 2]);
       this.fx.push([FX.revive, this.players.indexOf(p)]);
       return;
     }
@@ -1677,6 +1776,7 @@ export class World {
   /** skill damage: might + grows with the wave (enemies get tougher every wave) */
   /** ⚡ Гръмовен скок */
   private dashEnd(p: Player) {
+    if (p.relics.includes("karak")) this.explode(p, p.x, p.y, 120 * p.st.area, this.skillDmg(p, 30), 3, -4, 0.3);
     const l = p.gifts.perun_dash ?? 0;
     if (!l) return;
     const r = (90 + 20 * l) * p.st.area;
@@ -3064,7 +3164,7 @@ export class World {
         }
       }
       if (!tgt) continue;
-      const big = g.k === GK.chest ? 0.35 : 1;
+      const big = g.k === GK.chest || g.k === GK.relic ? 0.35 : 1;
       if (!g.mag && best < (BASE_MAGNET * tgt.st.magnet * big) ** 2) g.mag = true;
       if (g.mag) {
         g.sp = Math.min(1000, g.sp + dt * 1300);
@@ -3113,6 +3213,11 @@ export class World {
       case GK.chest:
         this.openChest(p);
         break;
+      case GK.relic: {
+        const id = RELIC_IDS[g.v];
+        if (id) this.takeRelic(id);
+        break;
+      }
     }
   }
 
