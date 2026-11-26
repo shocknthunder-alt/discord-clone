@@ -254,7 +254,10 @@ Owner pronouns unknown: use they/them.
   AnimationMixer (idle/run/dodge/death/skill one-shot; Киро headspin, Баткан `2H_Melee_Attack_Spinning`). Humanoid enemies
   (`EN3D`) = skeleton models with the walk BAKED into float textures (VAT, `bakeVat`, gl_VertexID + texelFetch, one InstancedMesh
   per kind, per-instance tint/phase/flash); bosses (`BOSS3D`) own SkinnedMesh; animals/pickups = upright instanced sprites from
-  the old 2D pictures (`bbSet`); props instanced per map set. Toggle 🧊/🖼️ in the HUD (localStorage `survGfx`, phones default 2D).
+  the old 2D pictures (`bbSet`); props instanced per map set. 3D ANIMALS (2026-11-27): CC0 `a_*.glb` (oosawak/cc0-monsters, built by
+  `tools/surv3d/animals.mjs`) — rat, vampire bat, wolf, bear, werewolf (own clips baked as VAT; models without clips bob +
+  squash; `Enemy3D.clip` = clip name, `yaw` offset, `lift` for fliers) and bosses wolfking / bearking / zmey / lamia
+  (`BossObj.own` clips). Spider, raven, fire spirit, pot stay upright pictures (the free 3D ones looked worse). Toggle 🧊/🖼️ in the HUD (localStorage `survGfx`, phones default 2D).
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

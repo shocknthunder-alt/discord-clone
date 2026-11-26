@@ -19,8 +19,40 @@ const K = 1.2;
 const HERO_PX = 60;
 const BASE = "/surv3d/";
 
-type ModelName = "barbarian" | "knight" | "mage" | "rogue" | "rogue_hooded" | "skeleton_minion" | "skeleton_warrior" | "skeleton_rogue" | "skeleton_mage";
-const MODELS: ModelName[] = ["barbarian", "knight", "mage", "rogue", "rogue_hooded", "skeleton_minion", "skeleton_warrior", "skeleton_rogue", "skeleton_mage"];
+type ModelName =
+  | "barbarian"
+  | "knight"
+  | "mage"
+  | "rogue"
+  | "rogue_hooded"
+  | "skeleton_minion"
+  | "skeleton_warrior"
+  | "skeleton_rogue"
+  | "skeleton_mage"
+  // CC0 animals (OpenGameArt / Grab3D via oosawak/cc0-monsters), each with its own clips (or none)
+  | "a_rat"
+  | "a_vbat"
+  | "a_wolf"
+  | "a_bear"
+  | "a_werewolf"
+  | "a_dragon";
+const MODELS: ModelName[] = [
+  "barbarian",
+  "knight",
+  "mage",
+  "rogue",
+  "rogue_hooded",
+  "skeleton_minion",
+  "skeleton_warrior",
+  "skeleton_rogue",
+  "skeleton_mage",
+  "a_rat",
+  "a_vbat",
+  "a_wolf",
+  "a_bear",
+  "a_werewolf",
+  "a_dragon",
+];
 
 interface Assets {
   models: Record<ModelName, GLTF>;
@@ -155,26 +187,36 @@ interface HeroObj {
 
 /* ───────────── enemies ───────────── */
 
-type Clip = "walk" | "run";
 interface Enemy3D {
   m: ModelName;
-  clip: Clip;
+  /** the clip to bake: the model's own, or one of the shared KayKit clips; null = no animation (bobs) */
+  clip: string | null;
   /** screen height in px */
   h: number;
   tint: string;
   alpha?: number;
   /** animation speed */
   sp?: number;
+  /** turn the model so its nose points forward (radians) */
+  yaw?: number;
+  /** flies this many px above the ground */
+  lift?: number;
 }
 const EN3D: Partial<Record<EnemyId, Enemy3D>> = {
-  zombie: { m: "skeleton_minion", clip: "walk", h: 46, tint: "#a8c890" },
-  skeleton: { m: "skeleton_minion", clip: "walk", h: 46, tint: "#ffffff", sp: 1.3 },
-  vampire: { m: "skeleton_rogue", clip: "run", h: 50, tint: "#ff9aa8" },
-  witch: { m: "skeleton_mage", clip: "walk", h: 50, tint: "#c0f0a0" },
-  yuda: { m: "skeleton_mage", clip: "run", h: 50, tint: "#d8ecff", alpha: 0.72 },
-  ghost: { m: "skeleton_rogue", clip: "walk", h: 46, tint: "#eef4ff", alpha: 0.55 },
-  kuker: { m: "skeleton_warrior", clip: "walk", h: 54, tint: "#fff2e0" },
-  blatnik: { m: "skeleton_warrior", clip: "walk", h: 74, tint: "#7aa858", sp: 0.8 },
+  zombie: { m: "skeleton_minion", clip: "Walking_D_Skeletons", h: 46, tint: "#a8c890" },
+  skeleton: { m: "skeleton_minion", clip: "Walking_D_Skeletons", h: 46, tint: "#ffffff", sp: 1.3 },
+  vampire: { m: "skeleton_rogue", clip: "Running_A", h: 50, tint: "#ff9aa8" },
+  witch: { m: "skeleton_mage", clip: "Walking_A", h: 50, tint: "#c0f0a0" },
+  yuda: { m: "skeleton_mage", clip: "Running_A", h: 50, tint: "#d8ecff", alpha: 0.72 },
+  ghost: { m: "skeleton_rogue", clip: "Walking_A", h: 46, tint: "#eef4ff", alpha: 0.55 },
+  kuker: { m: "skeleton_warrior", clip: "Walking_D_Skeletons", h: 54, tint: "#fff2e0" },
+  blatnik: { m: "skeleton_warrior", clip: "Walking_D_Skeletons", h: 74, tint: "#7aa858", sp: 0.8 },
+  // animals
+  rat: { m: "a_rat", clip: null, h: 18, tint: "#b8b0a8", yaw: Math.PI },
+  bat: { m: "a_vbat", clip: "Bat_Flying", h: 10, tint: "#c0a0d0", lift: 26, sp: 1 },
+  wolf: { m: "a_wolf", clip: "Walking", h: 30, tint: "#c8c4c0", sp: 2 },
+  bear: { m: "a_bear", clip: null, h: 50, tint: "#9a6a44", yaw: Math.PI },
+  werewolf: { m: "a_werewolf", clip: "run", h: 58, tint: "#d0b8a0", sp: 1.2 },
 };
 /** bosses with their own animated model */
 interface Boss3D {
@@ -183,6 +225,8 @@ interface Boss3D {
   tint: string;
   alpha?: number;
   show?: string[];
+  yaw?: number;
+  lift?: number;
 }
 const BOSS3D: Partial<Record<EnemyId, Boss3D>> = {
   karak: { m: "skeleton_warrior", h: 110, tint: "#8a7aa8" },
@@ -195,6 +239,10 @@ const BOSS3D: Partial<Record<EnemyId, Boss3D>> = {
   kukerchief: { m: "barbarian", h: 124, tint: "#e8dccb", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"] },
   ghostking: { m: "skeleton_rogue", h: 114, tint: "#cfe2ff", alpha: 0.6 },
   hala: { m: "skeleton_mage", h: 114, tint: "#a8b8d0" },
+  wolfking: { m: "a_wolf", h: 90, tint: "#5a5560" },
+  bearking: { m: "a_bear", h: 120, tint: "#6a4a30", yaw: Math.PI },
+  zmey: { m: "a_dragon", h: 130, tint: "#d86040", lift: 30, yaw: Math.PI },
+  lamia: { m: "a_dragon", h: 120, tint: "#6aa050", yaw: Math.PI },
   // the missions' giants
   velikan: { m: "barbarian", h: 230, tint: "#a8a090", show: ["2H_Axe", "Barbarian_Hat", "Barbarian_Cape"] },
   gorskicar: { m: "barbarian", h: 210, tint: "#6a8a4a", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"] },
@@ -212,6 +260,10 @@ interface BossObj {
   ly: number;
   seen: number;
   baseTint: THREE.Color;
+  body: THREE.Object3D;
+  /** the model's own clips (animals) */
+  own: THREE.AnimationClip[];
+  animal: boolean;
 }
 
 /* ───────────── VAT: animation baked into a texture ───────────── */
@@ -230,14 +282,17 @@ interface Vat {
 const VAT_FRAMES = 20;
 const VAT_W = 2048;
 
-function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip): Vat {
+/** clip = null: a model without animation (one frame; the renderer bobs it) */
+function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip | null): Vat {
   const root = skClone(src);
-  const meshes: THREE.SkinnedMesh[] = [];
+  const meshes: THREE.Mesh[] = [];
   root.traverse((o) => {
-    if ((o as THREE.SkinnedMesh).isSkinnedMesh && o.visible) meshes.push(o as THREE.SkinnedMesh);
+    if ((o as THREE.Mesh).isMesh && o.visible) meshes.push(o as THREE.Mesh);
   });
+  const FR = clip ? VAT_FRAMES : 1;
   const mixer = new THREE.AnimationMixer(root);
-  mixer.clipAction(clip).play();
+  if (clip) mixer.clipAction(clip).play();
+  root.updateMatrixWorld(true);
   // merged geometry, grouped by material
   const matList: Vat["mats"] = [];
   const matIdx = new Map<string, number>();
@@ -251,7 +306,7 @@ function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip): Vat {
   let base = 0;
   for (const m of meshes) {
     const g = m.geometry;
-    const mat = m.material as THREE.MeshStandardMaterial;
+    const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as THREE.MeshStandardMaterial;
     let mi = matIdx.get(mat.name);
     if (mi === undefined) {
       mi = matList.length;
@@ -270,7 +325,7 @@ function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip): Vat {
     groups.push({ start, count: index.length - start, mat: mi });
     base += n;
   }
-  const rows = Math.ceil((verts * VAT_FRAMES) / VAT_W);
+  const rows = Math.ceil((verts * FR) / VAT_W);
   const posData = new Float32Array(VAT_W * rows * 4);
   const nrmData = new Uint8Array(VAT_W * rows * 4);
   const v = new THREE.Vector3();
@@ -280,30 +335,34 @@ function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip): Vat {
   const nm = new THREE.Matrix3();
   let minY = Infinity;
   let maxY = -Infinity;
-  for (let f = 0; f < VAT_FRAMES; f++) {
-    mixer.setTime((f / VAT_FRAMES) * clip.duration);
+  for (let f = 0; f < FR; f++) {
+    if (clip) mixer.setTime((f / FR) * clip.duration);
     root.updateMatrixWorld(true);
     let b = 0;
-    for (const m of meshes) {
-      m.skeleton.update();
-      const bm = m.skeleton.boneMatrices!;
+    for (const m0 of meshes) {
+      const sk = (m0 as THREE.SkinnedMesh).isSkinnedMesh ? (m0 as THREE.SkinnedMesh) : null;
+      const m = m0;
+      if (sk) sk.skeleton.update();
+      const bm = sk?.skeleton.boneMatrices;
       const g = m.geometry;
       const P = g.attributes.position!;
       const N = g.attributes.normal;
-      const SI = g.attributes.skinIndex!;
-      const SW = g.attributes.skinWeight!;
+      const SI = g.attributes.skinIndex;
+      const SW = g.attributes.skinWeight;
       nm.getNormalMatrix(m.matrixWorld);
       for (let i = 0; i < P.count; i++) {
-        // skinMatrix = bindInv * Σ w·bone * bind
-        skin.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        const e = skin.elements;
-        for (let k = 0; k < 4; k++) {
-          const w = SW.getComponent(i, k);
-          if (!w) continue;
-          const bi = SI.getComponent(i, k) * 16;
-          for (let q = 0; q < 16; q++) e[q]! += bm[bi + q]! * w;
-        }
-        tmp.multiplyMatrices(m.bindMatrixInverse, skin).multiply(m.bindMatrix);
+        if (sk && bm && SI && SW) {
+          // skinMatrix = bindInv * Σ w·bone * bind
+          skin.set(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+          const e = skin.elements;
+          for (let k = 0; k < 4; k++) {
+            const w = SW.getComponent(i, k);
+            if (!w) continue;
+            const bi = SI.getComponent(i, k) * 16;
+            for (let q = 0; q < 16; q++) e[q]! += bm[bi + q]! * w;
+          }
+          tmp.multiplyMatrices(sk.bindMatrixInverse, skin).multiply(sk.bindMatrix);
+        } else tmp.identity();
         v.fromBufferAttribute(P, i).applyMatrix4(tmp).applyMatrix4(m.matrixWorld);
         const o = ((f * verts + b + i) * 4) | 0;
         posData[o] = v.x;
@@ -344,7 +403,7 @@ function bakeVat(src: THREE.Object3D, clip: THREE.AnimationClip): Vat {
   const nrm = new THREE.DataTexture(nrmData, VAT_W, rows, THREE.RGBAFormat, THREE.UnsignedByteType);
   nrm.needsUpdate = true;
   mixer.stopAllAction();
-  return { geo, pos, nrm, texW: VAT_W, verts, frames: VAT_FRAMES, dur: clip.duration, height: Math.max(0.5, maxY - Math.min(0, minY)), mats: matList };
+  return { geo, pos, nrm, texW: VAT_W, verts, frames: FR, dur: clip?.duration ?? 1, height: Math.max(0.5, maxY - Math.min(0, minY)), mats: matList };
 }
 
 const VAT_HEAD = /* glsl */ `
@@ -369,7 +428,7 @@ function vatMaterial(vat: Vat, mi: number, uTime: { value: number }, alpha: numb
   const info = vat.mats[mi]!;
   const mat = info.glow
     ? new THREE.MeshBasicMaterial({ color: info.color, map: info.tex })
-    : new THREE.MeshLambertMaterial({ map: info.tex, color: 0xffffff });
+    : new THREE.MeshLambertMaterial({ map: info.tex, color: info.tex ? 0xffffff : info.color });
   if (alpha < 1) {
     mat.transparent = true;
     mat.opacity = alpha;
@@ -805,11 +864,10 @@ export class Renderer3D {
 
     // humanoid enemies
     for (const [type, cfg] of Object.entries(EN3D) as [EnemyId, Enemy3D][]) {
-      const clipName = cfg.clip === "run" ? "Running_A" : cfg.m === "skeleton_minion" || cfg.m === "skeleton_warrior" ? "Walking_D_Skeletons" : "Walking_A";
-      const ck = `${cfg.m}:${clipName}`;
+      const ck = `${cfg.m}:${cfg.clip}`;
       let vat = this.vatCache.get(ck);
       if (!vat) {
-        const clip = a.clips.get(clipName) ?? a.clips.get("Walking_A")!;
+        const clip = cfg.clip ? (a.models[cfg.m].animations.find((c) => c.name === cfg.clip) ?? a.clips.get(cfg.clip) ?? null) : null;
         vat = bakeVat(a.models[cfg.m].scene, clip);
         this.vatCache.set(ck, vat);
       }
@@ -971,10 +1029,10 @@ export class Renderer3D {
     return { key: `${hero}:${skin ?? ""}`, root, body, mixer, actions: new Map(), cur: "", mats, yaw: 0, lx: NaN, ly: NaN, oneShot: null, wasDead: false, seen: 0 };
   }
 
-  private play(o: { mixer: THREE.AnimationMixer; actions: Map<string, THREE.AnimationAction>; cur: string }, name: string, fade = 0.15, once = false, speed = 1) {
+  private play(o: { mixer: THREE.AnimationMixer; actions: Map<string, THREE.AnimationAction>; cur: string; own?: THREE.AnimationClip[] }, name: string, fade = 0.15, once = false, speed = 1) {
     let act = o.actions.get(name);
     if (!act) {
-      const clip = this.assets!.clips.get(name);
+      const clip = o.own?.find((c) => c.name === name) ?? this.assets!.clips.get(name);
       if (!clip) return;
       act = o.mixer.clipAction(clip);
       o.actions.set(name, act);
@@ -1123,9 +1181,15 @@ export class Renderer3D {
       if (vs) {
         if (vs.n >= 400) continue;
         const s = vs.scale * sc;
-        this.tmpV.set(e.x, 0, e.y + def.r * 0.55 * sc);
-        this.tmpQ.setFromAxisAngle(this.yAxis, yaw);
-        this.tmpS.set(s, s, s);
+        const frozen0 = e.frozenT > 0;
+        const still = !vs.cfg.clip;
+        const ph = this.clock * 10 + e.id * 1.7;
+        const hop = still && !frozen0 ? Math.abs(Math.sin(ph)) * 3 : 0;
+        const lift = (vs.cfg.lift ?? 0) / K + (vs.cfg.lift ? Math.sin(this.clock * 4 + e.id) * 4 : 0);
+        this.tmpV.set(e.x, lift + hop / K, e.y + def.r * 0.55 * sc);
+        this.tmpQ.setFromAxisAngle(this.yAxis, yaw + (vs.cfg.yaw ?? 0) + (still && !frozen0 ? Math.sin(ph * 0.5) * 0.12 : 0));
+        const sq = still && !frozen0 ? Math.sin(ph) * 0.05 : 0;
+        this.tmpS.set(s * (1 + sq), s * (1 - sq), s * (1 + sq));
         this.tmpM.compose(this.tmpV, this.tmpQ, this.tmpS);
         vs.mesh.setMatrixAt(vs.n, this.tmpM);
         const frozen = e.frozenT > 0;
@@ -1275,11 +1339,16 @@ export class Renderer3D {
         const m = o as THREE.Mesh;
         if (!m.isMesh) return;
         const name = m.name || "";
-        const hero = !cfg.m.startsWith("skeleton");
+        const hero = !cfg.m.startsWith("skeleton") && !cfg.m.startsWith("a_");
         if (hero) m.visible = CORE.test(name) || (cfg.show ?? []).includes(name) || (cfg.show ?? []).includes(m.parent?.name ?? "");
         const src = m.material as THREE.MeshStandardMaterial;
         const glow = /glow/i.test(src.name);
-        const mat = new THREE.MeshLambertMaterial({ map: src.map ?? null, color: glow ? src.color : new THREE.Color(cfg.tint), emissive: glow ? new THREE.Color(0xff3020) : new THREE.Color(0) });
+        const tint = new THREE.Color(cfg.tint);
+        const mat = new THREE.MeshLambertMaterial({
+          map: src.map ?? null,
+          color: glow ? src.color : src.map ? tint : (src.color?.clone() ?? new THREE.Color(1, 1, 1)).multiply(tint).multiplyScalar(1.6),
+          emissive: glow ? new THREE.Color(0xff3020) : new THREE.Color(0),
+        });
         if (cfg.alpha) {
           mat.transparent = true;
           mat.opacity = cfg.alpha;
@@ -1293,7 +1362,7 @@ export class Renderer3D {
       const root = new THREE.Group();
       root.add(body);
       this.scene.add(root);
-      b = { root, mixer: new THREE.AnimationMixer(body), actions: new Map(), cur: "", mats, yaw, lx: e.x, ly: e.y, seen, baseTint: new THREE.Color(cfg.tint) };
+      b = { root, body, mixer: new THREE.AnimationMixer(body), actions: new Map(), cur: "", mats, yaw, lx: e.x, ly: e.y, seen, baseTint: new THREE.Color(cfg.tint), own: a.models[cfg.m].animations, animal: cfg.m.startsWith("a_") };
       this.bosses.set(e.id, b);
     }
     b.seen = seen;
@@ -1305,9 +1374,19 @@ export class Renderer3D {
     while (d < -Math.PI) d += Math.PI * 2;
     b.yaw += d * Math.min(1, dt * 6);
     const r = ENEMIES[e.type].r;
-    b.root.position.set(e.x, 0, e.y + r * 0.5);
-    b.root.rotation.y = b.yaw;
-    if (e.shield) this.play(b, "Block", 0.2);
+    const lift = (cfg.lift ?? 0) / K + (cfg.lift ? Math.sin(this.clock * 2.5) * 6 : 0);
+    b.root.position.set(e.x, lift, e.y + r * 0.5);
+    b.root.rotation.y = b.yaw + (cfg.yaw ?? 0);
+    if (b.animal) {
+      // animals: their own walk if they have one, else a heavy sway
+      const walk = b.own.find((c) => /^(walk|walking|run|flying|fly)$/i.test(c.name));
+      if (walk) this.play(b, walk.name, 0.2, false, ENEMIES[e.type].speed > 75 ? 1.6 : 1);
+      else if (e.frozenT <= 0) {
+        const ph = this.clock * 5;
+        b.body.position.y = Math.abs(Math.sin(ph)) * 4 / K;
+        b.body.rotation.z = Math.sin(ph * 0.5) * 0.06;
+      }
+    } else if (e.shield) this.play(b, "Block", 0.2);
     else if (dist < r + 70) this.play(b, cfg.m.startsWith("skeleton") ? "1H_Melee_Attack_Chop" : "2H_Melee_Attack_Chop", 0.15);
     else if (moved > 0.3 && e.frozenT <= 0) this.play(b, ENEMIES[e.type].speed > 75 ? "Running_A" : cfg.m.startsWith("skeleton") ? "Walking_D_Skeletons" : "Walking_A", 0.25);
     else this.play(b, "Idle", 0.3);

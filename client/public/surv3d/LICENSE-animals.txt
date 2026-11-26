@@ -1,0 +1,4 @@
+a_*.glb — CC0 1.0 (public domain, http://creativecommons.org/publicdomain/zero/1.0/).
+Sources (collected and licence-checked in github.com/oosawak/cc0-monsters):
+  rat, vampire bat, wolf, white bear — OpenGameArt.org, CC0 3D animals / creatures
+  werewolf (rigged), low-poly dragon — Grab3D, CC0

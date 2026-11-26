@@ -13,3 +13,11 @@ npm i @gltf-transform/core @gltf-transform/functions @gltf-transform/extensions 
 # download + unzip the three packs into ./assets (repo archives: .../archive/refs/heads/main.zip)
 node /path/to/tools/surv3d/build.mjs ./assets /path/to/client/public/surv3d
 ```
+
+## Animals (`a_*.glb`)
+
+CC0 animal models collected (with their CC0 licences checked at the source) in the GitHub repo `oosawak/cc0-monsters`
+(OpenGameArt "CC0 3D animals/creatures" + Grab3D): rat (rat-pack), vampire bat (animated), wolf (animated low-poly
+animals), white bear, werewolf (Grab3D, rigged, simplified to ~4%), low-poly dragon (Grab3D). `animals.mjs` keeps the
+walk/fly clips, simplifies and compresses them: `node animals.mjs <folder with the downloaded .glb> client/public/surv3d`.
+Spider and raven stay 2D pictures (the free 3D ones looked worse).

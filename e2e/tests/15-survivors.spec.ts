@@ -19,6 +19,8 @@ const quiet = (page: Page) =>
   page.addInitScript(() => {
     localStorage.setItem("survMusic", "0");
     localStorage.setItem("survSfx", "0");
+    // the old tests play the endless mode (missions have their own test)
+    if (!localStorage.getItem("survMission")) localStorage.setItem("survMission", "false");
   });
 
 test.describe("🧟 Шмиркленд", () => {
