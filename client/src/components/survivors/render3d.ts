@@ -229,27 +229,30 @@ interface Boss3D {
   show?: string[];
   yaw?: number;
   lift?: number;
+  /** KayKit people: their clothes recoloured like the heroes (instead of a tint) */
+  look?: Look;
+  extra?: [ModelName, string][];
 }
 const BOSS3D: Partial<Record<EnemyId, Boss3D>> = {
-  karak: { m: "skeleton_warrior", h: 110, tint: "#8a7aa8" },
-  mora: { m: "skeleton_mage", h: 104, tint: "#c890ff" },
-  chuma: { m: "skeleton_mage", h: 100, tint: "#b8c878" },
-  vampking: { m: "skeleton_rogue", h: 112, tint: "#ff5a70" },
-  ispolin: { m: "barbarian", h: 160, tint: "#9ab0c8", show: ["2H_Axe", "Barbarian_Hat"] },
-  samqueen: { m: "mage", h: 104, tint: "#f4f0ff", alpha: 0.85, show: ["2H_Staff", "Mage_Hat", "Mage_Cape"] },
-  swampking: { m: "skeleton_warrior", h: 130, tint: "#5a8a3a" },
-  kukerchief: { m: "barbarian", h: 124, tint: "#e8dccb", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"] },
-  ghostking: { m: "skeleton_rogue", h: 114, tint: "#cfe2ff", alpha: 0.6 },
-  hala: { m: "skeleton_mage", h: 114, tint: "#a8b8d0" },
+  // modelled after the old pictures (bestiary); hala (a storm cloud), swampking (a crowned slime) and ghostking (a ghost)
+  // have no fitting model: they stay their big upright picture
+  karak: { m: "a_werewolf", h: 112, tint: "#3a3438" },
+  mora: { m: "mage", h: 108, tint: "#ffffff", show: ["Mage_Hat", "2H_Staff", "Mage_Cape"], look: { body: "#5a2a8a", trim: "#3a1a5a", hat: "#4a2a6a", skin: "#8ac06a" } },
+  chuma: { m: "rogue_hooded", h: 104, tint: "#ffffff", show: ["Rogue_Cape"], extra: [["mage", "2H_Staff"]], look: { body: "#3a4a2a", trim: "#5a6a3a", hat: "#4a5a34", skin: "#a8c090" } },
+  vampking: { m: "mage", h: 114, tint: "#ffffff", show: ["Mage_Cape", "1H_Wand"], look: { body: "#1a1418", trim: "#c4122a", hat: "#2a0a10", skin: "#e8e0e8" } },
+  ispolin: { m: "barbarian", h: 160, tint: "#ffffff", show: ["2H_Axe", "Barbarian_Hat"], look: { body: "#6a6660", trim: "#9a948a", hat: "#4a4640", skin: "#a8a49a" } },
+  samqueen: { m: "mage", h: 108, tint: "#ffffff", alpha: 0.9, show: ["2H_Staff", "Mage_Cape"], look: { body: "#f4f1ff", trim: "#7ad1a0", hat: "#f2d36b", skin: "#f6dcc6" } },
+  kukerchief: { m: "barbarian", h: 128, tint: "#ffffff", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"], look: { body: "#1f1b19", trim: "#e9e3d6", hat: "#b3262b", skin: "#c99a6c" } },
   wolfking: { m: "a_wolf", h: 90, tint: "#5a5560", yaw: -Math.PI / 2 },
   bearking: { m: "a_bear", h: 120, tint: "#6a4a30", yaw: Math.PI },
-  zmey: { m: "a_dragon", h: 130, tint: "#d86040", lift: 30, yaw: Math.PI },
-  lamia: { m: "a_dragon", h: 120, tint: "#6aa050", yaw: Math.PI },
+  // the dragon's head points to +Z (checked from the mesh: the highest part leans that way)
+  zmey: { m: "a_dragon", h: 130, tint: "#d86040", lift: 30 },
+  lamia: { m: "a_dragon", h: 120, tint: "#6aa050" },
   // the missions' giants
-  velikan: { m: "barbarian", h: 230, tint: "#a8a090", show: ["2H_Axe", "Barbarian_Hat", "Barbarian_Cape"] },
-  gorskicar: { m: "barbarian", h: 210, tint: "#6a8a4a", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"] },
-  blatnamaika: { m: "skeleton_mage", h: 200, tint: "#7aa058" },
-  ledenvelikan: { m: "knight", h: 240, tint: "#b8d8ff", show: ["2H_Sword", "Knight_Helmet", "Knight_Cape"] },
+  velikan: { m: "barbarian", h: 230, tint: "#ffffff", show: ["2H_Axe", "Barbarian_Hat", "Barbarian_Cape"], look: { body: "#5a5248", trim: "#8a8070", hat: "#3a342c", skin: "#9a9488" } },
+  gorskicar: { m: "barbarian", h: 210, tint: "#ffffff", show: ["Barbarian_Hat", "Barbarian_Cape", "2H_Axe"], look: { body: "#2a4a1a", trim: "#6a4a2a", hat: "#3a5a22", skin: "#7a9a5a" } },
+  blatnamaika: { m: "rogue_hooded", h: 200, tint: "#ffffff", show: ["Rogue_Cape"], extra: [["mage", "2H_Staff"]], look: { body: "#2a3a2a", trim: "#5a6a3a", hat: "#3a4a2a", skin: "#7a9a6a" } },
+  ledenvelikan: { m: "knight", h: 240, tint: "#ffffff", show: ["2H_Sword", "Knight_Helmet", "Knight_Cape"], look: { body: "#4a7ab0", trim: "#dceaff", hat: "#9ac0e8", skin: "#c8e0ff" } },
 };
 interface BossObj {
   root: THREE.Group;
@@ -1340,6 +1343,9 @@ export class Renderer3D {
       const a = this.assets!;
       const body = skClone(a.models[cfg.m].scene);
       const mats: THREE.MeshLambertMaterial[] = [];
+      const cellsOf = cfg.m === "barbarian" ? barbCells : cfg.m === "mage" ? mageCells : cfg.m === "knight" ? (l: Look) => ({ 0: l.skin, 8: l.body, 18: l.body, 3: l.trim, 7: l.hat }) : rogueCells;
+      const baseMat = (a.models[cfg.m].scene.getObjectByProperty("isMesh", true) as THREE.Mesh | undefined)?.material as THREE.MeshStandardMaterial | undefined;
+      const lookTex = cfg.look && baseMat?.map ? recolor(baseMat.map, `boss:${e.type}`, cellsOf(cfg.look)) : null;
       body.traverse((o) => {
         const m = o as THREE.Mesh;
         if (!m.isMesh) return;
@@ -1350,7 +1356,7 @@ export class Renderer3D {
         const glow = /glow/i.test(src.name);
         const tint = new THREE.Color(cfg.tint);
         const mat = new THREE.MeshLambertMaterial({
-          map: src.map ?? null,
+          map: lookTex && src.map === baseMat?.map ? lookTex : (src.map ?? null),
           color: glow ? src.color : src.map ? tint : (src.color?.clone() ?? new THREE.Color(1, 1, 1)).multiply(tint).multiplyScalar(1.6),
           emissive: glow ? new THREE.Color(0xff3020) : new THREE.Color(0),
         });
@@ -1363,6 +1369,20 @@ export class Renderer3D {
         m.castShadow = true;
         m.frustumCulled = false;
       });
+      for (const [mn, nodeName] of cfg.extra ?? []) {
+        const srcNode = a.models[mn].scene.getObjectByName(nodeName);
+        const bone = srcNode?.parent ? body.getObjectByName(srcNode.parent.name) : null;
+        if (!srcNode || !bone) continue;
+        const c = srcNode.clone(true);
+        c.traverse((o) => {
+          const m = o as THREE.Mesh;
+          if (!m.isMesh) return;
+          m.material = new THREE.MeshLambertMaterial({ map: (m.material as THREE.MeshStandardMaterial).map ?? null });
+          m.castShadow = true;
+          m.visible = true;
+        });
+        bone.add(c);
+      }
       body.scale.setScalar(this.unitFor(cfg.m, cfg.h));
       const root = new THREE.Group();
       root.add(body);
@@ -1372,6 +1392,8 @@ export class Renderer3D {
     }
     b.seen = seen;
     const moved = Math.hypot(e.x - b.lx, e.y - b.ly);
+    // face where it walks (bosses circle, charge, dance); stand still = look at the hero
+    if (moved > 18 * dt && moved < 60) yaw = Math.atan2(e.x - b.lx, e.y - b.ly);
     b.lx = e.x;
     b.ly = e.y;
     let d = yaw - b.yaw;

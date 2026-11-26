@@ -259,7 +259,11 @@ Owner pronouns unknown: use they/them.
   squash; `Enemy3D.clip` = clip name, `yaw` offset, `lift` for fliers) and bosses wolfking / bearking / zmey / lamia
   (`BossObj.own` clips). Spider, raven, fire spirit, pot stay upright pictures (the free 3D ones looked worse). Files can hold extra copies
   (rat.glb = 3 rats, vampire bat = static copies + a ground plane): `Enemy3D.only` keeps the named parts; the wolf model
-  faces ±X (`yaw: -π/2`). 3D zooms out by `THREE_ZOOM` 0.78 (`Renderer.zNow` is passed to the 3D layer); SPAWN_R 770.
+  faces ±X (`yaw: -π/2`), the dragon +Z (no offset — check facing from the mesh, the highest part leans to the
+  head; a wrong guess made Ламя walk tail first). Bosses face where they walk (they circle / charge), else the hero.
+  Boss looks follow the old pictures (bestiary): `Boss3D.look` recolours KayKit people like heroes (Мора = witch with hat,
+  Чума = hooded hag + staff, Цар Вампир = black/red cape, …), Караконджул = black werewolf; hala / swampking / ghostking
+  have no fitting model and stay big upright pictures (not in BOSS3D). 3D zooms out by `THREE_ZOOM` 0.78 (`Renderer.zNow` is passed to the 3D layer); SPAWN_R 770.
   Balance after the gods: `giftHp()` = +5% enemy/boss hp per gift level (average per hero), wave bosses ×1.5 (and the map's
   hpMul), mission giants ×1.8. Toggle 🧊/🖼️ in the HUD (localStorage `survGfx`, phones default 2D).
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
