@@ -1,7 +1,12 @@
 import { Router, type Request, type Response } from "express";
 import {
+  SURV_ACHIEVEMENTS,
   SURV_HEROES,
   SURV_META,
+  SURV_SKINS,
+  skinKey,
+  type SurvAchId,
+  type SurvSkinId,
   cleanSurvCurses,
   emptySurvStats,
   survGoldMul,
@@ -42,7 +47,10 @@ async function survChannel(req: Request, res: Response) {
 
 const heroIds = new Set<string>(SURV_HEROES.map((h) => h.id));
 
-function readProfile(row: { gold: number; upgrades: unknown; heroes: unknown; stats: unknown } | null): SurvProfileDTO {
+const achIds = new Set<string>(SURV_ACHIEVEMENTS.map((a) => a.id));
+const strList = (v: unknown, ok: (s: string) => boolean) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && ok(x)))] : []);
+
+function readProfile(row: { gold: number; upgrades: unknown; heroes: unknown; stats: unknown; extra?: unknown } | null): SurvProfileDTO {
   const stats: SurvStats = { ...emptySurvStats() };
   if (row?.stats && typeof row.stats === "object") {
     for (const k of Object.keys(stats) as (keyof SurvStats)[]) {
@@ -59,7 +67,25 @@ function readProfile(row: { gold: number; upgrades: unknown; heroes: unknown; st
   }
   const bought = Array.isArray(row?.heroes) ? (row!.heroes as unknown[]).filter((h): h is SurvHeroId => typeof h === "string" && heroIds.has(h)) : [];
   const heroes = [...new Set([...survHeroesUnlockedBy(stats), ...bought])];
-  return { gold: row?.gold ?? 0, upgrades, heroes, stats };
+  const ex = (row?.extra && typeof row.extra === "object" ? row.extra : {}) as Record<string, unknown>;
+  const skins = strList(ex.skins, (k) => {
+    const [h, sk] = k.split(":");
+    return heroIds.has(h!) && SURV_SKINS.some((x) => x.id === sk && x.cost);
+  });
+  const achievements = strList(ex.achievements, (a) => achIds.has(a)) as SurvAchId[];
+  const bossTypes = strList(ex.bossTypes, (b) => /^[a-z]{2,16}$/.test(b));
+  return { gold: row?.gold ?? 0, upgrades, heroes, stats, skins, achievements, bossTypes };
+}
+
+const extraOf = (p: SurvProfileDTO) => ({ skins: p.skins, achievements: p.achievements, bossTypes: p.bossTypes });
+
+/** Does this person own that look (for co-op lobbies)? */
+export async function survOwnsSkinOf(userId: string, hero: SurvHeroId, skin: SurvSkinId): Promise<boolean> {
+  const info = SURV_SKINS.find((x) => x.id === skin);
+  if (!info) return false;
+  if (!info.cost && !info.ach) return true;
+  const p = await profileOf(userId);
+  return info.ach ? p.achievements.includes(info.ach) : p.skins.includes(skinKey(hero, skin));
 }
 
 async function profileOf(userId: string) {
@@ -112,13 +138,17 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
   if (seconds === null || kills === null || level === null || gold === null || bosses === null || !hero) return res.status(400).json({ error: "Bad run" });
   // rough ceilings: hordes get big, but not this big
   const wave = int(b.wave, 5000) ?? 0;
+  const streak = Math.min(kills, int(b.streak, 2_000_000) ?? 0);
+  const evolutions = Math.min(6, int(b.evolutions, 50) ?? 0);
+  const tasks = Math.min(wave, int(b.tasks, 5000) ?? 0);
+  const bossTypes = strList(b.bossTypes, (x) => /^[a-z]{2,16}$/.test(x)).slice(0, 40);
   if (kills > seconds * 90 + 300 || gold > seconds * 8 + bosses * 150 + 100 || bosses > seconds / 60 + 2 || wave > seconds / 10 + 2) {
     return res.status(400).json({ error: "Implausible run" });
   }
 
   const userId = req.userId!;
   const before = await profileOf(userId);
-  const goldEarned = Math.round((gold + Math.floor(seconds / 10)) * survGoldMul(curses, before.upgrades.greed ?? 0));
+  let goldEarned = Math.round((gold + Math.floor(seconds / 10)) * survGoldMul(curses, before.upgrades.greed ?? 0));
   const stats: SurvStats = {
     bestSeconds: Math.max(before.stats.bestSeconds, seconds),
     bestWave: Math.max(before.stats.bestWave, wave),
@@ -127,12 +157,23 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
     bosses: before.stats.bosses + bosses,
     games: before.stats.games + 1,
     coopGames: before.stats.coopGames + (coop ? 1 : 0),
+    tasks: (before.stats.tasks ?? 0) + tasks,
   };
+  const allBossTypes = [...new Set([...before.bossTypes, ...bossTypes])];
+  const heroCount = new Set([...before.heroes, ...survHeroesUnlockedBy(stats)]).size;
+  const newAchievements = SURV_ACHIEVEMENTS.filter(
+    (a) =>
+      !before.achievements.includes(a.id) &&
+      a.check({ wave, kills, level, streak, evolutions, coop, curses: curses.length, stats, bossKinds: allBossTypes.length, heroes: heroCount }),
+  );
+  const achGold = newAchievements.reduce((s, a) => s + a.gold, 0);
+  goldEarned += achGold;
   const boughtHeroes = before.heroes.filter((h) => SURV_HEROES.find((x) => x.id === h)?.unlock.kind === "gold");
+  const extra = { ...extraOf(before), achievements: [...before.achievements, ...newAchievements.map((a) => a.id)], bossTypes: allBossTypes };
   await prisma.survivorProfile.upsert({
     where: { userId },
-    create: { userId, gold: goldEarned, upgrades: {}, heroes: [], stats: { ...stats } },
-    update: { gold: { increment: goldEarned }, stats: { ...stats }, heroes: boughtHeroes },
+    create: { userId, gold: goldEarned, upgrades: {}, heroes: [], stats: { ...stats }, extra },
+    update: { gold: { increment: goldEarned }, stats: { ...stats }, heroes: boughtHeroes, extra },
   });
   const newHeroes = survHeroesUnlockedBy(stats).filter((h) => !before.heroes.includes(h));
 
@@ -145,7 +186,26 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
     create: { serverId: ch.serverId, userId, mode, best: seconds, bestCombo: kills, games: 1 },
     update: { games: { increment: 1 }, ...(record ? { best: seconds, bestCombo: kills } : {}) },
   });
-  res.json({ record, goldEarned, newHeroes, ...(await lists(ch.serverId, userId)) });
+  res.json({ record, goldEarned, newHeroes, newAchievements: newAchievements.map((a) => a.id), ...(await lists(ch.serverId, userId)) });
+});
+
+/** Buy a look for a hero (achievement looks can't be bought). */
+survivorsRouter.post("/text-channels/:channelId/survivors/skin", async (req, res) => {
+  const ch = await survChannel(req, res);
+  if (!ch) return;
+  const hero = typeof req.body?.hero === "string" && heroIds.has(req.body.hero) ? (req.body.hero as SurvHeroId) : null;
+  const info = SURV_SKINS.find((x) => x.id === req.body?.skin);
+  if (!hero || !info?.cost) return res.status(400).json({ error: "Not for sale" });
+  const userId = req.userId!;
+  const p = await profileOf(userId);
+  const key = skinKey(hero, info.id);
+  if (p.skins.includes(key)) return res.json(await lists(ch.serverId, userId));
+  const done = await prisma.survivorProfile.updateMany({
+    where: { userId, gold: { gte: info.cost } },
+    data: { gold: { decrement: info.cost }, extra: { ...extraOf(p), skins: [...p.skins, key] } },
+  });
+  if (!done.count) return res.status(400).json({ error: "Not enough gold" });
+  res.json(await lists(ch.serverId, userId));
 });
 
 /** Buy the next level of a shop upgrade. */

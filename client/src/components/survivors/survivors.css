@@ -473,7 +473,7 @@
 }
 .sv-boss {
   position: absolute;
-  top: 74px;
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
   width: min(460px, 70%);
@@ -960,4 +960,141 @@
 .sv-over {
   overflow: auto;
   padding: 16px;
+}
+
+/* skins, achievements, tasks, ready skill (2026-11-26 v4) */
+.sv-skins {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+.sv-menu .sv-skin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 2px;
+  font-size: 11px;
+}
+.sv-skin img {
+  width: 36px;
+  height: 50px;
+}
+.sv-menu .sv-skin.on {
+  background: rgba(255, 200, 90, 0.22);
+  border-color: rgba(255, 200, 90, 0.75);
+}
+.sv-skin.locked img {
+  filter: grayscale(0.7) brightness(0.6);
+}
+.sv-skin small {
+  font-size: 10px;
+  color: #ffd34d;
+}
+.sv-achs h3 {
+  margin: 14px 0 8px;
+}
+.sv-ach-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 8px;
+}
+.sv-ach {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  padding: 8px 10px;
+  opacity: 0.7;
+}
+.sv-ach.got {
+  opacity: 1;
+  border-color: rgba(255, 210, 80, 0.6);
+  background: rgba(255, 200, 80, 0.1);
+}
+.sv-ach-icon {
+  font-size: 24px;
+}
+.sv-ach b {
+  display: block;
+  font-size: 13px;
+}
+.sv-ach small {
+  opacity: 0.7;
+  font-size: 11px;
+}
+.sv-ach em {
+  font-style: normal;
+  font-size: 12px;
+  color: #ffd34d;
+}
+.sv-beast.unseen img {
+  filter: brightness(0) opacity(0.5);
+}
+.sv-theme {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffcf8a;
+  letter-spacing: 0.3px;
+}
+.sv-task {
+  margin-top: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 210, 80, 0.5);
+  border-radius: 8px;
+  padding: 3px 10px 5px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  min-width: 220px;
+}
+.sv-task > div {
+  height: 5px;
+  margin-top: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+.sv-task > div > div {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd34d, #ff9a2a);
+}
+.sv-task.done {
+  border-color: #7cff8a;
+  color: #b8ffb8;
+}
+.sv-task.failed {
+  border-color: #ff5a5a;
+  color: #ffb0b0;
+  opacity: 0.8;
+}
+.sv-ability.ready {
+  border-color: #ffe27a;
+  box-shadow: 0 0 14px rgba(255, 220, 110, 0.8), inset 0 0 12px rgba(255, 220, 110, 0.35);
+  animation: sv-ready 1s ease-in-out infinite;
+}
+@keyframes sv-ready {
+  50% {
+    box-shadow: 0 0 26px rgba(255, 220, 110, 1), inset 0 0 18px rgba(255, 220, 110, 0.5);
+    transform: scale(1.06);
+  }
+}
+.sv-key {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 900;
+  color: #ffe27a;
+  z-index: 2;
+}
+.sv-unlock.ach {
+  color: #ffd34d;
+}
+.sv-unlock.ach em {
+  font-style: normal;
+  opacity: 0.85;
 }

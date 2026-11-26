@@ -1,8 +1,11 @@
-import type { SurvCurseId, SurvHeroId, SurvMetaKey } from "@discord-clone/shared";
+import type { SurvCurseId, SurvHeroId, SurvMetaKey, SurvSkinId } from "@discord-clone/shared";
 import {
   AFFIXES,
-  BOSS_ORDER,
+  BOSS_EASY,
+  BOSS_HARD,
   BOSS_WAVE_EVERY,
+  WAVE_THEMES,
+  type TaskKind,
   ENEMIES,
   ENEMY_IDS,
   HEROES,
@@ -51,6 +54,7 @@ export interface RPlayer {
   /** an active hero skill with a visible effect (Киро's spin) */
   skillT: number;
   hurtT: number;
+  skin?: SurvSkinId;
 }
 export interface REnemy {
   id: number;
@@ -63,6 +67,9 @@ export interface REnemy {
   face: number;
   /** elite affix index in AFFIXES, -1 = none */
   affix: number;
+  /** bosses: a shield up (takes 80% less) / enraged (under half health) */
+  shield?: boolean;
+  rage?: boolean;
 }
 export interface RProj {
   id: number;
@@ -125,6 +132,7 @@ export const PK = {
   poison: 27,
   tornado: 28,
   batshot: 29,
+  rock: 30,
 } as const;
 
 /** enemy projectiles that stay where they are and hurt everyone standing in them */
@@ -135,7 +143,19 @@ const NO_HITS = new Set<number>([PK.cauldron, PK.jack, PK.scarecrow]);
 /** gem kinds */
 export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8 } as const;
 /** map marks */
-export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3 } as const;
+export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5 } as const;
+
+/** 💀 boss abilities on top of their own attacks (each boss has two, picked by its kind) */
+export type BossMove = "leap" | "firering" | "meteors" | "shield" | "summon" | "nova";
+const BOSS_MOVES: BossMove[] = ["leap", "firering", "meteors", "shield", "summon", "nova"];
+const BOSS_MOVE_TEXT: Record<BossMove, string> = {
+  leap: "⤴️ Скок!",
+  firering: "🔥 Огнен обръч!",
+  meteors: "☄️ Камъни от небето!",
+  shield: "🛡️ Щит!",
+  summon: "📯 Вика помощ!",
+  nova: "💥 Взрив!",
+};
 
 /** effects since the last frame: [code, ...args] (renderer: particles / text; view: sounds) */
 export const FX = {
@@ -158,6 +178,7 @@ export const FX = {
   evolve: 16, // playerIndex weaponIndex
   streak: 17, // count
   wave: 18, // wave boss(0/1)
+  task: 19, // 1 done / 0 failed, text
 } as const;
 export type Fx = (number | string | string[])[];
 
@@ -219,6 +240,19 @@ export interface Player extends RPlayer {
   volleyT: number;
   /** damage done, by weapon index (-1 = skills etc.) */
   dmgBy: Record<number, number>;
+  /** weapons evolved this game */
+  evos: number;
+}
+
+/** 🎯 the wave's task */
+export interface Task {
+  kind: TaskKind;
+  text: string;
+  target: number;
+  progress: number;
+  /** 0 running, 1 done, -1 failed */
+  state: number;
+  type?: EnemyId;
 }
 
 export interface Enemy extends REnemy {
@@ -245,6 +279,11 @@ export interface Enemy extends REnemy {
   dead: boolean;
   /** treasure guards / pots don't despawn */
   stay: boolean;
+  /** bosses: the extra-move timer, the shield, the move being wound up */
+  exT: number;
+  shieldT: number;
+  moves: BossMove[];
+  pending: { move: BossMove; t: number; x: number; y: number } | null;
 }
 
 export interface Proj extends RProj {
@@ -298,6 +337,7 @@ export interface PlayerSetup {
   uid: string;
   name: string;
   hero: SurvHeroId;
+  skin?: SurvSkinId;
   meta: Partial<Record<SurvMetaKey, number>>;
   remote: boolean;
 }
@@ -317,6 +357,9 @@ const BOX_W = 520;
 const BOX_H = 320;
 /** kill streaks that give a bonus */
 const STREAKS = [50, 100, 250, 500, 1000, 2000, 5000];
+
+/** hero index for the skill effect over the network */
+export const HEROES_ORDER = Object.keys(HEROES) as SurvHeroId[];
 
 const dist2 = (ax: number, ay: number, bx: number, by: number) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
@@ -412,6 +455,17 @@ export class World {
   private streakT = 0;
 
   boss: Enemy | null = null;
+  /** 🎯 this wave's task, and how many were done */
+  task: Task | null = null;
+  tasksDone = 0;
+  /** kinds of bosses beaten this game */
+  bossTypes = new Set<EnemyId>();
+  /** the theme of the wave */
+  theme = "";
+  private lastThemes: number[] = [];
+  private bossQueue: EnemyId[] = [];
+  private bossCycle = 0;
+  private sinceHit = 0;
   event: { id: MapEventId; t: number } | null = null;
   blessing: { id: BlessingId; t: number } | null = null;
 
@@ -450,7 +504,7 @@ export class World {
         dashCd: 0,
         dvx: 0,
         dvy: 0,
-        skillCd: 8,
+        skillCd: 5,
         weapons: [],
         passives: {},
         st: null as unknown as Stats,
@@ -468,6 +522,8 @@ export class World {
         volley: 0,
         volleyT: 0,
         dmgBy: {},
+        evos: 0,
+        skin: s.skin ?? "classic",
       };
       p.weapons.push({ id: HEROES[s.hero].weapon, lvl: 1, evo: false, t: 0.5, t2: 0, on: false });
       this.refreshStats(p);
@@ -600,7 +656,19 @@ export class World {
       vy: 0,
       dead: false,
       stay: type === "pot",
+      exT: 5,
+      shieldT: 0,
+      moves: [],
+      pending: null,
     };
+    if (e.boss) {
+      // two extra moves, fixed per kind of boss (so you can learn them)
+      const h = [...type].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;
+      const m1 = BOSS_MOVES[h % BOSS_MOVES.length]!;
+      let m2 = BOSS_MOVES[(h >>> 4) % BOSS_MOVES.length]!;
+      if (m2 === m1) m2 = BOSS_MOVES[(BOSS_MOVES.indexOf(m1) + 2) % BOSS_MOVES.length]!;
+      e.moves = [m1, m2];
+    }
     this.enemies.push(e);
     return e;
   }
@@ -622,34 +690,131 @@ export class World {
     const w = this.wave;
     const pf = 1 + 0.6 * (this.pf - 1);
     const horde = this.curses.has("horde") ? 1.5 : 1;
-    this.waveMix = this.mixFor(w);
+    // a theme not seen in the last few waves
+    const open = (id: EnemyId) => ENEMIES[id].from <= w;
+    const usable = WAVE_THEMES.map((t, i) => ({ t, i, mobs: t.mobs.filter(open) })).filter((x) => x.mobs.length > 0);
+    const fresh = usable.filter((x) => !this.lastThemes.includes(x.i));
+    // prefer the newest themes (more of the newly opened mobs)
+    const pool = (fresh.length ? fresh : usable).sort((a, b) => Math.max(...b.mobs.map((m) => ENEMIES[m].from)) - Math.max(...a.mobs.map((m) => ENEMIES[m].from)));
+    const pick = pool[Math.floor(Math.random() * Math.min(3, pool.length))] ?? usable[0]!;
+    this.lastThemes = [pick.i, ...this.lastThemes].slice(0, Math.min(6, usable.length - 1));
+    this.theme = pick.t.name;
+    this.waveMix = pick.mobs;
     // every 4th normal wave is a swarm of the small fast ones
     const swarm = w >= 7 && w % 4 === 3;
-    if (swarm) this.waveMix = (["rat", "bat", "wolf"] as EnemyId[]).filter((id) => ENEMIES[id].from <= w);
+    if (swarm) {
+      this.waveMix = (["rat", "bat", "wolf", "raven", "spider"] as EnemyId[]).filter(open);
+      this.theme = "Рояк";
+    }
     this.waveTotal = Math.round((40 + w * 14 + w * w * 0.6) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1));
     this.waveLeft = this.waveTotal;
     this.waveElites = w >= 3 ? 1 + Math.floor(w / 5) : 0;
     this.waveEvent = !isBossWave(w) && w >= 2 && Math.random() < 0.45;
     this.waveBosses = [];
     this.spawnAcc = 0;
+    this.task = null;
     if (isBossWave(w)) {
-      const idx = w / BOSS_WAVE_EVERY - 1;
       const count = w >= 25 ? 2 : 1;
       for (let k = 0; k < count; k++) {
-        const type = BOSS_ORDER[(idx + k * 3) % BOSS_ORDER.length]!;
-        const cycle = Math.floor(idx / BOSS_ORDER.length);
+        const type = this.nextBossType();
         const [x, y] = this.spawnPoint(undefined, 600);
-        const hp = ENEMIES[type].hp * (1 + 0.12 * w) * (1 + 0.6 * cycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
+        const hp = ENEMIES[type].hp * (1 + 0.12 * w) * (1 + 0.6 * this.bossCycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
         const b = this.spawn(type, x, y, { boss: true, hp });
         this.waveBosses.push(b);
         this.boss = b;
       }
-      this.fx.push([FX.banner, `⚠️ Вълна ${w}: ${this.waveBosses.map((b) => ENEMIES[b.type].name).join(" и ")}!`, 1]);
+      const dark = this.bossCycle > 0 ? "Тъмен " : "";
+      this.fx.push([FX.banner, `⚠️ Вълна ${w}: ${this.waveBosses.map((b) => dark + ENEMIES[b.type].name).join(" и ")}!`, 1]);
       this.fx.push([FX.wave, w, 1]);
     } else {
-      this.fx.push([FX.banner, swarm ? `🦇 Вълна ${w} — рояк!` : `⚔️ Вълна ${w}`, 3]);
+      this.fx.push([FX.banner, `${swarm ? "🦇" : "⚔️"} Вълна ${w} — ${this.theme}`, 3]);
       this.fx.push([FX.wave, w, 0]);
+      if (w >= 2) this.newTask(w);
     }
+  }
+
+  /** the next boss nobody has seen yet this game (easy ones first, each group shuffled) */
+  private nextBossType(): EnemyId {
+    if (!this.bossQueue.length) {
+      const shuffle = (xs: EnemyId[]) => [...xs].sort(() => Math.random() - 0.5);
+      this.bossQueue = this.wave <= BOSS_WAVE_EVERY ? [...shuffle(BOSS_EASY), ...shuffle(BOSS_HARD)] : shuffle([...BOSS_EASY, ...BOSS_HARD]);
+      if (this.wave > BOSS_WAVE_EVERY) this.bossCycle++;
+    }
+    return this.bossQueue.shift()!;
+  }
+
+  /* ───────── 🎯 wave tasks ───────── */
+
+  private newTask(w: number) {
+    const kinds: TaskKind[] = ["kill", "kill", "nohit", "gems", "pots", "streak"];
+    if (w >= 3) kinds.push("elite");
+    const kind = pickOne(kinds);
+    const t: Task = { kind, text: "", target: 1, progress: 0, state: 0 };
+    switch (kind) {
+      case "kill": {
+        const type = pickOne(this.waveMix);
+        t.type = type;
+        t.target = Math.round((14 + w * 3) * (1 + 0.3 * (this.pf - 1)));
+        t.text = `Убий ${t.target} × ${ENEMIES[type].name}`;
+        break;
+      }
+      case "nohit":
+        t.target = 12;
+        t.text = "12 секунди без да те ударят";
+        this.sinceHit = 0;
+        break;
+      case "gems":
+        t.target = 40 + w * 6;
+        t.text = `Събери ${t.target} кристала`;
+        break;
+      case "pots": {
+        t.target = 3;
+        t.text = "Счупи 3 стомни";
+        const p = pickOne(this.alive.length ? this.alive : this.players);
+        for (let i = 0; i < 4; i++) {
+          const a = (i / 4) * Math.PI * 2 + Math.random();
+          this.spawn("pot", p.x + Math.cos(a) * rand(220, 420), p.y + Math.sin(a) * rand(220, 420));
+        }
+        break;
+      }
+      case "streak":
+        t.target = 50 + w * 8;
+        t.text = `Серия от ${t.target} убийства`;
+        break;
+      case "elite": {
+        t.target = 1;
+        t.text = "Повали елита преди края на вълната";
+        const [x, y] = this.spawnPoint(undefined, 560);
+        const e = this.spawn(pickOne(this.waveMix), x, y, { elite: true });
+        t.type = e.type;
+        break;
+      }
+    }
+    this.task = t;
+  }
+
+  private taskStep(kind: TaskKind, amount = 1, type?: EnemyId) {
+    const t = this.task;
+    if (!t || t.state !== 0 || t.kind !== kind) return;
+    if (kind === "kill" && type !== t.type) return;
+    if (kind === "streak") t.progress = Math.max(t.progress, amount);
+    else t.progress += amount;
+    if (t.progress >= t.target) this.taskDone();
+  }
+
+  private taskDone() {
+    const t = this.task!;
+    t.state = 1;
+    t.progress = t.target;
+    this.tasksDone++;
+    const p = pickOne(this.alive.length ? this.alive : this.players);
+    const gold = 10 + this.wave * 2;
+    this.gold += gold;
+    // the reward: a chest next to you (most tasks) or a heal, and a burst of XP
+    if (t.kind === "kill" || t.kind === "pots" || t.kind === "elite") this.gems.push({ x: p.x + rand(-60, 60), y: p.y + rand(-60, 60), k: GK.chest, v: 0, mag: true, sp: 0 });
+    else for (const q of this.alive) this.heal(q, q.maxHp * 0.35);
+    for (let i = 0; i < 8; i++) this.gems.push({ x: p.x + rand(-90, 90), y: p.y + rand(-90, 90), k: GK.green, v: 3 + this.wave, mag: true, sp: 0 });
+    this.fx.push([FX.task, 1, `🎯 Задачата е изпълнена! +${gold} 🪙`]);
   }
 
   private director(dt: number) {
@@ -721,6 +886,13 @@ export class World {
   }
 
   private endWave() {
+    if (this.task && this.task.state === 0) {
+      if (this.task.kind === "nohit" && this.task.progress >= this.task.target) this.taskDone();
+      else {
+        this.task.state = -1;
+        this.fx.push([FX.task, 0, "🎯 Задачата не стана…"]);
+      }
+    }
     this.breakT = isBossWave(this.wave) ? WAVE_BREAK + 2 : WAVE_BREAK;
     this.waveLeft = 0;
     this.boss = null;
@@ -787,6 +959,7 @@ export class World {
       if (p.st.slayer && (e.boss || e.elite)) d *= 1 + p.st.slayer;
     }
     if (e.affix >= 0 && AFFIXES[e.affix] === "armored") d *= 0.5;
+    if (e.shieldT > 0) d *= 0.2;
     if (p) p.dmgBy[wi] = (p.dmgBy[wi] ?? 0) + Math.min(d, Math.max(0, e.hp));
     e.hp -= d;
     e.flash = 0.12;
@@ -805,6 +978,7 @@ export class World {
     const luck = p?.st.luck ?? 0;
     this.fx.push([FX.die, Math.round(e.x), Math.round(e.y), ENEMY_IDS.indexOf(e.type)]);
     if (e.type === "pot") {
+      this.taskStep("pots");
       // a pot: always something inside
       const r = Math.random();
       const k = r < 0.32 ? GK.food : r < 0.58 ? GK.bag : r < 0.74 ? GK.magnet : r < 0.86 ? GK.bomb : r < 0.9 + luck * 0.1 ? GK.chest : GK.coin;
@@ -815,6 +989,9 @@ export class World {
     if (p) p.kills++;
     this.streak++;
     this.streakT = 2.5;
+    this.taskStep("kill", 1, e.type);
+    this.taskStep("streak", this.streak);
+    if (e.elite && this.task?.kind === "elite") this.taskStep("elite");
     if (STREAKS.includes(this.streak)) {
       const bonus = Math.round(this.streak / 10);
       this.gold += bonus;
@@ -832,6 +1009,7 @@ export class World {
     }
     if (e.boss) {
       this.bosses++;
+      this.bossTypes.add(e.type);
       this.fx.push([FX.bossDie, Math.round(e.x), Math.round(e.y)]);
       this.fx.push([FX.banner, `🏆 ${ENEMIES[e.type].name} е повален!`, 2]);
       this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
@@ -887,6 +1065,8 @@ export class World {
     p.hp -= d;
     p.invulnT = 0.45;
     p.hurtT = 0.25;
+    this.sinceHit = 0;
+    if (this.task?.kind === "nohit" && this.task.state === 0) this.task.progress = 0;
     this.fx.push([FX.hurt, this.players.indexOf(p)]);
     if (p.hp <= 0) this.down(p);
   }
@@ -977,6 +1157,11 @@ export class World {
 
     for (const p of this.players) this.stepPlayer(p, dt, inputs.get(p.uid));
     this.director(dt);
+    if (this.task?.kind === "nohit" && this.task.state === 0 && this.breakT <= 0) {
+      this.sinceHit += dt;
+      this.task.progress = Math.min(this.task.target, this.sinceHit);
+      if (this.sinceHit >= this.task.target) this.taskDone();
+    }
     this.grid.build(this.enemies);
     this.scarecrows = this.projs.filter((q) => q.kind === PK.scarecrow && !q.dead);
     this.stepEnemies(dt);
@@ -1093,7 +1278,7 @@ export class World {
     const def = HEROES[p.hero].skill;
     p.skillCd = def.cd;
     const pi = this.players.indexOf(p);
-    this.fx.push([FX.skill, pi]);
+    this.fx.push([FX.skill, pi, Math.round(p.x), Math.round(p.y), HEROES_ORDER.indexOf(p.hero)]);
     this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 40), `✨ ${def.name}!`, "#ffe27a"]);
     switch (p.hero) {
       case "peyo": {
@@ -1245,12 +1430,18 @@ export class World {
         continue;
       }
 
-      if (e.type === "bat") {
-        const w = Math.sin(this.t * 6 + e.id) * 0.8;
+      if (e.type === "bat" || e.type === "raven") {
+        const w = Math.sin(this.t * (e.type === "raven" ? 4 : 6) + e.id) * 0.8;
         mx = dx - dy * w;
         my = dy + dx * w;
-      } else if (e.type === "witch" || e.type === "yuda") {
-        const keep = e.type === "yuda" ? 250 : 220;
+      } else if (e.type === "spider") {
+        // scuttles in bursts
+        sp *= Math.sin(this.t * 5 + e.id) > 0 ? 1.5 : 0.35;
+        const w = Math.sin(this.t * 2 + e.id) * 0.6;
+        mx = dx - dy * w;
+        my = dy + dx * w;
+      } else if (e.type === "witch" || e.type === "yuda" || e.type === "firespirit") {
+        const keep = e.type === "yuda" ? 250 : e.type === "firespirit" ? 200 : 220;
         if (dist < keep) {
           mx = -dx;
           my = -dy;
@@ -1260,10 +1451,10 @@ export class World {
           sp *= 0.5;
         }
         if (e.ai <= 0 && dist < 460) {
-          e.ai = e.type === "yuda" ? 2.4 : 3;
+          e.ai = e.type === "yuda" ? 2.4 : e.type === "firespirit" ? 2.8 : 3;
           const tx = (tgt.x - e.x) / (dist || 1);
           const ty = (tgt.y - e.y) / (dist || 1);
-          this.enemyShot(e, tx, ty, e.type === "yuda" ? 240 : 210, PK.ebolt, 9);
+          this.enemyShot(e, tx, ty, e.type === "yuda" ? 240 : 210, e.type === "firespirit" ? PK.eball : PK.ebolt, 9);
         }
       }
 
@@ -1311,7 +1502,7 @@ export class World {
       x: e.x,
       y: e.y,
       a: Math.atan2(dy, dx),
-      r: kind === PK.eball ? 11 : kind === PK.poison ? 58 : kind === PK.tornado ? 26 : 8,
+      r: kind === PK.eball ? 11 : kind === PK.poison ? 58 : kind === PK.tornado ? 26 : kind === PK.rock ? 12 : 8,
       owner: -1,
       vx: dx * speed,
       vy: dy * speed,
@@ -1332,7 +1523,84 @@ export class World {
     });
   }
 
+  /** the boss's two extra moves + rage under half health; true = busy (skip its normal attacks this frame) */
+  private bossExtras(e: Enemy, tgt: Player, dt: number): boolean {
+    e.shieldT = Math.max(0, e.shieldT - dt);
+    e.shield = e.shieldT > 0;
+    if (!e.rage && e.hp < e.maxHp * 0.5) {
+      e.rage = true;
+      e.speed *= 1.35;
+      this.fx.push([FX.banner, `😡 ${ENEMIES[e.type].name} побесня!`, 1]);
+      this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 120, 7]);
+    }
+    // a move being wound up (the warning mark is on the ground)
+    if (e.pending) {
+      const pm = e.pending;
+      pm.t -= dt;
+      if (pm.t > 0) return pm.move === "leap" || pm.move === "nova";
+      e.pending = null;
+      if (pm.move === "leap") {
+        e.x = pm.x;
+        e.y = pm.y;
+        this.fx.push([FX.boom, Math.round(pm.x), Math.round(pm.y), 110, 5]);
+        for (const p of this.alive) if (dist2(p.x, p.y, pm.x, pm.y) < (110 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * 1.3);
+      } else if (pm.move === "nova") {
+        this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 210, 3]);
+        for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (210 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * 1.5);
+      }
+      return false;
+    }
+    e.exT -= dt;
+    if (e.exT > 0) return false;
+    e.exT = (e.rage ? 4 : 6.5) + rand(0, 1.5);
+    const move = pickOne(e.moves);
+    this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 24), BOSS_MOVE_TEXT[move], "#ff8a6a"]);
+    switch (move) {
+      case "leap":
+        e.pending = { move, t: 1.1, x: tgt.x, y: tgt.y };
+        this.marks.push({ kind: MK.leap, x: tgt.x, y: tgt.y, r: 110, p: 0, t: 1.1, a: 1.1 });
+        return true;
+      case "nova":
+        e.pending = { move, t: 1.3, x: e.x, y: e.y };
+        this.marks.push({ kind: MK.nova, x: e.x, y: e.y, r: 210, p: 0, t: 1.3, a: 1.3 });
+        return true;
+      case "firering": {
+        // a ring of fire that closes in on you — dash through it
+        const n = e.rage ? 30 : 24;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          const sx = tgt.x + Math.cos(a) * 430;
+          const sy = tgt.y + Math.sin(a) * 430;
+          this.enemyShot({ x: sx, y: sy }, -Math.cos(a), -Math.sin(a), 150, PK.eball, 13, 4.2);
+        }
+        return false;
+      }
+      case "meteors":
+        for (let i = 0; i < (e.rage ? 12 : 8); i++) this.marks.push({ kind: MK.hail, x: tgt.x + rand(-220, 220), y: tgt.y + rand(-170, 170), r: 48, p: 0, t: 1 + i * 0.1, a: 1 + i * 0.1 });
+        return false;
+      case "shield":
+        e.shieldT = e.rage ? 5 : 4;
+        return false;
+      case "summon": {
+        const mix = this.waveMix.length ? this.waveMix : (["zombie"] as EnemyId[]);
+        const n = Math.round((6 + this.wave * 0.3) * (1 + 0.4 * (this.pf - 1)));
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          this.spawn(pickOne(mix), tgt.x + Math.cos(a) * 340, tgt.y + Math.sin(a) * 340);
+        }
+        return false;
+      }
+    }
+    return false;
+  }
+
   private bossAI(e: Enemy, tgt: Player, dx: number, dy: number, dist: number, dt: number) {
+    if (this.bossExtras(e, tgt, dt)) return;
+    if (e.rage) {
+      // enraged: its own attacks come faster too
+      e.ai -= dt * 0.5;
+      e.ai2 -= dt * 0.5;
+    }
     const sp = e.speed * (e.slowT > 0 ? 0.6 : 1);
     if (Math.abs(dx) > 0.15) e.face = dx < 0 ? -1 : 1;
     const walk = (k = 1) => {
@@ -1479,6 +1747,89 @@ export class World {
           fan(9, 0.16, 250, PK.batshot, 14);
         }
         walk(0.7);
+        return;
+      case "ispolin":
+        // the giant: slow, stamps the ground (a ring of rocks) and throws boulders at you
+        walk(0.9);
+        if (e.ai <= 0) {
+          e.ai = 3.4;
+          this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y + 20), 140, 5]);
+          ring(14, 210, PK.rock, 16, Math.random());
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 5;
+          for (let i = 0; i < 5; i++) this.marks.push({ kind: MK.hail, x: tgt.x + rand(-150, 150), y: tgt.y + rand(-120, 120), r: 50, p: 0, t: 1.2 + i * 0.12, a: 1.2 + i * 0.12 });
+        }
+        return;
+      case "samqueen":
+        // the samodiva queen: dances around, blinks, a ring of thorns, calls the юди
+        e.x += -dy * sp * dt + dx * sp * 0.3 * dt;
+        e.y += dx * sp * dt + dy * sp * 0.3 * dt;
+        if (e.ai <= 0) {
+          e.ai = 2.6;
+          ring(18, 180, PK.ebolt, 11, this.t);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 8;
+          this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 60, 4]);
+          const a = Math.random() * Math.PI * 2;
+          e.x = tgt.x + Math.cos(a) * 300;
+          e.y = tgt.y + Math.sin(a) * 300;
+          for (let i = 0; i < 4; i++) this.spawn("yuda", e.x + rand(-60, 60), e.y + rand(-60, 60));
+        }
+        return;
+      case "swampking":
+        walk(0.8);
+        if (e.ai <= 0) {
+          e.ai = 1.6;
+          this.enemyShot({ x: e.x + rand(-60, 60), y: e.y + rand(-40, 40) }, 0, 0, 0, PK.poison, 9, 8);
+          fan(7, 0.15, 200, PK.ebolt, 11);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 10;
+          for (let i = 0; i < 3; i++) this.spawn("blatnik", e.x + rand(-80, 80), e.y + rand(-80, 80));
+        }
+        return;
+      case "kukerchief":
+        if (e.ai2 <= 0) {
+          e.ai2 = 9;
+          const n = 10;
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2;
+            this.spawn("kuker", tgt.x + Math.cos(a) * 380, tgt.y + Math.sin(a) * 380);
+          }
+          // the bells: a shock wave of fire balls
+          ring(20, 170, PK.eball, 12, 0);
+        }
+        if (charge(3.2, 600)) return;
+        walk();
+        return;
+      case "ghostking": {
+        // drifts through everything and spins a spiral of ghost bolts
+        walk(0.7);
+        e.tx += dt;
+        if (e.tx > 0.22 && Math.sin(this.t * 0.8) > -0.2) {
+          e.tx = 0;
+          const a = this.t * 3.1;
+          for (let k = 0; k < 3; k++) this.enemyShot(e, Math.cos(a + (k * Math.PI * 2) / 3), Math.sin(a + (k * Math.PI * 2) / 3), 170, PK.ebolt, 10);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 7;
+          for (let i = 0; i < 6; i++) this.spawn("ghost", e.x + rand(-80, 80), e.y + rand(-80, 80));
+        }
+        return;
+      }
+      case "bearking":
+        if (e.ai2 <= 0) {
+          e.ai2 = 6;
+          // the roar: pushes and hurts everyone close
+          this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 220, 5]);
+          this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - 60), "🐻 РРРРААА!", "#ff8a6a"]);
+          for (const pl of this.alive) if (dist2(pl.x, pl.y, e.x, e.y) < 220 * 220) this.hurtPlayer(pl, e.dmg * 0.8);
+          if (Math.random() < 0.5) for (let i = 0; i < 2; i++) this.spawn("bear", e.x + rand(-100, 100), e.y + rand(-100, 100));
+        }
+        if (charge(4, 520)) return;
+        walk();
         return;
     }
   }
@@ -2167,6 +2518,7 @@ export class World {
       case GK.green:
       case GK.red:
         this.xp += g.v * p.st.xp;
+        this.taskStep("gems");
         break;
       case GK.coin:
         this.gold += 1;
@@ -2201,6 +2553,7 @@ export class World {
     const ready = p.weapons.find((w) => !w.evo && w.lvl >= MAX_WEAPON_LEVEL && (p.passives[WEAPONS[w.id].evo.passive] ?? 0) > 0);
     if (ready) {
       ready.evo = true;
+      p.evos++;
       texts.push(`🌟 ${WEAPONS[ready.id].evo.name}!`);
       this.fx.push([FX.evolve, pi, WEAPON_IDS.indexOf(ready.id)]);
       this.refreshStats(p);
@@ -2262,6 +2615,8 @@ export class World {
         if (!this.gems.some((g) => g.k === GK.chest && Math.abs(g.x - m.x) < 1 && Math.abs(g.y - m.y) < 1)) m.t = 0;
       } else if (m.kind === MK.charge) {
         m.p = 1 - m.t / 0.8;
+      } else if (m.kind === MK.leap || m.kind === MK.nova) {
+        m.p = 1 - m.t / m.a;
       }
     }
     if (this.marks.some((m) => m.t <= 0)) this.marks = this.marks.filter((m) => m.t > 0);

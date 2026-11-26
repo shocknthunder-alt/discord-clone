@@ -1,4 +1,4 @@
-import type { SurvHeroId } from "@discord-clone/shared";
+import type { SurvHeroId, SurvSkinId } from "@discord-clone/shared";
 import { HEROES, type EnemyId } from "./content";
 import { GK, PK } from "./engine";
 
@@ -364,8 +364,35 @@ function hair(c: Ctx, pts: number[], col: string, r: Rig) {
 
 const HAIR = "#2a1d14";
 
-function drawHero(c: Ctx, hero: SurvHeroId, frame: number) {
+type Look = (typeof HEROES)[SurvHeroId]["look"];
+
+/** 🎨 a skin's clothes (palette skins) */
+function skinLook(hero: SurvHeroId, skin: SurvSkinId): Look {
   const L = HEROES[hero].look;
+  switch (skin) {
+    case "night":
+      return { ...L, body: "#1c2333", trim: "#8a94b0", hat: "#0e1018" };
+    case "fest":
+      return { ...L, body: "#b3262b", trim: "#f4efe4", hat: "#1a1a1a" };
+    case "royal":
+      return { ...L, body: "#4b2a7a", trim: "#f2c230", hat: "#d4a640" };
+    default:
+      return L;
+  }
+}
+
+/** 🎨 a tint over the whole picture (achievement skins) */
+const SKIN_TINT: Partial<Record<SurvSkinId, string>> = {
+  night: "rgba(40,50,120,0.38)",
+  fest: "rgba(210,30,40,0.24)",
+  royal: "rgba(130,60,210,0.3)",
+  gold: "rgba(255,196,40,0.58)",
+  fire: "rgba(255,90,20,0.5)",
+  ghost: "rgba(170,230,255,0.62)",
+};
+
+function drawHero(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId = "classic") {
+  const L = skinLook(hero, skin);
   const at = (r: Rig, pts: number[]) => pts.map((v, i) => v + (i % 2 ? r.head.y : r.head.x));
   switch (hero) {
     case "peyo": {
@@ -634,10 +661,25 @@ function drawHero(c: Ctx, hero: SurvHeroId, frame: number) {
 }
 
 /** frame 0..7 = a step of the walk, 8..9 = standing and breathing */
-export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boolean) {
-  return get(`h3:${hero}:${frame}`, 60, 84, (c) => {
+export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boolean, skin: SurvSkinId = "classic") {
+  return get(`h3:${hero}:${skin}:${frame}`, 60, 84, (c) => {
     c.translate(0, 8);
-    drawHero(c, hero, frame);
+    drawHero(c, hero, frame, skin);
+    const tint = SKIN_TINT[skin];
+    if (tint) {
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.globalCompositeOperation = "source-atop";
+      c.fillStyle = tint;
+      c.fillRect(0, 0, c.canvas.width, c.canvas.height);
+      const g = c.createLinearGradient(c.canvas.width, 0, 0, c.canvas.height);
+      g.addColorStop(0, "rgba(255,255,255,0.35)");
+      g.addColorStop(0.5, "rgba(255,255,255,0)");
+      g.addColorStop(1, "rgba(0,0,0,0.25)");
+      c.fillStyle = g;
+      c.fillRect(0, 0, c.canvas.width, c.canvas.height);
+      c.restore();
+    }
   }, v, flip);
 }
 
@@ -1069,6 +1111,261 @@ const ENEMY_DRAW: Record<EnemyId, { w: number; h: number; draw: Draw }> = {
       poly(c, [2, -33, 4, -29.5, 5, -33], "#fff");
     },
   },
+  skeleton: {
+    w: 34,
+    h: 48,
+    draw: (c, f) => {
+      const bone = "#e8e2cc";
+      line(c, [-3, 6, -4 - f * 2, 20], bone, 2.2);
+      line(c, [3, 6, 4 + f * 2, 20], bone, 2.2);
+      line(c, [0, -10, 0, 6], bone, 2.4);
+      for (let y = -8; y <= 2; y += 3.4) line(c, [-6, y, 6, y + 0.5], bone, 1.6);
+      line(c, [-7, -9, -10, 0 + f], bone, 2);
+      line(c, [7, -9, 11, -2 - f], bone, 2);
+      line(c, [11, -2 - f, 16, -10], "#8a8a8a", 1.8);
+      poly(c, [-6, -12, -6, -21, 0, -25, 7, -21, 7, -14, 3, -11, -2, -11], bone, OUT, 1.2);
+      poly(c, [-3.5, -19, -0.8, -19, -1, -16, -3.6, -16.4], "#1a1414");
+      poly(c, [2, -19, 5, -19, 4.6, -16, 2, -16.4], "#1a1414");
+      for (let x = -2; x <= 4; x += 2) line(c, [x, -13, x, -11.2], "#1a1414", 0.8);
+    },
+  },
+  raven: {
+    w: 36,
+    h: 26,
+    draw: (c, f) => {
+      const up = f ? -10 : 3;
+      poly(c, [-2, -2, -16, up, -12, 3, -5, 2], "#15151c", OUT, 1);
+      poly(c, [2, -2, 16, up, 12, 3, 5, 2], "#1d1d26", OUT, 1);
+      poly(c, [-9, 2, 0, -4, 8, -1, 13, 1, 8, 4, -6, 5], "#1d1d26", OUT, 1);
+      poly(c, [12, -1, 18, 0.5, 12, 2], "#3a3a3a");
+      ell(c, 9, -1, 1.2, 1.2, "#ffd23a");
+      poly(c, [-9, 2, -15, 4, -14, 6, -8, 5], "#15151c");
+    },
+  },
+  spider: {
+    w: 44,
+    h: 32,
+    draw: (c, f) => {
+      for (let i = 0; i < 4; i++) {
+        const k = (i % 2 ? f : -f) * 2;
+        line(c, [-3, 0, -10 - i * 2, -8 + i * 4 + k, -16 - i, 2 + i * 3 + k], "#2a1d2a", 1.8);
+        line(c, [3, 0, 10 + i * 2, -8 + i * 4 - k, 16 + i, 2 + i * 3 - k], "#2a1d2a", 1.8);
+      }
+      ell(c, -4, 1, 8, 7, "#3a2440", OUT, 1.2);
+      poly(c, [-8, -1, -4, -3, 0, -1, -4, 3], "#c62f3a");
+      ell(c, 5, 0, 5, 4.5, "#2a1d2a", OUT, 1.1);
+      for (const [x, y] of [
+        [7, -2],
+        [9, -1],
+        [7.5, 1],
+        [9.4, 1.5],
+      ])
+        ell(c, x!, y!, 0.9, 0.9, "#ff3a3a");
+    },
+  },
+  firespirit: {
+    w: 36,
+    h: 46,
+    draw: (c, f) => {
+      const g = c.createRadialGradient(0, 2, 1, 0, 2, 18);
+      g.addColorStop(0, "#fff6b0");
+      g.addColorStop(0.35, "#ffb21a");
+      g.addColorStop(0.75, "rgba(255,70,20,0.85)");
+      g.addColorStop(1, "rgba(255,40,10,0)");
+      c.fillStyle = g;
+      c.beginPath();
+      c.moveTo(-12, 12);
+      c.quadraticCurveTo(-16, -4, -6, -12 - f * 3);
+      c.quadraticCurveTo(-4, -4, 0, -20 + f * 2);
+      c.quadraticCurveTo(4, -6, 7, -14 - f * 2);
+      c.quadraticCurveTo(16, -2, 12, 12);
+      c.quadraticCurveTo(0, 18, -12, 12);
+      c.fill();
+      ell(c, -3.5, -1, 2, 2.8, "#3a0a00");
+      ell(c, 3.5, -1, 2, 2.8, "#3a0a00");
+      poly(c, [-3, 5, 3, 5, 0, 8], "#3a0a00");
+    },
+  },
+  bear: {
+    w: 60,
+    h: 54,
+    draw: (c, f) => {
+      for (const [x, k] of [
+        [-16, f],
+        [-7, -f],
+        [8, -f],
+        [16, f],
+      ] as [number, number][])
+        rr(c, x - 4, 6, 8, 14 + k * 2, 3, "#3e2a1c", OUT, 1.2);
+      ell(c, -2, 2, 23, 15, "#5a3d28", OUT, 2);
+      ell(c, -6, -2, 14, 8, "#6b4a32");
+      ell(c, 18, -6, 11, 10, "#5a3d28", OUT, 1.8);
+      ell(c, 26, -3, 5, 4, "#8a6248", OUT, 1.2);
+      ell(c, 29, -4, 1.6, 1.4, "#1a1010");
+      ell(c, 13, -15, 3.4, 3.4, "#5a3d28", OUT, 1);
+      ell(c, 21, -15, 3.4, 3.4, "#5a3d28", OUT, 1);
+      ell(c, 21, -8, 1.4, 1.4, "#1a1010");
+    },
+  },
+  ispolin: {
+    w: 120,
+    h: 130,
+    draw: (c, f) => {
+      // a stone-grey giant with a club
+      line(c, [36, 30, 52, -40 + f * 4], "#5a3a1e", 9);
+      ell(c, 54, -44 + f * 4, 10, 12, "#6b4423", OUT, 2);
+      for (const [x, k] of [
+        [-14, f],
+        [14, -f],
+      ] as [number, number][])
+        rr(c, x - 9, 22, 18, 36 + k * 3, 6, "#6f6a60", OUT, 2);
+      poly(c, [-34, -30, 34, -30, 28, 30, -28, 30], "#8a847a", OUT, 2.5);
+      poly(c, [-34, -30, -4, -30, -6, 30, -28, 30], "rgba(0,0,0,0.2)");
+      poly(c, [-28, 8, 28, 8, 26, 26, -26, 26], "#5a3d28", OUT, 1.5);
+      rr(c, -42, -28, 12, 40, 6, "#8a847a", OUT, 2);
+      rr(c, 30, -28, 12, 40, 6, "#8a847a", OUT, 2);
+      poly(c, [-16, -30, -18, -52, -6, -62, 10, -62, 20, -52, 18, -30], "#9a948a", OUT, 2);
+      poly(c, [-12, -46, -3, -46, -4, -42, -12, -42], "#ffb21a");
+      poly(c, [4, -46, 13, -46, 12, -42, 4, -42], "#ffb21a");
+      line(c, [-10, -36, 10, -35], "#2a2420", 2.5);
+      for (const [x, y] of [
+        [-20, -10],
+        [10, -18],
+        [-8, 0],
+        [18, -4],
+      ])
+        line(c, [x!, y!, x! + 6, y! + 4], "rgba(40,30,20,0.5)", 1.5);
+    },
+  },
+  samqueen: {
+    w: 86,
+    h: 110,
+    draw: (c, f) => {
+      const g = c.createRadialGradient(0, -10, 4, 0, -10, 50);
+      g.addColorStop(0, "rgba(160,255,200,0.45)");
+      g.addColorStop(1, "rgba(160,255,200,0)");
+      c.fillStyle = g;
+      c.fillRect(-43, -55, 86, 110);
+      poly(c, [-10, -40, -26, 0, -20, 30, -12, 10], "#e8d27a", OUT, 1.2);
+      poly(c, [-14, -10, 14, -10, 26, 44 + f * 2, 0, 38, -26, 44 - f * 2], "#e6f6ee", OUT, 2);
+      poly(c, [-14, -10, 0, -10, -2, 40, -26, 44], "rgba(60,120,90,0.2)");
+      for (let x = -22; x <= 22; x += 5) poly(c, [x, 40, x + 2.5, 35, x + 5, 40], "#3aa86a");
+      poly(c, [-10, -10, -10, -32, 10, -32, 10, -10], "#e6f6ee", OUT, 1.6);
+      ell(c, 0, -40, 9, 10, "#f2e4dc", OUT, 1.6);
+      poly(c, [2, -42, 6, -42, 6, -40, 2, -40], "#1a6a4a");
+      poly(c, [-5, -42, -1, -42, -1, -40, -5, -40], "#1a6a4a");
+      for (let i = 0; i < 7; i++) {
+        const x = -10 + i * 3.3;
+        poly(c, [x - 1.6, -50, x, -56 - (i % 2) * 4, x + 1.6, -50], "#3aa86a", OUT, 0.6);
+      }
+      for (const dir of [-1, 1]) poly(c, [dir * 10, -28, dir * 40, -46 + f * 6, dir * 34, -20, dir * 12, -16], "rgba(200,255,230,0.45)", "rgba(80,160,120,0.6)", 1);
+    },
+  },
+  swampking: {
+    w: 120,
+    h: 104,
+    draw: (c, f) => {
+      c.beginPath();
+      c.moveTo(-46, 40);
+      c.bezierCurveTo(-56, 0, -30, -42, 0, -42);
+      c.bezierCurveTo(30, -42, 56, 0, 46, 40);
+      c.quadraticCurveTo(24, 32 + f * 4, 0, 40);
+      c.quadraticCurveTo(-24, 32 - f * 4, -46, 40);
+      c.fillStyle = "#3e5628";
+      c.fill();
+      c.strokeStyle = OUT;
+      c.lineWidth = 2.5;
+      c.stroke();
+      for (const [x, y, r] of [
+        [-22, -14, 9],
+        [18, 10, 11],
+        [24, -22, 6],
+        [-8, 18, 8],
+      ])
+        ell(c, x!, y!, r!, r! * 0.75, "#5f8a3a");
+      poly(c, [-18, -40, -12, -56, -6, -44, 0, -60, 6, -44, 12, -56, 18, -40], "#c9a53a", OUT, 1.5);
+      ell(c, -12, -20, 7, 8, "#f6f3c8", OUT, 1.5);
+      ell(c, 12, -20, 7, 8, "#f6f3c8", OUT, 1.5);
+      ell(c, -11, -19, 3, 4, "#200");
+      ell(c, 13, -19, 3, 4, "#200");
+      c.beginPath();
+      c.arc(0, -2, 14, 0.15 * Math.PI, 0.85 * Math.PI);
+      c.strokeStyle = "#1d2a10";
+      c.lineWidth = 3;
+      c.stroke();
+      for (const x of [-30, 30]) line(c, [x, 30, x + 2, 46], "#3e5628", 4);
+    },
+  },
+  kukerchief: {
+    w: 90,
+    h: 116,
+    draw: (c, f) => {
+      poly(c, [-34, 44, -22, -10, 22, -10, 34, 44], "#2a211c", OUT, 2);
+      for (let i = -30; i <= 30; i += 4) line(c, [i * 0.7, -6, i, 44 + (Math.round(i) % 8 ? f * 2 : -f * 2)], i % 12 < 4 ? "#e9e3d6" : "#5a463a", 2);
+      for (let i = -22; i <= 22; i += 11) {
+        ell(c, i, 14, 6, 6, "#d9b44a", OUT, 1.5);
+        line(c, [i - 2, 16, i + 2, 16], "#7a5a1e", 1.2);
+      }
+      poly(c, [-20, -62, 20, -62, 22, -10, -22, -10], "#9a1a24", OUT, 2);
+      for (const dir of [-1, 1]) poly(c, [dir * 14, -60, dir * 18, -62, dir * 36, -86, dir * 40, -80, dir * 26, -66], "#efe6d0", OUT, 1.5);
+      poly(c, [-12, -46, -3, -46, -4, -38, -12, -40], "#fff6c0", OUT, 1);
+      poly(c, [3, -46, 12, -46, 12, -40, 4, -38], "#fff6c0", OUT, 1);
+      poly(c, [-12, -26, 12, -26, 9, -16, -9, -16], "#fff", OUT, 1);
+      for (let x = -8; x <= 8; x += 3) line(c, [x, -26, x, -16], "rgba(0,0,0,0.5)", 0.8);
+      for (let i = 0; i < 9; i++) line(c, [-16 + i * 4, -62, -18 + i * 4, -72], ["#ff3b3b", "#3bb3ff", "#ffe23b", "#3bff7a", "#ff3bd2"][i % 5]!, 2.4);
+    },
+  },
+  ghostking: {
+    w: 90,
+    h: 110,
+    draw: (c, f) => {
+      c.globalAlpha = 0.85;
+      c.beginPath();
+      c.moveTo(-30, 30);
+      c.quadraticCurveTo(-36, -50, 0, -50);
+      c.quadraticCurveTo(36, -50, 30, 30);
+      for (let i = 0; i < 6; i++) {
+        const x0 = 30 - i * 10;
+        c.quadraticCurveTo(x0 - 5, 30 + (i % 2 === f ? 14 : -4), x0 - 10, 30);
+      }
+      c.closePath();
+      c.fillStyle = "#dfe8ff";
+      c.fill();
+      c.strokeStyle = "rgba(90,110,190,0.9)";
+      c.lineWidth = 2.5;
+      c.stroke();
+      c.globalAlpha = 1;
+      poly(c, [-18, -48, -16, -66, -8, -56, 0, -70, 8, -56, 16, -66, 18, -48], "#8a9ab8", OUT, 1.5);
+      ell(c, -9, -24, 6, 9, "#141826");
+      ell(c, 10, -24, 6, 9, "#141826");
+      ell(c, -9, -25, 2, 2.5, "#7affff");
+      ell(c, 10, -25, 2, 2.5, "#7affff");
+      ell(c, 1, -2, 8, 6, "#141826");
+    },
+  },
+  bearking: {
+    w: 120,
+    h: 104,
+    draw: (c, f) => {
+      for (const [x, k] of [
+        [-30, f],
+        [-12, -f],
+        [14, -f],
+        [32, f],
+      ] as [number, number][])
+        rr(c, x - 7, 10, 14, 28 + k * 3, 5, "#2a1a10", OUT, 2);
+      ell(c, -4, 4, 44, 28, "#4a3020", OUT, 2.5);
+      ell(c, -10, -4, 28, 14, "#5a3d28");
+      ell(c, 38, -14, 20, 18, "#4a3020", OUT, 2.4);
+      ell(c, 52, -8, 9, 7, "#7a5a40", OUT, 1.6);
+      ell(c, 57, -9, 2.6, 2.2, "#1a1010");
+      ell(c, 30, -32, 6, 6, "#4a3020", OUT, 1.5);
+      ell(c, 44, -32, 6, 6, "#4a3020", OUT, 1.5);
+      ell(c, 44, -18, 2.6, 2.6, "#ff3a1a");
+      poly(c, [26, -36, 28, -48, 33, -40, 37, -50, 41, -40, 46, -48, 48, -36], "#f2c230", OUT, 1.4);
+      poly(c, [48, -2, 58, -2, 54, 4], "#fff");
+    },
+  },
 };
 
 export function enemySize(type: EnemyId) {
@@ -1384,6 +1681,15 @@ const PROJ_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
       line(c, [4, -21, 2, -19], "#2a1d14", 1.2);
       line(c, [-3, -15.5, 3, -15.5], "#2a1d14", 1);
       poly(c, [-11, -24, 11, -24, 7, -27, 4, -34, -4, -34, -7, -27], "#7a5a2a", OUT, 1.2);
+    },
+  },
+  [PK.rock]: {
+    w: 28,
+    h: 28,
+    draw: (c) => {
+      poly(c, [-10, 2, -7, -8, 2, -11, 10, -5, 11, 4, 4, 10, -6, 9], "#8a847a", OUT, 1.3);
+      poly(c, [-7, -8, 2, -11, 3, -2, -5, 0], "#a8a298");
+      line(c, [-2, 3, 4, 6], "rgba(40,30,20,0.6)", 1);
     },
   },
   [PK.batshot]: {
@@ -1749,11 +2055,11 @@ export function weaponIcon(id: string): string {
   return url;
 }
 
-export function heroIcon(hero: SurvHeroId): string {
-  const key = `hero:${hero}`;
+export function heroIcon(hero: SurvHeroId, skin: SurvSkinId = "classic"): string {
+  const key = `hero:${hero}:${skin}`;
   const hit = iconCache.get(key);
   if (hit) return hit;
-  const sp = heroSprite(hero, 8, 0, false);
+  const sp = heroSprite(hero, 8, 0, false, skin);
   const cv = document.createElement("canvas");
   cv.width = sp.width;
   cv.height = sp.height;

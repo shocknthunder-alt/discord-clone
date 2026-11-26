@@ -1,4 +1,4 @@
-import type { SurvCurseId, SurvHeroId, SurvMetaKey } from "@discord-clone/shared";
+import type { SurvAchId, SurvCurseId, SurvHeroId, SurvMetaKey, SurvSkinId } from "@discord-clone/shared";
 
 // 🧟 Шмиркленд — everything the game is made of: heroes, weapons, passives, evolutions, enemies,
 // bosses, map events, curses and the gold shop. Numbers here, behaviour in engine.ts.
@@ -290,7 +290,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "prase",
     bonus: "+20% живот",
     stats: { maxHp: 0.2 },
-    skill: { name: "Стадото", desc: "Стадо овце прегазва всичко пред теб.", cd: 40 },
+    skill: { name: "Стадото", desc: "Стадо овце прегазва всичко пред теб.", cd: 20 },
     look: { body: "#7a4a26", trim: "#efe4c8", hat: "#1e1a18", skin: "#e9bf96" },
   },
   tseko: {
@@ -300,7 +300,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tsarvul",
     bonus: "+1 броня, +10% бързина",
     stats: { armor: 1, speed: 0.1 },
-    skill: { name: "Брейк на главата", desc: "4 секунди се върти на главата — нищо не го лови, а наоколо пари.", cd: 42 },
+    skill: { name: "Брейк на главата", desc: "4 секунди се върти на главата — нищо не го лови, а наоколо пари.", cd: 20 },
     look: { body: "#2457c7", trim: "#ffffff", hat: "#d9262e", skin: "#d9a57c" },
   },
   nikola: {
@@ -310,7 +310,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tesla",
     bonus: "+10% размер на атаките",
     stats: { area: 0.1 },
-    skill: { name: "Буря", desc: "20 мълнии по враговете наоколо.", cd: 35 },
+    skill: { name: "Буря", desc: "20 мълнии по враговете наоколо.", cd: 20 },
     look: { body: "#eef0f2", trim: "#2a3550", hat: "#d8d8d8", skin: "#f1cfac" },
   },
   gitsa: {
@@ -320,7 +320,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "banitsa",
     bonus: "+0.4 живот в секунда",
     stats: { regen: 0.4 },
-    skill: { name: "Тава баница", desc: "Лекува всички с 40% и вдига падналите.", cd: 50 },
+    skill: { name: "Тава баница", desc: "Лекува всички с 40% и вдига падналите.", cd: 20 },
     look: { body: "#2a1d2e", trim: "#f4efe4", hat: "#c62f3a", skin: "#efc6a4" },
   },
   strahil: {
@@ -330,7 +330,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "bradva",
     bonus: "+15% щети, +15% живот",
     stats: { might: 0.15, maxHp: 0.15 },
-    skill: { name: "Юмрук в земята", desc: "Земята се пропуква — щети, отблъскване и зашеметяване наоколо.", cd: 30 },
+    skill: { name: "Юмрук в земята", desc: "Земята се пропуква — щети, отблъскване и зашеметяване наоколо.", cd: 20 },
     look: { body: "#1b1b1d", trim: "#f2f2f2", hat: "#d4a640", skin: "#d9a57c" },
   },
   vela: {
@@ -340,7 +340,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "martenitsa",
     bonus: "+15% бързина, +30% събиране",
     stats: { speed: 0.15, magnet: 0.3 },
-    skill: { name: "Самодивско хоро", desc: "Замразява враговете наоколо за 4 секунди.", cd: 45 },
+    skill: { name: "Самодивско хоро", desc: "Замразява враговете наоколо за 4 секунди.", cd: 20 },
     look: { body: "#f4f1ff", trim: "#7ad1a0", hat: "#f2d36b", skin: "#f6dcc6" },
   },
   gosho: {
@@ -350,7 +350,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "gaida",
     bonus: "+2 броня, −5% бързина",
     stats: { armor: 2, speed: -0.05 },
-    skill: { name: "Звънци", desc: "Отблъсква и зашеметява всички наоколо.", cd: 35 },
+    skill: { name: "Звънци", desc: "Отблъсква и зашеметява всички наоколо.", cd: 20 },
     look: { body: "#1f1b19", trim: "#e9e3d6", hat: "#b3262b", skin: "#c99a6c" },
   },
   mitko: {
@@ -360,7 +360,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "krik",
     bonus: "оръжията с 8% по-бързо",
     stats: { cooldown: 0.08 },
-    skill: { name: "Наздраве!", desc: "10 секунди +50% щети и +30% бързина за всички.", cd: 50 },
+    skill: { name: "Наздраве!", desc: "10 секунди +50% щети и +30% бързина за всички.", cd: 20 },
     look: { body: "#1d2a5a", trim: "#ffffff", hat: "#3a3a3a", skin: "#eaa98a" },
   },
   stana: {
@@ -370,7 +370,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "chesan",
     bonus: "+0.3 живот в секунда, +10% късмет",
     stats: { regen: 0.3, luck: 0.1 },
-    skill: { name: "Билки", desc: "Събира всички кристали и те лекува 8 секунди.", cd: 45 },
+    skill: { name: "Билки", desc: "Събира всички кристали и те лекува 8 секунди.", cd: 20 },
     look: { body: "#3c5a3a", trim: "#e8d9a8", hat: "#5f8a3a", skin: "#e8c2a0" },
   },
 };
@@ -392,6 +392,11 @@ export type EnemyId =
   | "wolf"
   | "yuda"
   | "pot"
+  | "skeleton"
+  | "raven"
+  | "bear"
+  | "firespirit"
+  | "spider"
   | "karak"
   | "mora"
   | "lamia"
@@ -399,7 +404,13 @@ export type EnemyId =
   | "hala"
   | "chuma"
   | "wolfking"
-  | "vampking";
+  | "vampking"
+  | "ispolin"
+  | "samqueen"
+  | "swampking"
+  | "kukerchief"
+  | "ghostking"
+  | "bearking";
 
 export interface EnemyDef {
   id: EnemyId;
@@ -430,6 +441,11 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   blatnik: { id: "blatnik", name: "Блатник", hp: 140, speed: 42, dmg: 18, r: 22, xp: 8, from: 11 },
   kuker: { id: "kuker", name: "Кукер", hp: 50, speed: 56, dmg: 11, r: 15, xp: 3, from: 999 },
   pot: { id: "pot", name: "Стомна", hp: 1, speed: 0, dmg: 0, r: 12, xp: 0, from: 999 },
+  skeleton: { id: "skeleton", name: "Скелет", hp: 22, speed: 62, dmg: 9, r: 12, xp: 2, from: 3 },
+  raven: { id: "raven", name: "Гарван", hp: 9, speed: 140, dmg: 6, r: 10, xp: 1, from: 2, ghost: true },
+  spider: { id: "spider", name: "Паяк", hp: 18, speed: 118, dmg: 8, r: 12, xp: 2, from: 5 },
+  firespirit: { id: "firespirit", name: "Огнен дух", hp: 30, speed: 70, dmg: 10, r: 12, xp: 3, from: 8, ranged: true, ghost: true },
+  bear: { id: "bear", name: "Мечка", hp: 180, speed: 46, dmg: 20, r: 22, xp: 9, from: 10 },
   karak: { id: "karak", name: "Караконджул", hp: 1000, speed: 72, dmg: 20, r: 34, xp: 60, from: 999, boss: true },
   mora: { id: "mora", name: "Вещицата Мора", hp: 1600, speed: 60, dmg: 18, r: 30, xp: 80, from: 999, boss: true, ranged: true },
   lamia: { id: "lamia", name: "Ламята", hp: 2600, speed: 48, dmg: 24, r: 44, xp: 100, from: 999, boss: true, ranged: true },
@@ -438,10 +454,40 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   chuma: { id: "chuma", name: "Баба Чума", hp: 4600, speed: 52, dmg: 22, r: 30, xp: 150, from: 999, boss: true, ranged: true },
   wolfking: { id: "wolfking", name: "Вълчият цар", hp: 5200, speed: 96, dmg: 28, r: 38, xp: 160, from: 999, boss: true },
   vampking: { id: "vampking", name: "Цар Вампир", hp: 6000, speed: 74, dmg: 30, r: 32, xp: 180, from: 999, boss: true, ranged: true },
+  ispolin: { id: "ispolin", name: "Исполинът", hp: 5600, speed: 44, dmg: 34, r: 48, xp: 160, from: 999, boss: true },
+  samqueen: { id: "samqueen", name: "Самодивската царица", hp: 4400, speed: 84, dmg: 22, r: 30, xp: 150, from: 999, boss: true, ranged: true, ghost: true },
+  swampking: { id: "swampking", name: "Блатният цар", hp: 5000, speed: 40, dmg: 26, r: 46, xp: 160, from: 999, boss: true, ranged: true },
+  kukerchief: { id: "kukerchief", name: "Кукерският вожд", hp: 4800, speed: 66, dmg: 26, r: 36, xp: 150, from: 999, boss: true },
+  ghostking: { id: "ghostking", name: "Таласъмският цар", hp: 4200, speed: 76, dmg: 22, r: 34, xp: 150, from: 999, boss: true, ranged: true, ghost: true },
+  bearking: { id: "bearking", name: "Мечият цар", hp: 6400, speed: 58, dmg: 32, r: 44, xp: 170, from: 999, boss: true },
 };
 
 export const ENEMY_IDS = Object.keys(ENEMIES) as EnemyId[];
-export const BOSS_ORDER: EnemyId[] = ["karak", "mora", "lamia", "wolfking", "chuma", "zmey", "hala", "vampking"];
+/** the easier ones come first (shuffled among themselves), then the rest — no boss twice until all were seen */
+export const BOSS_EASY: EnemyId[] = ["karak", "mora", "lamia", "kukerchief"];
+export const BOSS_HARD: EnemyId[] = ["wolfking", "chuma", "zmey", "hala", "vampking", "ispolin", "samqueen", "swampking", "ghostking", "bearking"];
+export const BOSS_ORDER: EnemyId[] = [...BOSS_EASY, ...BOSS_HARD];
+
+/** 🌊 named wave themes: which enemies come (only those already "open" by wave); never the same twice in a row */
+export const WAVE_THEMES: { name: string; mobs: EnemyId[] }[] = [
+  { name: "Плъхове и прилепи", mobs: ["rat", "bat"] },
+  { name: "Гробището се надига", mobs: ["zombie", "skeleton"] },
+  { name: "Гарваните", mobs: ["raven", "bat", "rat"] },
+  { name: "Глутницата", mobs: ["wolf", "werewolf"] },
+  { name: "Нощта на мъртвите", mobs: ["zombie", "ghost", "skeleton"] },
+  { name: "Паяжината", mobs: ["spider", "rat"] },
+  { name: "Вампирски бал", mobs: ["vampire", "bat"] },
+  { name: "Нощни сенки", mobs: ["ghost", "yuda"] },
+  { name: "Сабатът", mobs: ["witch", "yuda", "raven"] },
+  { name: "Огнената нощ", mobs: ["firespirit", "skeleton"] },
+  { name: "Горските зверове", mobs: ["bear", "wolf"] },
+  { name: "Блатото", mobs: ["blatnik", "rat", "spider"] },
+  { name: "Върколашка луна", mobs: ["werewolf", "wolf", "vampire"] },
+  { name: "Всички чудовища", mobs: ["skeleton", "vampire", "werewolf", "witch", "blatnik", "spider", "firespirit"] },
+];
+
+/** 🎯 a task for the wave (not on boss waves) */
+export type TaskKind = "kill" | "nohit" | "gems" | "pots" | "elite" | "streak";
 /** every this many waves is a boss wave (from wave 25 on two bosses at once) */
 export const BOSS_WAVE_EVERY = 5;
 /** seconds of fighting in a wave, and the breather after it */
@@ -506,6 +552,42 @@ export const META_TEXT: Record<SurvMetaKey, { name: string; icon: string; per: s
   revival: { name: "Второ раждане", icon: "🕯️", per: "веднъж ставаш след смърт" },
   reroll: { name: "Пак!", icon: "🎲", per: "+1 ново теглене на картите" },
   greed: { name: "Алчност", icon: "🪙", per: "+10% злато" },
+};
+
+/** 🎨 skins: a palette for the clothes, or a tint over the whole hero */
+export const SKIN_TEXT: Record<SurvSkinId, { name: string; how?: string }> = {
+  classic: { name: "Обикновен" },
+  night: { name: "Нощен" },
+  fest: { name: "Празничен" },
+  royal: { name: "Царски" },
+  gold: { name: "Златен", how: "Подвиг: стигни вълна 20" },
+  fire: { name: "Огнен", how: "Подвиг: серия 1000" },
+  ghost: { name: "Призрачен", how: "Подвиг: победи всички босове" },
+};
+
+export const ACH_TEXT: Record<SurvAchId, { name: string; icon: string; desc: string }> = {
+  first: { name: "Първа кръв", icon: "🩸", desc: "Изиграй една игра" },
+  wave5: { name: "Вълна 5", icon: "🌊", desc: "Стигни вълна 5" },
+  wave10: { name: "Вълна 10", icon: "🌊", desc: "Стигни вълна 10" },
+  wave15: { name: "Вълна 15", icon: "🌊", desc: "Стигни вълна 15" },
+  wave20: { name: "Вълна 20", icon: "🏅", desc: "Стигни вълна 20 (Златен скин)" },
+  wave30: { name: "Вълна 30", icon: "👑", desc: "Стигни вълна 30" },
+  boss1: { name: "Ловец на чудовища", icon: "💀", desc: "Повали бос" },
+  boss5kinds: { name: "Колекционер", icon: "📜", desc: "Повали 5 различни боса" },
+  allBosses: { name: "Легенда на Шмиркленд", icon: "🐉", desc: "Повали всички 14 боса (Призрачен скин)" },
+  kills1000: { name: "Касапин", icon: "🔪", desc: "1000 убити в една игра" },
+  kills3000: { name: "Кървава баня", icon: "🩸", desc: "3000 убити в една игра" },
+  streak250: { name: "В кондиция", icon: "🔥", desc: "Серия 250" },
+  streak1000: { name: "Неудържим", icon: "☄️", desc: "Серия 1000 (Огнен скин)" },
+  evolve1: { name: "Еволюция", icon: "🌟", desc: "Развий оръжие" },
+  evolve3: { name: "Ковач на легенди", icon: "⚒️", desc: "3 еволюции в една игра" },
+  coop: { name: "Дружина", icon: "🤝", desc: "Изиграй кооп игра" },
+  tasks10: { name: "Изпълнителен", icon: "🎯", desc: "Изпълни 10 задачи на вълни" },
+  tasks50: { name: "Ветеран на задачите", icon: "🎯", desc: "Изпълни 50 задачи на вълни" },
+  cursed: { name: "Прокълнат", icon: "🧿", desc: "Стигни вълна 10 с поне 3 проклятия" },
+  level50: { name: "Ниво 50", icon: "⭐", desc: "Стигни ниво 50 в една игра" },
+  veteran: { name: "Ветеран", icon: "🎖️", desc: "Изиграй 25 игри" },
+  allHeroes: { name: "Всички герои", icon: "🧑‍🤝‍🧑", desc: "Отключи всички 9 героя" },
 };
 
 export const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;

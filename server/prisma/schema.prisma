@@ -412,6 +412,8 @@ model SurvivorProfile {
   upgrades  Json     @default("{}")
   heroes    Json     @default("[]")
   stats     Json     @default("{}")
+  /// {skins: ["hero:skin"], achievements: [id], bossTypes: [enemy id]}
+  extra     Json     @default("{}")
   updatedAt DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

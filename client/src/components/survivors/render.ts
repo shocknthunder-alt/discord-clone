@@ -1,5 +1,6 @@
+import type { SurvHeroId } from "@discord-clone/shared";
 import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, type EnemyId } from "./content";
-import { FX, GK, MK, PK, type Fx, type RView } from "./engine";
+import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RView } from "./engine";
 import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
 // 🧟 Шмиркленд — draws a view (the host's world, or a guest's snapshot) onto the canvas: meadow, scenery,
@@ -25,6 +26,22 @@ interface FloatText {
   big: boolean;
 }
 interface Bolt {
+  pts: number[];
+  life: number;
+}
+interface Ring {
+  x: number;
+  y: number;
+  r0: number;
+  r1: number;
+  life: number;
+  max: number;
+  col: string;
+  w: number;
+}
+interface Crack {
+  x: number;
+  y: number;
   pts: number[];
   life: number;
 }
@@ -67,6 +84,7 @@ const PROJ_BASE: Record<number, number> = {
   [PK.bigAxe]: 20,
   [PK.note]: 8,
   [PK.bee]: 6,
+  [PK.rock]: 12,
 };
 /** drawn upright (not turned with the flight direction) */
 const UPRIGHT = new Set<number>([PK.cauldron, PK.scarecrow, PK.jack, PK.note]);
@@ -101,6 +119,10 @@ export class Renderer {
   private shake = 0;
   private trails = new Map<string, { x: number; y: number; t: number }[]>();
   private lastPos = new Map<number, { x: number; y: number; a: number }>();
+  private rings: Ring[] = [];
+  private cracks: Crack[] = [];
+  /** a whole-screen flash of colour (skills) */
+  private flash: { col: string; t: number; max: number } | null = null;
   private pattern: CanvasPattern | null = null;
   private clock = 0;
 
@@ -165,6 +187,14 @@ export class Renderer {
           if (p && p.uid === me) this.shake = Math.max(this.shake, 0.18);
           break;
         }
+        case FX.skill: {
+          const x = f[2] as number;
+          const y = f[3] as number;
+          const hero = HEROES_ORDER[f[4] as number];
+          if (x === undefined || !hero) break;
+          this.skillFx(hero, x, y);
+          break;
+        }
         case FX.revive:
         case FX.evolve:
         case FX.level: {
@@ -177,6 +207,84 @@ export class Renderer {
           break;
         }
       }
+    }
+  }
+
+  private burst(x: number, y: number, n: number, cols: string[], speed: number, life = 0.8, size = 3, up = 0) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = speed * (0.4 + Math.random() * 0.8);
+      this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - up, life, max: life, col: cols[i % cols.length]!, size: size * (0.6 + Math.random() * 0.8) });
+    }
+  }
+  private ring(x: number, y: number, r0: number, r1: number, life: number, col: string, w = 5) {
+    this.rings.push({ x, y, r0, r1, life, max: life, col, w });
+  }
+
+  /** every hero's skill gets its own big, readable effect */
+  private skillFx(hero: SurvHeroId, x: number, y: number) {
+    switch (hero) {
+      case "peyo":
+        this.flash = { col: "255,240,200", t: 0.25, max: 0.25 };
+        this.burst(x, y + 10, 40, ["#c9a56a", "#e8d6a8", "#ffffff"], 260, 0.9, 4);
+        this.ring(x, y, 20, 260, 0.6, "255,240,210");
+        break;
+      case "tseko":
+        this.ring(x, y, 10, 130, 0.5, "255,160,60", 7);
+        this.ring(x, y, 10, 160, 0.8, "255,220,120", 3);
+        this.burst(x, y, 30, ["#ffb21a", "#ff6a2a", "#fff27a"], 300, 0.6, 3);
+        break;
+      case "nikola":
+        this.flash = { col: "120,180,255", t: 0.6, max: 0.6 };
+        this.shake = 0.35;
+        this.burst(x, y - 10, 36, ["#cdeeff", "#7ab8ff", "#ffffff"], 320, 0.6, 2.5);
+        break;
+      case "gitsa":
+        this.flash = { col: "255,220,120", t: 0.35, max: 0.35 };
+        this.ring(x, y, 20, 420, 0.9, "255,215,90", 8);
+        this.ring(x, y, 20, 300, 0.7, "140,255,140", 4);
+        for (let i = 0; i < 26; i++) this.texts.push({ x: x + (Math.random() - 0.5) * 220, y: y + (Math.random() - 0.5) * 160, text: "+", col: "#7cff8a", life: 0.9 + Math.random() * 0.5, big: true });
+        break;
+      case "strahil": {
+        this.shake = 0.7;
+        this.flash = { col: "255,200,150", t: 0.25, max: 0.25 };
+        this.ring(x, y + 10, 20, 260, 0.55, "200,160,110", 10);
+        for (let i = 0; i < 9; i++) {
+          const a = (i / 9) * Math.PI * 2 + Math.random() * 0.4;
+          const pts: number[] = [];
+          let px = 0;
+          let py = 0;
+          for (let k = 0; k < 6; k++) {
+            px += Math.cos(a + (Math.random() - 0.5) * 0.8) * 34;
+            py += Math.sin(a + (Math.random() - 0.5) * 0.8) * 24;
+            pts.push(px, py);
+          }
+          this.cracks.push({ x, y: y + 16, pts, life: 1.6 });
+        }
+        this.burst(x, y + 10, 50, ["#8a6a4a", "#b89a6a", "#5a4030"], 340, 0.9, 4, 120);
+        break;
+      }
+      case "vela":
+        this.flash = { col: "170,230,255", t: 0.6, max: 0.6 };
+        this.ring(x, y, 20, 800, 1.1, "190,240,255", 10);
+        this.ring(x, y, 20, 500, 0.8, "255,255,255", 4);
+        this.burst(x, y, 60, ["#ffffff", "#cdeeff", "#9ad8ff"], 420, 1.4, 3);
+        break;
+      case "gosho":
+        this.shake = 0.4;
+        for (let i = 0; i < 3; i++) this.ring(x, y, 10 + i * 30, 450 - i * 60, 0.7 + i * 0.15, "255,210,80", 6 - i);
+        this.burst(x, y, 30, ["#f2c230", "#ffe27a", "#ff3b3b", "#3bb3ff"], 300, 0.8, 3);
+        break;
+      case "mitko":
+        this.flash = { col: "255,170,80", t: 0.4, max: 0.4 };
+        this.ring(x, y, 20, 360, 0.8, "255,180,80", 6);
+        this.burst(x, y - 10, 40, ["#ffd27a", "#fff6c0", "#ff9a3a"], 220, 1.2, 3, 160);
+        break;
+      case "stana":
+        this.flash = { col: "150,255,150", t: 0.4, max: 0.4 };
+        this.ring(x, y, 20, 320, 0.9, "150,255,140", 6);
+        this.burst(x, y, 50, ["#5ec04a", "#a8e07a", "#3a8a2a", "#ffe27a"], 260, 1.4, 3.5, 60);
+        break;
     }
   }
 
@@ -258,6 +366,22 @@ export class Renderer {
         c.strokeStyle = "rgba(200,230,255,0.6)";
         c.lineWidth = 1.5;
         c.stroke();
+      } else if (m.kind === MK.leap || m.kind === MK.nova) {
+        // a red warning that fills up: get out!
+        c.beginPath();
+        c.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+        c.fillStyle = `rgba(255,40,30,${0.1 + 0.25 * m.p})`;
+        c.fill();
+        c.setLineDash([10, 7]);
+        c.strokeStyle = `rgba(255,80,60,${0.6 + 0.4 * m.p})`;
+        c.lineWidth = 3;
+        c.stroke();
+        c.setLineDash([]);
+        c.beginPath();
+        c.arc(m.x, m.y, m.r * m.p, 0, Math.PI * 2);
+        c.strokeStyle = "rgba(255,200,120,0.8)";
+        c.lineWidth = 2;
+        c.stroke();
       } else if (m.kind === MK.charge) {
         const a = (m as { a?: number }).a ?? 0;
         c.save();
@@ -272,6 +396,27 @@ export class Renderer {
         c.setLineDash([]);
         c.restore();
       }
+    }
+
+    // ground cracks (Баткан's punch)
+    for (let i = this.cracks.length - 1; i >= 0; i--) {
+      const k = this.cracks[i]!;
+      k.life -= dt;
+      if (k.life <= 0) {
+        this.cracks.splice(i, 1);
+        continue;
+      }
+      c.globalAlpha = Math.min(1, k.life);
+      c.beginPath();
+      c.moveTo(k.x, k.y);
+      for (let j = 0; j < k.pts.length; j += 2) c.lineTo(k.x + k.pts[j]!, k.y + k.pts[j + 1]!);
+      c.strokeStyle = "#1e140c";
+      c.lineWidth = 3;
+      c.stroke();
+      c.strokeStyle = "rgba(255,150,60,0.6)";
+      c.lineWidth = 1;
+      c.stroke();
+      c.globalAlpha = 1;
     }
 
     // gems & pickups
@@ -425,6 +570,22 @@ export class Renderer {
           const w = (sp.width / 2) * scale * (1 + sq);
           const h = (sp.height / 2) * scale * (1 - sq);
           c.drawImage(sp, e.x - w / 2, e.y - h / 2 - hop + ((sp.height / 2) * scale - h) / 2, w, h);
+          if (e.rage) {
+            c.save();
+            c.globalCompositeOperation = "lighter";
+            c.globalAlpha = 0.25 + Math.sin(this.clock * 10) * 0.1;
+            c.drawImage(sp, e.x - w / 2, e.y - h / 2 - hop + ((sp.height / 2) * scale - h) / 2, w, h);
+            c.restore();
+          }
+          if (e.shield) {
+            c.beginPath();
+            c.arc(e.x, e.y, Math.max(w, h) * 0.55, 0, Math.PI * 2);
+            c.fillStyle = "rgba(120,200,255,0.18)";
+            c.fill();
+            c.strokeStyle = `rgba(160,220,255,${0.6 + Math.sin(this.clock * 8) * 0.25})`;
+            c.lineWidth = 3;
+            c.stroke();
+          }
           if (e.elite && e.affix >= 0) {
             const af = AFFIX_TEXT[AFFIXES[e.affix]!];
             c.font = "bold 11px system-ui, sans-serif";
@@ -451,7 +612,7 @@ export class Renderer {
         draw: () => {
           for (const s of trail) {
             c.globalAlpha = Math.max(0, s.t) * 1.6;
-            const sp = heroSprite(p.hero, 3, 2, p.face < 0);
+            const sp = heroSprite(p.hero, 3, 2, p.face < 0, p.skin);
             c.drawImage(sp, s.x - sp.width / 4, s.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
           }
           c.globalAlpha = 1;
@@ -489,7 +650,10 @@ export class Renderer {
           } else {
             const f = p.moving ? Math.floor(this.clock * 13) % 8 : 8 + (Math.floor(this.clock * 1.4) % 2);
             const blink = p.invulnT > 0 && p.dashT <= 0 && Math.floor(this.clock * 20) % 2 === 0;
-            const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0);
+            const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0, p.skin);
+            if (p.skin === "fire" && Math.random() < 0.5) this.particles.push({ x: p.x + (Math.random() - 0.5) * 22, y: p.y + 10 - Math.random() * 30, vx: (Math.random() - 0.5) * 20, vy: -60 - Math.random() * 60, life: 0.5, max: 0.5, col: Math.random() < 0.5 ? "#ffb21a" : "#ff5a2a", size: 2.5 });
+            if (p.skin === "ghost") c.globalAlpha = 0.72;
+            if (p.skin === "gold" && Math.random() < 0.15) this.particles.push({ x: p.x + (Math.random() - 0.5) * 26, y: p.y - Math.random() * 36, vx: 0, vy: -20, life: 0.6, max: 0.6, col: "#fff6b0", size: 2 });
             const spin = p.skillT > 0 && p.hero === "tseko";
             if (spin) {
               // Брейк на главата: upside down, spinning, with swirl lines
@@ -507,6 +671,7 @@ export class Renderer {
                 c.stroke();
               }
             } else if (!blink || p.hurtT > 0) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
+            c.globalAlpha = 1;
             if ((p as { shield?: boolean }).shield || p.skillT > 0) {
               c.beginPath();
               c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 115 : 30, 0, Math.PI * 2);
@@ -685,6 +850,25 @@ export class Renderer {
       c.stroke();
     }
 
+    // skill rings
+    for (let i = this.rings.length - 1; i >= 0; i--) {
+      const r = this.rings[i]!;
+      r.life -= dt;
+      if (r.life <= 0) {
+        this.rings.splice(i, 1);
+        continue;
+      }
+      const k = 1 - r.life / r.max;
+      const e = 1 - (1 - k) * (1 - k);
+      c.beginPath();
+      c.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * e, 0, Math.PI * 2);
+      c.strokeStyle = `rgba(${r.col},${0.85 * (1 - k)})`;
+      c.lineWidth = r.w * (1 - k * 0.5);
+      c.stroke();
+      c.fillStyle = `rgba(${r.col},${0.12 * (1 - k)})`;
+      c.fill();
+    }
+
     // lightning
     c.globalCompositeOperation = "lighter";
     for (let i = this.bolts.length - 1; i >= 0; i--) {
@@ -737,6 +921,16 @@ export class Renderer {
     }
     c.globalAlpha = 1;
     c.restore();
+
+    // a skill's flash over the whole screen
+    if (this.flash) {
+      this.flash.t -= dt;
+      if (this.flash.t <= 0) this.flash = null;
+      else {
+        c.fillStyle = `rgba(${this.flash.col},${0.38 * (this.flash.t / this.flash.max)})`;
+        c.fillRect(0, 0, this.w, this.h);
+      }
+    }
 
     // the night: only a circle around you
     if (o.night) {

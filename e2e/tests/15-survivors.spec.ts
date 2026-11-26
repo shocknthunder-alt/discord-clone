@@ -109,6 +109,14 @@ test.describe("🧟 Шмиркленд", () => {
     const refunded = await api(ana.token, "POST", `/text-channels/${textChannel.id}/survivors/refund`, {});
     expect(refunded.profile.upgrades.health).toBeUndefined();
     expect(refunded.profile.gold).toBe(after.profile.gold + 150);
+    // achievements came with that run, skins: bought with gold / only from an achievement
+    expect(refunded.profile.achievements).toEqual(expect.arrayContaining(["first", "boss1", "kills1000"]));
+    const skinUrl = `/text-channels/${textChannel.id}/survivors/skin`;
+    const withSkin = await api(ana.token, "POST", skinUrl, { hero: "peyo", skin: "night" });
+    expect(withSkin.profile.skins).toContain("peyo:night");
+    expect(withSkin.profile.gold).toBe(refunded.profile.gold - 400);
+    await expect(api(ana.token, "POST", skinUrl, { hero: "peyo", skin: "gold" })).rejects.toThrow();
+    await expect(api(ana.token, "POST", skinUrl, { hero: "batman", skin: "night" })).rejects.toThrow();
 
     expectNoCrashes(a.page);
     await closeAll(a.context);

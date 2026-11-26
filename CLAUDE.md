@@ -220,6 +220,17 @@ Owner pronouns unknown: use they/them.
   squashes walking enemies, Киро spins upside down, motion trails for spinning projectiles (`SPIN_TRAIL`, `lastPos`),
   garlic aura = wavy mist + circling garlic heads, gaida = wavy sound ring with notes, yoke swoosh + water drops, bee wing
   flaps. Брадва = a 64-px double-bladed axe thrown low through the crowd, curving, pierce ∞.
+  **v4 (2026-11-26, goals + variety)**: every hero skill cd 20 s with its own big effect (`Renderer.skillFx`: rings,
+  screen flash, cracks, particles; FX.skill carries x/y/`HEROES_ORDER` index), skill button glows when ready. 14 bosses
+  (`BOSS_EASY` first then `BOSS_HARD`, shuffled per game in `World.bossQueue`, no repeat until all seen, then "Тъмен …"
+  with +60% hp per cycle); each boss has 2 extra moves picked by its kind (`BossMove`: leap / firering / meteors /
+  shield / summon / nova, telegraphed with MK.leap / MK.nova marks) + rage under 50% hp (faster, red glow); shield/rage
+  bits 4096/8192 in the enemy flags. 5 new mobs (skeleton, raven, spider, firespirit, bear). Waves have named
+  `WAVE_THEMES` (not repeated within the last ~6). 🎯 wave tasks (`World.task`, kill N of a kind / 12 s no hit / gems /
+  pots / streak / elite → chest or heal + gold + XP). Meta goals: skins (`SURV_SKINS`, palette + tint, bought per hero
+  "hero:skin" or unlocked by an achievement), 22 achievements (`SURV_ACHIEVEMENTS`, checked on POST run, gold added to
+  goldEarned, `newAchievements`), bosses ever beaten (`bossTypes`). Stored in `SurvivorProfile.extra` (migration
+  20261126120000); POST `/survivors/skin`; co-op members carry `skin` (server checks ownership).
 - **🎮 Games section** (2026-11-24): ChannelList puts channels of type trivia/draw/blocks/match/survivors (`GAME_TYPES`) in a folding "🎮 Игри (N)" section under the text channels (localStorage `gamesSectionOpen`; collapsed = only the open game + a dot for unread/mentions). New game types must be added to `GAME_TYPES`.
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
   channel to every server + `DrawScore`, 20261120180000 renames it "paint wars"; owner asked for

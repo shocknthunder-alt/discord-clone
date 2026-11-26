@@ -46,9 +46,11 @@ export interface SurvStats {
   bosses: number;
   games: number;
   coopGames: number;
+  /** wave tasks done, in total */
+  tasks: number;
 }
 
-export const emptySurvStats = (): SurvStats => ({ bestSeconds: 0, bestWave: 0, bestLevel: 0, kills: 0, bosses: 0, games: 0, coopGames: 0 });
+export const emptySurvStats = (): SurvStats => ({ bestSeconds: 0, bestWave: 0, bestLevel: 0, kills: 0, bosses: 0, games: 0, coopGames: 0, tasks: 0 });
 
 /** Heroes whose stat condition is met (gold ones are bought separately). */
 export function survHeroesUnlockedBy(stats: SurvStats): SurvHeroId[] {
@@ -119,11 +121,109 @@ export const survGoldMul = (curses: SurvCurseId[], greed: number) =>
 
 /* ───────────── REST ───────────── */
 
+/* ───────────── skins (2026-11-26) ───────────── */
+
+export type SurvSkinId = "classic" | "night" | "fest" | "royal" | "gold" | "fire" | "ghost";
+
+/** cost = gold, per hero · ach = unlocked for every hero by that achievement */
+export const SURV_SKINS: { id: SurvSkinId; cost?: number; ach?: SurvAchId }[] = [
+  { id: "classic" },
+  { id: "night", cost: 400 },
+  { id: "fest", cost: 700 },
+  { id: "royal", cost: 1200 },
+  { id: "gold", ach: "wave20" },
+  { id: "fire", ach: "streak1000" },
+  { id: "ghost", ach: "allBosses" },
+];
+
+/** owned skins are stored as "hero:skin" (gold ones) */
+export const skinKey = (hero: SurvHeroId, skin: SurvSkinId) => `${hero}:${skin}`;
+
+export function survOwnsSkin(p: { skins: string[]; achievements: SurvAchId[] }, hero: SurvHeroId, skin: SurvSkinId): boolean {
+  const info = SURV_SKINS.find((x) => x.id === skin);
+  if (!info) return false;
+  if (!info.cost && !info.ach) return true;
+  if (info.ach) return p.achievements.includes(info.ach);
+  return p.skins.includes(skinKey(hero, skin));
+}
+
+/* ───────────── achievements (2026-11-26) ───────────── */
+
+export type SurvAchId =
+  | "first"
+  | "wave5"
+  | "wave10"
+  | "wave15"
+  | "wave20"
+  | "wave30"
+  | "boss1"
+  | "boss5kinds"
+  | "allBosses"
+  | "kills1000"
+  | "kills3000"
+  | "streak250"
+  | "streak1000"
+  | "evolve1"
+  | "evolve3"
+  | "coop"
+  | "tasks10"
+  | "tasks50"
+  | "cursed"
+  | "level50"
+  | "veteran"
+  | "allHeroes";
+
+/** How many different bosses there are (the "allBosses" achievement). */
+export const SURV_BOSS_COUNT = 14;
+
+/** What one finished game tells the achievements (+ the person's totals after it). */
+export interface SurvAchInput {
+  wave: number;
+  kills: number;
+  level: number;
+  streak: number;
+  evolutions: number;
+  coop: boolean;
+  curses: number;
+  stats: SurvStats;
+  bossKinds: number;
+  heroes: number;
+}
+
+export const SURV_ACHIEVEMENTS: { id: SurvAchId; gold: number; check: (r: SurvAchInput) => boolean }[] = [
+  { id: "first", gold: 50, check: (r) => r.stats.games >= 1 },
+  { id: "wave5", gold: 100, check: (r) => r.wave >= 5 },
+  { id: "wave10", gold: 250, check: (r) => r.wave >= 10 },
+  { id: "wave15", gold: 500, check: (r) => r.wave >= 15 },
+  { id: "wave20", gold: 1000, check: (r) => r.wave >= 20 },
+  { id: "wave30", gold: 2500, check: (r) => r.wave >= 30 },
+  { id: "boss1", gold: 150, check: (r) => r.stats.bosses >= 1 },
+  { id: "boss5kinds", gold: 600, check: (r) => r.bossKinds >= 5 },
+  { id: "allBosses", gold: 2500, check: (r) => r.bossKinds >= SURV_BOSS_COUNT },
+  { id: "kills1000", gold: 300, check: (r) => r.kills >= 1000 },
+  { id: "kills3000", gold: 800, check: (r) => r.kills >= 3000 },
+  { id: "streak250", gold: 300, check: (r) => r.streak >= 250 },
+  { id: "streak1000", gold: 1000, check: (r) => r.streak >= 1000 },
+  { id: "evolve1", gold: 200, check: (r) => r.evolutions >= 1 },
+  { id: "evolve3", gold: 700, check: (r) => r.evolutions >= 3 },
+  { id: "coop", gold: 150, check: (r) => r.coop },
+  { id: "tasks10", gold: 300, check: (r) => (r.stats.tasks ?? 0) >= 10 },
+  { id: "tasks50", gold: 900, check: (r) => (r.stats.tasks ?? 0) >= 50 },
+  { id: "cursed", gold: 800, check: (r) => r.wave >= 10 && r.curses >= 3 },
+  { id: "level50", gold: 500, check: (r) => r.level >= 50 },
+  { id: "veteran", gold: 400, check: (r) => r.stats.games >= 25 },
+  { id: "allHeroes", gold: 1500, check: (r) => r.heroes >= 9 },
+];
+
 export interface SurvProfileDTO {
   gold: number;
   upgrades: Partial<Record<SurvMetaKey, number>>;
   heroes: SurvHeroId[];
   stats: SurvStats;
+  /** (2026-11-26+) bought skins "hero:skin", earned achievements, bosses ever beaten */
+  skins: string[];
+  achievements: SurvAchId[];
+  bossTypes: string[];
 }
 
 export interface SurvTopRow {
@@ -156,6 +256,11 @@ export interface SurvRunDTO {
   curses: SurvCurseId[];
   /** (2026-11-26+) the wave the game ended in */
   wave?: number;
+  /** (2026-11-26+) best kill streak, evolved weapons, wave tasks done, kinds of bosses beaten */
+  streak?: number;
+  evolutions?: number;
+  tasks?: number;
+  bossTypes?: string[];
 }
 
 export interface SurvRunResultDTO extends SurvListsDTO {
@@ -163,6 +268,8 @@ export interface SurvRunResultDTO extends SurvListsDTO {
   goldEarned: number;
   /** heroes unlocked by this game */
   newHeroes: SurvHeroId[];
+  /** (2026-11-26+) achievements earned by this game (their gold is in goldEarned) */
+  newAchievements?: SurvAchId[];
 }
 
 /* ───────────── co-op over the socket ───────────── */
@@ -172,6 +279,8 @@ export interface SurvMemberDTO {
   username: string;
   avatarUrl: string | null;
   hero: SurvHeroId;
+  /** (2026-11-26+) the look they picked (checked against what they own) */
+  skin?: SurvSkinId;
   /** their gold-shop upgrades (the host's browser runs the game, so it needs them) */
   meta?: Partial<Record<SurvMetaKey, number>>;
 }

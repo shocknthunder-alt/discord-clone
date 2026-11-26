@@ -6,6 +6,7 @@ import {
   cleanSurvMeta,
   type SurvCurseId,
   type SurvHeroId,
+  type SurvSkinId,
   type SurvLobbyDTO,
   type SurvMemberDTO,
   type SurvMemberEventDTO,
@@ -16,6 +17,7 @@ import {
 } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "./db.js";
+import { survOwnsSkinOf } from "./survivors.js";
 
 /**
  * 🧟 Шмиркленд co-op. The HOST's browser runs the whole game; the server only keeps parties (lobby per
@@ -209,12 +211,14 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     unwatch(io, socket, channelId);
   });
 
-  const me = async (hero: SurvHeroId, meta: unknown): Promise<SurvMemberDTO | null> => {
+  const skinOf = async (hero: SurvHeroId, skin: unknown): Promise<SurvSkinId> =>
+    typeof skin === "string" && (await survOwnsSkinOf(userId, hero, skin as SurvSkinId)) ? (skin as SurvSkinId) : "classic";
+  const me = async (hero: SurvHeroId, meta: unknown, skin: unknown): Promise<SurvMemberDTO | null> => {
     const u = await prisma.user.findUnique({ where: { id: userId }, select: { username: true, avatarUrl: true } });
-    return u ? { userId, username: u.username, avatarUrl: u.avatarUrl, hero, meta: cleanSurvMeta(meta) } : null;
+    return u ? { userId, username: u.username, avatarUrl: u.avatarUrl, hero, meta: cleanSurvMeta(meta), skin: await skinOf(hero, skin) } : null;
   };
 
-  socket.on(SocketEvents.SurvCreate, async ({ channelId, hero, curses, meta }: { channelId: string; hero: unknown; curses: unknown; meta?: unknown }) => {
+  socket.on(SocketEvents.SurvCreate, async ({ channelId, hero, curses, meta, skin }: { channelId: string; hero: unknown; curses: unknown; meta?: unknown; skin?: unknown }) => {
     const h = cleanHero(hero);
     if (typeof channelId !== "string" || !watching.has(channelId) || !h) return;
     const old = partyOf(userId);
@@ -222,7 +226,7 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
       if (old.state === "playing") return;
       dropMember(io, old, userId);
     }
-    const m = await me(h, meta);
+    const m = await me(h, meta, skin);
     if (!m) return;
     const p: Party = {
       id: `s${Date.now().toString(36)}${++seq}`,
@@ -240,7 +244,7 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     pushLobby(io, channelId);
   });
 
-  socket.on(SocketEvents.SurvJoin, async ({ partyId, hero, meta }: { partyId: string; hero: unknown; meta?: unknown }) => {
+  socket.on(SocketEvents.SurvJoin, async ({ partyId, hero, meta, skin }: { partyId: string; hero: unknown; meta?: unknown; skin?: unknown }) => {
     const h = cleanHero(hero);
     const p = typeof partyId === "string" ? parties.get(partyId) : undefined;
     if (!p || !h || !watching.has(p.channelId) || p.state !== "lobby" || p.players.length >= SURV_MAX_PLAYERS) return;
@@ -250,7 +254,7 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
       if (old.state === "playing") return;
       dropMember(io, old, userId);
     }
-    const m = await me(h, meta);
+    const m = await me(h, meta, skin);
     if (!m || !parties.has(p.id) || p.players.length >= SURV_MAX_PLAYERS) return;
     p.players.push(m);
     pushLobby(io, p.channelId);
@@ -261,11 +265,14 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     if (p) dropMember(io, p, userId);
   });
 
-  socket.on(SocketEvents.SurvSetup, ({ partyId, hero, curses }: { partyId: string; hero?: unknown; curses?: unknown }) => {
+  socket.on(SocketEvents.SurvSetup, async ({ partyId, hero, curses, skin }: { partyId: string; hero?: unknown; curses?: unknown; skin?: unknown }) => {
     const p = myParty(partyId);
     if (!p || p.state !== "lobby") return;
     const h = cleanHero(hero);
-    if (h) p.players = p.players.map((m) => (m.userId === userId ? { ...m, hero: h } : m));
+    if (h) {
+      const sk = await skinOf(h, skin);
+      p.players = p.players.map((m) => (m.userId === userId ? { ...m, hero: h, skin: sk } : m));
+    }
     if (curses !== undefined && p.hostId === userId) p.curses = cleanSurvCurses(curses);
     pushLobby(io, p.channelId);
   });

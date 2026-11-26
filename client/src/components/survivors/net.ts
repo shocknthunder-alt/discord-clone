@@ -1,4 +1,4 @@
-import type { SurvHeroId } from "@discord-clone/shared";
+import type { SurvHeroId, SurvSkinId } from "@discord-clone/shared";
 import { ENEMY_IDS, WEAPON_IDS, PASSIVE_IDS, type PassiveId, type WeaponId } from "./content";
 import { FX, type Fx, type Offer, type REnemy, type RGem, type RMark, type RPlayer, type RProj, type RView, type World } from "./engine";
 
@@ -22,6 +22,7 @@ export interface NetPlayer extends RPlayer {
   kills: number;
   /** damage by weapon index (-1 = skills) */
   dmgBy: Record<number, number>;
+  evos: number;
 }
 
 export interface Snapshot {
@@ -38,6 +39,11 @@ export interface Snapshot {
   waveLeft: number;
   waveTotal: number;
   streak: number;
+  task: { text: string; progress: number; target: number; state: number } | null;
+  theme: string;
+  tasksDone: number;
+  bestStreak: number;
+  bossTypes: string[];
   boss: { type: string; hp: number; max: number } | null;
   choosing: boolean;
   /** uids still picking */
@@ -60,6 +66,10 @@ interface Wire {
   b: [string, number, number] | null;
   c: [number, string[]];
   bl: string | null;
+  tk?: [string, number, number, number] | null;
+  th?: string;
+  /** tasks done, best streak, kinds of bosses beaten */
+  ac?: [number, number, string[]];
   o: number;
   fx: Fx[];
 }
@@ -75,7 +85,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
   const e = new Int16Array(en.length * 4);
   en.forEach((x, i) => {
     e[i * 4] = x.id & 0x7fff;
-    e[i * 4 + 1] = ENEMY_IDS.indexOf(x.type) | (x.elite ? 32 : 0) | (x.flash > 0 ? 64 : 0) | (x.frozenT > 0 ? 128 : 0) | (x.face < 0 ? 256 : 0) | ((x.affix + 1) << 9);
+    e[i * 4 + 1] = ENEMY_IDS.indexOf(x.type) | (x.elite ? 32 : 0) | (x.flash > 0 ? 64 : 0) | (x.frozenT > 0 ? 128 : 0) | (x.face < 0 ? 256 : 0) | ((x.affix + 1) << 9) | (x.shieldT > 0 ? 4096 : 0) | (x.rage ? 8192 : 0);
     e[i * 4 + 2] = clamp16(x.x - ox);
     e[i * 4 + 3] = clamp16(x.y - oy);
   });
@@ -129,6 +139,8 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     x.kills,
     x.buffs.shield > 0 ? 1 : 0,
     Object.entries(x.dmgBy).map(([k, v]) => [Number(k), Math.round(v)]),
+    x.skin ?? "classic",
+    x.evos,
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -154,6 +166,9 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     b: w.boss && !w.boss.dead ? [w.boss.type, Math.max(0, Math.round(w.boss.hp)), Math.round(w.boss.maxHp)] : null,
     c: [w.choosing ? 1 : 0, w.choosing ? w.players.filter((x) => !x.gone && !w.picked.has(x.uid)).map((x) => x.uid) : []],
     bl: w.blessing?.id ?? null,
+    tk: w.task ? [w.task.text, Math.floor(w.task.progress), w.task.target, w.task.state] : null,
+    th: w.theme,
+    ac: [w.tasksDone, Math.max(w.bestStreak, w.streak), [...w.bossTypes]],
     o: w.over ? 1 : 0,
     fx: outFx,
   };
@@ -181,6 +196,8 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       frozenT: f & 128 ? 1 : 0,
       face: f & 256 ? -1 : 1,
       affix: ((f >> 9) & 7) - 1,
+      shield: (f & 4096) !== 0,
+      rage: (f & 8192) !== 0,
       x: e[i + 2]! + ox,
       y: e[i + 3]! + oy,
     });
@@ -228,6 +245,8 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       gone: (flags & 4) !== 0,
       shield: a[22] === 1,
       dmgBy: Object.fromEntries(((a[23] as number[][] | undefined) ?? []).map(([k, v]) => [k!, v!])),
+      skin: (a[24] as SurvSkinId | undefined) ?? "classic",
+      evos: (a[25] as number | undefined) ?? 0,
     } as NetPlayer & { gone: boolean; shield: boolean };
   });
   const [level, xp, xpNext, kills, gold, bosses, wave, waveT, breakT, waveLeft, waveTotal, streak] = w.h;
@@ -245,6 +264,11 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
     waveLeft: waveLeft ?? 0,
     waveTotal: waveTotal ?? 0,
     streak: streak ?? 0,
+    task: w.tk ? { text: w.tk[0], progress: w.tk[1], target: w.tk[2], state: w.tk[3] } : null,
+    theme: w.th ?? "",
+    tasksDone: w.ac?.[0] ?? 0,
+    bestStreak: w.ac?.[1] ?? 0,
+    bossTypes: w.ac?.[2] ?? [],
     boss: w.b ? { type: w.b[0], hp: w.b[1], max: w.b[2] } : null,
     choosing: w.c?.[0] === 1,
     waiting: w.c?.[1] ?? [],
