@@ -1,5 +1,5 @@
-import type { SurvHeroId, SurvSkinId } from "@discord-clone/shared";
-import { HEROES, type EnemyId } from "./content";
+import type { SurvHeroId, SurvMapId, SurvSkinId } from "@discord-clone/shared";
+import { HEROES, MAPS, type EnemyId } from "./content";
 import { GK, PK } from "./engine";
 
 // 🧟 Шмиркленд — every picture is drawn here with canvas paths (our own folk-tale look, no image files)
@@ -367,7 +367,7 @@ const HAIR = "#2a1d14";
 type Look = (typeof HEROES)[SurvHeroId]["look"];
 
 /** 🎨 a skin's clothes (palette skins) */
-function skinLook(hero: SurvHeroId, skin: SurvSkinId): Look {
+export function skinLook(hero: SurvHeroId, skin: SurvSkinId): Look {
   const L = HEROES[hero].look;
   switch (skin) {
     case "night":
@@ -955,7 +955,7 @@ export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boo
 
 /* ───────────── enemies ───────────── */
 
-const ENEMY_DRAW: Record<EnemyId, { w: number; h: number; draw: Draw }> = {
+const ENEMY_DRAW0: Record<Exclude<EnemyId, "altar" | "velikan" | "gorskicar" | "blatnamaika" | "ledenvelikan">, { w: number; h: number; draw: Draw }> = {
   rat: {
     w: 34,
     h: 24,
@@ -1638,6 +1638,29 @@ const ENEMY_DRAW: Record<EnemyId, { w: number; h: number; draw: Draw }> = {
   },
 };
 
+const ENEMY_DRAW: Record<EnemyId, { w: number; h: number; draw: Draw }> = {
+  ...ENEMY_DRAW0,
+  altar: {
+    w: 56,
+    h: 76,
+    draw: (c) => {
+      // a carved stone idol with a glowing rune (капище)
+      ell(c, 0, 30, 24, 7, "#4a4440", OUT, 1.5);
+      poly(c, [-14, 30, -16, -14, -10, -28, 10, -28, 16, -14, 14, 30], "#8a8378", OUT, 2);
+      poly(c, [-14, 30, -16, -14, -10, -28, -2, -28, -4, 30], "rgba(0,0,0,0.18)");
+      ell(c, -6, -14, 3, 2.2, "#ffcf4a");
+      ell(c, 6, -14, 3, 2.2, "#ffcf4a");
+      line(c, [-6, -2, 0, 6, 6, -2], "#3a3430", 2);
+      line(c, [0, 10, 0, 24, -6, 18, 6, 18], "#ffb02a", 2.2);
+      poly(c, [-18, -24, -10, -36, 10, -36, 18, -24], "#6a6258", OUT, 1.5);
+    },
+  },
+  velikan: ENEMY_DRAW0.ispolin,
+  gorskicar: ENEMY_DRAW0.bearking,
+  blatnamaika: ENEMY_DRAW0.swampking,
+  ledenvelikan: ENEMY_DRAW0.ghostking,
+};
+
 export function enemySize(type: EnemyId) {
   return ENEMY_DRAW[type];
 }
@@ -2198,7 +2221,14 @@ export function decorSprite(kind: number) {
 }
 
 /** A tile of meadow (grass blades, dirt, little flowers) for the ground pattern. */
-export function groundTile(): HTMLCanvasElement {
+function rgba(hex: string, a: number) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/** 🗺️ the ground of each map (the meadow stays exactly as it always was) */
+export function groundTile(map: SurvMapId = "polyana"): HTMLCanvasElement {
+  if (map !== "polyana") return otherGround(map);
   const key = "ground";
   const hit = cache.get(key);
   if (hit) return hit;
@@ -2247,6 +2277,112 @@ export function groundTile(): HTMLCanvasElement {
   }
   for (let i = 0; i < 40; i++) {
     c.fillStyle = ["#fff", "#ffd23a", "#c86bff", "#ff8aa0"][Math.floor(rnd() * 4)]!;
+    c.globalAlpha = 0.7;
+    c.beginPath();
+    c.arc(rnd() * N, rnd() * N, 1.3, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.globalAlpha = 1;
+  cache.set(key, cv);
+  return cv;
+}
+
+function otherGround(map: SurvMapId): HTMLCanvasElement {
+  const key = `ground:${map}`;
+  const hit = cache.get(key);
+  if (hit) return hit;
+  const G = MAPS[map].ground;
+  const N = 512;
+  const cv = document.createElement("canvas");
+  cv.width = N;
+  cv.height = N;
+  const c = cv.getContext("2d")!;
+  c.fillStyle = G.base;
+  c.fillRect(0, 0, N, N);
+  let seed = map.length * 131 + 7;
+  const rnd = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  const wrap = (fn: () => void) => {
+    for (const dx of [-N, 0, N]) for (const dy of [-N, 0, N]) {
+      c.save();
+      c.translate(dx, dy);
+      fn();
+      c.restore();
+    }
+  };
+  // soft patches of the map's darker / lighter ground
+  for (let i = 0; i < 30; i++) {
+    const x = rnd() * N;
+    const y = rnd() * N;
+    const r = 30 + rnd() * 80;
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, rgba(rnd() < 0.5 ? G.dark : G.light, 0.45));
+    g.addColorStop(1, rgba(G.base, 0));
+    c.fillStyle = g;
+    wrap(() => {
+      c.beginPath();
+      c.arc(x, y, r, 0, Math.PI * 2);
+      c.fill();
+    });
+  }
+  if (map === "blato") {
+    // murky water puddles with a shine
+    for (let i = 0; i < 9; i++) {
+      const x = rnd() * N;
+      const y = rnd() * N;
+      const rx = 22 + rnd() * 40;
+      const ry = rx * (0.45 + rnd() * 0.25);
+      wrap(() => {
+        ell(c, x, y, rx + 4, ry + 3, "rgba(30,40,20,0.5)");
+        ell(c, x, y, rx, ry, "rgba(40,70,70,0.85)");
+        ell(c, x - rx * 0.3, y - ry * 0.3, rx * 0.35, ry * 0.2, "rgba(170,210,200,0.25)");
+      });
+    }
+  }
+  if (map === "planina") {
+    // stones peeking out of the snow
+    for (let i = 0; i < 26; i++) {
+      const x = rnd() * N;
+      const y = rnd() * N;
+      const r = 3 + rnd() * 7;
+      wrap(() => {
+        ell(c, x, y + 1.5, r * 1.1, r * 0.6, "rgba(60,70,85,0.35)");
+        ell(c, x, y, r, r * 0.65, "#7a8494", "rgba(40,48,60,0.6)", 1);
+        ell(c, x - r * 0.3, y - r * 0.25, r * 0.5, r * 0.2, "rgba(255,255,255,0.7)");
+      });
+    }
+  }
+  // blades / twigs / snow grain
+  const blades = map === "planina" ? 500 : 1300;
+  for (let i = 0; i < blades; i++) {
+    const x = rnd() * N;
+    const y = rnd() * N;
+    const h = (map === "planina" ? 1 : 3) + rnd() * 4;
+    c.strokeStyle = rgba(rnd() < 0.5 ? G.light : G.dark, map === "planina" ? 0.5 : 0.6);
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + (rnd() - 0.5) * (map === "gora" ? 6 : 3), y - h);
+    c.stroke();
+  }
+  if (map === "gora") {
+    // fallen leaves
+    for (let i = 0; i < 120; i++) {
+      c.save();
+      c.translate(rnd() * N, rnd() * N);
+      c.rotate(rnd() * Math.PI);
+      c.fillStyle = ["#6a4a2a", "#8a5a2a", "#5a3a1a", "#7a6a3a"][Math.floor(rnd() * 4)]!;
+      c.globalAlpha = 0.75;
+      c.beginPath();
+      c.ellipse(0, 0, 3.2, 1.6, 0, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  }
+  for (let i = 0; i < 46; i++) {
+    c.fillStyle = G.specks[Math.floor(rnd() * G.specks.length)]!;
     c.globalAlpha = 0.7;
     c.beginPath();
     c.arc(rnd() * N, rnd() * N, 1.3, 0, Math.PI * 2);

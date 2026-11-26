@@ -1,6 +1,16 @@
-import type { SurvCurseId, SurvHeroId, SurvMetaKey, SurvSkinId } from "@discord-clone/shared";
+import type { SurvCurseId, SurvHeroId, SurvMapId, SurvMetaKey, SurvRuneId, SurvSkinId } from "@discord-clone/shared";
 import {
   AFFIXES,
+  GIFTS,
+  GIFT_IDS,
+  GIFT_MAX,
+  GODS,
+  GOD_IDS,
+  MAPS,
+  MISSION_ALTARS,
+  MISSION_SECONDS,
+  type GiftId,
+  type GodId,
   BOSS_EASY,
   BOSS_HARD,
   BOSS_WAVE_EVERY,
@@ -59,6 +69,8 @@ export interface RPlayer {
   skillT: number;
   hurtT: number;
   skin?: SurvSkinId;
+  /** 🧶 Мокош's veil is up (takes the next hit) */
+  veil?: boolean;
 }
 export interface REnemy {
   id: number;
@@ -74,6 +86,8 @@ export interface REnemy {
   /** bosses: a shield up (takes 80% less) / enraged (under half health) */
   shield?: boolean;
   rage?: boolean;
+  /** 🐍 poisoned */
+  poison?: boolean;
 }
 export interface RProj {
   id: number;
@@ -147,7 +161,7 @@ const NO_HITS = new Set<number>([PK.cauldron, PK.jack, PK.scarecrow]);
 /** gem kinds */
 export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8 } as const;
 /** map marks */
-export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5, acid: 6 } as const;
+export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5, acid: 6, portal: 7 } as const;
 
 export type { BossMove };
 
@@ -196,6 +210,8 @@ export interface Stats {
   slayer: number;
   /** extra chance of gold from kills (пита мед) */
   greed: number;
+  /** extra critical chance (Перунов знак) */
+  crit: number;
 }
 
 export interface WState {
@@ -240,6 +256,16 @@ export interface Player extends RPlayer {
   dmgBy: Record<number, number>;
   /** weapons evolved this game */
   evos: number;
+  /** ⚡ gods' gifts (level 1..3), worn runes */
+  gifts: Partial<Record<GiftId, number>>;
+  runes: Partial<Record<SurvRuneId, number>>;
+  /** gods whose blessing (3 of their gifts) this player has */
+  blessed: Set<GodId>;
+  /** gift timers: lightning, sun flare, veil, storm cool-down */
+  gT: { strike: number; flare: number; veil: number; storm: number };
+  veilN: number;
+  /** Мокош's blessing saved you already */
+  saved: boolean;
 }
 
 /** 🎯 the wave's task */
@@ -254,6 +280,10 @@ export interface Task {
 }
 
 export interface Enemy extends REnemy {
+  /** 🐍 poison: seconds left, damage per second, who did it (player index) */
+  poisonT: number;
+  poisonD: number;
+  poisonBy: number;
   hp: number;
   maxHp: number;
   speed: number;
@@ -320,6 +350,7 @@ export interface Mark extends RMark {
 export type Offer =
   | { kind: "weapon"; id: WeaponId; lvl: number }
   | { kind: "passive"; id: PassiveId; lvl: number }
+  | { kind: "gift"; id: GiftId; lvl: number }
   | { kind: "gold" }
   | { kind: "heal" };
 
@@ -338,6 +369,24 @@ export interface PlayerSetup {
   skin?: SurvSkinId;
   meta: Partial<Record<SurvMetaKey, number>>;
   remote: boolean;
+  /** (2026-11-27+) worn runes */
+  runes?: Partial<Record<SurvRuneId, number>>;
+}
+
+export interface WorldOpts {
+  map?: SurvMapId;
+  /** 🎯 the mission: 5 sanctuaries → call the giant → win */
+  mission?: boolean;
+}
+
+/** what the HUD shows of a mission */
+export interface MissionView {
+  left: number;
+  total: number;
+  /** 0 sanctuaries, 1 the portal is open, 2 the giant is out, 3 won */
+  phase: number;
+  /** seconds before the giant comes by itself */
+  tLeft: number;
 }
 
 /* ───────────── constants ───────────── */
@@ -470,6 +519,17 @@ export class World {
   private shatterT = 0;
   event: { id: MapEventId; t: number } | null = null;
   blessing: { id: BlessingId; t: number } | null = null;
+  /** 🗺️ the map, 🎯 the mission */
+  readonly map: SurvMapId;
+  readonly mission: boolean;
+  missionPhase = 0;
+  altarsLeft = 0;
+  finalBoss: Enemy | null = null;
+  won = false;
+  private winT = 0;
+  /** level-up rounds that deal only gods' gifts (a sanctuary fell) */
+  private giftRounds = 0;
+  private giftRound = false;
 
   private nextId = 1;
   private spawnAcc = 0;
@@ -479,9 +539,11 @@ export class World {
   private scarecrows: Proj[] = [];
   readonly curses: Set<SurvCurseId>;
 
-  constructor(setup: PlayerSetup[], curses: SurvCurseId[]) {
+  constructor(setup: PlayerSetup[], curses: SurvCurseId[], opts: WorldOpts = {}) {
     this.curses = new Set(curses);
     this.pauseOnLevel = setup.length <= 1;
+    this.map = opts.map && MAPS[opts.map] ? opts.map : "polyana";
+    this.mission = !!opts.mission;
     setup.forEach((s, i) => {
       const a = (i / Math.max(1, setup.length)) * Math.PI * 2;
       const p: Player = {
@@ -530,13 +592,49 @@ export class World {
         dmgBy: {},
         evos: 0,
         skin: s.skin ?? "classic",
+        gifts: {},
+        runes: s.runes ?? {},
+        blessed: new Set(),
+        gT: { strike: 2, flare: 3, veil: 0, storm: 0 },
+        veilN: 0,
+        saved: false,
       };
       p.weapons.push({ id: HEROES[s.hero].weapon, lvl: 1, evo: false, t: 0.5, t2: 0, on: false });
+      // god runes: start with one of that god's gifts
+      for (const g of GOD_IDS) {
+        const lvl = Math.min(GIFT_MAX, p.runes[g as SurvRuneId] ?? 0);
+        if (lvl <= 0) continue;
+        const own = GIFT_IDS.filter((id) => GIFTS[id].god === g && !p.gifts[id]);
+        if (own.length) p.gifts[pickOne(own)] = lvl;
+      }
       this.refreshStats(p);
       p.hp = p.maxHp;
       this.players.push(p);
     });
     this.xpNext = xpFor(1, this.players.length);
+    if (this.mission) this.placeAltars();
+  }
+
+  get mapDef() {
+    return MAPS[this.map];
+  }
+
+  /** 🎯 five sanctuaries around the start, far apart */
+  private placeAltars() {
+    const a0 = Math.random() * Math.PI * 2;
+    for (let i = 0; i < MISSION_ALTARS; i++) {
+      const a = a0 + (i / MISSION_ALTARS) * Math.PI * 2 + rand(-0.25, 0.25);
+      const r = rand(900, 1500) + i * 60;
+      const hp = 1100 * this.mapDef.hpMul * (1 + 0.5 * (this.pf - 1));
+      const e = this.spawn("altar", Math.cos(a) * r, Math.sin(a) * r, { hp });
+      e.stay = true;
+    }
+    this.altarsLeft = MISSION_ALTARS;
+  }
+
+  get missionView(): MissionView | null {
+    if (!this.mission) return null;
+    return { left: this.altarsLeft, total: MISSION_ALTARS, phase: this.won ? 3 : this.missionPhase, tLeft: Math.max(0, MISSION_SECONDS - this.t) };
   }
 
   get alive() {
@@ -571,7 +669,33 @@ export class World {
       xp: 1 + (m.wisdom ?? 0) * 0.05 + pv("sirene") * 0.1,
       slayer: pv("lukanka") * 0.15,
       greed: pv("med") * 0.25,
+      crit: 0,
     };
+    // ᚱ runes
+    const r = (id: SurvRuneId) => p.runes?.[id] ?? 0;
+    s.might += r("sila") * 0.06;
+    s.maxHp *= 1 + r("zhivot") * 0.1;
+    s.speed += r("barzina") * 0.04;
+    s.cooldown += r("vreme") * 0.04;
+    s.luck += r("kasmet") * 0.06;
+    s.magnet += r("magnit") * 0.15;
+    s.xp += r("opit") * 0.05;
+    s.greed += r("zlato") * 0.1;
+    // ⚡ gifts
+    const g = (id: GiftId) => p.gifts?.[id] ?? 0;
+    s.crit += g("perun_crit") * 0.07;
+    s.armor += g("veles_skin");
+    s.maxHp *= 1 + g("veles_skin") * 0.1;
+    s.might += g("veles_fang") * 0.06 + g("dazh_dawn") * 0.07;
+    s.speed += g("veles_fang") * 0.05;
+    s.regen += g("mokosh_water") * 0.4;
+    s.luck += g("mokosh_thread") * 0.08;
+    s.greed += g("mokosh_thread") * 0.15;
+    s.xp += g("mokosh_harvest") * 0.1;
+    s.magnet += g("mokosh_harvest") * 0.15;
+    s.area += g("dazh_wheel") * 0.08;
+    s.projSpeed += g("dazh_wheel") * 0.08;
+    s.slayer += g("dazh_dawn") * 0.1;
     if (this.curses.has("glass")) s.maxHp *= 0.5;
     if (this.curses.has("nomagnet")) s.magnet *= 0.5;
     if (this.curses.has("winter")) s.regen *= 0.5;
@@ -603,10 +727,10 @@ export class World {
   }
   private hpMul() {
     const w = this.w;
-    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1);
+    return (1 + w * 0.23 + w * w * 0.016) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul;
   }
   private dmgMul() {
-    return 1 + this.w * 0.115;
+    return (1 + this.w * 0.115) * this.mapDef.dmgMul;
   }
   private speedMul() {
     return (1.05 + Math.min(0.5, this.w * 0.02)) * (this.curses.has("wolves") ? 1.25 : 1);
@@ -661,7 +785,10 @@ export class World {
       vx: 0,
       vy: 0,
       dead: false,
-      stay: type === "pot",
+      stay: type === "pot" || type === "altar",
+      poisonT: 0,
+      poisonD: 0,
+      poisonBy: -1,
       exT: 5,
       shieldT: 0,
       moves: [],
@@ -702,6 +829,9 @@ export class World {
     this.lastThemes = [pick.i, ...this.lastThemes].slice(0, Math.min(6, usable.length - 1));
     this.theme = pick.t.name;
     this.waveMix = pick.mobs;
+    // the map's own monsters come along (and a few waves earlier than elsewhere)
+    const fav = this.mapDef.favour.filter((id) => ENEMIES[id].from <= w + 3 && !this.waveMix.includes(id));
+    if (fav.length) this.waveMix = [...this.waveMix, pickOne(fav)];
     // every 4th normal wave is a swarm of the small fast ones
     const swarm = w >= 7 && w % 4 === 3;
     if (swarm) {
@@ -954,11 +1084,28 @@ export class World {
     let d = dmg;
     let crit = false;
     if (p) {
-      if (Math.random() < 0.05 + p.st.luck * 0.4) {
+      if (Math.random() < 0.05 + p.st.luck * 0.4 + p.st.crit) {
         d *= critMul;
         crit = true;
       }
       if (p.st.slayer && (e.boss || e.elite)) d *= 1 + p.st.slayer;
+      const vp = p.gifts.veles_poison ?? 0;
+      if (vp && e.type !== "altar") {
+        e.poisonT = 3;
+        e.poisonD = Math.max(e.poisonD, (3 + 4 * vp) * p.st.might * (p.blessed.has("veles") ? 2 : 1));
+        e.poisonBy = this.players.indexOf(p);
+      }
+    }
+    if (e.type === "altar" && e.state === 0) {
+      // the sanctuary's guards wake up
+      e.state = 1;
+      const mix = this.waveMix.length ? this.waveMix : (["zombie", "skeleton"] as EnemyId[]);
+      for (let i = 0; i < 6 + this.pf * 2; i++) {
+        const a = Math.random() * Math.PI * 2;
+        this.spawn(pickOne(mix), e.x + Math.cos(a) * rand(80, 160), e.y + Math.sin(a) * rand(80, 160));
+      }
+      this.spawn(pickOne(mix), e.x + rand(-60, 60), e.y + 90, { elite: true });
+      this.fx.push([FX.banner, "🗿 Пазителите на капището се събуждат!", 0]);
     }
     if (e.affix >= 0 && AFFIXES[e.affix] === "armored") d *= 0.5;
     if (e.shieldT > 0) d *= 0.2;
@@ -966,7 +1113,7 @@ export class World {
     if (p) p.dmgBy[wi] = (p.dmgBy[wi] ?? 0) + Math.min(d, Math.max(0, e.hp));
     e.hp -= d;
     e.flash = 0.12;
-    if (knock && (kx || ky) && e.type !== "pot") {
+    if (knock && (kx || ky) && e.type !== "pot" && e.type !== "altar") {
       const len = Math.hypot(kx, ky) || 1;
       const k = knock * (e.boss ? 0.05 : e.elite ? 0.35 : 1);
       e.kx += (kx / len) * k;
@@ -974,12 +1121,100 @@ export class World {
     }
     if (d >= 3 || crit) this.fx.push([FX.dmg, Math.round(e.x), Math.round(e.y - e.r), Math.round(d), crit ? 1 : 0]);
     if (e.hp <= 0) this.kill(e, p);
+    else if (crit && p && p.gifts.perun_crit && wi !== -3) {
+      // Перунов знак: a crit jumps to a neighbour as lightning
+      const n = this.nearest(e.x, e.y, 220, new Set([e.id]));
+      if (n) {
+        this.fx.push([FX.bolt, Math.round(e.x), Math.round(e.y), Math.round(n.x), Math.round(n.y)]);
+        this.hurt(n, d * 0.5 * (p.blessed.has("perun") ? 1.5 : 1), p, 0, 0, 0, 1, -3);
+      }
+    }
+  }
+
+  /** ⚡ lightning from the sky onto a few enemies near (x, y) */
+  private strike(p: Player, x: number, y: number, r: number, n: number, dmg: number) {
+    const bless = p.blessed.has("perun");
+    const near = this.within(x, y, r).filter((e) => e.type !== "altar" || this.altarsLeft > 0);
+    near.sort(() => Math.random() - 0.5);
+    for (const e of near.slice(0, n + (bless ? 2 : 0))) {
+      this.fx.push([FX.bolt, Math.round(e.x + rand(-30, 30)), Math.round(e.y - 420), Math.round(e.x + rand(-12, 12)), Math.round(e.y - 160), Math.round(e.x), Math.round(e.y)]);
+      this.hurt(e, dmg * (bless ? 1.5 : 1), p, 0, 0, 0, 2, -3);
+      e.stunT = Math.max(e.stunT, 0.25);
+    }
+  }
+
+  /** the gods' gifts that run by themselves */
+  private stepGifts(p: Player, dt: number) {
+    const g = p.gifts;
+    const T = p.gT;
+    const might = p.st.might;
+    if (g.perun_strike) {
+      T.strike -= dt;
+      if (T.strike <= 0) {
+        T.strike = 4 - 0.7 * g.perun_strike;
+        this.strike(p, p.x, p.y, 450, 1 + g.perun_strike, (25 + 20 * g.perun_strike) * might);
+      }
+    }
+    T.storm = Math.max(0, T.storm - dt);
+    if (g.dazh_flare) {
+      T.flare -= dt;
+      if (T.flare <= 0) {
+        T.flare = 6 - g.dazh_flare;
+        const r = (110 + 25 * g.dazh_flare) * p.st.area * (p.blessed.has("dazhbog") ? 1.5 : 1);
+        this.explode(p, p.x, p.y, r, (20 + 18 * g.dazh_flare) * might, 3, -3);
+      }
+    }
+    if (g.mokosh_veil) {
+      const max = p.blessed.has("mokosh") ? 2 : 1;
+      if (p.veilN < max) {
+        T.veil -= dt * (p.blessed.has("mokosh") ? 2 : 1);
+        if (T.veil <= 0) {
+          T.veil = 14 - 2 * g.mokosh_veil;
+          p.veilN++;
+        }
+      }
+    }
+    p.veil = p.veilN > 0;
+  }
+
+  /** a gift picked: does a god's blessing (3 of their gifts) come with it? */
+  private checkBlessings(p: Player) {
+    for (const god of GOD_IDS) {
+      if (p.blessed.has(god)) continue;
+      const n = GIFT_IDS.filter((id) => GIFTS[id].god === god && (p.gifts[id] ?? 0) > 0).length;
+      if (n >= 3) {
+        p.blessed.add(god);
+        this.fx.push([FX.banner, `${GODS[god].icon} ${p.name}: благословията на ${GODS[god].name} — ${GODS[god].blessing}!`, 2]);
+      }
+    }
   }
 
   private kill(e: Enemy, p: Player | null) {
     e.dead = true;
     const luck = p?.st.luck ?? 0;
     this.fx.push([FX.die, Math.round(e.x), Math.round(e.y), ENEMY_IDS.indexOf(e.type)]);
+    if (e.type === "altar") {
+      this.altarDown(e);
+      return;
+    }
+    if (e === this.finalBoss) {
+      this.finalBoss = null;
+      this.won = true;
+      this.missionPhase = 3;
+      this.winT = 4;
+      this.bosses++;
+      this.bossTypes.add(e.type);
+      this.fx.push([FX.bossDie, Math.round(e.x), Math.round(e.y)]);
+      this.fx.push([FX.banner, `🏆 ПОБЕДА! ${ENEMIES[e.type].name} падна — ${this.mapDef.name} е свободна!`, 2]);
+      for (const q of this.enemies) if (!q.dead && q !== e && !q.boss && q.type !== "pot") q.hp = 0, q.dead = true;
+      for (let i = 0; i < 16; i++) this.gems.push({ x: e.x + rand(-90, 90), y: e.y + rand(-90, 90), k: GK.bag, v: 8, mag: true, sp: 0 });
+      return;
+    }
+    if (p && e.type !== "pot") {
+      const g = p.gifts;
+      if (g.veles_bloom && Math.random() < 0.08 * g.veles_bloom) this.explode(p, e.x, e.y, 70 + 10 * g.veles_bloom, (20 + 15 * g.veles_bloom) * p.st.might, 6, -3);
+      else if (g.dazh_burn && Math.random() < 0.1 * g.dazh_burn) this.explode(p, e.x, e.y, (60 + 10 * g.dazh_burn) * (p.blessed.has("dazhbog") ? 1.5 : 1), (15 + 15 * g.dazh_burn) * p.st.might, 3, -3);
+    }
     if (e.type === "pot") {
       this.taskStep("pots");
       // a pot: always something inside
@@ -1039,6 +1274,41 @@ export class World {
     }
   }
 
+  /** 🗿 a sanctuary fell: gods' gifts for everyone, and when all are down the portal opens */
+  private altarDown(e: Enemy) {
+    this.altarsLeft = Math.max(0, this.altarsLeft - 1);
+    const done = MISSION_ALTARS - this.altarsLeft;
+    this.fx.push([FX.bossDie, Math.round(e.x), Math.round(e.y)]);
+    this.fx.push([FX.banner, `🗿 Капище разрушено! (${done}/${MISSION_ALTARS}) — боговете ви даряват`, 2]);
+    for (const q of this.alive) this.heal(q, q.maxHp * 0.25);
+    for (let i = 0; i < 6; i++) this.gems.push({ x: e.x + rand(-50, 50), y: e.y + rand(-50, 50), k: GK.green, v: 4 + this.wave, mag: true, sp: 0 });
+    this.giftRounds++;
+    this.pendingLevels++;
+    if (!this.choosing) this.openOffers();
+    if (this.altarsLeft === 0 && this.missionPhase === 0) this.openPortal();
+  }
+
+  private openPortal() {
+    this.missionPhase = 1;
+    const p = pickOne(this.alive.length ? this.alive : this.players);
+    const a = Math.random() * Math.PI * 2;
+    this.marks.push({ kind: MK.portal, x: p.x + Math.cos(a) * 420, y: p.y + Math.sin(a) * 420, r: 70, p: 0, t: 1e9, a: 0 });
+    this.fx.push([FX.banner, `🌀 Всички капища паднаха! Застанете в кръга, за да призовете ${ENEMIES[this.mapDef.final].name}`, 1]);
+  }
+
+  /** the map's giant comes out (from the portal, or by itself when time runs out) */
+  private summonFinal(x: number, y: number, late: boolean) {
+    this.missionPhase = 2;
+    this.marks = this.marks.filter((m) => m.kind !== MK.portal);
+    const type = this.mapDef.final;
+    const hp = ENEMIES[type].hp * (1 + 0.04 * this.wave) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (late ? 1.4 : 1);
+    const b = this.spawn(type, x, y, { boss: true, hp });
+    this.finalBoss = b;
+    this.boss = b;
+    this.fx.push([FX.banner, late ? `⚠️ Времето изтече — ${ENEMIES[type].name} идва сам и е бесен!` : `⚠️ ${ENEMIES[type].name} се надига!`, 1]);
+    this.fx.push([FX.wave, this.wave, 1]);
+  }
+
   private dropGem(x: number, y: number, v: number) {
     if (v <= 0) return;
     if (this.gems.length >= MAX_GEMS) {
@@ -1064,8 +1334,28 @@ export class World {
 
   private hurtPlayer(p: Player, dmg: number) {
     if (p.dead || p.invulnT > 0 || p.buffs.shield > 0 || (p.skillT > 0 && p.hero === "tseko")) return;
+    if (p.veilN > 0) {
+      // 🧶 the veil takes the hit
+      p.veilN--;
+      p.veil = p.veilN > 0;
+      p.invulnT = 0.6;
+      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 40), "🧶", "#f2c86a"]);
+      return;
+    }
     let d = Math.max(1, dmg - p.st.armor);
     if (p.skillT > 0 && p.hero === "strahil") d *= 0.5;
+    if (p.gifts.perun_storm && p.gT.storm <= 0) {
+      p.gT.storm = 1.2;
+      this.strike(p, p.x, p.y, 320, 3 + p.gifts.perun_storm, (20 + 15 * p.gifts.perun_storm) * p.st.might);
+    }
+    if (p.blessed.has("mokosh") && !p.saved && p.hp - d <= p.maxHp * 0.2) {
+      p.saved = true;
+      p.hp = p.maxHp;
+      p.invulnT = 2;
+      this.fx.push([FX.banner, `🌾 Мокош закриля ${p.name}!`, 2]);
+      this.fx.push([FX.revive, this.players.indexOf(p)]);
+      return;
+    }
     p.hp -= d;
     p.invulnT = 0.45;
     p.hurtT = 0.25;
@@ -1088,7 +1378,7 @@ export class World {
       this.revive(saver, 1);
       this.fx.push([FX.banner, `🕯️ Второ раждане — ${saver.name}`, 2]);
       for (const e of this.enemies) {
-        if (dist2(e.x, e.y, saver.x, saver.y) < 400 * 400) this.hurt(e, e.boss ? e.maxHp * 0.05 : 9999, null);
+        if (dist2(e.x, e.y, saver.x, saver.y) < 400 * 400) this.hurt(e, e.boss || e.type === "altar" ? e.maxHp * 0.05 : 9999, null);
       }
       return;
     }
@@ -1171,6 +1461,17 @@ export class World {
 
     for (const p of this.players) this.stepPlayer(p, dt, inputs.get(p.uid));
     this.director(dt);
+    if (this.mission) {
+      if (this.won) {
+        this.winT -= dt;
+        if (this.winT <= 0) this.over = true;
+      } else if (this.missionPhase < 2 && this.t >= MISSION_SECONDS) {
+        const p = pickOne(this.alive.length ? this.alive : this.players);
+        const [x, y] = this.spawnPoint(p, 500);
+        this.summonFinal(x, y, true);
+      }
+      if (this.finalBoss && !this.finalBoss.dead) this.boss = this.finalBoss;
+    }
     if (this.task?.kind === "nohit" && this.task.state === 0 && this.breakT <= 0) {
       this.sinceHit += dt;
       this.task.progress = Math.min(this.task.target, this.sinceHit);
@@ -1244,6 +1545,8 @@ export class World {
 
     if (p.st.regen > 0) this.heal(p, p.st.regen * dt);
     if (b.herbs > 0) this.heal(p, p.maxHp * 0.05 * dt);
+    this.stepGifts(p, dt);
+    const dashing = p.dashT > 0;
 
     if (!p.remote && inp) {
       let mx = inp.mx;
@@ -1280,12 +1583,14 @@ export class World {
         p.dashT -= dt;
         p.x += p.dvx * dt;
         p.y += p.dvy * dt;
+        if (p.dashT <= 0) this.dashEnd(p);
       } else {
         p.x += mx * sp * dt;
         p.y += my * sp * dt;
       }
     } else if (p.remote) {
       p.dashT = Math.max(0, p.dashT - dt);
+      if (dashing && p.dashT <= 0) this.dashEnd(p);
       if (p.netInit) {
         // predict along the way it walks, then glide towards it
         if (p.moving) {
@@ -1363,6 +1668,18 @@ export class World {
   }
 
   /** skill damage: might + grows with the wave (enemies get tougher every wave) */
+  /** ⚡ Гръмовен скок */
+  private dashEnd(p: Player) {
+    const l = p.gifts.perun_dash ?? 0;
+    if (!l) return;
+    const r = (90 + 20 * l) * p.st.area;
+    this.explode(p, p.x, p.y, r, (30 + 25 * l) * p.st.might * (p.blessed.has("perun") ? 1.5 : 1), 4, -3, 0.4);
+    for (let i = 0; i < 3; i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.fx.push([FX.bolt, Math.round(p.x), Math.round(p.y - 300), Math.round(p.x + Math.cos(a) * r * 0.6), Math.round(p.y + Math.sin(a) * r * 0.5)]);
+    }
+  }
+
   private skillDmg(p: Player, base: number) {
     return base * p.st.might * (1 + this.wave * 0.14);
   }
@@ -1442,9 +1759,25 @@ export class World {
     for (const e of this.enemies) {
       if (e.dead) continue;
       e.flash = Math.max(0, e.flash - dt);
+      if (e.type === "altar") continue;
       if (e.type === "pot") {
         if (!alive.some((p) => dist2(p.x, p.y, e.x, e.y) < 1600 * 1600)) e.dead = true;
         continue;
+      }
+      if (e.poisonT > 0) {
+        e.poisonT -= dt;
+        e.poison = true;
+        e.hp -= e.poisonD * dt;
+        const by = this.players[e.poisonBy] ?? null;
+        if (by) by.dmgBy[-3] = (by.dmgBy[-3] ?? 0) + e.poisonD * dt;
+        if (e.hp <= 0) {
+          this.kill(e, by);
+          continue;
+        }
+        if (e.poisonT <= 0) {
+          e.poison = false;
+          e.poisonD = 0;
+        }
       }
       e.frozenT = Math.max(0, e.frozenT - dt);
       e.stunT = Math.max(0, e.stunT - dt);
@@ -1565,7 +1898,7 @@ export class World {
       if (!ENEMIES[e.type].ghost) {
         let n = 0;
         this.grid.each(e.x, e.y, e.r * 2, (o) => {
-          if (o === e || ENEMIES[o.type].ghost || o.type === "pot") return;
+          if (o === e || ENEMIES[o.type].ghost || o.type === "pot" || o.type === "altar") return;
           const ox = e.x - o.x;
           const oy = e.y - o.y;
           const rr = e.r + o.r;
@@ -1996,6 +2329,70 @@ export class World {
         }
         if (charge(4, 520)) return;
         walk();
+        return;
+      // ── the missions' giants ──
+      case "velikan":
+        // the Balkan giant: stamps (a ring of rocks), boulders from the sky, charges when enraged
+        if (e.rage && charge(5, 480)) return;
+        walk(0.9);
+        if (e.ai <= 0) {
+          e.ai = 3;
+          this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y + 20), 170, 5]);
+          ring(18, 220, PK.rock, 18, Math.random());
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 4.5;
+          for (let i = 0; i < 7; i++) this.marks.push({ kind: MK.hail, x: tgt.x + rand(-170, 170), y: tgt.y + rand(-130, 130), r: 56, p: 0, t: 1.2 + i * 0.12, a: 1.2 + i * 0.12 });
+        }
+        return;
+      case "gorskicar":
+        // the forest king: charges through the trees, thorns, his wolves
+        if (e.ai2 <= 0) {
+          e.ai2 = 6;
+          for (let i = 0; i < 4 + this.pf; i++) this.spawn("wolf", e.x + rand(-90, 90), e.y + rand(-90, 90));
+          fan(11, 0.13, 260, PK.ebolt, 13);
+        }
+        if (charge(3.4, 620)) return;
+        walk();
+        return;
+      case "blatnamaika":
+        // the swamp mother: poison everywhere, a fan of slime, her children
+        walk(0.6);
+        if (e.ai <= 0) {
+          e.ai = 1.4;
+          for (let i = 0; i < 2; i++) this.enemyShot({ x: tgt.x + rand(-160, 160), y: tgt.y + rand(-120, 120) }, 0, 0, 0, PK.poison, 10, 7);
+          fan(9, 0.14, 210, PK.ebolt, 12);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 9;
+          for (let i = 0; i < 3; i++) this.spawn("blatnik", e.x + rand(-100, 100), e.y + rand(-100, 100));
+          for (let i = 0; i < 6; i++) this.spawn("zombie", e.x + rand(-140, 140), e.y + rand(-140, 140));
+        }
+        return;
+      case "ledenvelikan":
+        // the ice giant: rings of ice, ice blocks from the sky, a freezing blast
+        walk(0.8);
+        if (e.ai <= 0) {
+          e.ai = 2.4;
+          ring(22, 190, PK.ebolt, 13, this.t * 0.7);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 4;
+          for (let i = 0; i < 6; i++) this.marks.push({ kind: MK.hail, x: tgt.x + rand(-160, 160), y: tgt.y + rand(-120, 120), r: 50, p: 0, t: 1.1 + i * 0.1, a: 1.1 + i * 0.1 });
+        }
+        e.tx += dt;
+        if (e.tx > 8) {
+          e.tx = 0;
+          e.vy = 1.4;
+          this.marks.push({ kind: MK.nova, x: e.x, y: e.y, r: 260, p: 0, t: 1.4, a: 1.4 });
+        }
+        if (e.vy > 0) {
+          e.vy -= dt;
+          if (e.vy <= 0) {
+            this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 260, 4]);
+            for (const pl of this.alive) if (dist2(pl.x, pl.y, e.x, e.y) < 260 * 260) this.hurtPlayer(pl, e.dmg * 1.1);
+          }
+        }
         return;
     }
   }
@@ -2703,7 +3100,7 @@ export class World {
       case GK.bomb:
         this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 650, 2]);
         for (const e of this.enemies) {
-          if (e.type !== "pot" && dist2(e.x, e.y, p.x, p.y) < 700 * 700) this.hurt(e, e.boss ? e.maxHp * 0.05 : 99999, p);
+          if (e.type !== "pot" && dist2(e.x, e.y, p.x, p.y) < 700 * 700) this.hurt(e, e.boss || e.type === "altar" ? e.maxHp * 0.05 : 99999, p);
         }
         break;
       case GK.chest:
@@ -2768,6 +3165,13 @@ export class World {
           m.t = 0;
           this.bless();
         }
+      } else if (m.kind === MK.portal) {
+        const inside = this.alive.some((p) => dist2(p.x, p.y, m.x, m.y) < m.r * m.r);
+        m.p = inside ? m.p + dt / 4 : Math.max(0, m.p - dt / 8);
+        if (m.p >= 1) {
+          m.t = 0;
+          this.summonFinal(m.x, m.y - 40, false);
+        }
       } else if (m.kind === MK.hail) {
         m.p = 1 - m.t / m.a;
         if (m.t <= 0) {
@@ -2825,9 +3229,32 @@ export class World {
     return out;
   }
 
+  /** ⚡ gods' gifts that could come: new ones, or the next level of yours (different gods first) */
+  giftOffers(p: Player, n: number): Offer[] {
+    const can = GIFT_IDS.filter((id) => (p.gifts[id] ?? 0) < GIFT_MAX).map((id) => ({ kind: "gift" as const, id, lvl: (p.gifts[id] ?? 0) + 1 }));
+    const out: Offer[] = [];
+    const gods = new Set<GodId>();
+    const pool = can.sort(() => Math.random() - 0.5).sort((a, b) => (b.lvl > 1 ? 1 : 0) - (a.lvl > 1 ? 1 : 0) || 0);
+    // owned gifts a bit more often, but mixed
+    pool.sort(() => Math.random() - 0.55);
+    for (const o of pool) {
+      if (out.length >= n) break;
+      if (gods.has(GIFTS[o.id].god) && pool.some((x) => !gods.has(GIFTS[x.id].god) && !out.includes(x))) continue;
+      gods.add(GIFTS[o.id].god);
+      out.push(o);
+    }
+    for (const o of pool) if (out.length < n && !out.includes(o)) out.push(o);
+    return out;
+  }
+
   makeOffers(p: Player): Offer[] {
-    const all = this.candidates(p);
     const n = p.st.luck >= 0.3 ? 4 : 3;
+    // a sanctuary fell, or every 5th level: the gods speak
+    if (this.giftRound || this.level % 5 === 0) {
+      const g = this.giftOffers(p, n);
+      if (g.length) return g;
+    }
+    const all = this.candidates(p);
     const out: Offer[] = [];
     // what you have levels up more often; a passive that evolves one of your weapons too
     const evoPassives = new Set(p.weapons.map((w) => WEAPONS[w.id].evo.passive));
@@ -2845,6 +3272,11 @@ export class World {
       out.push(pool[i]!.o);
       pool.splice(i, 1);
     }
+    // now and then one of the cards is a god's gift
+    if (out.length >= 2 && Math.random() < 0.22) {
+      const g = this.giftOffers(p, 1)[0];
+      if (g) out[out.length - 1] = g;
+    }
     if (!out.length) out.push({ kind: "gold" }, { kind: "heal" });
     return out;
   }
@@ -2853,6 +3285,8 @@ export class World {
     if (this.pendingLevels <= 0) return;
     this.choosing = true;
     this.round++;
+    this.giftRound = this.giftRounds > 0;
+    if (this.giftRound) this.giftRounds--;
     this.offers.clear();
     this.picked.clear();
     for (const p of this.players) {
@@ -2899,6 +3333,9 @@ export class World {
       else if (p.weapons.length < MAX_WEAPONS) p.weapons.push({ id: o.id, lvl: 1, evo: false, t: 0.3, t2: 0, on: false });
     } else if (o.kind === "passive") {
       p.passives[o.id] = Math.min(PASSIVES[o.id].max, (p.passives[o.id] ?? 0) + 1);
+    } else if (o.kind === "gift") {
+      p.gifts[o.id] = Math.min(GIFT_MAX, Math.max(p.gifts[o.id] ?? 0, o.lvl));
+      this.checkBlessings(p);
     } else if (o.kind === "gold") {
       this.gold += 25;
     } else {
@@ -2915,6 +3352,7 @@ export class World {
 }
 
 export function offerTitle(o: Offer): string {
+  if (o.kind === "gift") return `${GIFTS[o.id].icon} ${GIFTS[o.id].name}${o.lvl > 1 ? ` ${o.lvl}` : ""}`;
   if (o.kind === "weapon") return `${WEAPONS[o.id].name}${o.lvl > 1 ? ` ${o.lvl}` : ""}`;
   if (o.kind === "passive") return `${PASSIVES[o.id].icon} ${PASSIVES[o.id].name}${o.lvl > 1 ? ` ${o.lvl}` : ""}`;
   return o.kind === "gold" ? "🪙 +25 злато" : "❤️ Хляб и сол (+50% живот)";

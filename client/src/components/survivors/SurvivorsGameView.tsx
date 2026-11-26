@@ -8,6 +8,13 @@ import {
   SURV_HEROES,
   SURV_MAX_PLAYERS,
   SURV_META,
+  SURV_MAPS,
+  SURV_RUNES,
+  survMapsOpen,
+  survRuneCost,
+  survRuneSlots,
+  type SurvMapId,
+  type SurvRuneId,
   SocketEvents,
   survGoldMul,
   survMetaCost,
@@ -27,10 +34,21 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
+import { GIFTS, GODS, MAPS, RUNE_TEXT, MISSION_ALTARS, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
-import { FX, World, isBossWave, offerTitle, type Fx, type Input, type Offer, type RView } from "./engine";
+import { FX, World, isBossWave, offerTitle, type Fx, type Input, type MissionView, type Offer, type RView } from "./engine";
 import { SNAP_HZ, decodeSnapshot, encodeSnapshot, lerpView, type GuestInput, type GuestMsg, type HostMsg, type NetPlayer, type Snapshot } from "./net";
 import { Renderer } from "./render";
+import type { Renderer3D } from "./render3d";
+
+/** does this browser do WebGL2 (the 3D layer is loaded only when it is used: three.js is big) */
+function canWebGL2(): boolean {
+  try {
+    return !!document.createElement("canvas").getContext("webgl2");
+  } catch {
+    return false;
+  }
+}
 import { survSound } from "./sounds";
 import { enemyIcon, heroIcon, heroSprite, weaponIcon } from "./sprites";
 import "./survivors.css";
@@ -47,6 +65,9 @@ interface Session {
   members: SurvMemberDTO[];
   curses: SurvCurseId[];
   hero: SurvHeroId;
+  /** 🗺️ the map, 🎯 mission or endless */
+  map: SurvMapId;
+  mission: boolean;
   world?: World;
   prev: Snapshot | null;
   cur: Snapshot | null;
@@ -86,12 +107,15 @@ interface Hud {
   waveLeft: number;
   waveTotal: number;
   streak: number;
+  mission: MissionView | null;
 }
 
 /** what the end screen shows besides the server's answer */
 interface EndInfo {
   wave: number;
   dmg: [number, number][];
+  /** 🎯 the mission: null = endless */
+  mission: { won: boolean; map: SurvMapId } | null;
 }
 
 interface Offers {
@@ -119,7 +143,11 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const me = useAuthStore((s) => s.user);
   const myId = me?.id ?? "";
   const [phase, setPhase] = useState<"menu" | "playing" | "over">(() => (savedGames.has(channelId) ? "playing" : "menu"));
-  const [tab, setTab] = useState<"play" | "shop" | "top" | "ach">("play");
+  const [tab, setTab] = useState<"play" | "shop" | "runes" | "top" | "ach">("play");
+  const [mapSel, setMapSel] = useState<SurvMapId>(() => load<SurvMapId>("survMap", "polyana"));
+  const [missionSel, setMissionSel] = useState<boolean>(() => load<boolean>("survMission", true));
+  useEffect(() => localStorage.setItem("survMap", JSON.stringify(mapSel)), [mapSel]);
+  useEffect(() => localStorage.setItem("survMission", JSON.stringify(missionSel)), [missionSel]);
   const [skinSel, setSkinSel] = useState<Partial<Record<SurvHeroId, SurvSkinId>>>(() => load("survSkins", {}));
   useEffect(() => localStorage.setItem("survSkins", JSON.stringify(skinSel)), [skinSel]);
   const [lists, setLists] = useState<SurvListsDTO | null>(null);
@@ -148,6 +176,14 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     const v = localStorage.getItem("survMouseMove");
     return v === "hold" || v === "follow" ? v : "off";
   });
+  /** 🧊 graphics: 3D models (WebGL) or the old 2D pictures */
+  const [gfx, setGfx] = useState<"3d" | "2d">(() => {
+    const v = localStorage.getItem("survGfx");
+    if (v === "2d" || v === "3d") return v === "3d" && !canWebGL2() ? "2d" : v;
+    // phones start with the light 2D pictures (3D is one tap away)
+    const phone = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    return canWebGL2() && !phone ? "3d" : "2d";
+  });
   const [topTab, setTopTab] = useState<"solo" | "coop">("solo");
   const [error, setError] = useState<string | null>(null);
   const [touch] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches);
@@ -155,6 +191,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
+  const canvas3dRef = useRef<HTMLCanvasElement | null>(null);
+  const renderer3dRef = useRef<Renderer3D | null>(null);
   const sessRef = useRef<Session | null>(savedGames.get(channelId) ?? null);
   const inputRef = useRef({ keys: new Set<string>(), joy: { x: 0, y: 0, on: false, ox: 0, oy: 0, id: -1 }, mouse: { x: 0, y: 0, in: false, down: false }, dash: 0, skill: 0 });
   const offersRef = useRef<Offers | null>(null);
@@ -185,6 +223,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   useEffect(() => localStorage.setItem("survNumbers", numbers ? "1" : "0"), [numbers]);
   useEffect(() => localStorage.setItem("survFxAlpha", String(fxAlpha)), [fxAlpha]);
   useEffect(() => localStorage.setItem("survMouseMove", mouseMove), [mouseMove]);
+  useEffect(() => localStorage.setItem("survGfx", gfx), [gfx]);
 
   const reload = useCallback(() => {
     http
@@ -204,6 +243,12 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
 
   const myParty = lobby?.parties.find((p) => p.players.some((m) => m.userId === myId));
   const owns = (h: SurvHeroId, sk: SurvSkinId) => !!profile && survOwnsSkin(profile, h, sk);
+  /** 🗺️ maps this person may play (each opens with the mission before it won) */
+  const openMaps = survMapsOpen(profile?.missions);
+  const mapNow: SurvMapId = openMaps.includes(mapSel) ? mapSel : "polyana";
+  const runeSlots = profile ? survRuneSlots(profile.stats, profile.missions) : 2;
+  /** the runes I wear, with their levels */
+  const myRunes = (): Partial<Record<SurvRuneId, number>> => Object.fromEntries((profile?.equipped ?? []).map((r) => [r, profile?.runes?.[r] ?? 0]));
   const skinOf = (h: SurvHeroId): SurvSkinId => {
     const sk = skinSel[h] ?? "classic";
     return owns(h, sk) ? sk : "classic";
@@ -298,6 +343,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         }
       }
       rendererRef.current?.pushFx(list, view, myId, numbersRef.current);
+      renderer3dRef.current?.pushFx(list, view);
     },
     [myId, showBanner, showChest],
   );
@@ -309,6 +355,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     members: [],
     curses: [],
     hero,
+    map: "polyana",
+    mission: false,
     prev: null,
     cur: null,
     curAt: 0,
@@ -344,14 +392,14 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     resetUi();
     survMusic.stop();
     savedGames.delete(channelId);
-    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, remote: false }], curses);
-    sessRef.current = newSession("solo", { world, curses, hero });
+    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), remote: false }], curses, { map: mapNow, mission: missionSel });
+    sessRef.current = newSession("solo", { world, curses, hero, map: mapNow, mission: missionSel });
     setMode("solo");
     setPhase("playing");
   };
 
   const postRun = useCallback(
-    (s: Session, snap: { t: number; kills: number; level: number; gold: number; bosses: number; wave: number; streak: number; evolutions: number; tasks: number; bossTypes: string[] }, reason?: string) => {
+    (s: Session, snap: { t: number; kills: number; level: number; gold: number; bosses: number; wave: number; streak: number; evolutions: number; tasks: number; bossTypes: string[]; won: boolean }, reason?: string) => {
       if (s.mode === "spec") {
         setResult({ ...(lists as SurvListsDTO), record: false, goldEarned: 0, newHeroes: [], seconds: Math.floor(snap.t), kills: snap.kills, level: snap.level, reason });
         return;
@@ -370,6 +418,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         evolutions: snap.evolutions,
         tasks: snap.tasks,
         bossTypes: snap.bossTypes,
+        map: s.map,
+        mission: s.mission,
+        won: s.mission && snap.won,
       };
       setResult({ ...(lists as SurvListsDTO), record: false, goldEarned: 0, newHeroes: [], seconds: run.seconds, kills: run.kills, level: run.level, reason });
       if (run.seconds < 5) return;
@@ -400,7 +451,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       if (s.world) {
         const w = s.world;
         if (s.mode === "host" && s.partyId) getSocket()?.emit(SocketEvents.SurvEnd, { partyId: s.partyId, seconds: Math.floor(w.t), kills: w.kills, reason: reason === "stopped" ? "stopped" : undefined });
-        setEndInfo({ wave: w.wave, dmg: dmgOf(w.players.find((p) => p.uid === myId)?.dmgBy) });
+        setEndInfo({ wave: w.wave, dmg: dmgOf(w.players.find((p) => p.uid === myId)?.dmgBy), mission: s.mission ? { won: w.won, map: s.map } : null });
         postRun(
           s,
           {
@@ -414,11 +465,12 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             evolutions: w.players.find((p) => p.uid === myId)?.evos ?? 0,
             tasks: w.tasksDone,
             bossTypes: [...w.bossTypes],
+            won: w.won,
           },
           reason,
         );
       } else if (s.cur) {
-        setEndInfo({ wave: s.cur.wave, dmg: dmgOf(s.cur.view.players.find((p) => p.uid === myId)?.dmgBy) });
+        setEndInfo({ wave: s.cur.wave, dmg: dmgOf(s.cur.view.players.find((p) => p.uid === myId)?.dmgBy), mission: s.mission ? { won: s.cur.won, map: s.map } : null });
         const c = s.cur;
         postRun(
           s,
@@ -433,6 +485,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             evolutions: c.view.players.find((p) => p.uid === myId)?.evos ?? 0,
             tasks: c.tasksDone,
             bossTypes: c.bossTypes,
+            won: c.won,
           },
           reason,
         );
@@ -479,7 +532,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       if (st.resume && cur && !cur.ended && cur.partyId === st.partyId) return; // reconnected, same game
       if (st.spectator) {
         resetUi();
-        sessRef.current = newSession("spec", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses });
+        sessRef.current = newSession("spec", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, map: st.map ?? "polyana", mission: !!st.mission });
         setMode("spec");
         setPhase("playing");
         return;
@@ -496,15 +549,16 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         survMusic.stop();
         const metaOf = (uid: string) => (uid === myId ? (profileRef.current?.upgrades ?? {}) : (st.players.find((p) => p.userId === uid)?.meta ?? {}));
         const world = new World(
-          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), remote: p.userId !== myId })),
+          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, remote: p.userId !== myId })),
           st.curses,
+          { map: st.map ?? "polyana", mission: !!st.mission },
         );
-        sessRef.current = newSession("host", { world, partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero });
+        sessRef.current = newSession("host", { world, partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero, map: st.map ?? "polyana", mission: !!st.mission });
         setMode("host");
       } else {
         resetUi();
         survMusic.stop();
-        sessRef.current = newSession("guest", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero });
+        sessRef.current = newSession("guest", { partyId: st.partyId, hostId: st.hostId, members: st.players, curses: st.curses, hero: meM.hero, map: st.map ?? "polyana", mission: !!st.mission });
         setMode("guest");
       }
       setPhase("playing");
@@ -768,7 +822,24 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     if (!canvas || !wrap) return;
     const r = new Renderer(canvas);
     rendererRef.current = r;
-    const fit = () => r.resize(wrap.clientWidth, wrap.clientHeight);
+    const c3 = canvas3dRef.current;
+    let r3: Renderer3D | null = null;
+    let gone = false;
+    if (gfx === "3d" && c3) {
+      import("./render3d")
+        .then((m) => {
+          if (gone) return;
+          r3 = new m.Renderer3D(c3);
+          r3.resize(wrap.clientWidth, wrap.clientHeight);
+          renderer3dRef.current = r3;
+          if (import.meta.env.DEV) (window as unknown as { __surv3d?: unknown }).__surv3d = r3;
+        })
+        .catch(() => {});
+    }
+    const fit = () => {
+      r.resize(wrap.clientWidth, wrap.clientHeight);
+      r3?.resize(wrap.clientWidth, wrap.clientHeight);
+    };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
@@ -862,6 +933,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           streak: w.streak,
           task: w.task ? { text: w.task.text, progress: Math.floor(w.task.progress), target: w.task.target, state: w.task.state } : null,
           theme: w.theme,
+          mission: w.missionView,
           players: w.players.map((p) => ({ ...p, speed: p.st.speed, skillMax: HEROES[p.hero].skill.cd, weapons: p.weapons })) as unknown as NetPlayer[],
         };
         if (w.over && !s.ended) finishRef.current();
@@ -933,11 +1005,19 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           streak: c.streak,
           task: c.task,
           theme: c.theme,
+          mission: c.mission,
           players: c.view.players,
         };
       }
 
-      if (view) r.draw(view, { me: s.mode === "spec" ? null : myId, night: s.curses.includes("night"), numbers: numbersRef.current, fxAlpha: fxAlphaRef.current, camX, camY }, dt);
+      if (view) {
+        const g3 = r3 as Renderer3D | null;
+        const three = !!g3 && g3.ready && !g3.failed;
+        const night = s.curses.includes("night");
+        const me = s.mode === "spec" ? null : myId;
+        r.draw(view, { me, night, numbers: numbersRef.current, fxAlpha: fxAlphaRef.current, camX, camY, three, map: s.map }, dt);
+        if (three) g3!.render(view, { me, camX: camX + r.shakeX, camY: camY + r.shakeY, zoom: r.zoom, night, map: s.map }, dt);
+      }
 
       // music follows the boss
       if (musicRef.current && !pausedRef.current) survMusic.play(!!hudSrc?.boss);
@@ -959,9 +1039,12 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       cancelAnimationFrame(raf);
       ro.disconnect();
       survMusic.pause();
+      gone = true;
+      r3?.dispose();
+      if (renderer3dRef.current === r3) renderer3dRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, myId]);
+  }, [phase, myId, gfx]);
 
   // dev-only hooks for the e2e tests
   useEffect(() => {
@@ -1019,7 +1102,22 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       .then((r) => setLists(r.data))
       .catch(() => setError("Не стига златото."));
 
-  const createParty = () => getSocket()?.emit(SocketEvents.SurvCreate, { channelId, hero, curses, meta: profile?.upgrades ?? {}, skin: skinOf(hero) });
+  const createParty = () => getSocket()?.emit(SocketEvents.SurvCreate, { channelId, hero, curses, meta: profile?.upgrades ?? {}, skin: skinOf(hero), map: mapNow, mission: missionSel });
+  const chooseMap = (m: SurvMapId, mission: boolean) => {
+    setMapSel(m);
+    setMissionSel(mission);
+    if (myParty && myParty.hostId === myId && myParty.state === "lobby") getSocket()?.emit(SocketEvents.SurvSetup, { partyId: myParty.id, map: m, mission });
+  };
+  const buyRune = (id: SurvRuneId) =>
+    http
+      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/rune`, { rune: id })
+      .then((r) => setLists(r.data))
+      .catch(() => setError("Не стига златото."));
+  const wearRunes = (equipped: SurvRuneId[]) =>
+    http
+      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/runes`, { equipped })
+      .then((r) => setLists(r.data))
+      .catch(() => setError("Няма свободно място за руна."));
   const joinParty = (partyId: string) => getSocket()?.emit(SocketEvents.SurvJoin, { partyId, hero, meta: profile?.upgrades ?? {}, skin: skinOf(hero) });
   const pickSkin = (sk: SurvSkinId) => {
     setSkinSel((m) => ({ ...m, [hero]: sk }));
@@ -1081,6 +1179,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         <button className={tab === "shop" ? "on" : ""} onClick={() => setTab("shop")}>
           🛒 Магазин
         </button>
+        <button className={tab === "runes" ? "on" : ""} onClick={() => setTab("runes")}>
+          ᚱ Руни
+        </button>
         <button className={tab === "top" ? "on" : ""} onClick={() => setTab("top")}>
           🏆 Класация
         </button>
@@ -1136,6 +1237,41 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             </div>
           </section>
           <section className="sv-col">
+            <h3>🗺️ Карта</h3>
+            <div className="sv-maps">
+              {SURV_MAPS.map((m) => {
+                const open = openMaps.includes(m.id);
+                const d = MAPS[m.id];
+                const wins = profile?.missions?.[m.id] ?? 0;
+                return (
+                  <button
+                    key={m.id}
+                    className={`sv-map ${mapNow === m.id ? "on" : ""} ${open ? "" : "locked"}`}
+                    disabled={!open || (!!myParty && myParty.hostId !== myId)}
+                    onClick={() => chooseMap(m.id, missionSel)}
+                    title={open ? d.desc : "Спечели мисията на предишната карта"}
+                    style={{ ["--map-c" as string]: d.ground.base }}
+                  >
+                    <span className="sv-map-icon">{d.icon}</span>
+                    <b>{d.name}</b>
+                    <small>{open ? (wins ? `🏆 ×${wins}` : d.desc) : "🔒 спечели предишната мисия"}</small>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="sv-modes">
+              <button className={missionSel ? "on" : ""} onClick={() => chooseMap(mapNow, true)} disabled={!!myParty && myParty.hostId !== myId}>
+                🎯 Мисия
+                <small>
+                  Разбий {MISSION_ALTARS} капища (всяко дава дар от боговете), призови {ENEMIES[MAPS[mapNow].final].name} и го повали — до {12} мин. Награда 🪙 {SURV_MAPS.find((m) => m.id === mapNow)?.winGold}
+                  (×2 първия път)
+                </small>
+              </button>
+              <button className={!missionSel ? "on" : ""} onClick={() => chooseMap(mapNow, false)} disabled={!!myParty && myParty.hostId !== myId}>
+                ♾️ Безкрайно
+                <small>Вълна след вълна, докато паднеш.</small>
+              </button>
+            </div>
             <h3>
               Проклятия <span className="sv-dim">(по-трудно, повече злато: ×{goldMul.toFixed(2)})</span>
             </h3>
@@ -1165,6 +1301,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               <div className="sv-party mine">
                 <div className="sv-party-head">
                   {myParty.hostId === myId ? "Твоята дружина" : `Дружината на ${myParty.players.find((p) => p.userId === myParty.hostId)?.username}`}
+                  <span className="sv-party-map">
+                    {MAPS[myParty.map ?? "polyana"].icon} {MAPS[myParty.map ?? "polyana"].name} · {myParty.mission ? "🎯 мисия" : "♾️"}
+                  </span>
                   {myParty.curses.length > 0 && <span className="sv-party-curses">{myParty.curses.map((c) => CURSE_TEXT[c].icon).join("")}</span>}
                 </div>
                 {myParty.players.map((p) => (
@@ -1240,6 +1379,70 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           <button className="sv-refund" onClick={refund}>
             ↩ Върни всичко (пълна сума)
           </button>
+        </div>
+      )}
+
+      {tab === "runes" && profile && (
+        <div className="sv-runes">
+          <div className="sv-runes-head">
+            ᚱ Руните се носят във всяка игра. Места: <b>{(profile.equipped ?? []).length}/{runeSlots}</b>
+            <span className="sv-dim"> (+1 място след 3 повалени боса, +1 след първата спечелена мисия)</span>
+          </div>
+          <div className="sv-rune-list">
+            {SURV_RUNES.map((r) => {
+              const lvl = profile.runes?.[r.id] ?? 0;
+              const on = (profile.equipped ?? []).includes(r.id);
+              const cost = survRuneCost(r.id, lvl);
+              const t = RUNE_TEXT[r.id];
+              return (
+                <div key={r.id} className={`sv-rune ${on ? "on" : ""} ${lvl ? "" : "none"}`}>
+                  <span className="sv-rune-glyph">{t.glyph}</span>
+                  <b>{t.name}</b>
+                  <small>{t.desc(Math.max(1, lvl))}</small>
+                  <div className="sv-pips">
+                    {Array.from({ length: r.max }, (_, i) => (
+                      <i key={i} className={i < lvl ? "on" : ""} />
+                    ))}
+                  </div>
+                  <div className="sv-row">
+                    <button onClick={() => buyRune(r.id)} disabled={lvl >= r.max || profile.gold < cost}>
+                      {lvl >= r.max ? "Макс." : `${lvl ? "⬆" : "Купи"} 🪙 ${cost}`}
+                    </button>
+                    {lvl > 0 && (
+                      <button
+                        className={on ? "on" : ""}
+                        disabled={!on && (profile.equipped ?? []).length >= runeSlots}
+                        onClick={() => wearRunes(on ? (profile.equipped ?? []).filter((x) => x !== r.id) : [...(profile.equipped ?? []), r.id])}
+                      >
+                        {on ? "✅ Носиш я" : "Сложи"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <h3>⚡ Боговете</h3>
+          <div className="sv-gods">
+            {(Object.keys(GODS) as (keyof typeof GODS)[]).map((g) => (
+              <div key={g} className="sv-god" style={{ ["--god" as string]: GODS[g].color }}>
+                <b>
+                  {GODS[g].icon} {GODS[g].name}
+                </b>
+                <small>3 негови дара = благословия: {GODS[g].blessing}.</small>
+                <div className="sv-god-gifts">
+                  {(Object.keys(GIFTS) as GiftId[])
+                    .filter((id) => GIFTS[id].god === g)
+                    .map((id) => (
+                      <span key={id} title={GIFTS[id].desc(1)}>
+                        {GIFTS[id].icon} {GIFTS[id].name}
+                      </span>
+                    ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="sv-dim">Даровете идват от картите при ново ниво (всяко 5-о ниво са само дарове) и от всяко разбито капище в мисиите.</div>
         </div>
       )}
 
@@ -1359,6 +1562,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       }}
       onContextMenu={(e) => mouseMove !== "off" && e.preventDefault()}
     >
+      {gfx === "3d" && <canvas ref={canvas3dRef} className="sv-canvas3d" key="c3d" />}
       <canvas ref={canvasRef} className="sv-canvas" />
       {hud && (
         <>
@@ -1385,6 +1589,16 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                     </div>
                   ))}
               </div>
+              {me_ && Object.keys(me_.gifts ?? {}).length > 0 && (
+                <div className="sv-weapons">
+                  {(Object.entries(me_.gifts ?? {}) as [GiftId, number][]).map(([id, l]) => (
+                    <div key={id} className="sv-slot small gift" title={`${GODS[GIFTS[id].god].name}: ${GIFTS[id].name} ${l} — ${GIFTS[id].desc(l)}`} style={{ ["--god" as string]: GODS[GIFTS[id].god].color }}>
+                      <i>{GIFTS[id].icon}</i>
+                      <span>{l}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="sv-clock">
               {hud.breakT > 0 ? (
@@ -1405,6 +1619,18 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               <span>
                 ⏱ {fmtTime(hud.t)} · 💀 {hud.kills} · 🪙 {hud.gold}
               </span>
+              {hud.mission && (
+                <div className={`sv-mission ph${hud.mission.phase}`}>
+                  {hud.mission.phase === 0 && (
+                    <>
+                      🗿 Капища {hud.mission.total - hud.mission.left}/{hud.mission.total} · ⏳ {fmtTime(hud.mission.tLeft)}
+                    </>
+                  )}
+                  {hud.mission.phase === 1 && <>🌀 Застанете в портала, за да призовете великана! · ⏳ {fmtTime(hud.mission.tLeft)}</>}
+                  {hud.mission.phase === 2 && <>⚔️ Повалете великана!</>}
+                  {hud.mission.phase === 3 && <>🏆 Победа!</>}
+                </div>
+              )}
               {hud.task && (
                 <div className={`sv-task ${hud.task.state > 0 ? "done" : hud.task.state < 0 ? "failed" : ""}`}>
                   <span>
@@ -1431,6 +1657,12 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 <span>{fxAlpha < 0.05 ? "🙈" : "✨"}</span>
                 <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
               </label>
+              <button
+                onClick={() => setGfx((g) => (g === "3d" ? "2d" : canWebGL2() ? "3d" : "2d"))}
+                title={gfx === "3d" ? "Графика: 3D модели (цъкни за старата 2D, ако забива)" : "Графика: 2D (цъкни за 3D модели)"}
+              >
+                {gfx === "3d" ? "🧊" : "🖼️"}
+              </button>
               {!touch && (
                 <button
                   onClick={() => setMouseMove((m) => (m === "off" ? "hold" : m === "hold" ? "follow" : "off"))}
@@ -1533,24 +1765,42 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           <div className="sv-offers-title">⭐ Ниво {offers.level}! Избери:</div>
           <div className="sv-cards">
             {offers.offers.map((o, i) => (
-              <button key={i} className="sv-card" onClick={() => pick(i)}>
+              <button key={i} className={`sv-card ${o.kind === "gift" ? "gift" : ""}`} onClick={() => pick(i)} style={o.kind === "gift" ? { ["--god" as string]: GODS[GIFTS[o.id].god].color } : undefined}>
                 <span className="sv-card-key">{i + 1}</span>
-                {o.kind === "weapon" ? <img src={weaponIcon(o.id)} alt="" /> : <span className="sv-card-emoji">{o.kind === "passive" ? PASSIVES[o.id].icon : o.kind === "gold" ? "🪙" : "🍞"}</span>}
-                <b>{o.kind === "weapon" ? WEAPONS[o.id].name : o.kind === "passive" ? PASSIVES[o.id].name : offerTitle(o)}</b>
-                <span className={`sv-card-lvl ${(o.kind === "weapon" || o.kind === "passive") && o.lvl === 1 ? "new" : ""}`}>
-                  {o.kind === "weapon" || o.kind === "passive" ? (o.lvl === 1 ? "Ново!" : `Ниво ${o.lvl}`) : ""}
-                </span>
-                <small>
-                  {o.kind === "weapon"
-                    ? o.lvl === 1
-                      ? WEAPONS[o.id].desc
-                      : weaponUpText(o.id, o.lvl)
-                    : o.kind === "passive"
-                      ? PASSIVES[o.id].desc
-                      : o.kind === "gold"
-                        ? "Нищо ново не остана — вземи злато."
-                        : "Възстановява половината живот."}
-                </small>
+                {o.kind === "gift" ? (
+                  <>
+                    <span className="sv-card-god">
+                      {GODS[GIFTS[o.id].god].icon} Дар от {GODS[GIFTS[o.id].god].name}
+                    </span>
+                    <span className="sv-card-emoji">{GIFTS[o.id].icon}</span>
+                    <b>{GIFTS[o.id].name}</b>
+                    <span className={`sv-card-lvl ${o.lvl === 1 ? "new" : ""}`}>{o.lvl === 1 ? "Ново!" : `Ниво ${o.lvl}`}</span>
+                    <small>{GIFTS[o.id].desc(o.lvl)}</small>
+                  </>
+                ) : o.kind === "weapon" ? (
+                  <img src={weaponIcon(o.id)} alt="" />
+                ) : (
+                  <span className="sv-card-emoji">{o.kind === "passive" ? PASSIVES[o.id].icon : o.kind === "gold" ? "🪙" : "🍞"}</span>
+                )}
+                {o.kind !== "gift" && (
+                  <>
+                    <b>{o.kind === "weapon" ? WEAPONS[o.id].name : o.kind === "passive" ? PASSIVES[o.id].name : offerTitle(o)}</b>
+                    <span className={`sv-card-lvl ${(o.kind === "weapon" || o.kind === "passive") && o.lvl === 1 ? "new" : ""}`}>
+                      {o.kind === "weapon" || o.kind === "passive" ? (o.lvl === 1 ? "Ново!" : `Ниво ${o.lvl}`) : ""}
+                    </span>
+                    <small>
+                      {o.kind === "weapon"
+                        ? o.lvl === 1
+                          ? WEAPONS[o.id].desc
+                          : weaponUpText(o.id, o.lvl)
+                        : o.kind === "passive"
+                          ? PASSIVES[o.id].desc
+                          : o.kind === "gold"
+                            ? "Нищо ново не остана — вземи злато."
+                            : "Възстановява половината живот."}
+                    </small>
+                  </>
+                )}
                 {o.kind === "weapon" && <em className="sv-evo-hint">🌟 + {PASSIVES[WEAPONS[o.id].evo.passive].icon} {PASSIVES[WEAPONS[o.id].evo.passive].name}</em>}
                 {o.kind === "passive" && <em className="sv-evo-hint">{evoFor(o.id)}</em>}
               </button>
@@ -1587,7 +1837,15 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
 
   const over = result && (
     <div className="sv-over">
-      <h2>{result.reason === "host-left" ? "Домакинът излезе" : result.reason === "stopped" ? "Край на играта" : "🪦 Паднахте!"}</h2>
+      <h2>
+        {endInfo?.mission?.won
+          ? `🏆 Мисията е изпълнена — ${MAPS[endInfo.mission.map].name} е свободна!`
+          : result.reason === "host-left"
+            ? "Домакинът излезе"
+            : result.reason === "stopped"
+              ? "Край на играта"
+              : "🪦 Паднахте!"}
+      </h2>
       <div className="sv-over-stats">
         {endInfo && (
           <div>
@@ -1623,8 +1881,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             const total = endInfo.dmg.reduce((a, [, x]) => a + x, 0) || 1;
             return (
               <div key={wi} className="sv-dmg-row">
-                {id ? <img src={weaponIcon(id)} alt="" /> : <i>✨</i>}
-                <span>{id ? WEAPONS[id].name : "Умение и други"}</span>
+                {id ? <img src={weaponIcon(id)} alt="" /> : <i>{wi === -3 ? "⚡" : "✨"}</i>}
+                <span>{id ? WEAPONS[id].name : wi === -3 ? "Дарове от боговете" : "Умение и други"}</span>
                 <div className="sv-dmg-bar">
                   <div style={{ width: `${(v / endInfo.dmg[0]![1]) * 100}%` }} />
                 </div>

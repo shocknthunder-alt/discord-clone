@@ -1,4 +1,4 @@
-import type { SurvAchId, SurvCurseId, SurvHeroId, SurvMetaKey, SurvSkinId } from "@discord-clone/shared";
+import type { SurvAchId, SurvCurseId, SurvHeroId, SurvMapId, SurvMetaKey, SurvRuneId, SurvSkinId } from "@discord-clone/shared";
 
 // 🧟 Шмиркленд — everything the game is made of: heroes, weapons, passives, evolutions, enemies,
 // bosses, map events, curses and the gold shop. Numbers here, behaviour in engine.ts.
@@ -410,7 +410,12 @@ export type EnemyId =
   | "swampking"
   | "kukerchief"
   | "ghostking"
-  | "bearking";
+  | "bearking"
+  | "altar"
+  | "velikan"
+  | "gorskicar"
+  | "blatnamaika"
+  | "ledenvelikan";
 
 export interface EnemyDef {
   id: EnemyId;
@@ -460,6 +465,12 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   kukerchief: { id: "kukerchief", name: "Кукерският вожд", hp: 4800, speed: 66, dmg: 26, r: 36, xp: 150, from: 999, boss: true },
   ghostking: { id: "ghostking", name: "Таласъмският цар", hp: 4200, speed: 76, dmg: 22, r: 34, xp: 150, from: 999, boss: true, ranged: true, ghost: true },
   bearking: { id: "bearking", name: "Мечият цар", hp: 6400, speed: 58, dmg: 32, r: 44, xp: 170, from: 999, boss: true },
+  // 🎯 missions: the sanctuaries to break, and each map's final giant
+  altar: { id: "altar", name: "Капище", hp: 260, speed: 0, dmg: 0, r: 30, xp: 0, from: 999 },
+  velikan: { id: "velikan", name: "Великанът Балкан", hp: 16000, speed: 46, dmg: 34, r: 56, xp: 300, from: 999, boss: true, ranged: true },
+  gorskicar: { id: "gorskicar", name: "Горският цар", hp: 21000, speed: 58, dmg: 36, r: 54, xp: 350, from: 999, boss: true, ranged: true },
+  blatnamaika: { id: "blatnamaika", name: "Блатната майка", hp: 26000, speed: 40, dmg: 36, r: 58, xp: 400, from: 999, boss: true, ranged: true },
+  ledenvelikan: { id: "ledenvelikan", name: "Леденият великан", hp: 32000, speed: 50, dmg: 40, r: 60, xp: 450, from: 999, boss: true, ranged: true },
 };
 
 export const ENEMY_IDS = Object.keys(ENEMIES) as EnemyId[];
@@ -498,6 +509,157 @@ export const BOSS_SPELLS: Partial<Record<EnemyId, [BossMove, string][]>> = {
   swampking: [["wall", "🌊 Тинеста вълна"], ["shield", "🪵 Тинеста броня"]],
   ghostking: [["blink", "👻 През стените"], ["summon", "💀 Свитата на мъртвите"]],
   bearking: [["leap", "🐻 Мечи скок"], ["shield", "🧥 Дебела кожа"]],
+  velikan: [["meteors", "🪨 Скалите на Балкана"], ["leap", "⛰️ Стъпката на великана"], ["nova", "💥 Удар в земята"]],
+  gorskicar: [["summon", "🐺 Горската свита"], ["wall", "🌲 Стена от дървета"], ["leap", "🦌 Скок през гората"]],
+  blatnamaika: [["acid", "🫧 Тинести мехури"], ["spiral", "🌀 Водовъртеж"], ["summon", "🐸 Децата на блатото"]],
+  ledenvelikan: [["firering", "❄️ Леден обръч"], ["meteors", "🧊 Ледени късове"], ["wall", "🌨️ Виелица"]],
+};
+
+/** the final giants of the missions (one per map) */
+export const FINAL_BOSSES: EnemyId[] = ["velikan", "gorskicar", "blatnamaika", "ledenvelikan"];
+
+/* ───────────── 🗺️ maps (2026-11-27) ───────────── */
+
+export interface MapDef {
+  id: SurvMapId;
+  name: string;
+  icon: string;
+  desc: string;
+  /** the giant you call after the 5 sanctuaries */
+  final: EnemyId;
+  /** harder maps: more health / damage */
+  hpMul: number;
+  dmgMul: number;
+  /** monsters this map has more of (they also come earlier) */
+  favour: EnemyId[];
+  /** ground colours (2D picture + 3D texture) */
+  ground: { base: string; dark: string; light: string; specks: string[] };
+  /** 3D light: sun colour + strength, sky / ground fill */
+  light: { sun: number; sunI: number; sky: number; earth: number; skyI: number; clear: number };
+  /** which scenery (3D) */
+  props: "meadow" | "deadwood" | "swamp" | "mountain";
+}
+export const MAPS: Record<SurvMapId, MapDef> = {
+  polyana: {
+    id: "polyana",
+    name: "Поляната",
+    icon: "🌾",
+    desc: "Селото, гробището и есенната гора. Тук всичко започва.",
+    final: "velikan",
+    hpMul: 1,
+    dmgMul: 1,
+    favour: [],
+    ground: { base: "#3b5a2c", dark: "#2f4a23", light: "#4d7038", specks: ["#e8d84a", "#e86a8a", "#ffffff", "#9a7ae8"] },
+    light: { sun: 0xfff0d8, sunI: 2.4, sky: 0xc8dcff, earth: 0x4a6a34, skyI: 1.25, clear: 0x263a1d },
+    props: "meadow",
+  },
+  gora: {
+    id: "gora",
+    name: "Мъртвата гора",
+    icon: "🌲",
+    desc: "Изсъхнали дървета, вълци и гарвани. Слънцето почти не стига дотук.",
+    final: "gorskicar",
+    hpMul: 1.2,
+    dmgMul: 1.1,
+    favour: ["wolf", "werewolf", "raven", "spider", "bear"],
+    ground: { base: "#2e3326", dark: "#22261c", light: "#3c4230", specks: ["#6a5a3a", "#8a7a5a", "#4a5a3a", "#9a3a2a"] },
+    light: { sun: 0xc8c0ff, sunI: 1.4, sky: 0x8a90b8, earth: 0x2a2e22, skyI: 1.0, clear: 0x1a1e16 },
+    props: "deadwood",
+  },
+  blato: {
+    id: "blato",
+    name: "Блатото",
+    icon: "🐸",
+    desc: "Тиня, мъгла и отрова. Блатниците излизат отрано.",
+    final: "blatnamaika",
+    hpMul: 1.45,
+    dmgMul: 1.2,
+    favour: ["blatnik", "witch", "zombie", "spider"],
+    ground: { base: "#3a4428", dark: "#2c3520", light: "#4c5a30", specks: ["#7aa04a", "#a8c060", "#5a7a8a", "#c0d080"] },
+    light: { sun: 0xe8ffc8, sunI: 1.7, sky: 0xa8c8a0, earth: 0x3a4a28, skyI: 1.2, clear: 0x20281a },
+    props: "swamp",
+  },
+  planina: {
+    id: "planina",
+    name: "Пирин",
+    icon: "🏔️",
+    desc: "Сняг, ледени духове и кукери. Най-трудната карта.",
+    final: "ledenvelikan",
+    hpMul: 1.75,
+    dmgMul: 1.3,
+    favour: ["skeleton", "ghost", "yuda", "kuker", "wolf"],
+    ground: { base: "#c8d2dc", dark: "#aab6c4", light: "#e4ecf4", specks: ["#ffffff", "#9aa8b8", "#7a8a9a", "#dfe8ff"] },
+    light: { sun: 0xf4f8ff, sunI: 2.2, sky: 0xdce8ff, earth: 0x8a96a8, skyI: 1.3, clear: 0xa8b4c2 },
+    props: "mountain",
+  },
+};
+/** 🎯 a mission: break the sanctuaries, call the giant before this many seconds (or it comes by itself) */
+export const MISSION_ALTARS = 5;
+export const MISSION_SECONDS = 12 * 60;
+
+/* ───────────── ⚡ gods + their gifts (2026-11-27) ───────────── */
+
+export type GodId = "perun" | "veles" | "mokosh" | "dazhbog";
+export const GODS: Record<GodId, { name: string; icon: string; color: string; blessing: string }> = {
+  perun: { name: "Перун", icon: "⚡", color: "#7ab8ff", blessing: "мълниите удрят с 50% повече и по още 2 врага" },
+  veles: { name: "Велес", icon: "🐍", color: "#7ad05a", blessing: "отровата е двойно по-силна" },
+  mokosh: { name: "Мокош", icon: "🌾", color: "#f2c86a", blessing: "пелената се връща двойно по-бързо, веднъж те спасява от смърт" },
+  dazhbog: { name: "Дажбог", icon: "☀️", color: "#ff9a3a", blessing: "слънчевите взривове са с 50% по-големи" },
+};
+export const GOD_IDS = Object.keys(GODS) as GodId[];
+export type GiftId =
+  | "perun_strike"
+  | "perun_crit"
+  | "perun_dash"
+  | "perun_storm"
+  | "veles_poison"
+  | "veles_bloom"
+  | "veles_skin"
+  | "veles_fang"
+  | "mokosh_veil"
+  | "mokosh_water"
+  | "mokosh_thread"
+  | "mokosh_harvest"
+  | "dazh_flare"
+  | "dazh_burn"
+  | "dazh_wheel"
+  | "dazh_dawn";
+export const GIFT_MAX = 3;
+export const GIFTS: Record<GiftId, { god: GodId; name: string; icon: string; desc: (lvl: number) => string }> = {
+  perun_strike: { god: "perun", name: "Гръмотевица", icon: "🌩️", desc: (l) => `на всеки ${(4 - 0.7 * l).toFixed(1)} с мълния удря ${1 + l} врага (${25 + 20 * l} щети)` },
+  perun_crit: { god: "perun", name: "Перунов знак", icon: "ᛉ", desc: (l) => `+${7 * l}% критичен удар; критичните удари пускат мълния към съсед` },
+  perun_dash: { god: "perun", name: "Гръмовен скок", icon: "💨", desc: (l) => `претъркулването завършва с гръм (${30 + 25 * l} щети)` },
+  perun_storm: { god: "perun", name: "Буреносен гняв", icon: "⛈️", desc: (l) => `като те ударят, мълнии удрят ${3 + l} врага около теб` },
+  veles_poison: { god: "veles", name: "Змийска отрова", icon: "🐍", desc: (l) => `ударите тровят: ${3 + 4 * l} щети в секунда за 3 с` },
+  veles_bloom: { god: "veles", name: "Отровен цвят", icon: "🌺", desc: (l) => `${8 * l}% от убитите избухват в отровен облак` },
+  veles_skin: { god: "veles", name: "Змийска кожа", icon: "🦎", desc: (l) => `+${l} броня, +${10 * l}% живот` },
+  veles_fang: { god: "veles", name: "Вълчи зъб", icon: "🐺", desc: (l) => `+${6 * l}% щети, +${5 * l}% бързина` },
+  mokosh_veil: { god: "mokosh", name: "Пелената на Мокош", icon: "🧶", desc: (l) => `на всеки ${14 - 2 * l} с пелена поема един удар` },
+  mokosh_water: { god: "mokosh", name: "Жива вода", icon: "💧", desc: (l) => `+${(0.4 * l).toFixed(1)} живот/с, всяко ново ниво лекува ${8 * l}%` },
+  mokosh_thread: { god: "mokosh", name: "Нишката на съдбата", icon: "🧵", desc: (l) => `+${8 * l}% късмет, +${15 * l}% злато` },
+  mokosh_harvest: { god: "mokosh", name: "Жътва", icon: "🌾", desc: (l) => `+${10 * l}% опит, +${15 * l}% събиране` },
+  dazh_flare: { god: "dazhbog", name: "Слънчев изблик", icon: "🌞", desc: (l) => `на всеки ${6 - l} с огнен взрив около теб (${20 + 18 * l} щети)` },
+  dazh_burn: { god: "dazhbog", name: "Изгаряне", icon: "🔥", desc: (l) => `${10 * l}% от убитите избухват в пламъци` },
+  dazh_wheel: { god: "dazhbog", name: "Слънчево колело", icon: "☸️", desc: (l) => `+${8 * l}% размер на атаките, +${8 * l}% скорост на снарядите` },
+  dazh_dawn: { god: "dazhbog", name: "Зора", icon: "🌅", desc: (l) => `+${7 * l}% щети, +${10 * l}% щети по босове` },
+};
+export const GIFT_IDS = Object.keys(GIFTS) as GiftId[];
+
+/* ───────────── ᚱ runes (permanent, worn in slots) ───────────── */
+
+export const RUNE_TEXT: Record<SurvRuneId, { name: string; glyph: string; desc: (lvl: number) => string }> = {
+  sila: { name: "Руна на силата", glyph: "ᛏ", desc: (l) => `+${6 * l}% щети` },
+  zhivot: { name: "Руна на живота", glyph: "ᛒ", desc: (l) => `+${10 * l}% живот` },
+  barzina: { name: "Руна на вятъра", glyph: "ᚱ", desc: (l) => `+${4 * l}% бързина` },
+  vreme: { name: "Руна на времето", glyph: "ᛃ", desc: (l) => `оръжията с ${4 * l}% по-бързо` },
+  kasmet: { name: "Руна на късмета", glyph: "ᚷ", desc: (l) => `+${6 * l}% късмет` },
+  magnit: { name: "Руна на привличането", glyph: "ᛟ", desc: (l) => `+${15 * l}% събиране` },
+  opit: { name: "Руна на мъдростта", glyph: "ᚨ", desc: (l) => `+${5 * l}% опит` },
+  zlato: { name: "Руна на златото", glyph: "ᚠ", desc: (l) => `+${10 * l}% злато` },
+  perun: { name: "Перунова руна", glyph: "⚡", desc: (l) => `започваш с дар от Перун (ниво ${l})` },
+  veles: { name: "Велесова руна", glyph: "🐍", desc: (l) => `започваш с дар от Велес (ниво ${l})` },
+  mokosh: { name: "Руна на Мокош", glyph: "🌾", desc: (l) => `започваш с дар от Мокош (ниво ${l})` },
+  dazhbog: { name: "Дажбогова руна", glyph: "☀️", desc: (l) => `започваш с дар от Дажбог (ниво ${l})` },
 };
 
 /** 🌊 named wave themes: which enemies come (only those already "open" by wave); never the same twice in a row */
@@ -620,6 +782,8 @@ export const ACH_TEXT: Record<SurvAchId, { name: string; icon: string; desc: str
   level50: { name: "Ниво 50", icon: "⭐", desc: "Стигни ниво 50 в една игра" },
   veteran: { name: "Ветеран", icon: "🎖️", desc: "Изиграй 25 игри" },
   allHeroes: { name: "Всички герои", icon: "🧑‍🤝‍🧑", desc: "Отключи всички 9 героя" },
+  mission1: { name: "Великаноубиец", icon: "🗿", desc: "Спечели мисия" },
+  missionAll: { name: "Покорител на Шмиркленд", icon: "🏔️", desc: "Спечели мисиите на всички карти" },
 };
 
 export const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
-import { api, closeAll, expectNoCrashes, openAs, openServer, openTextChannel, register, screenshotsOnFailure, serverWith } from "./helpers";
+import { API, api, closeAll, expectNoCrashes, openAs, openServer, openTextChannel, register, screenshotsOnFailure, serverWith } from "./helpers";
 
 screenshotsOnFailure();
 mkdirSync("explore", { recursive: true });
@@ -216,5 +216,115 @@ test.describe("🧟 Шмиркленд", () => {
 
     for (const x of [a, b, c]) expectNoCrashes(x.page);
     await closeAll(a.context, b.context, c.context);
+  });
+
+  test("🎯 мисия: 5 капища → дарове от боговете → портал → великан → победа, нова карта, ᚱ руна", async ({ browser }) => {
+    test.setTimeout(180_000);
+    type W = {
+      mission: boolean;
+      altarsLeft: number;
+      missionPhase: number;
+      won: boolean;
+      finalBoss: unknown;
+      t: number;
+      enemies: { type: string; dead: boolean }[];
+      marks: { kind: number; x: number; y: number }[];
+      players: { x: number; y: number; invulnT: number; runes: Record<string, number>; gifts: Record<string, number> }[];
+      hurt: (e: unknown, d: number, p: unknown) => void;
+    };
+    const w = <T,>(page: Page, fn: (w: W) => T) => page.evaluate(`(${fn.toString()})(window.__survWorld())`) as Promise<T>;
+    const clearCards = async (page: Page) => {
+      for (let n = 0; n < 10 && (await page.locator(".sv-card").count()) > 0; n++) {
+        await page.keyboard.press("Digit1");
+        await page.waitForTimeout(250);
+      }
+    };
+    const ana = await register("misia");
+    const server = await serverWith(ana);
+    const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиркленд", type: "survivors" });
+    const a = await openAs(browser, ana);
+    await quiet(a.page);
+    await a.page.addInitScript(() => localStorage.setItem("survGfx", "2d"));
+    await a.page.reload();
+    await openServer(a.page, server.name);
+    await openTextChannel(a.page, "шмиркленд");
+    // only the first map is open
+    await expect(a.page.locator(".sv-map")).toHaveCount(4);
+    await expect(a.page.locator(".sv-map.locked")).toHaveCount(3);
+    await a.page.locator(".sv-modes button", { hasText: "Мисия" }).click();
+    await a.page.getByRole("button", { name: /Играй сам/ }).click();
+    await expect(a.page.locator(".sv-mission")).toContainText("Капища 0/5");
+    expect(await w(a.page, (x) => x.enemies.filter((e) => e.type === "altar").length)).toBe(5);
+
+    // a sanctuary falls → the gods' cards
+    await w(a.page, (x) => {
+      x.players[0]!.invulnT = 999;
+      x.hurt(x.enemies.find((e) => e.type === "altar"), 1e7, x.players[0]);
+    });
+    await expect(a.page.locator(".sv-card.gift").first()).toBeVisible();
+    await expect(a.page.locator(".sv-card.gift").first()).toContainText("Дар от");
+    await clearCards(a.page);
+    expect(Object.keys(await w(a.page, (x) => x.players[0]!.gifts)).length).toBeGreaterThan(0);
+    for (let k = 0; k < 4; k++) {
+      await w(a.page, (x) => {
+        const al = x.enemies.find((e) => e.type === "altar" && !e.dead);
+        if (al) x.hurt(al, 1e7, x.players[0]);
+      });
+      await expect(a.page.locator(".sv-card").first()).toBeVisible();
+      await clearCards(a.page);
+    }
+    // the portal → the giant
+    await expect.poll(() => w(a.page, (x) => x.missionPhase)).toBe(1);
+    await expect(a.page.locator(".sv-mission")).toContainText("портала");
+    await w(a.page, (x) => {
+      const m = x.marks.find((k) => k.kind === 7)!;
+      x.players[0]!.x = m.x;
+      x.players[0]!.y = m.y;
+    });
+    await expect
+      .poll(async () => {
+        await clearCards(a.page);
+        return w(a.page, (x) => !!x.finalBoss);
+      }, { timeout: 20_000 })
+      .toBe(true);
+    await expect(a.page.locator(".sv-boss")).toContainText("Великанът Балкан");
+    await w(a.page, (x) => {
+      x.t = Math.max(x.t, 200); // the server wants 3+ minutes for a mission
+      x.hurt(x.finalBoss, 1e9, x.players[0]);
+    });
+    await expect
+      .poll(async () => {
+        await clearCards(a.page);
+        return a.page.locator(".sv-over").count();
+      }, { timeout: 20_000 })
+      .toBe(1);
+    await expect(a.page.locator(".sv-over h2")).toContainText("Мисията е изпълнена");
+    await expect(a.page.locator(".sv-unlock.ach", { hasText: "Великаноубиец" })).toBeVisible();
+    const lists = await api(ana.token, "GET", `/text-channels/${textChannel.id}/survivors`);
+    expect(lists.profile.missions).toEqual({ polyana: 1 });
+    // the server doesn't believe a 10-second win
+    const bad = await fetch(`${API}/api/text-channels/${textChannel.id}/survivors/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${ana.token}` },
+      body: JSON.stringify({ seconds: 10, kills: 5, level: 2, gold: 1, bosses: 0, coop: false, hero: "peyo", curses: [], map: "gora", mission: true, won: true }),
+    });
+    expect(bad.ok).toBe(true);
+    expect((await api(ana.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile.missions).toEqual({ polyana: 1 });
+
+    await a.page.getByRole("button", { name: "Към менюто" }).click();
+    await expect(a.page.locator(".sv-map.locked")).toHaveCount(2);
+
+    // ᚱ a rune: bought → worn → the next game starts with a gift of Перун
+    await a.page.locator(".sv-tabs button", { hasText: "Руни" }).click();
+    await a.page.locator(".sv-rune", { hasText: "Перунова руна" }).getByRole("button", { name: /Купи/ }).click();
+    await expect(a.page.locator(".sv-rune.on", { hasText: "Перунова руна" })).toBeVisible();
+    await a.page.locator(".sv-tabs button", { hasText: "Игра" }).click();
+    await a.page.locator(".sv-modes button", { hasText: "Безкрайно" }).click();
+    await a.page.getByRole("button", { name: /Играй сам/ }).click();
+    await expect.poll(() => w(a.page, (x) => x.players[0]!.runes.perun ?? 0)).toBe(1);
+    expect(await w(a.page, (x) => x.mission)).toBe(false);
+    expect(Object.keys(await w(a.page, (x) => x.players[0]!.gifts))).toHaveLength(1);
+    expectNoCrashes(a.page);
+    await closeAll(a.context);
   });
 });

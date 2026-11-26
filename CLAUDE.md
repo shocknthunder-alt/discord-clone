@@ -244,6 +244,30 @@ Owner pronouns unknown: use they/them.
   Co-op level-ups no longer stop the world (`World.pauseOnLevel` = solo only): whoever has cards open is shielded,
   host auto-picks after 15 s, a new level waits for the round. The host glides guests towards their 20 Hz positions
   (`netX/netY` + prediction along `dirX/dirY`) — they used to jump. Range inputs don't count as "typing" for the keys.
+  **v6 (2026-11-27, owner: "look as good as Jotunnslayer, add similar features")** — 🧊 REAL 3D: `render3d.ts` (three.js,
+  lazy-loaded chunk ~180 KB gz) on a WebGL canvas `.sv-canvas3d` UNDER the 2D canvas; `Renderer.draw(…, {three: true})` then
+  skips ground/decor/actors/pickups and only overlays effects, numbers, marks, bars. Camera = hand-made OBLIQUE projection
+  (`K` = 1.2: ground maps 1:1 to the 2D pixels, height goes up the screen) so both layers line up; 2D `shakeX/Y` is passed on.
+  Models: CC0 KayKit packs (Adventurers / Skeletons / Halloween Bits) in `client/public/surv3d/*.glb`, built by
+  `tools/surv3d/build.mjs` (meshopt, one shared rig, clips only in `skeleton_minion.glb`). Heroes = KayKit models recoloured by
+  swatch cells of the 8×4 palette texture (`HERO3D`: model, visible parts, borrowed weapons, `cells(look)` from `skinLook`),
+  AnimationMixer (idle/run/dodge/death/skill one-shot; Киро headspin, Баткан `2H_Melee_Attack_Spinning`). Humanoid enemies
+  (`EN3D`) = skeleton models with the walk BAKED into float textures (VAT, `bakeVat`, gl_VertexID + texelFetch, one InstancedMesh
+  per kind, per-instance tint/phase/flash); bosses (`BOSS3D`) own SkinnedMesh; animals/pickups = upright instanced sprites from
+  the old 2D pictures (`bbSet`); props instanced per map set. Toggle 🧊/🖼️ in the HUD (localStorage `survGfx`, phones default 2D).
+  🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
+  after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
+  🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a
+  gods'-gifts card round for everyone → portal (`MK.portal` 7, stand in it 4 s) → the map's giant (`FINAL_BOSSES`: velikan,
+  gorskicar, blatnamaika, ledenvelikan, own AI cases) → `won` → over after 4 s; after `MISSION_SECONDS` (12 min) the giant
+  comes by itself (+40% hp). Server: run `map/mission/won` (won only if ≥ 180 s), `missions` in SurvivorProfile.extra, win gold
+  `winGold` (×2 first time), achievements mission1 / missionAll. ⚡ GODS' GIFTS (`GIFTS`, 4 gods × 4, levels 1–3): Перун
+  lightning / crit chains / dash thunder / storm when hit, Велес poison (enemy `poisonT`, net bit 15) / bloom / skin / fang,
+  Мокош veil (`veilN`, player flag 32) / water / thread / harvest, Дажбог flare / burn / wheel / dawn; 3 gifts of one god =
+  blessing (`blessed`). Cards: every 5th level and every sanctuary = gifts only, else 22% one gift card. Damage index -3 =
+  gifts. ᚱ RUNES (shared `SURV_RUNES`, POST `/survivors/rune` buy, `/survivors/runes` wear; 2 slots +1 at 3 bosses +1 after a
+  mission win): stat runes + god runes (start with a gift of that god); co-op members get their worn runes from the server
+  (`survRunesOf`). Net: enemy type now 6 bits (bit 14 = +32: there are > 32 kinds), snapshot `ms` = mission. e2e 15 test 3.
 - **🎮 Games section** (2026-11-24): ChannelList puts channels of type trivia/draw/blocks/match/survivors (`GAME_TYPES`) in a folding "🎮 Игри (N)" section under the text channels (localStorage `gamesSectionOpen`; collapsed = only the open game + a dot for unread/mentions). New game types must be added to `GAME_TYPES`.
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
   channel to every server + `DrawScore`, 20261120180000 renames it "paint wars"; owner asked for

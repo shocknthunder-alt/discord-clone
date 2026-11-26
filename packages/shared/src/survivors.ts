@@ -57,6 +57,60 @@ export function survHeroesUnlockedBy(stats: SurvStats): SurvHeroId[] {
   return SURV_HEROES.filter((h) => h.unlock.kind === "free" || (h.unlock.kind === "stat" && (stats[h.unlock.stat] ?? 0) >= h.unlock.value)).map((h) => h.id);
 }
 
+/* ───────────── 🗺️ maps + 🎯 missions (2026-11-27) ───────────── */
+
+/** Each map has its own ground, scenery, monsters and final giant. The next one opens when you win
+ *  the mission on the one before (break the 5 sanctuaries, call the giant, beat it). */
+export type SurvMapId = "polyana" | "gora" | "blato" | "planina";
+export const SURV_MAPS: { id: SurvMapId; /** extra gold for winning its mission */ winGold: number }[] = [
+  { id: "polyana", winGold: 500 },
+  { id: "gora", winGold: 900 },
+  { id: "blato", winGold: 1400 },
+  { id: "planina", winGold: 2000 },
+];
+export const isSurvMap = (v: unknown): v is SurvMapId => typeof v === "string" && SURV_MAPS.some((m) => m.id === v);
+/** Maps open for someone: the first one, and each one after a map whose mission they won. */
+export function survMapsOpen(missions: Partial<Record<SurvMapId, number>> | undefined): SurvMapId[] {
+  const out: SurvMapId[] = [];
+  for (let i = 0; i < SURV_MAPS.length; i++) {
+    if (i === 0 || (missions?.[SURV_MAPS[i - 1]!.id] ?? 0) > 0) out.push(SURV_MAPS[i]!.id);
+  }
+  return out;
+}
+
+/* ───────────── ᚱ runes (permanent, a few slots) (2026-11-27) ───────────── */
+
+export type SurvRuneId = "sila" | "zhivot" | "barzina" | "vreme" | "kasmet" | "magnit" | "opit" | "zlato" | "perun" | "veles" | "mokosh" | "dazhbog";
+export const SURV_RUNES: { id: SurvRuneId; base: number; max: number }[] = [
+  { id: "sila", base: 300, max: 3 },
+  { id: "zhivot", base: 250, max: 3 },
+  { id: "barzina", base: 250, max: 3 },
+  { id: "vreme", base: 400, max: 3 },
+  { id: "kasmet", base: 300, max: 3 },
+  { id: "magnit", base: 200, max: 3 },
+  { id: "opit", base: 300, max: 3 },
+  { id: "zlato", base: 350, max: 3 },
+  { id: "perun", base: 600, max: 3 },
+  { id: "veles", base: 600, max: 3 },
+  { id: "mokosh", base: 600, max: 3 },
+  { id: "dazhbog", base: 600, max: 3 },
+];
+/** level n+1 costs base × (n+1) */
+export const survRuneCost = (id: SurvRuneId, currentLevel: number) => (SURV_RUNES.find((r) => r.id === id)?.base ?? 0) * (currentLevel + 1);
+/** 2 slots, +1 after 3 bosses beaten (in total), +1 after the first mission won */
+export function survRuneSlots(stats: SurvStats, missions: Partial<Record<SurvMapId, number>> | undefined): number {
+  return 2 + (stats.bosses >= 3 ? 1 : 0) + (Object.values(missions ?? {}).some((n) => (n ?? 0) > 0) ? 1 : 0);
+}
+export function cleanSurvRunes(v: unknown): Partial<Record<SurvRuneId, number>> {
+  const out: Partial<Record<SurvRuneId, number>> = {};
+  if (!v || typeof v !== "object") return out;
+  for (const r of SURV_RUNES) {
+    const x = (v as Record<string, unknown>)[r.id];
+    if (typeof x === "number" && x > 0) out[r.id] = Math.min(r.max, Math.floor(x));
+  }
+  return out;
+}
+
 /* ───────────── the gold shop (permanent upgrades) ───────────── */
 
 export type SurvMetaKey =
@@ -171,7 +225,9 @@ export type SurvAchId =
   | "cursed"
   | "level50"
   | "veteran"
-  | "allHeroes";
+  | "allHeroes"
+  | "mission1"
+  | "missionAll";
 
 /** How many different bosses there are (the "allBosses" achievement). */
 export const SURV_BOSS_COUNT = 14;
@@ -188,6 +244,8 @@ export interface SurvAchInput {
   stats: SurvStats;
   bossKinds: number;
   heroes: number;
+  /** (2026-11-27+) maps whose mission was won, after this game */
+  missionsWon?: number;
 }
 
 export const SURV_ACHIEVEMENTS: { id: SurvAchId; gold: number; check: (r: SurvAchInput) => boolean }[] = [
@@ -213,6 +271,8 @@ export const SURV_ACHIEVEMENTS: { id: SurvAchId; gold: number; check: (r: SurvAc
   { id: "level50", gold: 500, check: (r) => r.level >= 50 },
   { id: "veteran", gold: 400, check: (r) => r.stats.games >= 25 },
   { id: "allHeroes", gold: 1500, check: (r) => r.heroes >= 9 },
+  { id: "mission1", gold: 400, check: (r) => (r.missionsWon ?? 0) >= 1 },
+  { id: "missionAll", gold: 3000, check: (r) => (r.missionsWon ?? 0) >= SURV_MAPS.length },
 ];
 
 export interface SurvProfileDTO {
@@ -224,6 +284,10 @@ export interface SurvProfileDTO {
   skins: string[];
   achievements: SurvAchId[];
   bossTypes: string[];
+  /** (2026-11-27+) rune levels owned, the ones worn, missions won per map */
+  runes?: Partial<Record<SurvRuneId, number>>;
+  equipped?: SurvRuneId[];
+  missions?: Partial<Record<SurvMapId, number>>;
 }
 
 export interface SurvTopRow {
@@ -261,6 +325,10 @@ export interface SurvRunDTO {
   evolutions?: number;
   tasks?: number;
   bossTypes?: string[];
+  /** (2026-11-27+) the map, and whether its mission was won */
+  map?: SurvMapId;
+  mission?: boolean;
+  won?: boolean;
 }
 
 export interface SurvRunResultDTO extends SurvListsDTO {
@@ -283,6 +351,8 @@ export interface SurvMemberDTO {
   skin?: SurvSkinId;
   /** their gold-shop upgrades (the host's browser runs the game, so it needs them) */
   meta?: Partial<Record<SurvMetaKey, number>>;
+  /** (2026-11-27+) the runes they wear (levels) */
+  runes?: Partial<Record<SurvRuneId, number>>;
 }
 
 export function cleanSurvMeta(v: unknown): Partial<Record<SurvMetaKey, number>> {
@@ -301,6 +371,9 @@ export interface SurvPartyDTO {
   hostId: string;
   players: SurvMemberDTO[];
   curses: SurvCurseId[];
+  /** (2026-11-27+) the map + mission mode the host picked */
+  map?: SurvMapId;
+  mission?: boolean;
   state: "lobby" | "playing";
   /** while playing (sent by the host now and then) */
   seconds?: number;
@@ -319,6 +392,8 @@ export interface SurvStartDTO {
   hostId: string;
   players: SurvMemberDTO[];
   curses: SurvCurseId[];
+  map?: SurvMapId;
+  mission?: boolean;
   /** back after a reload: the game goes on */
   resume?: boolean;
   /** 👁 joined as a spectator */

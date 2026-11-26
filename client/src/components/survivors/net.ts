@@ -1,6 +1,6 @@
 import type { SurvHeroId, SurvSkinId } from "@discord-clone/shared";
-import { ENEMY_IDS, WEAPON_IDS, PASSIVE_IDS, type PassiveId, type WeaponId } from "./content";
-import { FX, type Fx, type Offer, type REnemy, type RGem, type RMark, type RPlayer, type RProj, type RView, type World } from "./engine";
+import { ENEMY_IDS, GIFT_IDS, WEAPON_IDS, PASSIVE_IDS, type GiftId, type PassiveId, type WeaponId } from "./content";
+import { FX, type Fx, type MissionView, type Offer, type REnemy, type RGem, type RMark, type RPlayer, type RProj, type RView, type World } from "./engine";
 
 // 🧟 Шмиркленд co-op: the host sends ~12 snapshots a second. Enemies / projectiles / gems are packed
 // into Int16 arrays relative to an origin (positions rounded to whole pixels); players, the boss bar,
@@ -23,6 +23,8 @@ export interface NetPlayer extends RPlayer {
   /** damage by weapon index (-1 = skills) */
   dmgBy: Record<number, number>;
   evos: number;
+  /** ⚡ gods' gifts */
+  gifts: Partial<Record<GiftId, number>>;
 }
 
 export interface Snapshot {
@@ -50,6 +52,9 @@ export interface Snapshot {
   waiting: string[];
   blessing: string | null;
   over: boolean;
+  /** 🎯 the mission (null = endless), and whether it was won */
+  mission: MissionView | null;
+  won: boolean;
   fx: Fx[];
 }
 
@@ -70,6 +75,8 @@ interface Wire {
   th?: string;
   /** tasks done, best streak, kinds of bosses beaten */
   ac?: [number, number, string[]];
+  /** mission: left total phase tLeft won */
+  ms?: [number, number, number, number, number];
   o: number;
   fx: Fx[];
 }
@@ -85,7 +92,9 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
   const e = new Int16Array(en.length * 4);
   en.forEach((x, i) => {
     e[i * 4] = x.id & 0x7fff;
-    e[i * 4 + 1] = ENEMY_IDS.indexOf(x.type) | (x.elite ? 32 : 0) | (x.flash > 0 ? 64 : 0) | (x.frozenT > 0 ? 128 : 0) | (x.face < 0 ? 256 : 0) | ((x.affix + 1) << 9) | (x.shieldT > 0 ? 4096 : 0) | (x.rage ? 8192 : 0);
+    // type: 5 low bits + bit 14 (there are more than 32 kinds now); bit 15 = poisoned
+    const ti = ENEMY_IDS.indexOf(x.type);
+    e[i * 4 + 1] = (ti & 31) | (ti & 32 ? 16384 : 0) | (x.elite ? 32 : 0) | (x.flash > 0 ? 64 : 0) | (x.frozenT > 0 ? 128 : 0) | (x.face < 0 ? 256 : 0) | ((x.affix + 1) << 9) | (x.shieldT > 0 ? 4096 : 0) | (x.rage ? 8192 : 0) | (x.poisonT > 0 ? 32768 : 0);
     e[i * 4 + 2] = clamp16(x.x - ox);
     e[i * 4 + 3] = clamp16(x.y - oy);
   });
@@ -123,7 +132,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     x.face,
     Math.round(x.hp * 10) / 10,
     x.maxHp,
-    (x.dead ? 1 : 0) | (x.moving ? 2 : 0) | (x.gone ? 4 : 0) | (x.auraEvo ? 8 : 0) | (x.herbs ? 16 : 0),
+    (x.dead ? 1 : 0) | (x.moving ? 2 : 0) | (x.gone ? 4 : 0) | (x.auraEvo ? 8 : 0) | (x.herbs ? 16 : 0) | (x.veilN > 0 ? 32 : 0),
     Math.round(x.reviveP * 100),
     Math.round(x.invulnT * 100),
     Math.round(x.dashT * 100),
@@ -141,6 +150,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     Object.entries(x.dmgBy).map(([k, v]) => [Number(k), Math.round(v)]),
     x.skin ?? "classic",
     x.evos,
+    Object.entries(x.gifts).map(([id, l]) => [GIFT_IDS.indexOf(id as GiftId), l]),
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -169,6 +179,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     tk: w.task ? [w.task.text, Math.floor(w.task.progress), w.task.target, w.task.state] : null,
     th: w.theme,
     ac: [w.tasksDone, Math.max(w.bestStreak, w.streak), [...w.bossTypes]],
+    ...(w.mission ? { ms: [w.altarsLeft, w.missionView!.total, w.missionView!.phase, Math.round(w.missionView!.tLeft), w.won ? 1 : 0] as [number, number, number, number, number] } : {}),
     o: w.over ? 1 : 0,
     fx: outFx,
   };
@@ -190,7 +201,8 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
     const f = e[i + 1]!;
     enemies.push({
       id: e[i]!,
-      type: ENEMY_IDS[f & 31] ?? "rat",
+      type: ENEMY_IDS[(f & 31) | (f & 16384 ? 32 : 0)] ?? "rat",
+      poison: (f & 32768) !== 0,
       elite: (f & 32) !== 0,
       flash: f & 64 ? 0.1 : 0,
       frozenT: f & 128 ? 1 : 0,
@@ -229,6 +241,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       moving: (flags & 2) !== 0,
       auraEvo: (flags & 8) !== 0,
       herbs: (flags & 16) !== 0,
+      veil: (flags & 32) !== 0,
       reviveP: (a[9] as number) / 100,
       invulnT: (a[10] as number) / 100,
       dashT: (a[11] as number) / 100,
@@ -248,6 +261,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       dmgBy: Object.fromEntries(((a[23] as number[][] | undefined) ?? []).map(([k, v]) => [k!, v!])),
       skin: (a[24] as SurvSkinId | undefined) ?? "classic",
       evos: (a[25] as number | undefined) ?? 0,
+      gifts: Object.fromEntries(((a[26] as number[][] | undefined) ?? []).map(([id, l]) => [GIFT_IDS[id!]!, l!]).filter(([id]) => id)),
     } as NetPlayer & { gone: boolean; shield: boolean };
   });
   const [level, xp, xpNext, kills, gold, bosses, wave, waveT, breakT, waveLeft, waveTotal, streak] = w.h;
@@ -275,6 +289,8 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
     waiting: w.c?.[1] ?? [],
     blessing: w.bl,
     over: w.o === 1,
+    mission: w.ms ? { left: w.ms[0], total: w.ms[1], phase: w.ms[2], tLeft: w.ms[3] } : null,
+    won: w.ms?.[4] === 1,
     fx: Array.isArray(w.fx) ? w.fx : [],
   };
 }

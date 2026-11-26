@@ -1,4 +1,4 @@
-import type { SurvHeroId } from "@discord-clone/shared";
+import type { SurvHeroId, SurvMapId } from "@discord-clone/shared";
 import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, type EnemyId } from "./content";
 import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RView } from "./engine";
 import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
@@ -104,6 +104,10 @@ export interface DrawOpts {
   /** where the camera looks */
   camX: number;
   camY: number;
+  /** the 3D layer underneath draws the ground, scenery, heroes, enemies and pickups */
+  three?: boolean;
+  /** 🗺️ which map (its ground) */
+  map?: SurvMapId;
 }
 
 /** World units visible at least (the zoom fits this into the canvas). */
@@ -128,7 +132,11 @@ export class Renderer {
   /** a whole-screen flash of colour (skills) */
   private flash: { col: string; t: number; max: number } | null = null;
   private pattern: CanvasPattern | null = null;
+  private patternMap: SurvMapId = "polyana";
   private clock = 0;
+  /** the screen shake of the last frame (the 3D layer follows it) */
+  shakeX = 0;
+  shakeY = 0;
 
   constructor(private canvas: HTMLCanvasElement) {
     this.c = canvas.getContext("2d")!;
@@ -301,10 +309,14 @@ export class Renderer {
     const z = this.zoom;
     let camX = o.camX;
     let camY = o.camY;
+    this.shakeX = 0;
+    this.shakeY = 0;
     if (this.shake > 0) {
       this.shake = Math.max(0, this.shake - dt);
-      camX += (Math.random() - 0.5) * 18 * this.shake;
-      camY += (Math.random() - 0.5) * 18 * this.shake;
+      this.shakeX = (Math.random() - 0.5) * 18 * this.shake;
+      this.shakeY = (Math.random() - 0.5) * 18 * this.shake;
+      camX += this.shakeX;
+      camY += this.shakeY;
     }
     const halfW = this.w / 2 / z;
     const halfH = this.h / 2 / z;
@@ -314,20 +326,27 @@ export class Renderer {
     const y1 = camY + halfH;
     const onScreen = (x: number, y: number, m: number) => x > x0 - m && x < x1 + m && y > y0 - m && y < y1 + m;
 
+    const T = !!o.three;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     // ground
-    if (!this.pattern) this.pattern = c.createPattern(groundTile(), "repeat");
+    const map = o.map ?? "polyana";
+    if (!this.pattern || this.patternMap !== map) {
+      this.pattern = c.createPattern(groundTile(map), "repeat");
+      this.patternMap = map;
+    }
     c.save();
     c.scale(z, z);
     c.translate(-x0, -y0);
-    if (this.pattern) {
+    if (this.pattern && !T) {
       c.fillStyle = this.pattern;
       c.fillRect(x0, y0, x1 - x0, y1 - y0);
     }
 
     // scenery from a hash of the 220-px cell
     const DC = 220;
-    for (let gx = Math.floor((x0 - 60) / DC); gx <= Math.floor((x1 + 60) / DC); gx++) {
+    if (!T) for (let gx = Math.floor((x0 - 60) / DC); gx <= Math.floor((x1 + 60) / DC); gx++) {
       for (let gy = Math.floor((y0 - 80) / DC); gy <= Math.floor((y1 + 80) / DC); gy++) {
         let h = (gx * 73856093) ^ (gy * 19349663);
         h = (h ^ (h >>> 13)) * 1274126177;
@@ -361,8 +380,31 @@ export class Renderer {
           c.lineWidth = 5;
           c.stroke();
         }
-        const sp = shrineSprite();
-        c.drawImage(sp, m.x - sp.width / 4, m.y - sp.height / 2 + 6, sp.width / 2, sp.height / 2);
+        if (!T) {
+          const sp = shrineSprite();
+          c.drawImage(sp, m.x - sp.width / 4, m.y - sp.height / 2 + 6, sp.width / 2, sp.height / 2);
+        }
+      } else if (m.kind === MK.portal) {
+        // 🌀 the portal of the giant: swirling rings, fills while you stand in it
+        for (let i = 0; i < 4; i++) {
+          const a0 = this.clock * (2 + i * 0.6) * (i % 2 ? -1 : 1);
+          c.beginPath();
+          c.ellipse(m.x, m.y, m.r * (1 - i * 0.18), m.r * (1 - i * 0.18) * 0.8, 0, a0, a0 + 4.2);
+          c.strokeStyle = `rgba(${i % 2 ? "190,120,255" : "120,200,255"},${0.85 - i * 0.15})`;
+          c.lineWidth = 4 - i * 0.6;
+          c.stroke();
+        }
+        c.beginPath();
+        c.ellipse(m.x, m.y, m.r, m.r * 0.8, 0, 0, Math.PI * 2);
+        c.fillStyle = `rgba(120,60,200,${0.16 + Math.sin(this.clock * 3) * 0.05})`;
+        c.fill();
+        if (m.p > 0) {
+          c.beginPath();
+          c.arc(m.x, m.y, m.r + 8, -Math.PI / 2, -Math.PI / 2 + m.p * Math.PI * 2);
+          c.strokeStyle = "#e0b0ff";
+          c.lineWidth = 6;
+          c.stroke();
+        }
       } else if (m.kind === MK.hail) {
         c.beginPath();
         c.arc(m.x, m.y, m.r * (0.4 + 0.6 * m.p), 0, Math.PI * 2);
@@ -418,7 +460,7 @@ export class Renderer {
         c.restore();
       }
     };
-    for (const m of v.marks) if (m.kind === MK.shrine) drawMark(m);
+    for (const m of v.marks) if (m.kind === MK.shrine || m.kind === MK.portal) drawMark(m);
 
     // ground cracks (Баткан's punch)
     for (let i = this.cracks.length - 1; i >= 0; i--) {
@@ -442,7 +484,7 @@ export class Renderer {
     }
 
     // gems & pickups
-    for (const g of v.gems) {
+    if (!T) for (const g of v.gems) {
       if (!onScreen(g.x, g.y, 20)) continue;
       const sp = pickupSprite(g.k);
       if (!sp) continue;
@@ -743,7 +785,7 @@ export class Renderer {
     }
 
     // ── the enemies' things: always fully visible ──
-    for (const m of v.marks) if (m.kind !== MK.shrine) drawMark(m);
+    for (const m of v.marks) if (m.kind !== MK.shrine && m.kind !== MK.portal) drawMark(m);
     for (const q of v.projs) {
       if (q.kind !== PK.poison || !onScreen(q.x, q.y, q.r + 20)) continue;
         const g = c.createRadialGradient(q.x, q.y, 4, q.x, q.y, q.r);
@@ -780,10 +822,12 @@ export class Renderer {
       actors.push({
         y: e.y,
         draw: () => {
-          c.fillStyle = "rgba(0,0,0,0.25)";
-          c.beginPath();
-          c.ellipse(e.x, e.y + (d.h / 2 - 4) * scale * (boss ? 0.8 : 0.85), (d.w / 3) * scale, 4 * scale * (boss ? 2 : 1), 0, 0, Math.PI * 2);
-          c.fill();
+          if (!T) {
+            c.fillStyle = "rgba(0,0,0,0.25)";
+            c.beginPath();
+            c.ellipse(e.x, e.y + (d.h / 2 - 4) * scale * (boss ? 0.8 : 0.85), (d.w / 3) * scale, 4 * scale * (boss ? 2 : 1), 0, 0, Math.PI * 2);
+            c.fill();
+          }
           if (e.elite) {
             const af = e.affix >= 0 ? AFFIX_TEXT[AFFIXES[e.affix]!] : null;
             c.beginPath();
@@ -802,8 +846,8 @@ export class Renderer {
           const hop = still ? 0 : Math.abs(Math.sin(ph)) * (boss ? 2 : 2.5);
           const w = (sp.width / 2) * scale * (1 + sq);
           const h = (sp.height / 2) * scale * (1 - sq);
-          c.drawImage(sp, e.x - w / 2, e.y - h / 2 - hop + ((sp.height / 2) * scale - h) / 2, w, h);
-          if (e.rage) {
+          if (!T) c.drawImage(sp, e.x - w / 2, e.y - h / 2 - hop + ((sp.height / 2) * scale - h) / 2, w, h);
+          if (e.rage && !T) {
             c.save();
             c.globalCompositeOperation = "lighter";
             c.globalAlpha = 0.25 + Math.sin(this.clock * 10) * 0.1;
@@ -843,16 +887,18 @@ export class Renderer {
       actors.push({
         y: p.y,
         draw: () => {
-          for (const s of trail) {
+          if (!T) for (const s of trail) {
             c.globalAlpha = Math.max(0, s.t) * 1.6;
             const sp = heroSprite(p.hero, 3, 2, p.face < 0, p.skin);
             c.drawImage(sp, s.x - sp.width / 4, s.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
           }
           c.globalAlpha = 1;
-          c.fillStyle = "rgba(0,0,0,0.28)";
-          c.beginPath();
-          c.ellipse(p.x, p.y + 18, 11, 4, 0, 0, Math.PI * 2);
-          c.fill();
+          if (!T) {
+            c.fillStyle = "rgba(0,0,0,0.28)";
+            c.beginPath();
+            c.ellipse(p.x, p.y + 18, 11, 4, 0, 0, Math.PI * 2);
+            c.fill();
+          }
           if (p.uid === o.me) {
             c.beginPath();
             c.ellipse(p.x, p.y + 18, 15, 5.5, 0, 0, Math.PI * 2);
@@ -860,7 +906,15 @@ export class Renderer {
             c.lineWidth = 1.5;
             c.stroke();
           }
-          if (p.dead) {
+          if (p.dead && T) {
+            if (p.reviveP > 0) {
+              c.beginPath();
+              c.arc(p.x, p.y, 26, -Math.PI / 2, -Math.PI / 2 + p.reviveP * Math.PI * 2);
+              c.strokeStyle = "#9cff9c";
+              c.lineWidth = 4;
+              c.stroke();
+            }
+          } else if (p.dead) {
             // a little grave mound with a candle while waiting for a teammate
             c.fillStyle = "#5a4636";
             c.beginPath();
@@ -885,17 +939,19 @@ export class Renderer {
             const blink = p.invulnT > 0 && p.dashT <= 0 && Math.floor(this.clock * 20) % 2 === 0;
             const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0, p.skin);
             if (p.skin === "fire" && Math.random() < 0.5) this.particles.push({ x: p.x + (Math.random() - 0.5) * 22, y: p.y + 10 - Math.random() * 30, vx: (Math.random() - 0.5) * 20, vy: -60 - Math.random() * 60, life: 0.5, max: 0.5, col: Math.random() < 0.5 ? "#ffb21a" : "#ff5a2a", size: 2.5 });
-            if (p.skin === "ghost") c.globalAlpha = 0.72;
+            if (p.skin === "ghost" && !T) c.globalAlpha = 0.72;
             if (p.skin === "gold" && Math.random() < 0.15) this.particles.push({ x: p.x + (Math.random() - 0.5) * 26, y: p.y - Math.random() * 36, vx: 0, vy: -20, life: 0.6, max: 0.6, col: "#fff6b0", size: 2 });
             const spin = p.skillT > 0 && p.hero === "tseko";
             if (spin) {
               // Брейк на главата: upside down, spinning, with swirl lines
-              c.save();
-              c.translate(p.x, p.y - 6);
-              c.rotate(Math.PI);
-              c.scale(Math.cos(this.clock * 22), 1);
-              c.drawImage(sp, -sp.width / 4, -sp.height / 4 + 4, sp.width / 2, sp.height / 2);
-              c.restore();
+              if (!T) {
+                c.save();
+                c.translate(p.x, p.y - 6);
+                c.rotate(Math.PI);
+                c.scale(Math.cos(this.clock * 22), 1);
+                c.drawImage(sp, -sp.width / 4, -sp.height / 4 + 4, sp.width / 2, sp.height / 2);
+                c.restore();
+              }
               for (let i = 0; i < 3; i++) {
                 c.beginPath();
                 c.ellipse(p.x, p.y + 14 - i * 12, 26 - i * 4, 7 - i, 0, this.clock * 14 + i, this.clock * 14 + i + 3.6);
@@ -903,8 +959,21 @@ export class Renderer {
                 c.lineWidth = 2;
                 c.stroke();
               }
-            } else if (!blink || p.hurtT > 0) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
+            } else if (!T && (!blink || p.hurtT > 0)) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
             c.globalAlpha = 1;
+            if (p.veil) {
+              // 🧶 Мокош's veil: a golden thread around you
+              c.beginPath();
+              for (let i = 0; i <= 40; i++) {
+                const a = (i / 40) * Math.PI * 2;
+                const rr = 27 + Math.sin(a * 5 + this.clock * 4) * 2;
+                if (i === 0) c.moveTo(p.x + Math.cos(a) * rr, p.y - 6 + Math.sin(a) * rr * 0.85);
+                else c.lineTo(p.x + Math.cos(a) * rr, p.y - 6 + Math.sin(a) * rr * 0.85);
+              }
+              c.strokeStyle = `rgba(242,200,106,${0.6 + Math.sin(this.clock * 5) * 0.2})`;
+              c.lineWidth = 2;
+              c.stroke();
+            }
             if ((p as { shield?: boolean }).shield || p.skillT > 0) {
               c.beginPath();
               c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 130 : p.skillT > 0 && p.hero === "strahil" ? 175 : 30, 0, Math.PI * 2);
@@ -918,9 +987,10 @@ export class Renderer {
           c.textAlign = "center";
           if (v.players.length > 1) {
             c.fillStyle = "rgba(0,0,0,0.6)";
-            c.fillText(p.name, p.x + 1, p.y - 43);
+            const ny = T ? p.y - 52 : p.y - 44;
+            c.fillText(p.name, p.x + 1, ny + 1);
             c.fillStyle = p.uid === o.me ? "#ffe27a" : "#ffffff";
-            c.fillText(p.name, p.x, p.y - 44);
+            c.fillText(p.name, p.x, ny);
           }
           if (!p.dead) {
             c.fillStyle = "rgba(0,0,0,0.6)";
@@ -1146,6 +1216,8 @@ export class Renderer {
     };
     for (const g of v.gems) if (g.k === GK.chest) arrow(g.x, g.y, "#ffd34d", "📦");
     for (const m of v.marks) if (m.kind === MK.shrine) arrow(m.x, m.y, "#ffe27a", "🕯️");
+    for (const m of v.marks) if (m.kind === MK.portal) arrow(m.x, m.y, "#c890ff", "🌀");
+    for (const e of v.enemies) if (e.type === "altar") arrow(e.x, e.y, "#ffb02a", "🗿");
     for (const e of v.enemies) if (ENEMIES[e.type].boss) arrow(e.x, e.y, "#ff4a3a", "💀");
     for (const p of v.players) if (p.uid !== o.me && !(p as { gone?: boolean }).gone) arrow(p.x, p.y, p.dead ? "#9cff9c" : "#8ac8ff", p.dead ? "🪦" : "🙂");
   }
