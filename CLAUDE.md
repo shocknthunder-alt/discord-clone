@@ -289,6 +289,18 @@ Owner pronouns unknown: use they/them.
   the played diff; ×(1+0.25d) gold. Engine: hp +20%/d, dmg +12%/d, waves + cap +15%/d, bosses learn `DIFF_MOVES` one per
   level (names `DIFF_SPELL_NAMES`), rage at 70% from d3, cast faster. Party `diff` (host sets; clamped to the host's).
   Menu tab 🎒 Снаряжение; picker `.sv-diff`. e2e 15 test 4.
+  (later 2026-11-27) 10 SLOTS `SURV_GEAR_SLOTS` (weapon helmet shoulders armor=chest gloves pants boots amulet ring1 ring2;
+  item kind `slotKind`, "ring" fits both fingers, one item once per hero); paper doll `.sv-doll` (slots around the hero,
+  click a slot = bag filtered). Classic-loot look: rarities Обикновен/Магически/Рядък/Уникален (white/#8888ff/#ffff77/
+  #e0782c), `.poe-tip` tooltips (serif, coloured header, blue mods, unique flavour `ITEM_FLAVOUR`), bag `.poe-grid` of
+  `itemIcon(base, r)` canvas pictures (sprites.ts; weapons = the hero's weapon icon), ground labels "<rarity> предмет" in
+  render.ts. 👕 GEAR CHANGES THE HERO (2D): `survLookKey` "slot:base:r,…" → `PlayerSetup.look` / `SurvMemberDTO.look`
+  (`survLookOf`) / net player index 30 (`cleanSurvLook`) → `heroSprite(…, look)` (cache key) → `gearFront()` draws hat /
+  shoulders / chest / gloves / amulet / ring / boot+trouser details, `LOOK` makes body() use the trouser + boot colours,
+  far pieces via `destination-over`; `GEAR_COL` colours, `TRIM` rarity trims, uniques glow. 3D models don't show gear.
+  2D is the default (localStorage `survGfx2`). Harder base game: hp ×1.3 (+0.27w), dmg ×1.2, waves ×1.2, bosses ×1.9,
+  giants ×2.2; per difficulty +30% hp (bosses too), +15% dmg, +18% mobs, +2.5% speed, more elites; `giftHp` also grows
+  with gear damage.
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

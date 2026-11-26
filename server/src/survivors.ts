@@ -36,6 +36,7 @@ import {
   survItemFits,
   survLootCap,
   survRollDrop,
+  survLookKey,
   survSalvageGold,
   type SurvGearSlot,
   type SurvGearStat,
@@ -154,6 +155,12 @@ const newItemId = () => randomBytes(6).toString("base64url");
 export async function survGearOf(userId: string, hero: SurvHeroId): Promise<Partial<Record<SurvGearStat, number>>> {
   const p = await profileOf(userId);
   return survGearStats(p.items, p.gear?.[hero], hero);
+}
+
+/** 👕 how someone's hero looks in their gear */
+export async function survLookOf(userId: string, hero: SurvHeroId): Promise<string> {
+  const p = await profileOf(userId);
+  return survLookKey(p.items, p.gear?.[hero], hero);
 }
 
 /** ☠️ the highest difficulty someone has open on a map */

@@ -1,4 +1,5 @@
 import type { SurvHeroId, SurvSkinId } from "@discord-clone/shared";
+import { cleanSurvLook } from "@discord-clone/shared";
 import { ENEMY_IDS, GIFT_IDS, RELIC_IDS, TEMPER_IDS, type TemperId, WEAPON_IDS, PASSIVE_IDS, type GiftId, type RelicId, type PassiveId, type WeaponId } from "./content";
 import { FX, type Fx, type MissionView, type Offer, type REnemy, type RGem, type RMark, type RPlayer, type RProj, type RView, type World } from "./engine";
 
@@ -160,6 +161,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     x.relics.map((id) => RELIC_IDS.indexOf(id)),
     Object.entries(x.tempers).map(([id, n]) => [TEMPER_IDS.indexOf(id as TemperId), n]),
     x.loot,
+    x.look ?? "",
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -273,6 +275,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       gifts: Object.fromEntries(((a[26] as number[][] | undefined) ?? []).map(([id, l]) => [GIFT_IDS[id!]!, l!]).filter(([id]) => id)),
       relics: ((a[27] as number[] | undefined) ?? []).map((i) => RELIC_IDS[i]!).filter(Boolean),
       loot: ((a[29] as number[] | undefined) ?? []).filter((r) => typeof r === "number"),
+      look: cleanSurvLook(a[30]),
       tempers: Object.fromEntries(((a[28] as number[][] | undefined) ?? []).map(([id, n]) => [TEMPER_IDS[id!]!, n!]).filter(([id]) => id)),
     } as NetPlayer & { gone: boolean; shield: boolean };
   });

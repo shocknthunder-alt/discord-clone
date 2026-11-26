@@ -352,7 +352,11 @@ test.describe("🧟 Шмиркленд", () => {
     // (50 picked + 600/10) × 1.25 + the map's 500 × 1.25
     expect(r2.goldEarned).toBe(763);
     // put on: an armour fits anyone, a weapon only its hero
-    const items = r2.profile.items as { id: string; b: string; r: number }[];
+    let items = r2.profile.items as { id: string; b: string; r: number }[];
+    // what drops is random: play a few more games until there is a weapon for Баткан and a ring
+    for (let i = 0; i < 10 && !(items.some((it) => ["dvuraka", "kolan"].includes(it.b)) && items.some((it) => ["srebaren", "venchalen", "rubin", "pechat", "zmiya"].includes(it.b))); i++) {
+      items = (await api(bo.token, "POST", url, { ...base, mission: false, loot: Array(14).fill(1) })).profile.items;
+    }
     // any piece that isn't a weapon or a ring (10 kinds drop now) — and the slot it goes to
     const KIND: Record<string, string> = { kozhuh: "armor", elek: "armor", poyas: "armor", yamurluk: "armor", muska: "amulet", sinchets: "amulet", monista: "amulet", oko: "amulet", pero: "amulet", kalpak: "helmet", shlem: "helmet", kachulka: "helmet", naplechnitsi: "shoulders", valcha: "shoulders", pelerina: "shoulders", kovashki: "gloves", pleteni: "gloves", strelets: "gloves", poturi: "pants", benevretsi: "pants", shalvari: "pants", botushi: "boots", bivolski: "boots", krilati: "boots" };
     const armor = items.find((it) => KIND[it.b])!;
@@ -378,6 +382,16 @@ test.describe("🧟 Шмиркленд", () => {
     expect(sv.profile.items.some((it: { id: string }) => it.id === armor.id)).toBe(false);
     expect(sv.profile.gear.peyo?.[armorSlot]).toBeUndefined();
 
+    // dress Баткан in everything that fits (the look shows on the hero)
+    const all = (await api(bo.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile.items as { id: string; b: string }[];
+    const used = new Set<string>();
+    for (const it of all) {
+      const k = KIND[it.b] ?? (["srebaren", "venchalen", "rubin", "pechat", "zmiya"].includes(it.b) ? (used.has("ring1") ? "ring2" : "ring1") : ["dvuraka", "kolan"].includes(it.b) ? "weapon" : null);
+      if (!k || used.has(k)) continue;
+      used.add(k);
+      await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "strahil", slot: k, item: it.id });
+    }
+
     // the game: difficulty 2 picked → harder world, bosses know 2 more spells, the gear is worn
     const b = await openAs(browser, bo);
     await quiet(b.page);
@@ -388,8 +402,11 @@ test.describe("🧟 Шмиркленд", () => {
     await expect(b.page.locator(".sv-doll-slot")).toHaveCount(10);
     await expect(b.page.locator(".sv-doll-slot:not(.empty)")).toHaveCount(0);
     await b.page.locator(".sv-gear-heroes button").nth(4).click();
-    await expect(b.page.locator(".sv-doll-slot:not(.empty)")).toHaveCount(1);
+    await expect(b.page.locator(".sv-doll-slot:not(.empty)")).toHaveCount(used.size);
     await expect(b.page.locator(".sv-doll-slot.s-weapon")).not.toHaveClass(/empty/);
+    await b.page.locator(".poe-cell").first().hover();
+    await b.page.waitForTimeout(200);
+    await b.page.screenshot({ path: "explore/surv-gear-hover.png" });
     // a slot picked → the bag shows only what fits there
     await b.page.locator(".sv-doll-slot.s-weapon").click();
     await expect(b.page.locator(".sv-gear-picked")).toContainText("Оръжие");
@@ -403,6 +420,10 @@ test.describe("🧟 Шмиркленд", () => {
     const W = (fn: string) => b.page.evaluate(`(${fn})(window.__survWorld())`);
     await expect.poll(() => W("(w) => w.diff")).toBe(2);
     expect(await W("(w) => Object.keys(w.players[0].gear).length")).toBeGreaterThan(0);
+    // 🏷️ items on the ground with their labels
+    await W("(w) => { const p = w.players[0]; for (let r = 0; r < 4; r++) w.gems.push({ x: p.x - 150 + r * 100, y: p.y + 120, k: 10 + r, v: r, mag: false, sp: 0 }); }");
+    await b.page.waitForTimeout(400);
+    await b.page.locator(".sv-canvas").screenshot({ path: "explore/surv-loot.png" });
     expect(await W("(w) => { const p = w.players[0]; const b = w.spawn(\"karak\", p.x + 400, p.y, { boss: true, hp: 99999 }); return b.moves.length; }")).toBe(4);
     expectNoCrashes(b.page);
     await closeAll(b.context);

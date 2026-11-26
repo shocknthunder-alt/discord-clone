@@ -19,7 +19,7 @@ import {
 } from "@discord-clone/shared";
 import type { Server as IOServer, Socket } from "socket.io";
 import { prisma } from "./db.js";
-import { survDiffOf, survGearOf, survOwnsSkinOf, survRunesOf } from "./survivors.js";
+import { survDiffOf, survGearOf, survLookOf, survOwnsSkinOf, survRunesOf } from "./survivors.js";
 
 /**
  * 🧟 Шмиркленд co-op. The HOST's browser runs the whole game; the server only keeps parties (lobby per
@@ -223,7 +223,7 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     typeof skin === "string" && (await survOwnsSkinOf(userId, hero, skin as SurvSkinId)) ? (skin as SurvSkinId) : "classic";
   const me = async (hero: SurvHeroId, meta: unknown, skin: unknown): Promise<SurvMemberDTO | null> => {
     const u = await prisma.user.findUnique({ where: { id: userId }, select: { username: true, avatarUrl: true } });
-    return u ? { userId, username: u.username, avatarUrl: u.avatarUrl, hero, meta: cleanSurvMeta(meta), skin: await skinOf(hero, skin), runes: await survRunesOf(userId), gear: await survGearOf(userId, hero) } : null;
+    return u ? { userId, username: u.username, avatarUrl: u.avatarUrl, hero, meta: cleanSurvMeta(meta), skin: await skinOf(hero, skin), runes: await survRunesOf(userId), gear: await survGearOf(userId, hero), look: await survLookOf(userId, hero) } : null;
   };
 
   socket.on(SocketEvents.SurvCreate, async ({ channelId, hero, curses, meta, skin, map, mission, diff }: { channelId: string; hero: unknown; curses: unknown; meta?: unknown; skin?: unknown; map?: unknown; mission?: unknown; diff?: unknown }) => {
@@ -283,7 +283,8 @@ export function registerSurvivorsCoopGateway(io: IOServer, socket: Socket) {
     if (h) {
       const sk = await skinOf(h, skin);
       const gear = await survGearOf(userId, h);
-      p.players = p.players.map((m) => (m.userId === userId ? { ...m, hero: h, skin: sk, gear } : m));
+      const look = await survLookOf(userId, h);
+      p.players = p.players.map((m) => (m.userId === userId ? { ...m, hero: h, skin: sk, gear, look } : m));
     }
     if (curses !== undefined && p.hostId === userId) p.curses = cleanSurvCurses(curses);
     if (p.hostId === userId && isSurvMap(map)) p.map = map;

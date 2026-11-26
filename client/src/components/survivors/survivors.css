@@ -1551,3 +1551,149 @@
     max-width: 110px;
   }
 }
+
+/* 🎒 classic-loot-game look for items (2026-11-27) */
+.poe-tip {
+  position: relative;
+  min-width: 230px;
+  max-width: 320px;
+  background: rgba(8, 6, 4, 0.96);
+  border: 1px solid color-mix(in srgb, var(--rc) 70%, #000);
+  box-shadow: 0 0 0 1px #000, 0 6px 18px rgba(0, 0, 0, 0.7);
+  font-family: Georgia, "Times New Roman", serif;
+  text-align: center;
+}
+.poe-head {
+  display: flex;
+  flex-direction: column;
+  padding: 5px 10px 4px;
+  color: var(--rc);
+  border-bottom: 1px solid color-mix(in srgb, var(--rc) 45%, #000);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--rc) 8%, #000), color-mix(in srgb, var(--rc) 26%, #120c06) 50%, color-mix(in srgb, var(--rc) 8%, #000));
+}
+.poe-head b {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.poe-head span {
+  font-size: 13px;
+}
+.poe-tip.r3 .poe-head b,
+.poe-tip.r3 .poe-head span {
+  text-shadow: 0 0 6px color-mix(in srgb, var(--rc) 70%, transparent);
+}
+.poe-body {
+  padding: 6px 10px 8px;
+  font-size: 12.5px;
+}
+.poe-prop {
+  color: #7f7f7f;
+}
+.poe-prop b {
+  color: #e8e8e8;
+  font-weight: normal;
+}
+.poe-prop em {
+  color: #c8a050;
+  font-style: normal;
+}
+.poe-sep {
+  height: 1px;
+  margin: 5px auto;
+  width: 80%;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rc) 60%, #555), transparent);
+}
+.poe-mod {
+  color: #8888ff;
+  line-height: 1.4;
+}
+.poe-mod.implicit {
+  color: #a8a8ff;
+}
+.poe-flavour {
+  color: #af6025;
+  font-style: italic;
+  font-size: 12px;
+}
+.poe-btns {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  padding: 0 8px 8px;
+  font-family: inherit;
+}
+.poe-btns em {
+  color: #7cff8a;
+  font-size: 12px;
+  align-self: center;
+}
+.poe-bag {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.poe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 56px);
+  gap: 2px;
+  padding: 4px;
+  background: #07090f;
+  border: 1px solid #2a2418;
+  flex: 1;
+  min-width: 240px;
+}
+.poe-cell {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  padding: 3px;
+  border: 1px solid #1c2030;
+  background: radial-gradient(circle, color-mix(in srgb, var(--rc) 14%, #0c1020), #0a0d18 75%);
+}
+.poe-cell.r0 {
+  background: #0c1020;
+}
+.poe-cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.poe-cell:hover,
+.poe-cell.on {
+  border-color: var(--rc);
+  box-shadow: inset 0 0 10px color-mix(in srgb, var(--rc) 45%, transparent);
+}
+.poe-cell.worn {
+  background: radial-gradient(circle, rgba(60, 140, 60, 0.35), #0a0d18 75%);
+}
+.poe-worn {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font-size: 11px;
+  color: #7cff8a;
+  font-style: normal;
+}
+.poe-hover {
+  display: none;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  z-index: 30;
+  pointer-events: none;
+}
+.poe-cell:hover .poe-hover {
+  display: block;
+}
+.poe-side {
+  width: 300px;
+  max-width: 100%;
+}
+.sv-doll-icon img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}

@@ -37,6 +37,7 @@ import {
   survItemBase,
   survItemFits,
   survSalvageGold,
+  survLookKey,
   type SurvGearSlot,
   type SurvItem,
 } from "@discord-clone/shared";
@@ -44,7 +45,7 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
-import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_TEXT, RARITY, SLOT_ICON, SLOT_TEXT, diffText } from "./content";
+import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_FLAVOUR, ITEM_TEXT, KIND_TEXT, RARITY, SLOT_ICON, SLOT_TEXT, diffText } from "./content";
 import { COMBOS, COMBO_IDS, TEMPERS, TIER_ROMAN, comboTier, combosOf, type TemperId } from "./content";
 import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
@@ -62,7 +63,7 @@ function canWebGL2(): boolean {
   }
 }
 import { survSound } from "./sounds";
-import { enemyIcon, heroIcon, heroSprite, weaponIcon } from "./sprites";
+import { enemyIcon, heroIcon, heroSprite, itemIcon, weaponIcon } from "./sprites";
 import "./survivors.css";
 
 /** 🧟 Шмиркленд — the screen of a "survivors" channel: menu (heroes, curses, shop, top lists, co-op
@@ -164,6 +165,10 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const [gearAll, setGearAll] = useState(false);
   /** the slot picked on the hero (the bag then shows what fits there) */
   const [gearSlot, setGearSlot] = useState<SurvGearSlot | null>(null);
+  /** the item clicked in the bag */
+  const [selItem, setSelItem] = useState<string | null>(null);
+  /** the item under the mouse (shown in the side panel) */
+  const [hoverItem, setHoverItem] = useState<string | null>(null);
   const [mapSel, setMapSel] = useState<SurvMapId>(() => load<SurvMapId>("survMap", "polyana"));
   const [missionSel, setMissionSel] = useState<boolean>(() => load<boolean>("survMission", true));
   useEffect(() => localStorage.setItem("survMap", JSON.stringify(mapSel)), [mapSel]);
@@ -270,6 +275,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const diffNow = myParty && myParty.hostId !== myId ? (myParty.diff ?? 0) : Math.min(diffSel[mapNow] ?? 0, diffOpen);
   /** 🎒 what my hero wears, summed */
   const myGear = (h: SurvHeroId) => survGearStats(profile?.items, profile?.gear?.[h], h);
+  /** 👕 and how it looks on the hero */
+  const myLook = (h: SurvHeroId) => survLookKey(profile?.items, profile?.gear?.[h], h);
   /** the runes I wear, with their levels */
   const myRunes = (): Partial<Record<SurvRuneId, number>> => Object.fromEntries((profile?.equipped ?? []).map((r) => [r, profile?.runes?.[r] ?? 0]));
   const skinOf = (h: SurvHeroId): SurvSkinId => {
@@ -416,7 +423,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     resetUi();
     survMusic.stop();
     savedGames.delete(channelId);
-    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), gear: myGear(hero), remote: false }], curses, { map: mapNow, mission: missionSel, diff: diffNow });
+    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), gear: myGear(hero), look: myLook(hero), remote: false }], curses, { map: mapNow, mission: missionSel, diff: diffNow });
     sessRef.current = newSession("solo", { world, curses, hero, map: mapNow, mission: missionSel, diff: diffNow });
     setMode("solo");
     setPhase("playing");
@@ -577,7 +584,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         survMusic.stop();
         const metaOf = (uid: string) => (uid === myId ? (profileRef.current?.upgrades ?? {}) : (st.players.find((p) => p.userId === uid)?.meta ?? {}));
         const world = new World(
-          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, gear: p.gear ?? {}, remote: p.userId !== myId })),
+          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, gear: p.gear ?? {}, look: p.look ?? "", remote: p.userId !== myId })),
           st.curses,
           { map: st.map ?? "polyana", mission: !!st.mission, diff: st.diff ?? 0 },
         );
@@ -1153,29 +1160,58 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       .then((r) => setLists(r.data))
       .catch(() => setError("Не става."));
   };
+  /** an item the way the classic loot games show it: coloured header, properties, blue mods */
   const itemView = (it: SurvItem, extra?: React.ReactNode) => {
     const b = survItemBase(it.b);
     const t = ITEM_TEXT[it.b] ?? { name: it.b, icon: "❔" };
+    const kind = b?.slot ?? "armor";
     return (
-      <div key={it.id} className={`sv-item r${it.r}`} style={{ ["--rc" as string]: RARITY[it.r]!.color }}>
-        <span className="sv-item-icon">{t.icon}</span>
-        <div className="sv-item-body">
+      <div key={it.id} className={`poe-tip r${it.r}`} style={{ ["--rc" as string]: RARITY[it.r]!.color }}>
+        <div className="poe-head">
           <b>{t.name}</b>
-          <small>
-            {RARITY[it.r]!.name} · {SLOT_TEXT[b?.slot ?? "armor"]}
-            {b?.hero ? ` · само за ${HEROES[b.hero].name}` : ""}
-            {it.d ? ` · ☠️${it.d}` : ""}
-          </small>
-          <ul>
-            {it.s.map(([k, v], i) => (
-              <li key={i}>{GEAR_STAT_TEXT[k]?.(v) ?? k}</li>
-            ))}
-          </ul>
+          {it.r >= 2 && <span>{KIND_TEXT[kind]}</span>}
+        </div>
+        <div className="poe-body">
+          <div className="poe-prop">
+            {RARITY[it.r]!.name} {KIND_TEXT[kind]?.toLowerCase()}
+            {b?.hero ? <em> · само за {HEROES[b.hero].name}</em> : null}
+          </div>
+          <div className="poe-prop">
+            Ниво на предмета: <b>{1 + it.d * 8 + it.r * 2}</b>
+            {it.d ? <> · ☠️ {DIFF_NAMES[it.d]}</> : null}
+          </div>
+          <div className="poe-sep" />
+          {it.s.map(([k, v], i) => (
+            <div key={i} className={`poe-mod ${i === 0 ? "implicit" : ""}`}>
+              {GEAR_STAT_TEXT[k]?.(v) ?? k}
+            </div>
+          ))}
+          {it.r === 3 && (
+            <>
+              <div className="poe-sep" />
+              <div className="poe-flavour">{ITEM_FLAVOUR[kind]}</div>
+            </>
+          )}
         </div>
         {extra}
       </div>
     );
   };
+  /** one cell of the bag grid: the picture, a rarity frame, the tooltip on hover */
+  const itemCell = (it: SurvItem, on: boolean, worn: boolean, click: () => void) => (
+    <button
+      key={it.id}
+      className={`poe-cell r${it.r} ${on ? "on" : ""} ${worn ? "worn" : ""}`}
+      style={{ ["--rc" as string]: RARITY[it.r]!.color }}
+      onClick={click}
+      onMouseEnter={() => setHoverItem(it.id)}
+      onMouseLeave={() => setHoverItem((h) => (h === it.id ? null : h))}
+      title={ITEM_TEXT[it.b]?.name}
+    >
+      <img src={itemIcon(it.b, it.r)} alt="" />
+      {worn && <i className="poe-worn">✔</i>}
+    </button>
+  );
   const buyRune = (id: SurvRuneId) =>
     http
       .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/rune`, { rune: id })
@@ -1272,7 +1308,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             <h3>Герой</h3>
             <div className="sv-heroes">{HERO_IDS.map(heroCard)}</div>
             <div className="sv-hero-info">
-              <img src={heroIcon(hero, skinOf(hero))} alt="" />
+              <img src={heroIcon(hero, skinOf(hero), myLook(hero))} alt="" />
               <div>
                 <b>
                   {sel.title} {sel.name}
@@ -1595,7 +1631,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               onClick={() => setGearSlot(gearSlot === slot ? null : slot)}
               title={it ? `${t!.name} (${RARITY[it.r]!.name})\n${it.s.map(([k, v]) => GEAR_STAT_TEXT[k]?.(v) ?? k).join("\n")}` : `${SLOT_TEXT[slot]} — празно`}
             >
-              <span className="sv-doll-icon">{t ? t.icon : SLOT_ICON[slot]}</span>
+              <span className="sv-doll-icon">{it ? <img src={itemIcon(it.b, it.r)} alt="" /> : SLOT_ICON[slot]}</span>
               <small>{t ? t.name : SLOT_TEXT[slot]}</small>
             </button>
           );
@@ -1616,7 +1652,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             <div className="sv-doll">
               <div className="sv-doll-col">{(["helmet", "shoulders", "armor", "gloves", "weapon"] as SurvGearSlot[]).map(slotBox)}</div>
               <div className="sv-doll-hero">
-                <img src={heroIcon(gh, skinOf(gh))} alt="" />
+                <img src={heroIcon(gh, skinOf(gh), myLook(gh))} alt="" />
                 <b>{HEROES[gh].name}</b>
                 <small className="sv-dim">{SURV_GEAR_SLOTS.filter((sl) => worn[sl]).length}/{SURV_GEAR_SLOTS.length} слота</small>
               </div>
@@ -1646,23 +1682,38 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               </label>
             </h3>
             {!items.length && <div className="sv-dim">Празно. Повали бос и вземи раницата 🎒, която пуска.</div>}
-            <div className="sv-inv">
-              {items.map((it) => {
+            <div className="poe-bag">
+              <div className="poe-grid">
+                {items.map((it) => itemCell(it, selItem === it.id, Object.values(worn).includes(it.id), () => setSelItem(selItem === it.id ? null : it.id)))}
+              </div>
+              {(() => {
+                const hov = hoverItem && hoverItem !== selItem ? (profile.items ?? []).find((x) => x.id === hoverItem) : undefined;
+                if (hov) return <div className="poe-side">{itemView(hov)}</div>;
+                const it = items.find((x) => x.id === selItem);
+                if (!it) return <div className="poe-side sv-dim">Натисни предмет, за да го сложиш или разглобиш. Задръж мишката отгоре, за да го видиш.</div>;
                 const slot = target(it);
                 const on = Object.values(worn).includes(it.id);
-                return itemView(
-                  it,
-                  <div className="sv-item-btns">
-                    {slot && !on && <button onClick={() => equip(gh, slot, it.id)}>Сложи{slot.startsWith("ring") ? ` (${slot === "ring1" ? "ляв" : "десен"})` : ""}</button>}
-                    {on && <em>носи го</em>}
-                    {!wornIds.has(it.id) && (
-                      <button className="sv-dim" onClick={() => salvage(it)} title="Разглоби за злато">
-                        🔨 {survSalvageGold(it)}
-                      </button>
+                return (
+                  <div className="poe-side">
+                    {itemView(
+                      it,
+                      <div className="poe-btns">
+                        {slot && !on && (
+                          <button onClick={() => equip(gh, slot, it.id)}>
+                            Сложи{slot.startsWith("ring") ? ` (${slot === "ring1" ? "лява ръка" : "дясна ръка"})` : ""}
+                          </button>
+                        )}
+                        {on && <em>носи го</em>}
+                        {!wornIds.has(it.id) && (
+                          <button className="sv-dim" onClick={() => salvage(it)} title="Разглоби за злато">
+                            🔨 Разглоби за {survSalvageGold(it)} 🪙
+                          </button>
+                        )}
+                      </div>,
                     )}
-                  </div>,
+                  </div>
                 );
-              })}
+              })()}
             </div>
           </div>
         );
@@ -2133,7 +2184,13 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       {result.newItems && result.newItems.length > 0 && (
         <div className="sv-loot">
           <div className="sv-dmg-title">🎒 Донесе {result.newItems.length} предмета (Снаряжение)</div>
-          <div className="sv-inv">{result.newItems.map((it) => itemView(it))}</div>
+          <div className="poe-bag">
+            <div className="poe-grid">{result.newItems.map((it) => itemCell(it, false, false, () => undefined))}</div>
+            {(() => {
+              const it = result.newItems!.find((x) => x.id === hoverItem) ?? result.newItems![result.newItems!.length - 1]!;
+              return <div className="poe-side">{itemView(it)}</div>;
+            })()}
+          </div>
           {result.salvaged ? <small className="sv-dim">Торбата е пълна: най-слабите са разглобени за {result.salvaged} 🪙</small> : null}
         </div>
       )}

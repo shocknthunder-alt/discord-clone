@@ -1,4 +1,5 @@
 import type { SurvHeroId, SurvMapId, SurvSkinId } from "@discord-clone/shared";
+import { survItemBase } from "@discord-clone/shared";
 import { HEROES, MAPS, type EnemyId } from "./content";
 import { GK, PK } from "./engine";
 
@@ -250,6 +251,9 @@ interface Body {
 
 /** Draws the body and returns where the joints ended up (for hats, tools…). */
 function body(c: Ctx, b: Body, frame: number, before?: (r: Rig) => void): Rig {
+  // 👕 worn trousers / boots change the colours
+  if (LOOK?.pants) b = { ...b, pants: GEAR_COL[LOOK.pants.b] ?? b.pants, skirt: b.skirt };
+  if (LOOK?.boots) b = { ...b, boots: GEAR_COL[LOOK.boots.b] ?? b.boots };
   const r = rig(frame, b.sw, b.armOut ?? 0);
   const L = b.limb ?? 1;
   const sleeve = b.sleeve ?? b.coat?.color ?? b.shirt;
@@ -927,12 +931,234 @@ function drawHero(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId = "c
   }
 }
 
-/** frame 0..7 = a step of the walk, 8..9 = standing and breathing */
-export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boolean, skin: SurvSkinId = "classic") {
-  return get(`h4:${hero}:${skin}:${frame}`, 60, 96, (c) => {
+/* ───────────── 👕 gear on the hero (2026-11-27) ───────────── */
+
+type GearPiece = { b: string; r: number };
+type GearLook = Partial<Record<string, GearPiece>>;
+/** rarity trims: magic blue, rare yellow, unique orange (like the item names) */
+const TRIM = ["", "#8f8fff", "#ffe066", "#e0782c"];
+/** the main colour of each piece */
+const GEAR_COL: Record<string, string> = {
+  kalpak: "#2a2420",
+  shlem: "#9aa3ad",
+  kachulka: "#2f4a2c",
+  naplechnitsi: "#7a4f2a",
+  valcha: "#8d8780",
+  pelerina: "#5a2a6a",
+  kozhuh: "#dcc79c",
+  elek: "#8a1a1e",
+  poyas: "#c0262c",
+  yamurluk: "#3a3530",
+  kovashki: "#6a4424",
+  pleteni: "#b02a2a",
+  strelets: "#2a2a30",
+  poturi: "#1f2a44",
+  benevretsi: "#e8e0cc",
+  shalvari: "#a82a2a",
+  botushi: "#1a1614",
+  bivolski: "#7a5a3a",
+  krilati: "#c8a050",
+  muska: "#3a7aff",
+  sinchets: "#5a7aff",
+  monista: "#f2c230",
+  oko: "#2a6aff",
+  pero: "#ff7a2a",
+};
+const lookCache = new Map<string, GearLook>();
+function parseLook(key: string): GearLook {
+  const hit = lookCache.get(key);
+  if (hit) return hit;
+  const out: GearLook = {};
+  for (const part of key.split(",")) {
+    const [slot, b, r] = part.split(":");
+    if (slot && b) out[slot] = { b, r: Number(r) || 0 };
+  }
+  lookCache.set(key, out);
+  return out;
+}
+/** read by body(): trousers / boots take the worn piece's colour */
+let LOOK: GearLook | null = null;
+
+function trimLine(c: Ctx, p: GearPiece, pts: number[], w = 1.1) {
+  if (p.r > 0) line(c, pts, TRIM[p.r]!, w);
+}
+/** a unique piece glows a little */
+function withGlow(c: Ctx, p: GearPiece, fn: () => void) {
+  if (p.r < 3) return fn();
+  c.save();
+  c.shadowColor = TRIM[3]!;
+  c.shadowBlur = 5;
+  fn();
+  c.restore();
+}
+/** draw it BEHIND what is already there (the far glove / shoulder) */
+function behind(c: Ctx, fn: () => void) {
+  c.save();
+  c.globalCompositeOperation = "destination-over";
+  fn();
+  c.restore();
+}
+
+function gearFront(c: Ctx, hero: SurvHeroId, frame: number, look: GearLook) {
+  const r = rig(frame, 10);
+  const s = r.sh;
+  const h = r.hip;
+  const x = r.head.x;
+  const y = r.head.y;
+  const top = y + HAT_TOP[hero];
+
+  // 👖 trousers details (the colour came through body())
+  const pa = look.pants;
+  if (pa) {
+    const col = GEAR_COL[pa.b] ?? "#333";
+    withGlow(c, pa, () => {
+      if (pa.b === "shalvari") {
+        tube(c, { x: h.x + 2, y: h.y }, r.fKnee, 4.4, 4.2, col);
+      }
+      if (pa.b === "benevretsi") {
+        line(c, [h.x + 2.5, h.y + 1, r.fKnee.x + 0.5, r.fKnee.y, r.fFoot.x, r.fFoot.y - 4], "#1a1614", 0.9);
+      }
+      trimLine(c, pa, [h.x - 3, h.y + 1.5, h.x + 4, h.y + 1.5], 1.4);
+    });
+  }
+  // 🥾 boots details
+  const bo = look.boots;
+  if (bo) {
+    const col = GEAR_COL[bo.b] ?? "#222";
+    withGlow(c, bo, () => {
+      for (const f of [r.fFoot]) {
+        if (bo.b === "botushi") {
+          tube(c, { x: f.x - 0.3, y: f.y - 7 }, { x: f.x, y: f.y - 1 }, 3.1, 2.9, col);
+          line(c, [f.x - 3, f.y - 7, f.x + 3, f.y - 7], tone(col, 1.8), 1.2);
+        } else if (bo.b === "krilati") {
+          poly(c, [f.x - 3, f.y - 2, f.x - 9, f.y - 6, f.x - 7, f.y - 2.5, f.x - 10, f.y - 3, f.x - 3.5, f.y + 0.5], "#f4f0e0", OUT, 0.7);
+        } else {
+          line(c, [f.x - 1.5, f.y - 3.5, f.x + 1.5, f.y - 2, f.x - 1, f.y - 1], tone(col, 0.6), 0.8);
+        }
+        trimLine(c, bo, [f.x - 3, f.y + 2.4, f.x + 6.5, f.y + 2.2], 1);
+      }
+    });
+  }
+  // 🧥 chest
+  const ar = look.armor;
+  if (ar) {
+    const col = GEAR_COL[ar.b] ?? "#555";
+    withGlow(c, ar, () => {
+      if (ar.b === "poyas") {
+        line(c, [s.x - 9, h.y - 1.5, s.x + 9.5, h.y - 2], col, 4.2);
+        line(c, [s.x + 7, h.y - 1, s.x + 9, h.y + 6], col, 2.2);
+        trimLine(c, ar, [s.x - 9, h.y - 3.6, s.x + 9.5, h.y - 4.1], 0.9);
+        return;
+      }
+      const to = ar.b === "yamurluk" ? h.y + 6 + r.bob : h.y + 1.5;
+      const wide = ar.b === "yamurluk" ? 1.6 : 0;
+      shaded(c, [s.x - 10.6 - wide, s.y - 0.5, s.x - 2.6, s.y - 1.4, h.x - 2.2, to, h.x - 8.8 - wide, to + 0.8], col, s.x - 6, (s.y + h.y) / 2, 5, 14);
+      shaded(c, [s.x + 3, s.y - 1.4, s.x + 10.6 + wide, s.y - 0.5, h.x + 8.8 + wide, to + 0.8, h.x + 2.4, to], tone(col, 1.08), s.x + 6, (s.y + h.y) / 2, 5, 14);
+      if (ar.b === "kozhuh") {
+        for (let yy = s.y + 3; yy < to - 1; yy += 3) {
+          line(c, [s.x - 8.5, yy, s.x - 5, yy + 1.4], "rgba(120,90,50,0.55)", 0.9);
+          line(c, [s.x + 4.5, yy, s.x + 8.5, yy + 1.4], "rgba(120,90,50,0.55)", 0.9);
+        }
+      } else if (ar.b === "elek") {
+        for (let yy = s.y + 2.5; yy < to - 1; yy += 2.6) {
+          ell(c, s.x - 4.2, yy, 0.8, 0.8, "#f2c230");
+          ell(c, s.x + 5, yy, 0.8, 0.8, "#f2c230");
+        }
+      }
+      trimLine(c, ar, [s.x - 2.6, s.y - 1.4, h.x - 2.2, to], 1.2);
+      trimLine(c, ar, [s.x + 3, s.y - 1.4, h.x + 2.4, to], 1.2);
+    });
+  }
+  // 📿 amulet
+  const am = look.amulet;
+  if (am) {
+    const col = GEAR_COL[am.b] ?? "#3a7aff";
+    withGlow(c, am, () => {
+      line(c, [s.x - 3.5, s.y - 1, s.x + 1, s.y + 4.5, s.x + 5, s.y - 1], "#c8a050", 0.7);
+      if (am.b === "monista") for (let i = -2; i <= 2; i++) ell(c, s.x + 1 + i * 1.8, s.y + 3.6 - Math.abs(i) * 0.9, 1, 1, col, "#7a5a10", 0.4);
+      else if (am.b === "pero") poly(c, [s.x + 1, s.y + 3.5, s.x + 2.5, s.y + 8.5, s.x - 0.4, s.y + 5], col, OUT, 0.5);
+      else ell(c, s.x + 1, s.y + 4.8, 1.7, 1.7, col, "#e8e4dc", 0.6);
+    });
+  }
+  // 🦺 shoulders (the far one goes behind the body)
+  const sd = look.shoulders;
+  if (sd) {
+    const col = GEAR_COL[sd.b] ?? "#666";
+    const pad = (px: number, py: number, k: number) => {
+      if (sd.b === "pelerina") {
+        shaded(c, [px - 5, py - 1.5, px + 5, py - 2, px + 4, py + 5, px - 4.5, py + 4.5], tone(col, k), px, py + 1, 5, 5);
+      } else if (sd.b === "valcha") {
+        ell(c, px, py, 5.2, 3.6, tone(col, k), OUT, 0.8);
+        for (let i = -2; i <= 2; i++) line(c, [px + i * 1.6, py - 1.5, px + i * 1.9, py + 3.2], "rgba(60,55,50,0.6)", 0.6);
+      } else {
+        shaded(c, [px - 5, py + 1.5, px - 4, py - 2.5, px + 4, py - 2.8, px + 5, py + 1.5, px, py + 3], tone(col, k), px, py, 5, 4);
+        ell(c, px, py - 0.4, 0.8, 0.8, "#d8d0c0");
+      }
+      trimLine(c, sd, [px - 4.5, py + 1.8, px + 4.5, py + 1.8], 0.9);
+    };
+    withGlow(c, sd, () => {
+      behind(c, () => pad(s.x - 9, s.y + 0.5, 0.7));
+      pad(s.x + 9.5, s.y + 0.8, 1);
+    });
+  }
+  // 🧤 gloves (and 💍 a ring glints on them)
+  const gl = look.gloves;
+  const ring = look.ring1 ?? look.ring2;
+  if (gl) {
+    const col = GEAR_COL[gl.b] ?? "#553";
+    const glove = (hand: P, elbow: P, k: number) => {
+      tube(c, { x: hand.x + (elbow.x - hand.x) * 0.35, y: hand.y + (elbow.y - hand.y) * 0.35 }, { x: hand.x + 0.4, y: hand.y + 1.4 }, 2.6, 2.4, tone(col, k));
+      if (gl.r > 0) line(c, [hand.x + (elbow.x - hand.x) * 0.35 - 2.4, hand.y + (elbow.y - hand.y) * 0.35, hand.x + (elbow.x - hand.x) * 0.35 + 2.4, hand.y + (elbow.y - hand.y) * 0.35], TRIM[gl.r]!, 1);
+    };
+    withGlow(c, gl, () => {
+      behind(c, () => glove(r.bHand, r.bElbow, 0.7));
+      glove(r.fHand, r.fElbow, 1);
+    });
+  }
+  if (ring) ell(c, r.fHand.x + 1, r.fHand.y + 0.6, 0.9, 0.9, ring.r > 0 ? TRIM[ring.r]! : "#f2c230");
+  // 🪖 head
+  const he = look.helmet;
+  if (he) {
+    const col = GEAR_COL[he.b] ?? "#333";
+    withGlow(c, he, () => {
+      if (he.b === "kalpak") {
+        const t = Math.min(top, y - 17);
+        shaded(c, [x - 7.8, y - 4.2, x - 7.2, t + 1, x - 2, t - 0.6, x + 6.5, t, x + 8.4, y - 4.6], col, x, (t + y) / 2, 8, 8);
+        for (let xx = -6; xx <= 6; xx += 2.2) line(c, [x + xx, t + 1.5, x + xx + 0.5, y - 5.2], "rgba(255,255,255,0.08)", 1);
+        trimLine(c, he, [x - 7.8, y - 4.4, x + 8.4, y - 4.8], 1.3);
+      } else if (he.b === "shlem") {
+        const t = Math.min(top + 1.5, y - 12.5);
+        shaded(c, [x - 8.2, y - 2.5, x - 7.8, y - 7.5, x - 4, t + 0.5, x + 2, t, x + 7, y - 9, x + 8.6, y - 3], col, x, (t + y) / 2, 8, 7);
+        line(c, [x - 8.4, y - 2.6, x + 8.8, y - 3], tone(col, 0.6), 1.6);
+        line(c, [x + 6.2, y - 3, x + 6.6, y + 2.5], tone(col, 0.75), 1.4);
+        line(c, [x - 1, t + 0.5, x - 1.4, y - 3], "rgba(255,255,255,0.35)", 0.8);
+        trimLine(c, he, [x - 8.4, y - 4.2, x + 8.8, y - 4.6], 1);
+      } else {
+        // a hood: down the back of the head, open face
+        const t = Math.min(top - 1, y - 12);
+        shaded(c, [x - 9.5, y + 6.5, x - 10, y - 4, x - 6, t, x + 1, t - 1.4, x + 7.5, t + 2.5, x + 9.6, y - 6, x + 6, y - 7.8, x - 1, y - 8.5, x - 4.5, y - 3, x - 4.6, y + 7.5], col, x - 2, (t + y) / 2, 9, 10);
+        trimLine(c, he, [x + 6, y - 7.8, x - 1, y - 8.5, x - 4.5, y - 3, x - 4.6, y + 7.5], 1);
+      }
+    });
+  }
+  // ⚔️ a rare+ weapon: sparks in the hand
+  const we = look.weapon;
+  if (we && we.r >= 2) {
+    ell(c, r.fHand.x + 1.5, r.fHand.y - 2, 1.4, 1.4, TRIM[we.r]!);
+    ell(c, r.fHand.x - 1.2, r.fHand.y - 4.2, 0.8, 0.8, TRIM[we.r]!);
+  }
+}
+
+/** frame 0..7 = a step of the walk, 8..9 = standing and breathing; look = the worn gear (survLookKey) */
+export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boolean, skin: SurvSkinId = "classic", look = "") {
+  return get(`h4:${hero}:${skin}:${frame}${look ? ":" + look : ""}`, 60, 96, (c) => {
     c.translate(0, 8);
+    const gear = look ? parseLook(look) : null;
+    LOOK = gear;
     costumeBack(c, hero, frame, skin);
     drawHero(c, hero, frame, skin);
+    LOOK = null;
+    if (gear) gearFront(c, hero, frame, gear);
     costumeFront(c, hero, frame, skin);
     const tint = SKIN_TINT[skin];
     if (tint) {
@@ -2138,14 +2364,14 @@ const PICK_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
     draw: (c) => {
       // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
       const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
-      gl.addColorStop(0, "#4aa8ffcc");
-      gl.addColorStop(1, "#4aa8ff00");
+      gl.addColorStop(0, "#8888ffcc");
+      gl.addColorStop(1, "#8888ff00");
       c.fillStyle = gl;
       c.fillRect(-15, -12, 30, 28);
       ell(c, 0, 4, 9, 8, "#b8946a", OUT);
       poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
-      line(c, [-8, 0, 8, 0], "#4aa8ff", 2.4);
-      ell(c, 0, 0, 2.6, 2.6, "#4aa8ff", "#1a3a70", 1);
+      line(c, [-8, 0, 8, 0], "#8888ff", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#8888ff", "#22225a", 1);
     },
   },
   [GK.item + 2]: {
@@ -2154,14 +2380,14 @@ const PICK_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
     draw: (c) => {
       // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
       const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
-      gl.addColorStop(0, "#b67cffcc");
-      gl.addColorStop(1, "#b67cff00");
+      gl.addColorStop(0, "#ffff77cc");
+      gl.addColorStop(1, "#ffff7700");
       c.fillStyle = gl;
       c.fillRect(-15, -12, 30, 28);
       ell(c, 0, 4, 9, 8, "#b8946a", OUT);
       poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
-      line(c, [-8, 0, 8, 0], "#b67cff", 2.4);
-      ell(c, 0, 0, 2.6, 2.6, "#b67cff", "#4a1a80", 1);
+      line(c, [-8, 0, 8, 0], "#ffff77", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#ffff77", "#6a6a10", 1);
     },
   },
   [GK.item + 3]: {
@@ -2170,14 +2396,14 @@ const PICK_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
     draw: (c) => {
       // 🎒 a bundle (вързоп) tied with a ribbon in the rarity colour
       const gl = c.createRadialGradient(0, 2, 1, 0, 2, 14);
-      gl.addColorStop(0, "#ffb02ecc");
-      gl.addColorStop(1, "#ffb02e00");
+      gl.addColorStop(0, "#e0782ccc");
+      gl.addColorStop(1, "#e0782c00");
       c.fillStyle = gl;
       c.fillRect(-15, -12, 30, 28);
       ell(c, 0, 4, 9, 8, "#b8946a", OUT);
       poly(c, [-4, -4, 4, -4, 6, -9, 0, -6, -6, -9], "#a07c52", OUT, 1);
-      line(c, [-8, 0, 8, 0], "#ffb02e", 2.4);
-      ell(c, 0, 0, 2.6, 2.6, "#ffb02e", "#7a4a00", 1);
+      line(c, [-8, 0, 8, 0], "#e0782c", 2.4);
+      ell(c, 0, 0, 2.6, 2.6, "#e0782c", "#5a2a08", 1);
     },
   },
   [GK.bomb]: {
@@ -2545,11 +2771,11 @@ export function weaponIcon(id: string): string {
   return url;
 }
 
-export function heroIcon(hero: SurvHeroId, skin: SurvSkinId = "classic"): string {
-  const key = `hero:${hero}:${skin}`;
+export function heroIcon(hero: SurvHeroId, skin: SurvSkinId = "classic", look = ""): string {
+  const key = `hero:${hero}:${skin}:${look}`;
   const hit = iconCache.get(key);
   if (hit) return hit;
-  const sp = heroSprite(hero, 8, 0, false, skin);
+  const sp = heroSprite(hero, 8, 0, false, skin, look);
   const cv = document.createElement("canvas");
   cv.width = sp.width;
   cv.height = sp.height;
@@ -2568,6 +2794,116 @@ export function enemyIcon(type: EnemyId): string {
   cv.width = sp.width;
   cv.height = sp.height;
   cv.getContext("2d")!.drawImage(sp, 0, 0);
+  const url = cv.toDataURL();
+  iconCache.set(key, url);
+  return url;
+}
+
+/* ───────────── 🎒 item pictures for the bag / the hero's slots (2026-11-27) ───────────── */
+
+/** a 64×64 picture of an item (weapons = the hero's weapon, recoloured a bit by rarity) */
+export function itemIcon(baseId: string, rarity: number): string {
+  const key = `item:${baseId}:${rarity}`;
+  const hit = iconCache.get(key);
+  if (hit) return hit;
+  const base = survItemBase(baseId);
+  const cv = document.createElement("canvas");
+  cv.width = 64;
+  cv.height = 64;
+  const c = cv.getContext("2d")!;
+  const col = GEAR_COL[baseId] ?? "#8a7a60";
+  const trim = TRIM[rarity] || "#c8a050";
+  // weapons: the hero's own weapon picture (the rarity shows in the frame around it)
+  if (base?.slot === "weapon" && base.hero) return weaponIcon(HEROES[base.hero].weapon);
+  c.translate(32, 32);
+  c.scale(2, 2);
+  c.lineCap = "round";
+  c.lineJoin = "round";
+  const dark = tone(col, 0.6);
+  switch (base?.slot) {
+    case "helmet":
+      if (baseId === "kalpak") {
+        shaded(c, [-11, 8, -10, -10, -3, -13, 7, -12, 11, 8], col, 0, -2, 11, 11);
+        for (let x = -8; x <= 8; x += 3) line(c, [x, -10, x + 1, 7], "rgba(255,255,255,0.1)", 1);
+        line(c, [-11, 8, 11, 8], trim, 2);
+      } else if (baseId === "shlem") {
+        shaded(c, [-12, 6, -11, -3, -5, -12, 3, -13, 10, -6, 12, 6], col, 0, -2, 12, 10);
+        line(c, [-12, 6, 12, 6], dark, 2.4);
+        line(c, [6, 6, 6.5, 14], dark, 2.2);
+        line(c, [-4, -10, -6, 4], "rgba(255,255,255,0.45)", 1.2);
+        line(c, [-12, 3, 12, 3], trim, 1.2);
+      } else {
+        shaded(c, [-12, 14, -13, -2, -7, -13, 2, -14, 10, -8, 13, 4, 12, 14, 6, 12, 7, -2, 0, -6, -6, -2, -6, 12], col, 0, 0, 12, 13);
+        line(c, [7, -2, 0, -6, -6, -2, -6, 12], trim, 1.2);
+      }
+      break;
+    case "shoulders":
+      for (const sx of [-1, 1]) {
+        const px = sx * 7;
+        if (baseId === "valcha") {
+          ell(c, px, 0, 8, 6, tone(col, sx < 0 ? 0.8 : 1), OUT, 1);
+          for (let i = -3; i <= 3; i++) line(c, [px + i * 2, -4, px + i * 2.3, 5], "rgba(50,45,40,0.6)", 0.8);
+        } else if (baseId === "pelerina") {
+          shaded(c, [px - 8, -6, px + 8, -7, px + 7, 10, px - 7, 9], tone(col, sx < 0 ? 0.8 : 1), px, 1, 8, 9);
+        } else {
+          shaded(c, [px - 8, 4, px - 7, -4, px + 7, -5, px + 8, 4, px, 7], tone(col, sx < 0 ? 0.8 : 1), px, 0, 8, 6);
+          ell(c, px, -1, 1.3, 1.3, "#e0d8c8");
+        }
+        line(c, [px - 7, 5, px + 7, 5], trim, 1.2);
+      }
+      break;
+    case "armor":
+      if (baseId === "poyas") {
+        rr(c, -14, -4, 28, 8, 2, col, OUT, 1);
+        for (let x = -12; x <= 12; x += 4) line(c, [x, -3, x + 2, 3], tone(col, 0.7), 1);
+        line(c, [8, 4, 11, 14], col, 3);
+        line(c, [-14, -4, 14, -4], trim, 1.2);
+      } else {
+        shaded(c, [-13, -11, -5, -13, 0, -6, 5, -13, 13, -11, 12, 13, -12, 13], col, 0, 0, 13, 13);
+        line(c, [0, -6, 0, 13], dark, 1.2);
+        if (baseId === "elek") for (let y = -8; y < 12; y += 3.5) (ell(c, -4, y, 1, 1, "#f2c230"), ell(c, 4, y, 1, 1, "#f2c230"));
+        if (baseId === "kozhuh") for (let y = -8; y < 12; y += 3.5) (line(c, [-11, y, -6, y + 2], "rgba(120,90,50,0.55)", 1), line(c, [6, y, 11, y + 2], "rgba(120,90,50,0.55)", 1));
+        line(c, [-5, -13, 0, -6, 5, -13], trim, 1.4);
+      }
+      break;
+    case "gloves":
+      shaded(c, [-9, 12, -10, -2, -8, -10, -5, -11, -4, -3, -2, -12, 1, -12, 2, -3, 4, -11, 7, -10, 7, -2, 11, -5, 12, -2, 8, 6, 7, 12], col, 0, 0, 10, 12);
+      line(c, [-9, 8, 7, 8], trim, 1.6);
+      break;
+    case "pants":
+      shaded(c, [-11, -13, 11, -13, 12, 14, 3, 14, 0, -3, -3, 14, -12, 14], col, 0, 0, 12, 14);
+      line(c, [-11, -11, 11, -11], trim, 1.6);
+      if (baseId === "benevretsi") (line(c, [-7, -10, -8, 13], "#1a1614", 0.9), line(c, [7, -10, 8, 13], "#1a1614", 0.9));
+      break;
+    case "boots":
+      shaded(c, [-8, -13, 2, -13, 2, 4, 12, 7, 12, 13, -9, 13], col, 0, 0, 10, 13);
+      line(c, [-8, -10, 2, -10], trim, 1.6);
+      if (baseId === "krilati") poly(c, [-8, -4, -15, -10, -13, -4, -16, -5, -8, 1], "#f4f0e0", OUT, 0.8);
+      break;
+    case "amulet":
+      c.beginPath();
+      c.arc(0, -4, 10, Math.PI * 0.1, Math.PI * 0.9, true);
+      c.strokeStyle = "#c8a050";
+      c.lineWidth = 1.2;
+      c.stroke();
+      if (baseId === "monista") for (let i = -3; i <= 3; i++) ell(c, i * 3, 6 - Math.abs(i) * 1.2, 2.2, 2.2, col, "#7a5a10", 0.7);
+      else if (baseId === "pero") poly(c, [0, 2, 4, 14, -2, 8], col, OUT, 0.8);
+      else (ell(c, 0, 8, 5, 5, trim, OUT, 1), ell(c, 0, 8, 3.4, 3.4, col), ell(c, -1, 7, 1, 1, "#ffffff"));
+      break;
+    case "ring": {
+      c.beginPath();
+      c.ellipse(0, 3, 9, 7, 0, 0, Math.PI * 2);
+      c.strokeStyle = rarity >= 2 ? "#f2c230" : "#c8c8d0";
+      c.lineWidth = 3;
+      c.stroke();
+      const gem = { srebaren: "#d8e0ff", venchalen: "#ffe8a0", rubin: "#e02a3a", pechat: "#3a3a60", zmiya: "#3aa04a" }[baseId] ?? "#a0c0ff";
+      poly(c, [0, -10, 5, -5, 0, 0, -5, -5], gem, OUT, 1);
+      poly(c, [0, -10, 5, -5, 0, -5], "rgba(255,255,255,0.45)");
+      break;
+    }
+    default:
+      ell(c, 0, 0, 10, 10, col, OUT, 1);
+  }
   const url = cv.toDataURL();
   iconCache.set(key, url);
   return url;

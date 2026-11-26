@@ -69,6 +69,8 @@ export interface RPlayer {
   uid: string;
   name: string;
   hero: SurvHeroId;
+  /** 👕 the worn gear's look (survLookKey) */
+  look?: string;
   x: number;
   y: number;
   face: number;
@@ -405,6 +407,7 @@ export interface PlayerSetup {
   runes?: Partial<Record<SurvRuneId, number>>;
   /** (2026-11-27+) 🎒 summed stats of the gear the hero wears */
   gear?: Partial<Record<SurvGearStat, number>>;
+  look?: string;
 }
 
 export interface WorldOpts {
@@ -642,6 +645,7 @@ export class World {
         bellT: 6,
         tempers: {},
         gear: s.gear ?? {},
+        look: s.look ?? "",
         loot: [],
         comboT: { svatba: 4, prolet: 6, roy: 3, krik: 0 },
       };

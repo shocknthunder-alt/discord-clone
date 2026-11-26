@@ -367,6 +367,8 @@ export interface SurvMemberDTO {
   runes?: Partial<Record<SurvRuneId, number>>;
   /** (2026-11-27+) 🎒 the summed stats of the gear their hero wears */
   gear?: Partial<Record<SurvGearStat, number>>;
+  /** (2026-11-27+) 👕 how the worn gear looks (survLookKey) */
+  look?: string;
 }
 
 export function cleanSurvMeta(v: unknown): Partial<Record<SurvMetaKey, number>> {

@@ -1,5 +1,5 @@
 import type { SurvHeroId, SurvMapId } from "@discord-clone/shared";
-import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, type EnemyId } from "./content";
+import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, RARITY, type EnemyId } from "./content";
 import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RView } from "./engine";
 import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
@@ -494,8 +494,8 @@ export class Renderer {
       const item = g.k >= GK.item && g.k <= GK.item + 3;
       if ((g.k !== GK.relic && !(item && g.k >= GK.item + 1)) || !onScreen(g.x, g.y, 40)) continue;
       if (item) {
-        // 🎒 a rare+ item: a short pillar in its rarity colour
-        const col = ["", "74,168,255", "182,124,255", "255,176,46"][g.k - GK.item]!;
+        // 🎒 a magic+ item: a short pillar in its rarity colour
+        const col = ["", "136,136,255", "255,255,119", "224,120,44"][g.k - GK.item]!;
         const h = 90 + Math.sin(this.clock * 3 + g.x) * 8;
         const gr = c.createLinearGradient(0, g.y - h, 0, g.y);
         gr.addColorStop(0, `rgba(${col},0)`);
@@ -922,7 +922,7 @@ export class Renderer {
         draw: () => {
           if (!T) for (const s of trail) {
             c.globalAlpha = Math.max(0, s.t) * 1.6;
-            const sp = heroSprite(p.hero, 3, 2, p.face < 0, p.skin);
+            const sp = heroSprite(p.hero, 3, 2, p.face < 0, p.skin, p.look);
             c.drawImage(sp, s.x - sp.width / 4, s.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
           }
           c.globalAlpha = 1;
@@ -970,7 +970,7 @@ export class Renderer {
           } else {
             const f = p.moving ? Math.floor(this.clock * 13) % 8 : 8 + (Math.floor(this.clock * 1.4) % 2);
             const blink = p.invulnT > 0 && p.dashT <= 0 && Math.floor(this.clock * 20) % 2 === 0;
-            const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0, p.skin);
+            const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0, p.skin, p.look);
             if (p.skin === "fire" && Math.random() < 0.5) this.particles.push({ x: p.x + (Math.random() - 0.5) * 22, y: p.y + 10 - Math.random() * 30, vx: (Math.random() - 0.5) * 20, vy: -60 - Math.random() * 60, life: 0.5, max: 0.5, col: Math.random() < 0.5 ? "#ffb21a" : "#ff5a2a", size: 2.5 });
             if (p.skin === "ghost" && !T) c.globalAlpha = 0.72;
             if (p.skin === "gold" && Math.random() < 0.15) this.particles.push({ x: p.x + (Math.random() - 0.5) * 26, y: p.y - Math.random() * 36, vx: 0, vy: -20, life: 0.6, max: 0.6, col: "#fff6b0", size: 2 });
@@ -1249,7 +1249,29 @@ export class Renderer {
     };
     for (const g of v.gems) if (g.k === GK.chest) arrow(g.x, g.y, "#ffd34d", "📦");
     for (const g of v.gems) if (g.k === GK.relic) arrow(g.x, g.y, "#c890ff", "💎");
-    for (const g of v.gems) if (g.k >= GK.item && g.k <= GK.item + 3) arrow(g.x, g.y, ["#c8c8c8", "#4aa8ff", "#b67cff", "#ffb02e"][g.k - GK.item]!, "🎒");
+    for (const g of v.gems) if (g.k >= GK.item && g.k <= GK.item + 3) arrow(g.x, g.y, RARITY[g.k - GK.item]!.color, "🎒");
+    // 🏷️ loot labels over items on the ground (a dark box, the rarity's colour)
+    c.save();
+    c.font = "bold 11px Georgia, 'Times New Roman', serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    for (const g of v.gems) {
+      if (g.k < GK.item || g.k > GK.item + 3) continue;
+      const r = g.k - GK.item;
+      const sx = (g.x - x0) * z;
+      const sy = (g.y - 20 - y0) * z;
+      if (sx < -80 || sy < -20 || sx > this.w + 80 || sy > this.h + 20) continue;
+      const txt = `${RARITY[r]!.name} предмет`;
+      const w = c.measureText(txt).width + 12;
+      c.fillStyle = r === 3 ? "rgba(30,14,4,0.88)" : "rgba(0,0,0,0.78)";
+      c.fillRect(sx - w / 2, sy - 8, w, 16);
+      c.strokeStyle = RARITY[r]!.color;
+      c.lineWidth = r === 3 ? 2 : 1;
+      c.strokeRect(sx - w / 2 + 0.5, sy - 7.5, w - 1, 15);
+      c.fillStyle = RARITY[r]!.color;
+      c.fillText(txt, sx, sy + 0.5);
+    }
+    c.restore();
     for (const m of v.marks) if (m.kind === MK.shrine) arrow(m.x, m.y, "#ffe27a", "🕯️");
     for (const m of v.marks) if (m.kind === MK.portal) arrow(m.x, m.y, "#c890ff", "🌀");
     for (const e of v.enemies) if (e.type === "altar") arrow(e.x, e.y, "#ffb02a", "🗿");

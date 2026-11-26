@@ -242,3 +242,21 @@ export const survDiffOpen = (diffs: Partial<Record<SurvMapId, number>> | undefin
 export const survDiffGold = (d: number) => 1 + 0.25 * d;
 /** most items a game may bring home (the server's sanity ceiling) */
 export const survLootCap = (bosses: number, seconds: number, won: boolean) => bosses * 2 + Math.floor(seconds / 150) + 3 + (won ? 3 : 0);
+
+/* ───────────── 👕 what the gear looks like on the hero ───────────── */
+
+/** "kind:base:rarity" of each worn piece, joined by "," (the sprite cache key + what co-op mates see) */
+export function survLookKey(items: SurvItem[] | undefined, worn: Partial<Record<SurvGearSlot, string>> | undefined, hero: SurvHeroId): string {
+  const out: string[] = [];
+  const used = new Set<string>();
+  for (const slot of SURV_GEAR_SLOTS) {
+    const it = items?.find((i) => i.id === worn?.[slot]);
+    if (!it || used.has(it.id) || !survItemFits(it, hero, slot)) continue;
+    used.add(it.id);
+    out.push(`${slot}:${it.b}:${it.r}`);
+  }
+  return out.join(",");
+}
+/** only well-formed looks get through (they end up in a canvas cache key) */
+export const cleanSurvLook = (v: unknown): string =>
+  typeof v === "string" && v.length <= 400 && /^([a-z0-9]+:[a-z]+:[0-3])?(,[a-z0-9]+:[a-z]+:[0-3])*$/.test(v) ? v : "";

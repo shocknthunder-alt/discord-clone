@@ -516,12 +516,37 @@ export const diffText = (d: number) =>
 
 /* ───────────── 🎒 gear texts ───────────── */
 
+/** item rarity: white → blue → yellow → orange, the classic loot colours */
 export const RARITY: { name: string; color: string }[] = [
   { name: "Обикновен", color: "#c8c8c8" },
-  { name: "Рядък", color: "#4aa8ff" },
-  { name: "Епичен", color: "#b67cff" },
-  { name: "Легендарен", color: "#ffb02e" },
+  { name: "Магически", color: "#8888ff" },
+  { name: "Рядък", color: "#ffff77" },
+  { name: "Уникален", color: "#e0782c" },
 ];
+/** a line under the name of a unique item, by kind */
+export const ITEM_FLAVOUR: Record<string, string> = {
+  weapon: "Дядо ми го е носил. И неговият дядо. Никой не го е мил.",
+  helmet: "Главата си пазиш — с нея мислиш. Понякога.",
+  shoulders: "Тежко е на раменете, ама поне не духа.",
+  armor: "Шито на ръка, по нощите, на светлината на свещ.",
+  gloves: "Който хване, не пуска.",
+  pants: "Широки отгоре, тесни отдолу — за бой и за хоро.",
+  boots: "Минали са през три планини и едно блато.",
+  amulet: "От баба — против уроки и против таласъми.",
+  ring: "Пасва на всеки пръст. Подозрително.",
+};
+/** the line under a rare / unique name: what kind of thing it is */
+export const KIND_TEXT: Record<string, string> = {
+  weapon: "Оръжие",
+  helmet: "Шапка",
+  shoulders: "Наплечници",
+  armor: "Дреха",
+  gloves: "Ръкавици",
+  pants: "Гащи",
+  boots: "Обувки",
+  amulet: "Амулет",
+  ring: "Пръстен",
+};
 export const ITEM_TEXT: Record<string, { name: string; icon: string }> = {
   gega: { name: "Овчарска гега", icon: "🦯" },
   hlopka: { name: "Медна хлопка", icon: "🔔" },
