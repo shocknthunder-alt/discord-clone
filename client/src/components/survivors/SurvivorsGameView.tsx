@@ -27,12 +27,12 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
-import { ACH_TEXT, BOSS_ORDER, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
+import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
 import { FX, World, isBossWave, offerTitle, type Fx, type Input, type Offer, type RView } from "./engine";
 import { SNAP_HZ, decodeSnapshot, encodeSnapshot, lerpView, type GuestInput, type GuestMsg, type HostMsg, type NetPlayer, type Snapshot } from "./net";
 import { Renderer } from "./render";
 import { survSound } from "./sounds";
-import { enemyIcon, heroIcon, weaponIcon } from "./sprites";
+import { enemyIcon, heroIcon, heroSprite, weaponIcon } from "./sprites";
 import "./survivors.css";
 
 /** 🧟 Шмиркленд — the screen of a "survivors" channel: menu (heroes, curses, shop, top lists, co-op
@@ -138,6 +138,16 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const [musicVol, setMusicVol] = useState(() => Number(localStorage.getItem("survMusicVol") ?? 0.4));
   const [sfx, setSfx] = useState(() => Number(localStorage.getItem("survSfx") ?? 0.8));
   const [numbers, setNumbers] = useState(() => localStorage.getItem("survNumbers") !== "0");
+  /** how visible our own attacks are (0..1) */
+  const [fxAlpha, setFxAlpha] = useState(() => {
+    const v = Number(localStorage.getItem("survFxAlpha") ?? 1);
+    return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 1;
+  });
+  /** 🖱 moving with the mouse: off / while the left button is held / always towards the cursor */
+  const [mouseMove, setMouseMove] = useState<"off" | "hold" | "follow">(() => {
+    const v = localStorage.getItem("survMouseMove");
+    return v === "hold" || v === "follow" ? v : "off";
+  });
   const [topTab, setTopTab] = useState<"solo" | "coop">("solo");
   const [error, setError] = useState<string | null>(null);
   const [touch] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches);
@@ -146,11 +156,15 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const sessRef = useRef<Session | null>(savedGames.get(channelId) ?? null);
-  const inputRef = useRef({ keys: new Set<string>(), joy: { x: 0, y: 0, on: false, ox: 0, oy: 0, id: -1 }, dash: 0, skill: 0 });
+  const inputRef = useRef({ keys: new Set<string>(), joy: { x: 0, y: 0, on: false, ox: 0, oy: 0, id: -1 }, mouse: { x: 0, y: 0, in: false, down: false }, dash: 0, skill: 0 });
   const offersRef = useRef<Offers | null>(null);
   offersRef.current = offers;
   const numbersRef = useRef(numbers);
   numbersRef.current = numbers;
+  const fxAlphaRef = useRef(fxAlpha);
+  fxAlphaRef.current = fxAlpha;
+  const mouseMoveRef = useRef(mouseMove);
+  mouseMoveRef.current = mouseMove;
   const musicRef = useRef(music);
   musicRef.current = music;
   const pausedRef = useRef(paused);
@@ -169,6 +183,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     survSound.setVolume(sfx);
   }, [sfx]);
   useEffect(() => localStorage.setItem("survNumbers", numbers ? "1" : "0"), [numbers]);
+  useEffect(() => localStorage.setItem("survFxAlpha", String(fxAlpha)), [fxAlpha]);
+  useEffect(() => localStorage.setItem("survMouseMove", mouseMove), [mouseMove]);
 
   const reload = useCallback(() => {
     http
@@ -640,6 +656,20 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     const inp = inputRef.current;
     if (inp.joy.on) return [inp.joy.x, inp.joy.y];
     const k = inp.keys;
+    const mm = mouseMoveRef.current;
+    const anyKey = k.size > 0;
+    if (!anyKey && mm !== "off" && inp.mouse.in && (mm === "follow" || inp.mouse.down)) {
+      // towards the cursor; the hero is in the middle of the canvas
+      const cv = canvasRef.current;
+      if (cv) {
+        const dx = inp.mouse.x - cv.clientWidth / 2;
+        const dy = inp.mouse.y - (cv.clientHeight / 2 - 14);
+        const l = Math.hypot(dx, dy);
+        if (l < 14) return [0, 0];
+        const f = Math.min(1, (l - 10) / 50);
+        return [(dx / l) * f, (dy / l) * f];
+      }
+    }
     const x = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
     const y = (k.has("KeyS") || k.has("ArrowDown") ? 1 : 0) - (k.has("KeyW") || k.has("ArrowUp") ? 1 : 0);
     const l = Math.hypot(x, y) || 1;
@@ -647,8 +677,23 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   };
 
   // touch: a joystick wherever the left side is touched
+  const mouseAt = (e: React.PointerEvent) => {
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const r = cv.getBoundingClientRect();
+    const m = inputRef.current.mouse;
+    m.x = e.clientX - r.left;
+    m.y = e.clientY - r.top;
+    m.in = true;
+  };
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.pointerType === "mouse") return;
+    if (e.pointerType === "mouse") {
+      mouseAt(e);
+      if (mouseMoveRef.current === "off") return;
+      if (e.button === 0) inputRef.current.mouse.down = true;
+      else if (e.button === 2) inputRef.current.dash++;
+      return;
+    }
     const r = wrapRef.current!.getBoundingClientRect();
     const j = inputRef.current.joy;
     if (j.on) return;
@@ -661,6 +706,10 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     setJoyView({ x: j.ox, y: j.oy, dx: 0, dy: 0 });
   };
   const onPointerMove = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") {
+      mouseAt(e);
+      return;
+    }
     const j = inputRef.current.joy;
     if (!j.on || e.pointerId !== j.id) return;
     const r = wrapRef.current!.getBoundingClientRect();
@@ -673,6 +722,10 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     setJoyView({ x: j.ox, y: j.oy, dx: j.x * 40, dy: j.y * 40 });
   };
   const onPointerUp = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") {
+      if (e.button === 0) inputRef.current.mouse.down = false;
+      return;
+    }
     const j = inputRef.current.joy;
     if (e.pointerId !== j.id) return;
     j.on = false;
@@ -883,7 +936,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         };
       }
 
-      if (view) r.draw(view, { me: s.mode === "spec" ? null : myId, night: s.curses.includes("night"), numbers: numbersRef.current, camX, camY }, dt);
+      if (view) r.draw(view, { me: s.mode === "spec" ? null : myId, night: s.curses.includes("night"), numbers: numbersRef.current, fxAlpha: fxAlphaRef.current, camX, camY }, dt);
 
       // music follows the boss
       if (musicRef.current && !pausedRef.current) survMusic.play(!!hudSrc?.boss);
@@ -928,6 +981,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       };
     };
     w.__survWorld = () => sessRef.current?.world ?? null;
+    w.__survHeroSprite = heroSprite;
     w.__survXp = (n: number) => {
       const world = sessRef.current?.world;
       if (world) world.xp += n;
@@ -1268,9 +1322,18 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           <h3>Бестиарий</h3>
           <div className="sv-bestiary">
             {(Object.keys(ENEMIES) as EnemyId[]).map((id) => (
-              <div key={id} className="sv-beast" title={ENEMIES[id].boss ? "бос" : `от ${ENEMIES[id].from < 100 ? `${ENEMIES[id].from} мин` : "събитие"}`}>
+              <div
+                key={id}
+                className="sv-beast"
+                title={
+                  ENEMIES[id].boss
+                    ? `бос — магии:\n${(BOSS_SPELLS[id] ?? []).map(([m, n]) => `${n}: ${BOSS_MOVE_DESC[m]}`).join("\n")}`
+                    : `от ${ENEMIES[id].from < 100 ? `${ENEMIES[id].from} мин` : "събитие"}`
+                }
+              >
                 <img src={enemyIcon(id)} alt="" />
                 <span>{ENEMIES[id].name}</span>
+                {ENEMIES[id].boss && <small className="sv-spells">{(BOSS_SPELLS[id] ?? []).map(([, n]) => n).join(" · ")}</small>}
               </div>
             ))}
           </div>
@@ -1281,7 +1344,20 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
 
   const me_ = hud?.me;
   const game = (
-    <div ref={wrapRef} className="sv-game" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+    <div
+      ref={wrapRef}
+      className={`sv-game ${mouseMove !== "off" ? "mouse-move" : ""}`}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onPointerLeave={(e) => {
+        if (e.pointerType !== "mouse") return;
+        inputRef.current.mouse.in = false;
+        inputRef.current.mouse.down = false;
+      }}
+      onContextMenu={(e) => mouseMove !== "off" && e.preventDefault()}
+    >
       <canvas ref={canvasRef} className="sv-canvas" />
       {hud && (
         <>
@@ -1349,7 +1425,26 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               )}
               {hud.blessing && <span className="sv-bless">{BLESS_TEXT[hud.blessing]}</span>}
             </div>
-            <div className="sv-buttons">
+            <div className="sv-buttons" onPointerDown={(e) => e.stopPropagation()}>
+              <label className="sv-fxa" title="Колко се виждат моите атаки (за да личат атаките на враговете)">
+                <span>{fxAlpha < 0.05 ? "🙈" : "✨"}</span>
+                <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} />
+              </label>
+              {!touch && (
+                <button
+                  onClick={() => setMouseMove((m) => (m === "off" ? "hold" : m === "hold" ? "follow" : "off"))}
+                  title={
+                    mouseMove === "off"
+                      ? "Движение с мишката: изключено (цъкни за „задържан ляв бутон“)"
+                      : mouseMove === "hold"
+                        ? "Движение с мишката: докато държиш левия бутон, десен = претъркулване (цъкни за „следва курсора“)"
+                        : "Движение с мишката: героят следва курсора, десен = претъркулване (цъкни за изключено)"
+                  }
+                  className={mouseMove === "off" ? "off" : ""}
+                >
+                  🖱{mouseMove === "hold" ? "✊" : mouseMove === "follow" ? "➜" : ""}
+                </button>
+              )}
               {mode === "solo" && (
                 <button onClick={() => setPaused(true)} title="Пауза (P)">
                   ⏸

@@ -6,6 +6,8 @@ import {
   BOSS_WAVE_EVERY,
   WAVE_THEMES,
   type TaskKind,
+  BOSS_SPELLS,
+  type BossMove,
   ENEMIES,
   ENEMY_IDS,
   HEROES,
@@ -51,6 +53,8 @@ export interface RPlayer {
   /** garlic aura radius (0 = none) */
   auraR: number;
   auraEvo: boolean;
+  /** Стана's herb cloud is on */
+  herbs?: boolean;
   /** an active hero skill with a visible effect (Киро's spin) */
   skillT: number;
   hurtT: number;
@@ -143,19 +147,9 @@ const NO_HITS = new Set<number>([PK.cauldron, PK.jack, PK.scarecrow]);
 /** gem kinds */
 export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8 } as const;
 /** map marks */
-export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5 } as const;
+export const MK = { shrine: 0, treasure: 1, hail: 2, charge: 3, leap: 4, nova: 5, acid: 6 } as const;
 
-/** 💀 boss abilities on top of their own attacks (each boss has two, picked by its kind) */
-export type BossMove = "leap" | "firering" | "meteors" | "shield" | "summon" | "nova";
-const BOSS_MOVES: BossMove[] = ["leap", "firering", "meteors", "shield", "summon", "nova"];
-const BOSS_MOVE_TEXT: Record<BossMove, string> = {
-  leap: "⤴️ Скок!",
-  firering: "🔥 Огнен обръч!",
-  meteors: "☄️ Камъни от небето!",
-  shield: "🛡️ Щит!",
-  summon: "📯 Вика помощ!",
-  nova: "💥 Взрив!",
-};
+export type { BossMove };
 
 /** effects since the last frame: [code, ...args] (renderer: particles / text; view: sounds) */
 export const FX = {
@@ -466,6 +460,8 @@ export class World {
   private bossQueue: EnemyId[] = [];
   private bossCycle = 0;
   private sinceHit = 0;
+  /** Вела's dance: frozen enemies take double damage while this runs */
+  private shatterT = 0;
   event: { id: MapEventId; t: number } | null = null;
   blessing: { id: BlessingId; t: number } | null = null;
 
@@ -571,7 +567,7 @@ export class World {
     if (this.curses.has("winter")) s.regen *= 0.5;
     if (p.buffs.might > 0) s.might *= 2;
     if (p.buffs.cheers > 0) {
-      s.might *= 1.5;
+      s.might *= 1.6;
       s.speed *= 1.3;
     }
     if (p.buffs.speed > 0) s.speed *= 1.4;
@@ -663,11 +659,7 @@ export class World {
     };
     if (e.boss) {
       // two extra moves, fixed per kind of boss (so you can learn them)
-      const h = [...type].reduce((a, ch) => a * 31 + ch.charCodeAt(0), 7) >>> 0;
-      const m1 = BOSS_MOVES[h % BOSS_MOVES.length]!;
-      let m2 = BOSS_MOVES[(h >>> 4) % BOSS_MOVES.length]!;
-      if (m2 === m1) m2 = BOSS_MOVES[(BOSS_MOVES.indexOf(m1) + 2) % BOSS_MOVES.length]!;
-      e.moves = [m1, m2];
+      e.moves = (BOSS_SPELLS[type] ?? [["nova", ""], ["summon", ""]]).map((m) => m[0]);
     }
     this.enemies.push(e);
     return e;
@@ -960,6 +952,7 @@ export class World {
     }
     if (e.affix >= 0 && AFFIXES[e.affix] === "armored") d *= 0.5;
     if (e.shieldT > 0) d *= 0.2;
+    if (this.shatterT > 0 && e.frozenT > 0) d *= 2;
     if (p) p.dmgBy[wi] = (p.dmgBy[wi] ?? 0) + Math.min(d, Math.max(0, e.hp));
     e.hp -= d;
     e.flash = 0.12;
@@ -1061,7 +1054,8 @@ export class World {
 
   private hurtPlayer(p: Player, dmg: number) {
     if (p.dead || p.invulnT > 0 || p.buffs.shield > 0 || (p.skillT > 0 && p.hero === "tseko")) return;
-    const d = Math.max(1, dmg - p.st.armor);
+    let d = Math.max(1, dmg - p.st.armor);
+    if (p.skillT > 0 && p.hero === "strahil") d *= 0.5;
     p.hp -= d;
     p.invulnT = 0.45;
     p.hurtT = 0.25;
@@ -1147,6 +1141,7 @@ export class World {
     if (this.over || this.choosing) return;
     dt = Math.min(dt, 0.05);
     this.t += dt;
+    this.shatterT = Math.max(0, this.shatterT - dt);
     if (this.streakT > 0) {
       this.streakT -= dt;
       if (this.streakT <= 0) {
@@ -1191,11 +1186,34 @@ export class World {
     p.invulnT = Math.max(0, p.invulnT - dt);
     p.dashCd = Math.max(0, p.dashCd - dt);
     p.skillCd = Math.max(0, p.skillCd - dt);
+    const wasSkill = p.skillT;
     p.skillT = Math.max(0, p.skillT - dt);
+    if (wasSkill > 0 && p.skillT === 0 && !p.dead) {
+      if (p.hero === "strahil") {
+        // the end of the whirlwind: 12 axes in every direction
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          this.addProj(p, PK.bigAxe, p.x, p.y - 8, Math.cos(a) * 520, Math.sin(a) * 520, {
+            dmg: this.skillDmg(p, 90),
+            pierce: 999,
+            life: 1.1,
+            r: 30,
+            hitCd: 0.4,
+            knock: 220,
+            stun: 0.4,
+            d: [i % 2 ? 1 : -1, i % 2 ? 1 : -1],
+          });
+        }
+      } else if (p.hero === "tseko") {
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 220, 0]);
+        for (const e of this.within(p.x, p.y, 220)) this.hurt(e, this.skillDmg(p, 110), p, e.x - p.x, e.y - p.y, 500);
+      }
+    }
     const b = p.buffs;
     const hadBuff = b.might > 0 || b.speed > 0 || b.cheers > 0;
     for (const k of Object.keys(b) as (keyof typeof b)[]) b[k] = Math.max(0, b[k] - dt);
     if (hadBuff !== (b.might > 0 || b.speed > 0 || b.cheers > 0)) this.refreshStats(p);
+    p.herbs = b.herbs > 0 && p.hero === "stana";
 
     if (p.dead) {
       // a teammate standing next to you brings you back
@@ -1252,25 +1270,71 @@ export class World {
     }
 
     // skill effects over time
-    if (p.storm > 0) {
+    if (p.storm > 0 && p.hero === "gosho") {
       p.stormT -= dt;
       if (p.stormT <= 0) {
-        p.stormT = 0.1;
+        p.stormT = 0.55;
+        p.storm--;
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 450, 1]);
+        for (const e of this.enemies) {
+          if (e.dead || e.type === "pot" || dist2(e.x, e.y, p.x, p.y) > 450 * 450) continue;
+          e.stunT = e.boss ? 0.5 : 2.2;
+          this.hurt(e, this.skillDmg(p, 60), p, e.x - p.x, e.y - p.y, 600);
+        }
+      }
+    } else if (p.storm > 0) {
+      p.stormT -= dt;
+      if (p.stormT <= 0) {
+        p.stormT = 0.08;
         p.storm--;
         const near = this.enemies.filter((e) => !e.dead && e.type !== "pot" && dist2(e.x, e.y, p.x, p.y) < 650 * 650);
         if (near.length) {
-          const e = pickOne(near);
-          this.fx.push([FX.bolt, Math.round(e.x + rand(-40, 40)), Math.round(e.y - 500), Math.round(e.x), Math.round(e.y)]);
-          this.hurt(e, 70 * p.st.might, p);
+          const t = pickOne(near);
+          this.fx.push([FX.bolt, Math.round(t.x + rand(-40, 40)), Math.round(t.y - 500), Math.round(t.x), Math.round(t.y)]);
+          this.fx.push([FX.boom, Math.round(t.x), Math.round(t.y), 60, 4]);
+          const dmg = this.skillDmg(p, 90);
+          this.grid.each(t.x, t.y, 70, (e) => {
+            if (dist2(e.x, e.y, t.x, t.y) < 70 * 70) this.hurt(e, e === t ? dmg : dmg * 0.5, p);
+          });
         }
       }
     }
     if (p.skillT > 0 && p.hero === "tseko") {
       // Брейк на главата: everything close burns
-      this.grid.each(p.x, p.y, 115, (e) => {
-        if (dist2(e.x, e.y, p.x, p.y) < 115 * 115 && Math.random() < dt * 5) this.hurt(e, 24 * p.st.might, p, e.x - p.x, e.y - p.y, 120);
+      this.grid.each(p.x, p.y, 130, (e) => {
+        if (dist2(e.x, e.y, p.x, p.y) < 130 * 130 && Math.random() < dt * 5) this.hurt(e, this.skillDmg(p, 40), p, e.x - p.x, e.y - p.y, 120);
       });
     }
+    if (p.skillT > 0 && p.hero === "strahil") {
+      // Вихър от брадви: grinds everything close, pulls the rest in
+      const dmg = this.skillDmg(p, 55);
+      this.grid.each(p.x, p.y, 330, (e) => {
+        const d2 = dist2(e.x, e.y, p.x, p.y);
+        if (d2 > 330 * 330) return;
+        if (d2 < 175 * 175) {
+          if (Math.random() < dt * 5) this.hurt(e, dmg, p, e.x - p.x, e.y - p.y, 90);
+        } else if (!e.boss) {
+          const d = Math.sqrt(d2) || 1;
+          e.x += ((p.x - e.x) / d) * 150 * dt;
+          e.y += ((p.y - e.y) / d) * 150 * dt;
+        }
+      });
+    }
+    if (p.buffs.herbs > 0 && p.hero === "stana") {
+      // a cloud of bitter herbs poisons everything near
+      const dmg = this.skillDmg(p, 30);
+      this.grid.each(p.x, p.y, 230, (e) => {
+        if (dist2(e.x, e.y, p.x, p.y) < 230 * 230 && Math.random() < dt * 2.5) {
+          this.hurt(e, dmg, p);
+          e.slowT = Math.max(e.slowT, 0.6);
+        }
+      });
+    }
+  }
+
+  /** skill damage: might + grows with the wave (enemies get tougher every wave) */
+  private skillDmg(p: Player, base: number) {
+    return base * p.st.might * (1 + this.wave * 0.14);
   }
 
   castSkill(p: Player) {
@@ -1282,18 +1346,19 @@ export class World {
     this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 40), `✨ ${def.name}!`, "#ffe27a"]);
     switch (p.hero) {
       case "peyo": {
-        const dir = p.face || 1;
-        for (let i = 0; i < 16; i++) {
-          const y = p.y + (i - 8) * 38 + rand(-12, 12);
-          this.addProj(p, PK.sheep, p.x - dir * (680 + rand(0, 160)), y, dir * 540, 0, { dmg: 45 * p.st.might, pierce: 999, life: 3.4, r: 22, knock: 300, hitCd: 0.5 });
+        for (const dir of [1, -1]) {
+          for (let i = 0; i < 12; i++) {
+            const y = p.y + (i - 6) * 44 + rand(-12, 12);
+            this.addProj(p, PK.sheep, p.x - dir * (680 + rand(0, 160)), y, dir * 560, 0, { dmg: this.skillDmg(p, 70), pierce: 999, life: 3.4, r: 22, knock: 300, hitCd: 0.4 });
+          }
         }
         break;
       }
       case "tseko":
-        p.skillT = 4;
+        p.skillT = 5;
         break;
       case "nikola":
-        p.storm = 20;
+        p.storm = 30;
         p.stormT = 0;
         break;
       case "gitsa":
@@ -1302,33 +1367,36 @@ export class World {
           if (q.dead) this.revive(q, 0.4);
           else this.heal(q, q.maxHp * 0.4);
         }
-        break;
-      case "strahil": {
-        // Юмрук в земята
-        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 250, 5]);
-        for (const e of this.enemies) {
-          if (dist2(e.x, e.y, p.x, p.y) < 250 * 250) {
-            e.stunT = e.boss ? 0.6 : 2;
-            this.hurt(e, 130 * p.st.might, p, e.x - p.x, e.y - p.y, 560);
-          }
+        for (let i = 0; i < 16; i++) {
+          const a = (i / 16) * Math.PI * 2;
+          const tx = p.x + Math.cos(a) * 320;
+          const ty = p.y + Math.sin(a) * 320;
+          this.addProj(p, PK.banitsa, p.x, p.y, 0, 0, { dmg: this.skillDmg(p, 80), pierce: 999, life: 1.1, r: 18, d: [p.x, p.y, tx, ty, 90, 0], hitCd: 0.3 });
         }
         break;
-      }
+      case "strahil":
+        // Вихър от брадви: 5 s of spinning with two big axes (see stepPlayer), 12 axes at the end
+        p.skillT = 5;
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 180, 5]);
+        break;
       case "vela":
-        for (const e of this.enemies) if (dist2(e.x, e.y, p.x, p.y) < 800 * 800) e.frozenT = e.boss ? 1.5 : 4;
+        this.shatterT = 5;
+        for (const e of this.enemies) {
+          if (e.dead || e.type === "pot" || dist2(e.x, e.y, p.x, p.y) > 800 * 800) continue;
+          e.frozenT = e.boss ? 2 : 5;
+          this.hurt(e, this.skillDmg(p, 40), p);
+        }
         break;
       case "gosho":
-        for (const e of this.enemies) {
-          if (dist2(e.x, e.y, p.x, p.y) < 450 * 450) {
-            e.stunT = e.boss ? 0.5 : 2;
-            this.hurt(e, 25 * p.st.might, p, e.x - p.x, e.y - p.y, 700);
-          }
-        }
+        // three waves of bells (stepPlayer, the same counter as the storm)
+        p.storm = 3;
+        p.stormT = 0;
         break;
       case "mitko":
         for (const q of this.players) {
-          if (q.gone) continue;
+          if (q.gone || q.dead) continue;
           q.buffs.cheers = 10;
+          this.heal(q, q.maxHp * 0.15);
           this.refreshStats(q);
         }
         break;
@@ -1537,25 +1605,93 @@ export class World {
     if (e.pending) {
       const pm = e.pending;
       pm.t -= dt;
+      if (pm.move === "spiral") {
+        // stands and spins arms of shots (x = angle, y = shot timer)
+        pm.y -= dt;
+        if (pm.y <= 0) {
+          pm.y = e.rage ? 0.07 : 0.09;
+          pm.x += 0.23;
+          const arms = e.rage ? 4 : 3;
+          for (let k = 0; k < arms; k++) {
+            const a = pm.x + (k * Math.PI * 2) / arms;
+            this.enemyShot(e, Math.cos(a), Math.sin(a), 175, PK.ebolt, 11, 4);
+          }
+        }
+        if (pm.t > 0) return true;
+        e.pending = null;
+        return false;
+      }
       if (pm.t > 0) return pm.move === "leap" || pm.move === "nova";
       e.pending = null;
       if (pm.move === "leap") {
         e.x = pm.x;
         e.y = pm.y;
         this.fx.push([FX.boom, Math.round(pm.x), Math.round(pm.y), 110, 5]);
-        for (const p of this.alive) if (dist2(p.x, p.y, pm.x, pm.y) < (110 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * 1.3);
+        for (const p of this.alive) if (dist2(p.x, p.y, pm.x, pm.y) < (110 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * (this.wave <= 10 ? 1 : 1.3));
       } else if (pm.move === "nova") {
         this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 210, 3]);
         for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (210 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * 1.5);
+      } else if (pm.move === "blink") {
+        this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 70, 7]);
+        e.x = pm.x;
+        e.y = pm.y;
+        this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 80, 7]);
+        for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (80 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg);
+        const n = e.rage ? 20 : 14;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2;
+          this.enemyShot(e, Math.cos(a), Math.sin(a), 200, PK.ebolt, 11);
+        }
       }
       return false;
     }
     e.exT -= dt;
     if (e.exT > 0) return false;
-    e.exT = (e.rage ? 4 : 6.5) + rand(0, 1.5);
+    // the first bosses cast less often (you learn them first)
+    e.exT = (e.rage ? 4 : 6.5) + rand(0, 1.5) + (this.wave <= 10 ? 2.5 : 0);
+    const spells = BOSS_SPELLS[e.type] ?? [];
     const move = pickOne(e.moves);
-    this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 24), BOSS_MOVE_TEXT[move], "#ff8a6a"]);
+    const name = spells.find((m) => m[0] === move)?.[1] || "💥";
+    this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 24), `${name}!`, "#ff8a6a"]);
     switch (move) {
+      case "spiral":
+        e.pending = { move, t: e.rage ? 3 : 2.4, x: Math.random() * 6, y: 0 };
+        return true;
+      case "blink": {
+        const a = Math.random() * Math.PI * 2;
+        const x = tgt.x + Math.cos(a) * 200;
+        const y = tgt.y + Math.sin(a) * 200;
+        e.pending = { move, t: 0.8, x, y };
+        this.marks.push({ kind: MK.leap, x, y, r: 80, p: 0, t: 0.8, a: 0.8 });
+        return false;
+      }
+      case "wall": {
+        // a row of shots across your way with one gap — find it
+        const ddx = tgt.x - e.x;
+        const ddy = tgt.y - e.y;
+        const dl = Math.hypot(ddx, ddy) || 1;
+        const ux = ddx / dl;
+        const uy = ddy / dl;
+        const cx = tgt.x - ux * 420;
+        const cy = tgt.y - uy * 420;
+        const n = 19;
+        const gap = Math.floor(rand(3, n - 5));
+        const walls = e.rage ? 2 : 1;
+        for (let w = 0; w < walls; w++) {
+          for (let i = 0; i < n; i++) {
+            if (i >= gap + w * 3 - 1 && i <= gap + w * 3 + 1) continue;
+            const off = (i - (n - 1) / 2) * 42;
+            this.enemyShot({ x: cx - uy * off - ux * w * 160, y: cy + ux * off - uy * w * 160 }, ux, uy, 170, PK.eball, 13, 5.5);
+          }
+        }
+        return false;
+      }
+      case "acid":
+        for (let i = 0; i < (e.rage ? 9 : 6); i++) {
+          const t = 1.2 + i * 0.12;
+          this.marks.push({ kind: MK.acid, x: tgt.x + rand(-200, 200), y: tgt.y + rand(-160, 160), r: 58, p: 0, t, a: t });
+        }
+        return false;
       case "leap":
         e.pending = { move, t: 1.1, x: tgt.x, y: tgt.y };
         this.marks.push({ kind: MK.leap, x: tgt.x, y: tgt.y, r: 110, p: 0, t: 1.1, a: 1.1 });
@@ -2617,6 +2753,13 @@ export class World {
         m.p = 1 - m.t / 0.8;
       } else if (m.kind === MK.leap || m.kind === MK.nova) {
         m.p = 1 - m.t / m.a;
+      } else if (m.kind === MK.acid) {
+        m.p = 1 - m.t / m.a;
+        if (m.t <= 0) {
+          this.fx.push([FX.boom, Math.round(m.x), Math.round(m.y), m.r, 6]);
+          for (const p of this.alive) if (dist2(p.x, p.y, m.x, m.y) < (m.r + PLAYER_R) ** 2) this.hurtPlayer(p, 10 * this.dmgMul());
+          this.enemyShot({ x: m.x, y: m.y }, 0, 0, 0, PK.poison, 8, 5);
+        }
       }
     }
     if (this.marks.some((m) => m.t <= 0)) this.marks = this.marks.filter((m) => m.t > 0);

@@ -290,7 +290,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "prase",
     bonus: "+20% живот",
     stats: { maxHp: 0.2 },
-    skill: { name: "Стадото", desc: "Стадо овце прегазва всичко пред теб.", cd: 20 },
+    skill: { name: "Стадото", desc: "Две стада овце прегазват всичко от двете страни.", cd: 20 },
     look: { body: "#7a4a26", trim: "#efe4c8", hat: "#1e1a18", skin: "#e9bf96" },
   },
   tseko: {
@@ -300,7 +300,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tsarvul",
     bonus: "+1 броня, +10% бързина",
     stats: { armor: 1, speed: 0.1 },
-    skill: { name: "Брейк на главата", desc: "4 секунди се върти на главата — нищо не го лови, а наоколо пари.", cd: 20 },
+    skill: { name: "Брейк на главата", desc: "5 секунди се върти на главата — нищо не го лови, наоколо гори, накрая взрив.", cd: 20 },
     look: { body: "#2457c7", trim: "#ffffff", hat: "#d9262e", skin: "#d9a57c" },
   },
   nikola: {
@@ -310,7 +310,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tesla",
     bonus: "+10% размер на атаките",
     stats: { area: 0.1 },
-    skill: { name: "Буря", desc: "20 мълнии по враговете наоколо.", cd: 20 },
+    skill: { name: "Буря", desc: "30 мълнии, всяка удря и всичко около себе си.", cd: 20 },
     look: { body: "#eef0f2", trim: "#2a3550", hat: "#d8d8d8", skin: "#f1cfac" },
   },
   gitsa: {
@@ -320,7 +320,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "banitsa",
     bonus: "+0.4 живот в секунда",
     stats: { regen: 0.4 },
-    skill: { name: "Тава баница", desc: "Лекува всички с 40% и вдига падналите.", cd: 20 },
+    skill: { name: "Тава баница", desc: "Лекува всички с 40%, вдига падналите и хвърля 16 горещи баници наоколо.", cd: 20 },
     look: { body: "#2a1d2e", trim: "#f4efe4", hat: "#c62f3a", skin: "#efc6a4" },
   },
   strahil: {
@@ -330,7 +330,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "bradva",
     bonus: "+15% щети, +15% живот",
     stats: { might: 0.15, maxHp: 0.15 },
-    skill: { name: "Юмрук в земята", desc: "Земята се пропуква — щети, отблъскване и зашеметяване наоколо.", cd: 20 },
+    skill: { name: "Вихър от брадви", desc: "5 секунди се върти с две брадви: смила всичко наоколо, придърпва враговете, поема половин щети; накрая хвърля 12 брадви.", cd: 20 },
     look: { body: "#1b1b1d", trim: "#f2f2f2", hat: "#d4a640", skin: "#d9a57c" },
   },
   vela: {
@@ -340,7 +340,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "martenitsa",
     bonus: "+15% бързина, +30% събиране",
     stats: { speed: 0.15, magnet: 0.3 },
-    skill: { name: "Самодивско хоро", desc: "Замразява враговете наоколо за 4 секунди.", cd: 20 },
+    skill: { name: "Самодивско хоро", desc: "Замразява враговете наоколо за 5 секунди — замразените поемат двойни щети.", cd: 20 },
     look: { body: "#f4f1ff", trim: "#7ad1a0", hat: "#f2d36b", skin: "#f6dcc6" },
   },
   gosho: {
@@ -350,7 +350,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "gaida",
     bonus: "+2 броня, −5% бързина",
     stats: { armor: 2, speed: -0.05 },
-    skill: { name: "Звънци", desc: "Отблъсква и зашеметява всички наоколо.", cd: 20 },
+    skill: { name: "Звънци", desc: "Три вълни звън — всяка удря, отблъсква и зашеметява наоколо.", cd: 20 },
     look: { body: "#1f1b19", trim: "#e9e3d6", hat: "#b3262b", skin: "#c99a6c" },
   },
   mitko: {
@@ -360,7 +360,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "krik",
     bonus: "оръжията с 8% по-бързо",
     stats: { cooldown: 0.08 },
-    skill: { name: "Наздраве!", desc: "10 секунди +50% щети и +30% бързина за всички.", cd: 20 },
+    skill: { name: "Наздраве!", desc: "10 секунди +60% щети и +30% бързина за всички, +15% живот.", cd: 20 },
     look: { body: "#1d2a5a", trim: "#ffffff", hat: "#3a3a3a", skin: "#eaa98a" },
   },
   stana: {
@@ -370,7 +370,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "chesan",
     bonus: "+0.3 живот в секунда, +10% късмет",
     stats: { regen: 0.3, luck: 0.1 },
-    skill: { name: "Билки", desc: "Събира всички кристали и те лекува 8 секунди.", cd: 20 },
+    skill: { name: "Билки", desc: "Събира всички кристали, лекува 8 секунди и отровен облак от билки трови враговете около теб.", cd: 20 },
     look: { body: "#3c5a3a", trim: "#e8d9a8", hat: "#5f8a3a", skin: "#e8c2a0" },
   },
 };
@@ -468,6 +468,38 @@ export const BOSS_EASY: EnemyId[] = ["karak", "mora", "lamia", "kukerchief"];
 export const BOSS_HARD: EnemyId[] = ["wolfking", "chuma", "zmey", "hala", "vampking", "ispolin", "samqueen", "swampking", "ghostking", "bearking"];
 export const BOSS_ORDER: EnemyId[] = [...BOSS_EASY, ...BOSS_HARD];
 
+/** 💀 spells the bosses cast on top of their own attacks */
+export type BossMove = "leap" | "firering" | "meteors" | "shield" | "summon" | "nova" | "spiral" | "blink" | "wall" | "acid";
+export const BOSS_MOVE_DESC: Record<BossMove, string> = {
+  leap: "скача върху теб (червен кръг на земята)",
+  firering: "обръч от огън се свива към теб — претъркаляй се през него",
+  meteors: "камъни падат от небето (червени кръгове)",
+  shield: "щит — поема 80% от щетите за малко",
+  summon: "вика помощ около теб",
+  nova: "взрив около себе си (голям червен кръг)",
+  spiral: "спира и върти спирала от снаряди",
+  blink: "изчезва и се появява до теб с кръг от снаряди",
+  wall: "стена от снаряди с една пролука",
+  acid: "отровни локви падат около теб (зелени кръгове)",
+};
+/** every boss has its own two spells (with its own names) */
+export const BOSS_SPELLS: Partial<Record<EnemyId, [BossMove, string][]>> = {
+  karak: [["leap", "⤴️ Скок от гроба"], ["summon", "⚰️ Гробищна свита"]],
+  mora: [["spiral", "🌀 Кошмарна спирала"], ["blink", "💤 Сънна стъпка"]],
+  lamia: [["acid", "🐍 Отровна слюнка"], ["wall", "🐉 Опашка-стена"]],
+  kukerchief: [["nova", "🔔 Звънът на хлопките"], ["firering", "🔥 Кукерски огнен кръг"]],
+  zmey: [["meteors", "☄️ Огнен дъжд"], ["firering", "🔥 Огнен обръч"]],
+  hala: [["wall", "🌪️ Буреносен фронт"], ["spiral", "🌀 Вихрушка"]],
+  chuma: [["acid", "☠️ Чумав облак"], ["summon", "🐀 Плъхове от мазето"]],
+  wolfking: [["leap", "🐺 Вълчи скок"], ["nova", "🌕 Вой към луната"]],
+  vampking: [["blink", "🦇 Кървава мъгла"], ["shield", "🩸 Кървав щит"]],
+  ispolin: [["meteors", "🪨 Канари"], ["nova", "💥 Земетръс"]],
+  samqueen: [["spiral", "💫 Самодивско хоро"], ["shield", "🌸 Венец от билки"]],
+  swampking: [["wall", "🌊 Тинеста вълна"], ["shield", "🪵 Тинеста броня"]],
+  ghostking: [["blink", "👻 През стените"], ["summon", "💀 Свитата на мъртвите"]],
+  bearking: [["leap", "🐻 Мечи скок"], ["shield", "🧥 Дебела кожа"]],
+};
+
 /** 🌊 named wave themes: which enemies come (only those already "open" by wave); never the same twice in a row */
 export const WAVE_THEMES: { name: string; mobs: EnemyId[] }[] = [
   { name: "Плъхове и прилепи", mobs: ["rat", "bat"] },
@@ -557,12 +589,12 @@ export const META_TEXT: Record<SurvMetaKey, { name: string; icon: string; per: s
 /** 🎨 skins: a palette for the clothes, or a tint over the whole hero */
 export const SKIN_TEXT: Record<SurvSkinId, { name: string; how?: string }> = {
   classic: { name: "Обикновен" },
-  night: { name: "Нощен" },
-  fest: { name: "Празничен" },
-  royal: { name: "Царски" },
-  gold: { name: "Златен", how: "Подвиг: стигни вълна 20" },
-  fire: { name: "Огнен", how: "Подвиг: серия 1000" },
-  ghost: { name: "Призрачен", how: "Подвиг: победи всички босове" },
+  night: { name: "Хайдутин" },
+  fest: { name: "Сватбар" },
+  royal: { name: "Цар" },
+  gold: { name: "Златен юнак", how: "Подвиг: стигни вълна 20" },
+  fire: { name: "Нестинар", how: "Подвиг: серия 1000" },
+  ghost: { name: "Призрак", how: "Подвиг: победи всички босове" },
 };
 
 export const ACH_TEXT: Record<SurvAchId, { name: string; icon: string; desc: string }> = {

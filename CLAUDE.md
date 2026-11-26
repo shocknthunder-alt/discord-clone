@@ -231,6 +231,16 @@ Owner pronouns unknown: use they/them.
   "hero:skin" or unlocked by an achievement), 22 achievements (`SURV_ACHIEVEMENTS`, checked on POST run, gold added to
   goldEarned, `newAchievements`), bosses ever beaten (`bossTypes`). Stored in `SurvivorProfile.extra` (migration
   20261126120000); POST `/survivors/skin`; co-op members carry `skin` (server checks ownership).
+  **v5 (2026-11-27, readability + bosses + skills)**: render order = our attacks (on an offscreen layer when the HUD
+  ✨ slider `survFxAlpha` < 1) → danger marks + poison → actors → enemy shots (`FOE` kinds: dark halo + pulsing red edge,
+  always on top). 🖱 mouse movement (`survMouseMove` off / hold left button / follow cursor; right click = dash; keys
+  win). Every boss has its OWN two named spells (`BOSS_SPELLS` in content.ts, shown in the bestiary; moves + spiral /
+  blink / wall-with-a-gap / acid (MK.acid → poison puddles)); first 10 waves cast less often. Skills scale with the wave
+  (`skillDmg` = might × (1 + wave·0.14)); Баткан = "Вихър от брадви" (5 s whirl, pulls in, half damage, 12 axes at the
+  end), Гошо 3 bell waves, Вела freeze → double damage (`shatterT`), Стана herb poison cloud (`herbs` flag 16), Спаска
+  throws 16 banitsas. Skins are whole costumes (`costumeBack/Front/Glow` in sprites.ts, hero canvas 60×96, key `h4:`):
+  Хайдутин (hood, cloak, mask), Сватбар (flower wreath, ribbons), Цар (crown, ermine, cape), Златен юнак (halo, laurel),
+  Нестинар (charcoal + lava cracks + fire hair), Призрак (legs fade to a wisp, chains, glowing eyes).
 - **🎮 Games section** (2026-11-24): ChannelList puts channels of type trivia/draw/blocks/match/survivors (`GAME_TYPES`) in a folding "🎮 Игри (N)" section under the text channels (localStorage `gamesSectionOpen`; collapsed = only the open game + a dot for unread/mentions). New game types must be added to `GAME_TYPES`.
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
   channel to every server + `DrawScore`, 20261120180000 renames it "paint wars"; owner asked for

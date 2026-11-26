@@ -92,9 +92,13 @@ const UPRIGHT = new Set<number>([PK.cauldron, PK.scarecrow, PK.jack, PK.note]);
 const SPIN_TRAIL = new Set<number>([PK.axe, PK.bigAxe, PK.tsarvul, PK.bigTsarvul, PK.banitsa]);
 /** turned left/right only */
 const SIDEWAYS = new Set<number>([PK.pig, PK.boar, PK.sheep]);
+/** the enemies' attacks: drawn last, on top, with a dark halo + a red edge */
+const FOE = new Set<number>([PK.eball, PK.ebolt, PK.batshot, PK.rock, PK.tornado, PK.poison]);
 
 export interface DrawOpts {
   me: string | null;
+  /** how visible our own attacks are, 0..1 (so the enemies' attacks stand out) */
+  fxAlpha?: number;
   night: boolean;
   numbers: boolean;
   /** where the camera looks */
@@ -288,8 +292,11 @@ export class Renderer {
     }
   }
 
+  private layer: HTMLCanvasElement | null = null;
+
   draw(v: RView, o: DrawOpts, dt: number) {
-    const c = this.c;
+    const main = this.c;
+    let c = main;
     this.clock += dt;
     const z = this.zoom;
     let camX = o.camX;
@@ -335,8 +342,8 @@ export class Renderer {
       }
     }
 
-    // marks under everything
-    for (const m of v.marks) {
+    // marks: the shrine under everything, warnings later (above our own attacks)
+    const drawMark = (m: RView["marks"][number]) => {
       if (m.kind === MK.shrine) {
         c.beginPath();
         c.arc(m.x, m.y, m.r, 0, Math.PI * 2);
@@ -359,13 +366,27 @@ export class Renderer {
       } else if (m.kind === MK.hail) {
         c.beginPath();
         c.arc(m.x, m.y, m.r * (0.4 + 0.6 * m.p), 0, Math.PI * 2);
-        c.fillStyle = `rgba(30,40,70,${0.18 + 0.3 * m.p})`;
+        c.fillStyle = `rgba(60,10,20,${0.25 + 0.35 * m.p})`;
         c.fill();
         c.beginPath();
         c.arc(m.x, m.y, m.r, 0, Math.PI * 2);
-        c.strokeStyle = "rgba(200,230,255,0.6)";
-        c.lineWidth = 1.5;
+        c.strokeStyle = `rgba(255,${(120 - 80 * m.p) | 0},70,${0.7 + 0.3 * m.p})`;
+        c.lineWidth = 2.5;
+        c.setLineDash([7, 5]);
         c.stroke();
+        c.setLineDash([]);
+      } else if (m.kind === MK.acid) {
+        c.beginPath();
+        c.arc(m.x, m.y, m.r * (0.3 + 0.7 * m.p), 0, Math.PI * 2);
+        c.fillStyle = `rgba(110,200,40,${0.18 + 0.3 * m.p})`;
+        c.fill();
+        c.beginPath();
+        c.arc(m.x, m.y, m.r, 0, Math.PI * 2);
+        c.strokeStyle = `rgba(190,255,70,${0.7 + 0.3 * m.p})`;
+        c.lineWidth = 2.5;
+        c.setLineDash([7, 5]);
+        c.stroke();
+        c.setLineDash([]);
       } else if (m.kind === MK.leap || m.kind === MK.nova) {
         // a red warning that fills up: get out!
         c.beginPath();
@@ -396,7 +417,8 @@ export class Renderer {
         c.setLineDash([]);
         c.restore();
       }
-    }
+    };
+    for (const m of v.marks) if (m.kind === MK.shrine) drawMark(m);
 
     // ground cracks (Баткан's punch)
     for (let i = this.cracks.length - 1; i >= 0; i--) {
@@ -432,6 +454,81 @@ export class Renderer {
         c.fill();
       }
       c.drawImage(sp, g.x - sp.width / 4, g.y - sp.height / 4 + bob, sp.width / 2, sp.height / 2);
+    }
+
+    // ── our own attacks: on a layer of their own when the player made them see-through ──
+    const fa = Math.max(0, Math.min(1, o.fxAlpha ?? 1));
+    if (fa < 0.999) {
+      if (!this.layer) this.layer = document.createElement("canvas");
+      const L = this.layer;
+      if (L.width !== this.canvas.width || L.height !== this.canvas.height) {
+        L.width = this.canvas.width;
+        L.height = this.canvas.height;
+      }
+      const lc = L.getContext("2d")!;
+      lc.setTransform(1, 0, 0, 1, 0, 0);
+      lc.clearRect(0, 0, L.width, L.height);
+      const k = this.dpr * z;
+      lc.setTransform(k, 0, 0, k, -x0 * k, -y0 * k);
+      c = lc;
+    }
+
+    // Стана's herb cloud + Баткан's whirlwind on the ground
+    for (const p of v.players) {
+      if (p.dead) continue;
+      if (p.herbs) {
+        const R = 230;
+        const g = c.createRadialGradient(p.x, p.y, 20, p.x, p.y, R);
+        g.addColorStop(0, "rgba(120,200,60,0.05)");
+        g.addColorStop(0.75, "rgba(110,190,50,0.16)");
+        g.addColorStop(1, "rgba(90,160,40,0)");
+        c.fillStyle = g;
+        c.beginPath();
+        c.ellipse(p.x, p.y, R, R * 0.85, 0, 0, Math.PI * 2);
+        c.fill();
+        for (let i = 0; i < 9; i++) {
+          const a = this.clock * 0.7 + i * 0.7;
+          const rr = R * (0.35 + ((i * 37) % 10) / 16);
+          c.globalAlpha = 0.5;
+          c.fillStyle = i % 2 ? "#7ac04a" : "#b8e07a";
+          c.save();
+          c.translate(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.8);
+          c.rotate(a * 2);
+          c.beginPath();
+          c.ellipse(0, 0, 7, 3, 0, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        }
+        c.globalAlpha = 1;
+      }
+      if (p.skillT > 0 && p.hero === "strahil") {
+        // a dusty whirl + two big axes spinning round him
+        const R = 175;
+        for (let i = 0; i < 4; i++) {
+          const a0 = -this.clock * 14 + i * 1.6;
+          c.beginPath();
+          c.ellipse(p.x, p.y, R - i * 22, (R - i * 22) * 0.8, 0, a0, a0 + 2.2);
+          c.strokeStyle = `rgba(230,210,170,${0.5 - i * 0.1})`;
+          c.lineWidth = 6 - i;
+          c.stroke();
+        }
+        const ax = projSprite(PK.bigAxe, 0);
+        if (ax) {
+          for (let k = 0; k < 2; k++) {
+            const a = -this.clock * 14 + k * Math.PI;
+            for (let t = 3; t >= 0; t--) {
+              const aa = a + t * 0.18;
+              c.save();
+              c.globalAlpha = t === 0 ? 1 : 0.18;
+              c.translate(p.x + Math.cos(aa) * 120, p.y - 8 + Math.sin(aa) * 96);
+              c.rotate(aa * 2);
+              c.drawImage(ax, -ax.width * 0.4, -ax.height * 0.4, ax.width * 0.8, ax.height * 0.8);
+              c.restore();
+            }
+          }
+        }
+        if (Math.random() < 0.6) this.particles.push({ x: p.x + (Math.random() - 0.5) * 300, y: p.y + (Math.random() - 0.5) * 240, vx: (Math.random() - 0.5) * 60, vy: -30, life: 0.5, max: 0.5, col: "#c8b48a", size: 3 });
+      }
     }
 
     // auras + fire on the ground
@@ -476,22 +573,7 @@ export class Renderer {
     }
     for (const q of v.projs) {
       if (!onScreen(q.x, q.y, q.r + 20)) continue;
-      if (q.kind === PK.poison) {
-        const g = c.createRadialGradient(q.x, q.y, 4, q.x, q.y, q.r);
-        g.addColorStop(0, "rgba(150,230,70,0.45)");
-        g.addColorStop(1, "rgba(90,160,40,0)");
-        c.fillStyle = g;
-        c.beginPath();
-        c.ellipse(q.x, q.y, q.r, q.r * 0.75, 0, 0, Math.PI * 2);
-        c.fill();
-        for (let i = 0; i < 5; i++) {
-          const a = this.clock * 0.8 + i * 1.3 + q.id;
-          c.fillStyle = "rgba(170,240,90,0.35)";
-          c.beginPath();
-          c.arc(q.x + Math.cos(a) * q.r * 0.5, q.y + Math.sin(a) * q.r * 0.35, 8 + (i % 3) * 3, 0, Math.PI * 2);
-          c.fill();
-        }
-      } else if (q.kind === PK.scarecrow) {
+      if (q.kind === PK.scarecrow) {
         c.beginPath();
         c.arc(q.x, q.y + 10, q.r, 0, Math.PI * 2);
         c.fillStyle = "rgba(255,150,60,0.1)";
@@ -535,10 +617,161 @@ export class Renderer {
       }
     }
 
+    // our projectiles (under the enemies, so they stay visible)
+    const frame = Math.floor(this.clock * 6) % 2;
+    const seen = new Map<number, { x: number; y: number; a: number }>();
+    // a swoosh along the circle each orbiting yoke travels
+    for (const q of v.projs) {
+      if (q.kind !== PK.kob) continue;
+      const owner = v.players.reduce<RView["players"][number] | null>((best, p) => (!best || Math.hypot(p.x - q.x, p.y - q.y) < Math.hypot(best.x - q.x, best.y - q.y) ? p : best), null);
+      if (!owner) continue;
+      const R = Math.hypot(q.x - owner.x, q.y - owner.y);
+      const a = Math.atan2(q.y - owner.y, q.x - owner.x);
+      const g = c.createConicGradient ? c.createConicGradient(a - 1.1, owner.x, owner.y) : null;
+      c.beginPath();
+      c.arc(owner.x, owner.y, R, a - 1.1, a);
+      if (g) {
+        g.addColorStop(0, "rgba(255,240,200,0)");
+        g.addColorStop(1.1 / (Math.PI * 2), "rgba(255,240,200,0.45)");
+        g.addColorStop(1, "rgba(255,240,200,0)");
+        c.strokeStyle = g;
+      } else c.strokeStyle = "rgba(255,240,200,0.25)";
+      c.lineWidth = 10;
+      c.stroke();
+    }
+    for (const q of v.projs) {
+      if (q.kind === PK.fire || q.kind === PK.bigFire || FOE.has(q.kind)) continue;
+      if (!onScreen(q.x, q.y, q.r + 30)) continue;
+      if (q.kind === PK.slash || q.kind === PK.bigSlash) {
+        // a curved blade of light
+        const full = q.kind === PK.bigSlash;
+        const a0 = full ? q.a - 2.2 : q.a - 1.2;
+        const a1 = full ? q.a : q.a + 1.2;
+        for (let i = 0; i < 3; i++) {
+          c.beginPath();
+          c.arc(q.x, q.y, q.r - i * 10, a0, a1);
+          c.strokeStyle = full ? `rgba(255,120,80,${0.75 - i * 0.22})` : `rgba(235,245,255,${0.85 - i * 0.25})`;
+          c.lineWidth = 7 - i * 2;
+          c.stroke();
+        }
+        continue;
+      }
+      if (q.kind === PK.tornado) {
+        for (let i = 0; i < 5; i++) {
+          const rr = q.r * (1 - i * 0.16);
+          c.beginPath();
+          c.ellipse(q.x + Math.sin(this.clock * 6 + i) * 4, q.y - i * 9, rr, rr * 0.35, 0, q.a + i, q.a + i + 4.5);
+          c.strokeStyle = `rgba(200,215,235,${0.7 - i * 0.1})`;
+          c.lineWidth = 3;
+          c.stroke();
+        }
+        continue;
+      }
+      if (q.kind === PK.ring || q.kind === PK.bigRing) {
+        const big = q.kind === PK.bigRing;
+        for (let i = 0; i < 3; i++) {
+          const R = Math.max(1, q.r - i * 10);
+          c.beginPath();
+          for (let k = 0; k <= 64; k++) {
+            const a = (k / 64) * Math.PI * 2;
+            const rr = R + Math.sin(a * 14 + this.clock * 18 + i * 2) * (3 - i);
+            if (k === 0) c.moveTo(q.x + Math.cos(a) * rr, q.y + Math.sin(a) * rr * 0.9);
+            else c.lineTo(q.x + Math.cos(a) * rr, q.y + Math.sin(a) * rr * 0.9);
+          }
+          c.closePath();
+          c.strokeStyle = big ? `rgba(200,150,255,${0.75 - i * 0.22})` : `rgba(255,236,160,${0.7 - i * 0.22})`;
+          c.lineWidth = 3.5 - i;
+          c.stroke();
+        }
+        const note = projSprite(PK.note, 0);
+        if (note) {
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2 + q.id;
+            c.globalAlpha = 0.85;
+            c.drawImage(note, q.x + Math.cos(a) * q.r - 5, q.y + Math.sin(a) * q.r * 0.9 - 6, 10, 11);
+          }
+          c.globalAlpha = 1;
+        }
+        continue;
+      }
+      if (q.kind === PK.kob) {
+        // drops of water flying off the buckets
+        if (Math.random() < 0.25) this.particles.push({ x: q.x + (Math.random() - 0.5) * 20, y: q.y + 6, vx: (Math.random() - 0.5) * 80, vy: -40 - Math.random() * 60, life: 0.45, max: 0.45, col: "#7cc8ff", size: 2.2 });
+      }
+      const sp = projSprite(q.kind, SIDEWAYS.has(q.kind) ? frame : q.kind === PK.bee ? Math.floor(this.clock * 30 + q.id) % 2 : 0);
+      if (!sp) continue;
+      const base = PROJ_BASE[q.kind];
+      const scale = base ? Math.max(0.6, q.r / base) : 1;
+      const w = (sp.width / 2) * scale;
+      const h = (sp.height / 2) * scale;
+      // motion trail for spinning things: earlier positions + angles, fading
+      if (SPIN_TRAIL.has(q.kind)) {
+        const last = this.lastPos.get(q.id);
+        if (last) {
+          for (let k = 3; k >= 1; k--) {
+            const t = k / 4;
+            c.save();
+            c.globalAlpha = 0.22 * (1 - t);
+            c.translate(q.x + (last.x - q.x) * t * 2.2, q.y + (last.y - q.y) * t * 2.2);
+            c.rotate(q.a - (q.a - last.a) * t * 2.2);
+            c.drawImage(sp, -w / 2, -h / 2, w, h);
+            c.restore();
+          }
+        }
+        seen.set(q.id, { x: q.x, y: q.y, a: q.a });
+      }
+      c.save();
+      c.translate(q.x, q.y);
+      if (SIDEWAYS.has(q.kind)) {
+        if (Math.cos(q.a) < 0) c.scale(-1, 1);
+      } else if (!UPRIGHT.has(q.kind)) c.rotate(q.a);
+      if (q.kind === PK.eball || q.kind === PK.ebolt) c.globalCompositeOperation = "lighter";
+      c.drawImage(sp, -w / 2, -h / 2, w, h);
+      c.restore();
+    }
+    this.lastPos = seen;
+
+    if (c !== main) {
+      c = main;
+      if (fa > 0.01) {
+        c.save();
+        c.setTransform(1, 0, 0, 1, 0, 0);
+        c.globalAlpha = fa;
+        c.drawImage(this.layer!, 0, 0);
+        c.restore();
+      }
+    }
+
+    // ── the enemies' things: always fully visible ──
+    for (const m of v.marks) if (m.kind !== MK.shrine) drawMark(m);
+    for (const q of v.projs) {
+      if (q.kind !== PK.poison || !onScreen(q.x, q.y, q.r + 20)) continue;
+        const g = c.createRadialGradient(q.x, q.y, 4, q.x, q.y, q.r);
+        g.addColorStop(0, "rgba(150,230,70,0.45)");
+        g.addColorStop(1, "rgba(90,160,40,0)");
+        c.fillStyle = g;
+        c.beginPath();
+        c.ellipse(q.x, q.y, q.r, q.r * 0.75, 0, 0, Math.PI * 2);
+        c.fill();
+        for (let i = 0; i < 5; i++) {
+          const a = this.clock * 0.8 + i * 1.3 + q.id;
+          c.fillStyle = "rgba(170,240,90,0.35)";
+          c.beginPath();
+          c.arc(q.x + Math.cos(a) * q.r * 0.5, q.y + Math.sin(a) * q.r * 0.35, 8 + (i % 3) * 3, 0, Math.PI * 2);
+          c.fill();
+        }
+      c.beginPath();
+      c.ellipse(q.x, q.y, q.r * 0.92, q.r * 0.7, 0, 0, Math.PI * 2);
+      c.setLineDash([6, 5]);
+      c.strokeStyle = `rgba(200,255,80,${0.55 + Math.sin(this.clock * 6 + q.id) * 0.2})`;
+      c.lineWidth = 2;
+      c.stroke();
+      c.setLineDash([]);
+    }
+
     // sorted actors: enemies + players
     type Actor = { y: number; draw: () => void };
     const actors: Actor[] = [];
-    const frame = Math.floor(this.clock * 6) % 2;
     for (const e of v.enemies) {
       if (!onScreen(e.x, e.y, 80)) continue;
       const d = enemySize(e.type);
@@ -674,7 +907,7 @@ export class Renderer {
             c.globalAlpha = 1;
             if ((p as { shield?: boolean }).shield || p.skillT > 0) {
               c.beginPath();
-              c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 115 : 30, 0, Math.PI * 2);
+              c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 130 : p.skillT > 0 && p.hero === "strahil" ? 175 : 30, 0, Math.PI * 2);
               c.strokeStyle = p.skillT > 0 ? "rgba(255,120,60,0.5)" : "rgba(170,230,255,0.7)";
               c.lineWidth = 2.5;
               c.stroke();
@@ -701,118 +934,55 @@ export class Renderer {
     actors.sort((a, b) => a.y - b.y);
     for (const a of actors) a.draw();
 
-    // projectiles
-    const seen = new Map<number, { x: number; y: number; a: number }>();
-    // a swoosh along the circle each orbiting yoke travels
+    // the enemies' shots: on top of everything, a dark halo + a pulsing red edge
     for (const q of v.projs) {
-      if (q.kind !== PK.kob) continue;
-      const owner = v.players.reduce<RView["players"][number] | null>((best, p) => (!best || Math.hypot(p.x - q.x, p.y - q.y) < Math.hypot(best.x - q.x, best.y - q.y) ? p : best), null);
-      if (!owner) continue;
-      const R = Math.hypot(q.x - owner.x, q.y - owner.y);
-      const a = Math.atan2(q.y - owner.y, q.x - owner.x);
-      const g = c.createConicGradient ? c.createConicGradient(a - 1.1, owner.x, owner.y) : null;
-      c.beginPath();
-      c.arc(owner.x, owner.y, R, a - 1.1, a);
-      if (g) {
-        g.addColorStop(0, "rgba(255,240,200,0)");
-        g.addColorStop(1.1 / (Math.PI * 2), "rgba(255,240,200,0.45)");
-        g.addColorStop(1, "rgba(255,240,200,0)");
-        c.strokeStyle = g;
-      } else c.strokeStyle = "rgba(255,240,200,0.25)";
-      c.lineWidth = 10;
-      c.stroke();
-    }
-    for (const q of v.projs) {
-      if (q.kind === PK.fire || q.kind === PK.bigFire || q.kind === PK.poison) continue;
+      if (!FOE.has(q.kind) || q.kind === PK.poison) continue;
       if (!onScreen(q.x, q.y, q.r + 30)) continue;
-      if (q.kind === PK.slash || q.kind === PK.bigSlash) {
-        // a curved blade of light
-        const full = q.kind === PK.bigSlash;
-        const a0 = full ? q.a - 2.2 : q.a - 1.2;
-        const a1 = full ? q.a : q.a + 1.2;
-        for (let i = 0; i < 3; i++) {
-          c.beginPath();
-          c.arc(q.x, q.y, q.r - i * 10, a0, a1);
-          c.strokeStyle = full ? `rgba(255,120,80,${0.75 - i * 0.22})` : `rgba(235,245,255,${0.85 - i * 0.25})`;
-          c.lineWidth = 7 - i * 2;
-          c.stroke();
-        }
-        continue;
-      }
+      const pulse = 0.5 + 0.5 * Math.sin(this.clock * 12 + q.id);
       if (q.kind === PK.tornado) {
+        c.beginPath();
+        c.ellipse(q.x, q.y + 4, q.r * 1.2, q.r * 0.5, 0, 0, Math.PI * 2);
+        c.fillStyle = "rgba(20,0,10,0.35)";
+        c.fill();
+        c.strokeStyle = `rgba(255,70,90,${0.6 + 0.3 * pulse})`;
+        c.lineWidth = 2;
+        c.stroke();
         for (let i = 0; i < 5; i++) {
           const rr = q.r * (1 - i * 0.16);
           c.beginPath();
           c.ellipse(q.x + Math.sin(this.clock * 6 + i) * 4, q.y - i * 9, rr, rr * 0.35, 0, q.a + i, q.a + i + 4.5);
-          c.strokeStyle = `rgba(200,215,235,${0.7 - i * 0.1})`;
+          c.strokeStyle = `rgba(220,225,245,${0.85 - i * 0.1})`;
           c.lineWidth = 3;
           c.stroke();
         }
         continue;
       }
-      if (q.kind === PK.ring || q.kind === PK.bigRing) {
-        const big = q.kind === PK.bigRing;
-        for (let i = 0; i < 3; i++) {
-          const R = Math.max(1, q.r - i * 10);
-          c.beginPath();
-          for (let k = 0; k <= 64; k++) {
-            const a = (k / 64) * Math.PI * 2;
-            const rr = R + Math.sin(a * 14 + this.clock * 18 + i * 2) * (3 - i);
-            if (k === 0) c.moveTo(q.x + Math.cos(a) * rr, q.y + Math.sin(a) * rr * 0.9);
-            else c.lineTo(q.x + Math.cos(a) * rr, q.y + Math.sin(a) * rr * 0.9);
-          }
-          c.closePath();
-          c.strokeStyle = big ? `rgba(200,150,255,${0.75 - i * 0.22})` : `rgba(255,236,160,${0.7 - i * 0.22})`;
-          c.lineWidth = 3.5 - i;
-          c.stroke();
-        }
-        const note = projSprite(PK.note, 0);
-        if (note) {
-          for (let i = 0; i < 6; i++) {
-            const a = (i / 6) * Math.PI * 2 + q.id;
-            c.globalAlpha = 0.85;
-            c.drawImage(note, q.x + Math.cos(a) * q.r - 5, q.y + Math.sin(a) * q.r * 0.9 - 6, 10, 11);
-          }
-          c.globalAlpha = 1;
-        }
-        continue;
+      const R = q.r * 1.45 + 5;
+      c.beginPath();
+      c.arc(q.x, q.y, R, 0, Math.PI * 2);
+      c.fillStyle = "rgba(25,0,12,0.6)";
+      c.fill();
+      c.lineWidth = 2.5;
+      c.strokeStyle = `rgba(255,${(40 + pulse * 70) | 0},90,${0.75 + 0.25 * pulse})`;
+      c.stroke();
+      const sp = projSprite(q.kind, 0);
+      if (sp) {
+        const base = PROJ_BASE[q.kind];
+        const scale = (base ? Math.max(0.6, q.r / base) : 1) * 1.15;
+        const w = (sp.width / 2) * scale;
+        const h = (sp.height / 2) * scale;
+        c.save();
+        c.translate(q.x, q.y);
+        if (!UPRIGHT.has(q.kind)) c.rotate(q.a);
+        c.drawImage(sp, -w / 2, -h / 2, w, h);
+        c.restore();
       }
-      if (q.kind === PK.kob) {
-        // drops of water flying off the buckets
-        if (Math.random() < 0.25) this.particles.push({ x: q.x + (Math.random() - 0.5) * 20, y: q.y + 6, vx: (Math.random() - 0.5) * 80, vy: -40 - Math.random() * 60, life: 0.45, max: 0.45, col: "#7cc8ff", size: 2.2 });
-      }
-      const sp = projSprite(q.kind, SIDEWAYS.has(q.kind) ? frame : q.kind === PK.bee ? Math.floor(this.clock * 30 + q.id) % 2 : 0);
-      if (!sp) continue;
-      const base = PROJ_BASE[q.kind];
-      const scale = base ? Math.max(0.6, q.r / base) : 1;
-      const w = (sp.width / 2) * scale;
-      const h = (sp.height / 2) * scale;
-      // motion trail for spinning things: earlier positions + angles, fading
-      if (SPIN_TRAIL.has(q.kind)) {
-        const last = this.lastPos.get(q.id);
-        if (last) {
-          for (let k = 3; k >= 1; k--) {
-            const t = k / 4;
-            c.save();
-            c.globalAlpha = 0.22 * (1 - t);
-            c.translate(q.x + (last.x - q.x) * t * 2.2, q.y + (last.y - q.y) * t * 2.2);
-            c.rotate(q.a - (q.a - last.a) * t * 2.2);
-            c.drawImage(sp, -w / 2, -h / 2, w, h);
-            c.restore();
-          }
-        }
-        seen.set(q.id, { x: q.x, y: q.y, a: q.a });
-      }
-      c.save();
-      c.translate(q.x, q.y);
-      if (SIDEWAYS.has(q.kind)) {
-        if (Math.cos(q.a) < 0) c.scale(-1, 1);
-      } else if (!UPRIGHT.has(q.kind)) c.rotate(q.a);
-      if (q.kind === PK.eball || q.kind === PK.ebolt) c.globalCompositeOperation = "lighter";
-      c.drawImage(sp, -w / 2, -h / 2, w, h);
-      c.restore();
+      c.beginPath();
+      c.arc(q.x, q.y, Math.max(2, q.r * 0.3), 0, Math.PI * 2);
+      c.fillStyle = "rgba(255,240,240,0.9)";
+      c.fill();
     }
-    this.lastPos = seen;
+
 
     // particles
     for (let i = this.particles.length - 1; i >= 0; i--) {

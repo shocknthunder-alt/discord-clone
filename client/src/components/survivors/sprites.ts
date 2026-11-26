@@ -371,11 +371,13 @@ function skinLook(hero: SurvHeroId, skin: SurvSkinId): Look {
   const L = HEROES[hero].look;
   switch (skin) {
     case "night":
-      return { ...L, body: "#1c2333", trim: "#8a94b0", hat: "#0e1018" };
+      return { ...L, body: "#1a1d22", trim: "#5a5f66", hat: "#0e1010", skin: tone(L.skin, 0.8) };
     case "fest":
-      return { ...L, body: "#b3262b", trim: "#f4efe4", hat: "#1a1a1a" };
+      return { ...L, body: "#f4efe4", trim: "#d9262e", hat: "#d9262e" };
     case "royal":
-      return { ...L, body: "#4b2a7a", trim: "#f2c230", hat: "#d4a640" };
+      return { ...L, body: "#4b1a6a", trim: "#f2c230", hat: "#7a1020" };
+    case "fire":
+      return { ...L, body: "#2a1a14", trim: "#4a2a1a", hat: "#1a100c" };
     default:
       return L;
   }
@@ -383,13 +385,278 @@ function skinLook(hero: SurvHeroId, skin: SurvSkinId): Look {
 
 /** 🎨 a tint over the whole picture (achievement skins) */
 const SKIN_TINT: Partial<Record<SurvSkinId, string>> = {
-  night: "rgba(40,50,120,0.38)",
-  fest: "rgba(210,30,40,0.24)",
-  royal: "rgba(130,60,210,0.3)",
-  gold: "rgba(255,196,40,0.58)",
-  fire: "rgba(255,90,20,0.5)",
+  night: "rgba(20,30,60,0.32)",
+  gold: "rgba(255,196,40,0.6)",
+  fire: "rgba(40,16,10,0.6)",
   ghost: "rgba(170,230,255,0.62)",
 };
+
+/* ───────────── 🎭 skins = whole costumes (2026-11-27) ───────────── */
+
+/** how high each hero's hat / hair goes above the head's centre (for crowns, hoods, wreaths) */
+const HAT_TOP: Record<SurvHeroId, number> = { peyo: -20, tseko: -12, nikola: -12, gitsa: -12.6, strahil: -10.5, vela: -11, gosho: -17, mitko: -11, stana: -13 };
+
+function feetY(r: Rig) {
+  return Math.max(r.bFoot.y, r.fFoot.y) + 1;
+}
+
+/** behind the body: cloaks, capes, ribbons, halos, flames */
+function costumeBack(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId) {
+  const r = rig(frame, 10);
+  const s = r.sh;
+  const h = r.hip;
+  const fy = feetY(r);
+  const sway = frame < 8 ? Math.sin((frame / 8) * Math.PI * 2) * 1.8 : 0;
+  const top = r.head.y + HAT_TOP[hero];
+  switch (skin) {
+    case "night": {
+      // a long ragged outlaw's cloak, red inside
+      const pts = [s.x + 5, s.y - 1.5, s.x - 9, s.y - 1, h.x - 14 + sway, fy - 1];
+      for (let i = 0; i < 6; i++) pts.push(h.x - 12 + sway + i * 3.6, fy + (i % 2 ? -3.5 : 1));
+      pts.push(h.x + 9, fy - 3);
+      shaded(c, pts, "#151a16", h.x - 4, (s.y + fy) / 2, 10, 20);
+      poly(c, [s.x - 7, s.y + 1, h.x - 12 + sway, fy - 2, h.x - 8 + sway, fy - 2.5, s.x - 4, s.y + 2], "#7a1018");
+      break;
+    }
+    case "fest": {
+      // long ribbons in the colours of a fair, waving from the wreath
+      const cols = ["#d9262e", "#f4efe4", "#2f9a48", "#f2c230", "#2f6fd9"];
+      for (let i = 0; i < cols.length; i++) {
+        const x0 = r.head.x - 5 + i * 0.6;
+        const y0 = top + 3 + i * 0.8;
+        const w = Math.sin(frame * 0.9 + i) * 2.5;
+        c.beginPath();
+        c.moveTo(x0, y0);
+        c.bezierCurveTo(x0 - 8, y0 + 8 + w, x0 - 4, y0 + 18 - w, x0 - 12 - i * 1.2, y0 + 30 + w);
+        c.strokeStyle = cols[i]!;
+        c.lineWidth = 2;
+        c.stroke();
+      }
+      break;
+    }
+    case "royal": {
+      // a red velvet cape with a gold edge
+      const pts = [s.x + 6, s.y - 1.5, s.x - 10, s.y - 1, h.x - 15 + sway, fy, h.x - 4 + sway * 0.5, fy + 1.5, h.x + 10, fy - 1];
+      shaded(c, pts, "#a3121e", h.x - 4, (s.y + fy) / 2, 12, 20);
+      c.beginPath();
+      c.moveTo(h.x - 15 + sway, fy);
+      c.lineTo(h.x - 4 + sway * 0.5, fy + 1.5);
+      c.lineTo(h.x + 10, fy - 1);
+      c.strokeStyle = "#f2c230";
+      c.lineWidth = 1.8;
+      c.stroke();
+      break;
+    }
+    case "gold": {
+      // a halo of light behind the head + a golden cape
+      shaded(c, [s.x + 5, s.y - 1.5, s.x - 9, s.y - 1, h.x - 13 + sway, fy - 1, h.x + 8, fy - 2], "#d9a520", h.x - 3, (s.y + fy) / 2, 10, 20);
+      const g = c.createRadialGradient(r.head.x, top + 6, 2, r.head.x, top + 6, 17);
+      g.addColorStop(0, "rgba(255,250,200,0.9)");
+      g.addColorStop(0.6, "rgba(255,215,90,0.45)");
+      g.addColorStop(1, "rgba(255,200,60,0)");
+      c.fillStyle = g;
+      c.beginPath();
+      c.arc(r.head.x, top + 6, 17, 0, Math.PI * 2);
+      c.fill();
+      c.beginPath();
+      c.ellipse(r.head.x, top + 2, 10, 3.2, 0, 0, Math.PI * 2);
+      c.strokeStyle = "#fff3a0";
+      c.lineWidth = 1.6;
+      c.stroke();
+      break;
+    }
+    case "fire": {
+      // flames rising behind the whole body
+      for (let i = 0; i < 7; i++) {
+        const x = h.x - 12 + i * 4;
+        const hgt = 20 + ((i * 7 + frame * 3) % 9) * 2.4;
+        const base = fy - 2;
+        c.beginPath();
+        c.moveTo(x - 4, base);
+        c.quadraticCurveTo(x - 5, base - hgt * 0.6, x + Math.sin(frame + i) * 2, base - hgt);
+        c.quadraticCurveTo(x + 5, base - hgt * 0.55, x + 4, base);
+        c.closePath();
+        const g = c.createLinearGradient(x, base, x, base - hgt);
+        g.addColorStop(0, "rgba(255,90,20,0.95)");
+        g.addColorStop(0.6, "rgba(255,170,40,0.8)");
+        g.addColorStop(1, "rgba(255,240,140,0)");
+        c.fillStyle = g;
+        c.fill();
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+/** over the body, before the tint: hoods, crowns, wreaths, collars, sashes */
+function costumeFront(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId) {
+  const r = rig(frame, 10);
+  const s = r.sh;
+  const h = r.hip;
+  const x = r.head.x;
+  const y = r.head.y;
+  const top = y + HAT_TOP[hero];
+  switch (skin) {
+    case "night": {
+      // a red sash, a deep hood over whatever is on the head, a black mask over the eyes
+      line(c, [s.x - 8, s.y + 1, h.x + 7, h.y - 1], "#9a1520", 2.6);
+      shaded(c, [x - 9.5, y + 6, x - 10, y - 4, x - 6, top - 2, x + 1, top - 3.5, x + 7.5, top + 1, x + 10, y - 6, x + 6.5, y - 8.5, x - 1, y - 9.5, x - 5, y - 4, x - 5, y + 7], "#1b211c", x - 2, (top + y) / 2, 9, 10);
+      line(c, [x - 0.5, y - 2.4, x + 9, y - 2.4], "#0c0c0e", 3.2);
+      ell(c, x + 5.2, y - 2.3, 1.2, 0.8, "#ff3a3a");
+      break;
+    }
+    case "fest": {
+      // an embroidered sash + a gold buckle (пафти) + a wreath of flowers
+      line(c, [s.x - 8, s.y + 1, h.x + 7, h.y - 1], "#d9262e", 2.4);
+      for (let i = 0; i < 5; i++) {
+        const t = i / 4;
+        ell(c, s.x - 8 + (h.x + 7 - s.x + 8) * t, s.y + 1 + (h.y - 1 - s.y - 1) * t, 0.9, 0.9, "#f4efe4");
+      }
+      ell(c, h.x - 2.5, h.y, 3, 2.2, "#f2c230", OUT, 0.7);
+      ell(c, h.x + 2.5, h.y, 3, 2.2, "#f2c230", OUT, 0.7);
+      const fl = ["#d9262e", "#f2c230", "#f4efe4", "#2f6fd9", "#d9262e", "#ff7ab8"];
+      for (let i = 0; i < 9; i++) {
+        const a = Math.PI + (i / 8) * Math.PI;
+        const fx = x + 0.5 + Math.cos(a) * 9;
+        const fyy = top + 2.5 + Math.sin(a) * 2.6;
+        ell(c, fx - 1.6, fyy + 1, 1.8, 1, "#3d8a2a");
+        ell(c, fx, fyy, 2.1, 2.1, fl[i % fl.length]!, OUT, 0.5);
+        ell(c, fx, fyy, 0.7, 0.7, "#fff6b0");
+      }
+      break;
+    }
+    case "royal": {
+      // an ermine collar, a gold chain and a crown with gems
+      shaded(c, [s.x - 10, s.y - 2, s.x + 10, s.y - 2, s.x + 9, s.y + 3.5, s.x - 9, s.y + 3.5], "#f4f1ea", s.x, s.y, 10, 3);
+      for (const dx of [-7, -3, 1.5, 6]) ell(c, s.x + dx, s.y + 0.8, 0.7, 1.1, "#151515");
+      c.beginPath();
+      c.moveTo(s.x - 5, s.y + 3);
+      c.quadraticCurveTo(s.x + 0.5, s.y + 11, s.x + 6, s.y + 3);
+      c.strokeStyle = "#f2c230";
+      c.lineWidth = 1.4;
+      c.stroke();
+      ell(c, s.x + 0.6, s.y + 8.5, 2, 2, "#f2c230", OUT, 0.6);
+      const b = top + 3;
+      shaded(c, [x - 7.5, b + 3, x - 8, b - 4, x - 5, b - 1, x - 2.5, b - 6.5, x + 0.5, b - 1.5, x + 3.5, b - 6.5, x + 6, b - 1, x + 9, b - 4, x + 8.5, b + 3], "#f2c230", x, b - 2, 8, 4);
+      ell(c, x + 0.5, b + 0.8, 1.3, 1.3, "#d9262e");
+      ell(c, x - 4.5, b + 1, 1, 1, "#2f6fd9");
+      ell(c, x + 5.5, b + 1, 1, 1, "#2f9a48");
+      for (const px of [-8, -2.5, 3.5, 9]) ell(c, x + px, b - (px === -8 || px === 9 ? 4.2 : 6.7), 0.9, 0.9, "#fff6c0");
+      break;
+    }
+    case "gold": {
+      // a laurel wreath
+      for (let i = 0; i < 8; i++) {
+        const a = Math.PI + (i / 7) * Math.PI;
+        const fx = x + 0.5 + Math.cos(a) * 9;
+        const fyy = top + 2.6 + Math.sin(a) * 2.4;
+        c.save();
+        c.translate(fx, fyy);
+        c.rotate(a + Math.PI / 2);
+        ell(c, 0, 0, 1.2, 2.8, "#e8c040", OUT, 0.5);
+        c.restore();
+      }
+      break;
+    }
+    case "fire": {
+      // hair of fire
+      for (let i = 0; i < 5; i++) {
+        const fx = x - 6 + i * 3.4;
+        const hgt = 9 + ((i * 5 + frame * 2) % 7);
+        c.beginPath();
+        c.moveTo(fx - 2.6, top + 4);
+        c.quadraticCurveTo(fx - 2.5, top - hgt * 0.5, fx + Math.sin(frame * 1.3 + i) * 1.5, top - hgt);
+        c.quadraticCurveTo(fx + 3, top - hgt * 0.4, fx + 2.6, top + 4);
+        c.closePath();
+        const g = c.createLinearGradient(fx, top + 4, fx, top - hgt);
+        g.addColorStop(0, "#ff5a1a");
+        g.addColorStop(0.6, "#ffb21a");
+        g.addColorStop(1, "#fff3a0");
+        c.fillStyle = g;
+        c.fill();
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+/** after the tint: things that glow (they keep their own colour) */
+function costumeGlow(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId) {
+  const r = rig(frame, 10);
+  const s = r.sh;
+  const h = r.hip;
+  const x = r.head.x;
+  const y = r.head.y;
+  switch (skin) {
+    case "fire": {
+      // cracks of lava over the charcoal body + burning eyes
+      c.save();
+      c.globalCompositeOperation = "source-atop";
+      const cracks = [
+        [s.x - 6, s.y + 2, s.x - 2, s.y + 6, s.x - 4, s.y + 10, h.x - 1, h.y],
+        [s.x + 5, s.y + 1, s.x + 2, s.y + 7, s.x + 5, h.y - 2],
+        [r.fKnee.x, r.fKnee.y - 4, r.fKnee.x + 1, r.fKnee.y + 3, r.fFoot.x, r.fFoot.y - 3],
+        [r.bKnee.x, r.bKnee.y - 4, r.bKnee.x - 1, r.bKnee.y + 3],
+        [r.fElbow.x, r.fElbow.y - 3, r.fHand.x, r.fHand.y],
+        [x - 4, y + 2, x - 1, y + 5],
+      ];
+      for (const k of cracks) {
+        line(c, k, "rgba(255,120,30,0.65)", 2.2);
+        line(c, k, "#ffe27a", 0.8);
+      }
+      c.restore();
+      ell(c, x + 5, y - 1.8, 1.6, 1.1, "#ffe27a");
+      ell(c, x + 5, y - 1.8, 0.7, 0.6, "#fff");
+      break;
+    }
+    case "ghost": {
+      // the legs fade away into a wisp, hollow glowing eyes, chains on the wrists
+      c.save();
+      c.globalCompositeOperation = "destination-out";
+      const fy = feetY(r);
+      const g = c.createLinearGradient(0, h.y + 2, 0, fy);
+      g.addColorStop(0, "rgba(0,0,0,0)");
+      g.addColorStop(1, "rgba(0,0,0,1)");
+      c.fillStyle = g;
+      c.fillRect(-30, h.y + 2, 60, fy - h.y + 4);
+      c.restore();
+      const w = frame < 8 ? Math.sin((frame / 8) * Math.PI * 2) * 2 : Math.sin(frame) * 1;
+      c.beginPath();
+      c.moveTo(h.x - 8, h.y + 2);
+      c.quadraticCurveTo(h.x - 9 + w, h.y + 12, h.x - 3 + w * 1.5, h.y + 20);
+      c.quadraticCurveTo(h.x - 1, h.y + 14, h.x + 3, h.y + 17 - w);
+      c.quadraticCurveTo(h.x + 6, h.y + 10, h.x + 8, h.y + 2);
+      c.closePath();
+      const gg = c.createLinearGradient(0, h.y, 0, h.y + 20);
+      gg.addColorStop(0, "rgba(200,240,255,0.7)");
+      gg.addColorStop(1, "rgba(200,240,255,0)");
+      c.fillStyle = gg;
+      c.fill();
+      ell(c, x + 4.8, y - 1.8, 2.1, 1.6, "#0a1a24");
+      ell(c, x + 4.8, y - 1.8, 1.1, 0.9, "#7ff4ff");
+      for (const hand of [r.fHand, r.bHand]) {
+        for (let i = 0; i < 3; i++) {
+          c.beginPath();
+          c.ellipse(hand.x - 1 - i * 2.4, hand.y + 2 + i * 2.6, 1.3, 0.9, 0.6, 0, Math.PI * 2);
+          c.strokeStyle = "rgba(150,170,180,0.9)";
+          c.lineWidth = 0.8;
+          c.stroke();
+        }
+      }
+      break;
+    }
+    case "night":
+      ell(c, x + 5.2, y - 2.3, 1, 0.7, "#ff5a5a");
+      break;
+    default:
+      break;
+  }
+}
+
 
 function drawHero(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId = "classic") {
   const L = skinLook(hero, skin);
@@ -662,9 +929,11 @@ function drawHero(c: Ctx, hero: SurvHeroId, frame: number, skin: SurvSkinId = "c
 
 /** frame 0..7 = a step of the walk, 8..9 = standing and breathing */
 export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boolean, skin: SurvSkinId = "classic") {
-  return get(`h3:${hero}:${skin}:${frame}`, 60, 84, (c) => {
+  return get(`h4:${hero}:${skin}:${frame}`, 60, 96, (c) => {
     c.translate(0, 8);
+    costumeBack(c, hero, frame, skin);
     drawHero(c, hero, frame, skin);
+    costumeFront(c, hero, frame, skin);
     const tint = SKIN_TINT[skin];
     if (tint) {
       c.save();
@@ -680,6 +949,7 @@ export function heroSprite(hero: SurvHeroId, frame: number, v: number, flip: boo
       c.fillRect(0, 0, c.canvas.width, c.canvas.height);
       c.restore();
     }
+    costumeGlow(c, hero, frame, skin);
   }, v, flip);
 }
 
