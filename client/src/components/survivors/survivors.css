@@ -873,3 +873,91 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* waves, streaks, damage table (2026-11-26) */
+.sv-clock .sv-wave {
+  font-size: 22px;
+}
+.sv-clock .sv-wave.boss {
+  color: #ff5a3a;
+}
+.sv-clock .sv-wave.next {
+  font-size: 18px;
+  color: #ffe27a;
+}
+.sv-wave-bar {
+  width: 160px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  margin: 2px 0 3px;
+}
+.sv-wave-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, #ffb21a, #ff5a3a);
+  transition: width 0.12s linear;
+}
+.sv-streak {
+  margin-top: 3px;
+  font-weight: 900;
+  color: #ffb21a;
+  animation: sv-pulse 0.35s ease-out;
+}
+.sv-streak.hot {
+  color: #ff5a3a;
+  font-size: 16px;
+}
+@keyframes sv-pulse {
+  from {
+    transform: scale(1.35);
+  }
+}
+.sv-dmg {
+  width: min(440px, 92%);
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+.sv-dmg-title {
+  font-weight: 700;
+  margin-bottom: 4px;
+  opacity: 0.8;
+}
+.sv-dmg-row {
+  display: grid;
+  grid-template-columns: 24px 110px 1fr 70px 36px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 2px 0;
+}
+.sv-dmg-row img {
+  width: 22px;
+  height: 22px;
+}
+.sv-dmg-row i {
+  font-style: normal;
+}
+.sv-dmg-bar {
+  height: 7px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sv-dmg-bar > div {
+  height: 100%;
+  background: linear-gradient(90deg, #e8a53a, #ff7a4a);
+}
+.sv-dmg-row b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sv-dmg-row small {
+  opacity: 0.6;
+  text-align: right;
+}
+.sv-over {
+  overflow: auto;
+  padding: 16px;
+}

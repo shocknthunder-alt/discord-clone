@@ -86,9 +86,42 @@ export const survSound = {
         noise(110, { vol: 0.05 * v, type: "lowpass", freq: 2400, freqTo: 300 });
         tone(140, 80, { type: "square", vol: 0.025 * v, slide: -80 });
         break;
+      case "sarp":
+        noise(140, { vol: 0.035 * v, type: "bandpass", freq: 2500, freqTo: 6000, q: 2 });
+        break;
+      case "bradva":
+        noise(200, { vol: 0.03 * v, type: "bandpass", freq: 500, freqTo: 1400, q: 1.5 });
+        break;
+      case "kaval": {
+        const notes = [587.33, 659.25, 739.99, 880, 987.77];
+        tone(notes[Math.floor(Math.random() * notes.length)]!, 120, { type: "sine", vol: 0.015 * v, send: 0.3 });
+        break;
+      }
+      case "kazan":
+        tone(180, 160, { type: "triangle", vol: 0.04 * v, slide: -60 });
+        break;
+      case "krik":
+        tone(90, 260, { type: "sine", vol: 0.08 * v, slide: -40, at: 300 });
+        noise(220, { vol: 0.05 * v, type: "lowpass", freq: 900, freqTo: 120, at: 300 });
+        break;
+      case "plashilo":
+        noise(160, { vol: 0.03 * v, type: "bandpass", freq: 900, q: 1 });
+        break;
       case "chesan":
+      case "kosher":
         break;
     }
+  },
+  wave() {
+    if (!vol) return;
+    // a war drum + horn: the next wave
+    for (const at of [0, 180, 360]) tone(70, 200, { type: "sine", vol: 0.1 * vol, at, slide: -20 });
+    tone(220, 500, { type: "sawtooth", vol: 0.03 * vol, at: 360, attack: 0.05 });
+    tone(330, 500, { type: "sawtooth", vol: 0.02 * vol, at: 360, attack: 0.05 });
+  },
+  streak() {
+    if (!vol) return;
+    [784, 988, 1175, 1568].forEach((f, i) => tone(f, 120, { type: "square", vol: 0.025 * vol, at: i * 60, send: 0.3 }));
   },
   boom(big = false) {
     if (!vol || !gap("boom", 90)) return;

@@ -20,6 +20,8 @@ export interface NetPlayer extends RPlayer {
   dashCd: number;
   rerolls: number;
   kills: number;
+  /** damage by weapon index (-1 = skills) */
+  dmgBy: Record<number, number>;
 }
 
 export interface Snapshot {
@@ -30,6 +32,12 @@ export interface Snapshot {
   kills: number;
   gold: number;
   bosses: number;
+  wave: number;
+  waveT: number;
+  breakT: number;
+  waveLeft: number;
+  waveTotal: number;
+  streak: number;
   boss: { type: string; hp: number; max: number } | null;
   choosing: boolean;
   /** uids still picking */
@@ -48,7 +56,7 @@ interface Wire {
   g?: ArrayBuffer;
   m: number[];
   pl: unknown[];
-  h: number[]; // level xp xpNext kills gold bosses
+  h: number[]; // level xp xpNext kills gold bosses wave waveT breakT waveLeft waveTotal streak
   b: [string, number, number] | null;
   c: [number, string[]];
   bl: string | null;
@@ -67,7 +75,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
   const e = new Int16Array(en.length * 4);
   en.forEach((x, i) => {
     e[i * 4] = x.id & 0x7fff;
-    e[i * 4 + 1] = ENEMY_IDS.indexOf(x.type) | (x.elite ? 32 : 0) | (x.flash > 0 ? 64 : 0) | (x.frozenT > 0 ? 128 : 0) | (x.face < 0 ? 256 : 0);
+    e[i * 4 + 1] = ENEMY_IDS.indexOf(x.type) | (x.elite ? 32 : 0) | (x.flash > 0 ? 64 : 0) | (x.frozenT > 0 ? 128 : 0) | (x.face < 0 ? 256 : 0) | ((x.affix + 1) << 9);
     e[i * 4 + 2] = clamp16(x.x - ox);
     e[i * 4 + 3] = clamp16(x.y - oy);
   });
@@ -120,6 +128,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     x.rerolls,
     x.kills,
     x.buffs.shield > 0 ? 1 : 0,
+    Object.entries(x.dmgBy).map(([k, v]) => [Number(k), Math.round(v)]),
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -141,7 +150,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     ...(g ? { g: g.buffer } : {}),
     m,
     pl,
-    h: [w.level, Math.round(w.xp * 10) / 10, w.xpNext, w.kills, w.gold, w.bosses],
+    h: [w.level, Math.round(w.xp * 10) / 10, w.xpNext, w.kills, w.gold, w.bosses, w.wave, Math.round(w.waveT * 10) / 10, Math.round(w.breakT * 10) / 10, w.waveLeft, w.waveTotal, w.streak],
     b: w.boss && !w.boss.dead ? [w.boss.type, Math.max(0, Math.round(w.boss.hp)), Math.round(w.boss.maxHp)] : null,
     c: [w.choosing ? 1 : 0, w.choosing ? w.players.filter((x) => !x.gone && !w.picked.has(x.uid)).map((x) => x.uid) : []],
     bl: w.blessing?.id ?? null,
@@ -171,6 +180,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       flash: f & 64 ? 0.1 : 0,
       frozenT: f & 128 ? 1 : 0,
       face: f & 256 ? -1 : 1,
+      affix: ((f >> 9) & 7) - 1,
       x: e[i + 2]! + ox,
       y: e[i + 3]! + oy,
     });
@@ -217,9 +227,10 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       kills: a[21] as number,
       gone: (flags & 4) !== 0,
       shield: a[22] === 1,
+      dmgBy: Object.fromEntries(((a[23] as number[][] | undefined) ?? []).map(([k, v]) => [k!, v!])),
     } as NetPlayer & { gone: boolean; shield: boolean };
   });
-  const [level, xp, xpNext, kills, gold, bosses] = w.h;
+  const [level, xp, xpNext, kills, gold, bosses, wave, waveT, breakT, waveLeft, waveTotal, streak] = w.h;
   return {
     view: { t: w.t, players, enemies, projs, gems, marks },
     level: level!,
@@ -228,6 +239,12 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
     kills: kills!,
     gold: gold!,
     bosses: bosses!,
+    wave: wave ?? 0,
+    waveT: waveT ?? 0,
+    breakT: breakT ?? 0,
+    waveLeft: waveLeft ?? 0,
+    waveTotal: waveTotal ?? 0,
+    streak: streak ?? 0,
     boss: w.b ? { type: w.b[0], hp: w.b[1], max: w.b[2] } : null,
     choosing: w.c?.[0] === 1,
     waiting: w.c?.[1] ?? [],

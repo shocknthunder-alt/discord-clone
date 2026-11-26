@@ -111,7 +111,8 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
   const curses = cleanSurvCurses(b.curses);
   if (seconds === null || kills === null || level === null || gold === null || bosses === null || !hero) return res.status(400).json({ error: "Bad run" });
   // rough ceilings: hordes get big, but not this big
-  if (kills > seconds * 80 + 200 || gold > seconds * 6 + bosses * 120 + 100 || bosses > seconds / 120 + 1) {
+  const wave = int(b.wave, 5000) ?? 0;
+  if (kills > seconds * 90 + 300 || gold > seconds * 8 + bosses * 150 + 100 || bosses > seconds / 60 + 2 || wave > seconds / 10 + 2) {
     return res.status(400).json({ error: "Implausible run" });
   }
 
@@ -120,6 +121,7 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
   const goldEarned = Math.round((gold + Math.floor(seconds / 10)) * survGoldMul(curses, before.upgrades.greed ?? 0));
   const stats: SurvStats = {
     bestSeconds: Math.max(before.stats.bestSeconds, seconds),
+    bestWave: Math.max(before.stats.bestWave, wave),
     bestLevel: Math.max(before.stats.bestLevel, level),
     kills: before.stats.kills + kills,
     bosses: before.stats.bosses + bosses,

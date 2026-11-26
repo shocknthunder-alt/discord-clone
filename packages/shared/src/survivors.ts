@@ -39,6 +39,8 @@ export const SURV_HEROES: SurvHeroInfo[] = [
 /** Running totals / bests kept per person (SurvivorProfile.stats). */
 export interface SurvStats {
   bestSeconds: number;
+  /** (2026-11-26+) the furthest wave */
+  bestWave: number;
   bestLevel: number;
   kills: number;
   bosses: number;
@@ -46,7 +48,7 @@ export interface SurvStats {
   coopGames: number;
 }
 
-export const emptySurvStats = (): SurvStats => ({ bestSeconds: 0, bestLevel: 0, kills: 0, bosses: 0, games: 0, coopGames: 0 });
+export const emptySurvStats = (): SurvStats => ({ bestSeconds: 0, bestWave: 0, bestLevel: 0, kills: 0, bosses: 0, games: 0, coopGames: 0 });
 
 /** Heroes whose stat condition is met (gold ones are bought separately). */
 export function survHeroesUnlockedBy(stats: SurvStats): SurvHeroId[] {
@@ -152,6 +154,8 @@ export interface SurvRunDTO {
   coop: boolean;
   hero: SurvHeroId;
   curses: SurvCurseId[];
+  /** (2026-11-26+) the wave the game ended in */
+  wave?: number;
 }
 
 export interface SurvRunResultDTO extends SurvListsDTO {

@@ -137,8 +137,8 @@ test.describe("🧟 Шмиркленд", () => {
     await expect(a.page.locator(".sv-party.mine .sv-party-member")).toHaveCount(2);
     await expect(b.page.locator(".sv-party.mine")).toContainText("Чакаме домакина");
     // bob changes hero in the lobby → ana sees it
-    await b.page.locator(".sv-hero", { hasText: "Цеко" }).click();
-    await expect(a.page.locator(".sv-party.mine .sv-party-member", { hasText: bob.username })).toContainText("Цеко");
+    await b.page.locator(".sv-hero", { hasText: "Киро" }).click();
+    await expect(a.page.locator(".sv-party.mine .sv-party-member", { hasText: bob.username })).toContainText("Киро Брейка");
 
     await a.page.getByRole("button", { name: /Започни \(2\)/ }).click();
     await expect(a.page.locator(".sv-canvas")).toBeVisible();

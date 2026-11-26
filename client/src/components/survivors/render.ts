@@ -1,4 +1,4 @@
-import { ENEMIES, ENEMY_IDS, type EnemyId } from "./content";
+import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, type EnemyId } from "./content";
 import { FX, GK, MK, PK, type Fx, type RView } from "./engine";
 import { decorSprite, enemySize, enemySprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
@@ -47,8 +47,31 @@ const DIE_COL: Partial<Record<EnemyId, string>> = {
   witch: "#7fc35a",
   blatnik: "#5f8a3a",
   kuker: "#e9e3d6",
+  wolf: "#86827c",
+  yuda: "#b9d8ff",
+  pot: "#b5652e",
 };
-const BOOM_COL = ["#ffd36b", "#ffe9a8", "#ffffff", "#ff8a2a", "#cfe9ff"];
+const BOOM_COL = ["#ffd36b", "#ffe9a8", "#ffffff", "#ff8a2a", "#cfe9ff", "#b89a6a", "#8cff4a", "#c4122a"];
+const BOOM_FILL = ["255,210,80", "255,230,150", "255,255,255", "255,140,60", "220,240,255", "190,160,110", "140,255,80", "200,20,40"];
+/** the size each projectile picture was drawn for (bigger r = a bigger "area" stat) */
+const PROJ_BASE: Record<number, number> = {
+  [PK.tsarvul]: 13,
+  [PK.bigTsarvul]: 13,
+  [PK.pig]: 18,
+  [PK.boar]: 29,
+  [PK.kob]: 16,
+  [PK.mart]: 9,
+  [PK.bullet]: 6,
+  [PK.sheep]: 22,
+  [PK.axe]: 14,
+  [PK.bigAxe]: 14,
+  [PK.note]: 8,
+  [PK.bee]: 6,
+};
+/** drawn upright (not turned with the flight direction) */
+const UPRIGHT = new Set<number>([PK.cauldron, PK.scarecrow, PK.jack, PK.note]);
+/** turned left/right only */
+const SIDEWAYS = new Set<number>([PK.pig, PK.boar, PK.sheep]);
 
 export interface DrawOpts {
   me: string | null;
@@ -278,6 +301,43 @@ export class Renderer {
       c.stroke();
     }
     for (const q of v.projs) {
+      if (!onScreen(q.x, q.y, q.r + 20)) continue;
+      if (q.kind === PK.poison) {
+        const g = c.createRadialGradient(q.x, q.y, 4, q.x, q.y, q.r);
+        g.addColorStop(0, "rgba(150,230,70,0.45)");
+        g.addColorStop(1, "rgba(90,160,40,0)");
+        c.fillStyle = g;
+        c.beginPath();
+        c.ellipse(q.x, q.y, q.r, q.r * 0.75, 0, 0, Math.PI * 2);
+        c.fill();
+        for (let i = 0; i < 5; i++) {
+          const a = this.clock * 0.8 + i * 1.3 + q.id;
+          c.fillStyle = "rgba(170,240,90,0.35)";
+          c.beginPath();
+          c.arc(q.x + Math.cos(a) * q.r * 0.5, q.y + Math.sin(a) * q.r * 0.35, 8 + (i % 3) * 3, 0, Math.PI * 2);
+          c.fill();
+        }
+      } else if (q.kind === PK.scarecrow) {
+        c.beginPath();
+        c.arc(q.x, q.y + 10, q.r, 0, Math.PI * 2);
+        c.fillStyle = "rgba(255,150,60,0.1)";
+        c.fill();
+        c.setLineDash([6, 6]);
+        c.strokeStyle = "rgba(255,170,80,0.45)";
+        c.lineWidth = 1.5;
+        c.stroke();
+        c.setLineDash([]);
+      } else if (q.kind === PK.jack) {
+        c.beginPath();
+        c.arc(q.x, q.y, q.r, 0, Math.PI * 2);
+        c.strokeStyle = "rgba(255,90,60,0.6)";
+        c.setLineDash([5, 5]);
+        c.lineWidth = 2;
+        c.stroke();
+        c.setLineDash([]);
+      }
+    }
+    for (const q of v.projs) {
       if (q.kind !== PK.fire && q.kind !== PK.bigFire) continue;
       if (!onScreen(q.x, q.y, q.r)) continue;
       const g = c.createRadialGradient(q.x, q.y, 2, q.x, q.y, q.r);
@@ -318,15 +378,28 @@ export class Renderer {
           c.ellipse(e.x, e.y + (d.h / 2 - 4) * scale * (boss ? 0.8 : 0.85), (d.w / 3) * scale, 4 * scale * (boss ? 2 : 1), 0, 0, Math.PI * 2);
           c.fill();
           if (e.elite) {
+            const af = e.affix >= 0 ? AFFIX_TEXT[AFFIXES[e.affix]!] : null;
             c.beginPath();
             c.arc(e.x, e.y, (d.w / 2) * scale * 0.8, 0, Math.PI * 2);
-            c.fillStyle = "rgba(255,200,60,0.18)";
+            c.fillStyle = af ? `${af.color}33` : "rgba(255,200,60,0.18)";
             c.fill();
+            c.strokeStyle = af ? af.color : "rgba(255,200,60,0.7)";
+            c.lineWidth = 2;
+            c.stroke();
           }
           const sp = enemySprite(e.type, e.frozenT > 0 ? 0 : frame, e.flash > 0 ? 1 : e.frozenT > 0 ? 2 : 0, e.face < 0);
           const w = (sp.width / 2) * scale;
           const h = (sp.height / 2) * scale;
           c.drawImage(sp, e.x - w / 2, e.y - h / 2, w, h);
+          if (e.elite && e.affix >= 0) {
+            const af = AFFIX_TEXT[AFFIXES[e.affix]!];
+            c.font = "bold 11px system-ui, sans-serif";
+            c.textAlign = "center";
+            c.fillStyle = "rgba(0,0,0,0.65)";
+            c.fillText(`★ ${af.name}`, e.x + 1, e.y - h / 2 - 3);
+            c.fillStyle = af.color;
+            c.fillText(`★ ${af.name}`, e.x, e.y - h / 2 - 4);
+          }
         },
       });
     }
@@ -345,7 +418,7 @@ export class Renderer {
           for (const s of trail) {
             c.globalAlpha = Math.max(0, s.t) * 1.6;
             const sp = heroSprite(p.hero, 0, 2, p.face < 0);
-            c.drawImage(sp, s.x - sp.width / 4, s.y - sp.height / 4 - 6, sp.width / 2, sp.height / 2);
+            c.drawImage(sp, s.x - sp.width / 4, s.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
           }
           c.globalAlpha = 1;
           c.fillStyle = "rgba(0,0,0,0.28)";
@@ -383,10 +456,10 @@ export class Renderer {
             const f = p.moving ? 1 + (Math.floor(this.clock * 8) % 2) : 0;
             const blink = p.invulnT > 0 && p.dashT <= 0 && Math.floor(this.clock * 20) % 2 === 0;
             const sp = heroSprite(p.hero, f, p.hurtT > 0 ? 1 : 0, p.face < 0);
-            if (!blink || p.hurtT > 0) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 6, sp.width / 2, sp.height / 2);
+            if (!blink || p.hurtT > 0) c.drawImage(sp, p.x - sp.width / 4, p.y - sp.height / 4 - 14, sp.width / 2, sp.height / 2);
             if ((p as { shield?: boolean }).shield || p.skillT > 0) {
               c.beginPath();
-              c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 110 : 26, 0, Math.PI * 2);
+              c.arc(p.x, p.y - 2, p.skillT > 0 && p.hero === "tseko" ? 115 : 30, 0, Math.PI * 2);
               c.strokeStyle = p.skillT > 0 ? "rgba(255,120,60,0.5)" : "rgba(170,230,255,0.7)";
               c.lineWidth = 2.5;
               c.stroke();
@@ -397,9 +470,9 @@ export class Renderer {
           c.textAlign = "center";
           if (v.players.length > 1) {
             c.fillStyle = "rgba(0,0,0,0.6)";
-            c.fillText(p.name, p.x + 1, p.y - 33);
+            c.fillText(p.name, p.x + 1, p.y - 43);
             c.fillStyle = p.uid === o.me ? "#ffe27a" : "#ffffff";
-            c.fillText(p.name, p.x, p.y - 34);
+            c.fillText(p.name, p.x, p.y - 44);
           }
           if (!p.dead) {
             c.fillStyle = "rgba(0,0,0,0.6)";
@@ -415,8 +488,33 @@ export class Renderer {
 
     // projectiles
     for (const q of v.projs) {
-      if (q.kind === PK.fire || q.kind === PK.bigFire) continue;
+      if (q.kind === PK.fire || q.kind === PK.bigFire || q.kind === PK.poison) continue;
       if (!onScreen(q.x, q.y, q.r + 30)) continue;
+      if (q.kind === PK.slash || q.kind === PK.bigSlash) {
+        // a curved blade of light
+        const full = q.kind === PK.bigSlash;
+        const a0 = full ? q.a - 2.2 : q.a - 1.2;
+        const a1 = full ? q.a : q.a + 1.2;
+        for (let i = 0; i < 3; i++) {
+          c.beginPath();
+          c.arc(q.x, q.y, q.r - i * 10, a0, a1);
+          c.strokeStyle = full ? `rgba(255,120,80,${0.75 - i * 0.22})` : `rgba(235,245,255,${0.85 - i * 0.25})`;
+          c.lineWidth = 7 - i * 2;
+          c.stroke();
+        }
+        continue;
+      }
+      if (q.kind === PK.tornado) {
+        for (let i = 0; i < 5; i++) {
+          const rr = q.r * (1 - i * 0.16);
+          c.beginPath();
+          c.ellipse(q.x + Math.sin(this.clock * 6 + i) * 4, q.y - i * 9, rr, rr * 0.35, 0, q.a + i, q.a + i + 4.5);
+          c.strokeStyle = `rgba(200,215,235,${0.7 - i * 0.1})`;
+          c.lineWidth = 3;
+          c.stroke();
+        }
+        continue;
+      }
       if (q.kind === PK.ring || q.kind === PK.bigRing) {
         for (let i = 0; i < 3; i++) {
           c.beginPath();
@@ -427,18 +525,17 @@ export class Renderer {
         }
         continue;
       }
-      const sp = projSprite(q.kind, q.kind === PK.pig || q.kind === PK.boar || q.kind === PK.sheep ? frame : 0);
+      const sp = projSprite(q.kind, SIDEWAYS.has(q.kind) ? frame : 0);
       if (!sp) continue;
-      // the size the picture was drawn for (bigger r = a bigger "area" stat)
-      const base = { [PK.tsarvul]: 13, [PK.bigTsarvul]: 13, [PK.pig]: 18, [PK.boar]: 29, [PK.kob]: 16, [PK.mart]: 9, [PK.bullet]: 6, [PK.sheep]: 22 }[q.kind] as number | undefined;
+      const base = PROJ_BASE[q.kind];
       const scale = base ? Math.max(0.6, q.r / base) : 1;
       const w = (sp.width / 2) * scale;
       const h = (sp.height / 2) * scale;
       c.save();
       c.translate(q.x, q.y);
-      if (q.kind === PK.pig || q.kind === PK.boar || q.kind === PK.sheep) {
+      if (SIDEWAYS.has(q.kind)) {
         if (Math.cos(q.a) < 0) c.scale(-1, 1);
-      } else c.rotate(q.a);
+      } else if (!UPRIGHT.has(q.kind)) c.rotate(q.a);
       if (q.kind === PK.eball || q.kind === PK.ebolt) c.globalCompositeOperation = "lighter";
       c.drawImage(sp, -w / 2, -h / 2, w, h);
       c.restore();
@@ -473,7 +570,7 @@ export class Renderer {
       const k = 1 - b.life / b.max;
       c.beginPath();
       c.arc(b.x, b.y, b.r * (0.3 + 0.7 * k), 0, Math.PI * 2);
-      c.fillStyle = b.kind === 4 ? `rgba(220,240,255,${0.5 * (1 - k)})` : `rgba(255,${b.kind === 3 ? 140 : 210},80,${0.45 * (1 - k)})`;
+      c.fillStyle = `rgba(${BOOM_FILL[b.kind] ?? "255,210,80"},${0.45 * (1 - k)})`;
       c.fill();
       c.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`;
       c.lineWidth = 2;

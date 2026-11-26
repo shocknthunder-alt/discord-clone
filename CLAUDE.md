@@ -201,6 +201,18 @@ Owner pronouns unknown: use they/them.
   `SurvivorsGameView.tsx`: menu (heroes, curses, co-op lobby, shop, top, bestiary), loop for solo / host / guest / 👁,
   HUD, cards (keys 1–4, 🎲 reroll), solo pause + kept when leaving the channel (`savedGames`). Dev-only `window.__surv()`,
   `__survXp(n)`, `__survWorld()`. e2e `15-survivors`. Balance checked with a headless autopilot sim (tsx).
+  **2026-11-26 v2** (owner: waves, more weapons/bosses, harder, faster, bigger pickup radius, renamed heroes):
+  WAVES (`WAVE_SECONDS` 30 + `WAVE_BREAK` 3; `World.wave/waveT/breakT/waveLeft/waveTotal`; difficulty by wave, not
+  time; every `BOSS_WAVE_EVERY` 5th = boss wave until the bosses fall, two bosses from wave 25; swarm waves from 7);
+  8 bosses (`BOSS_ORDER` + Вълчият цар, Баба Чума, Хала, Цар Вампир; enemy zone projs poison/tornado, batshot); new
+  mobs wolf, yuda, pot (breakable стомна, always drops something); elite affixes (`AFFIXES`: бесен / брониран /
+  взривоопасен / водач / неуморим, ring + label); 7 new weapons сърп (front arc slash), брадва (gravity arc), кавал
+  (spiral notes), кошер (persistent bees), казан (bean turret), крик (delayed slam + stun), плашило (taunts enemies
+  within 280); passives бяло сирене (+xp), пита мед (gold drops), луканка (+dmg to bosses/elites); kill streaks
+  (`STREAKS` bonus gold); damage by weapon (`Player.dmgBy`, end-screen table); BASE_MAGNET 140, faster `xpFor`.
+  Heroes keep their ids but are now: tseko = Киро Брейка (b-boy), gitsa = Спаска, strahil = Баткан (брадва, ground
+  punch), gosho = Бай Гошууу, mitko = Митьо Крика (крик). Angular detailed hero art via `figure()` in sprites.ts.
+  `SurvStats.bestWave`, `SurvRunDTO.wave` (optional, additive).
 - **🎮 Games section** (2026-11-24): ChannelList puts channels of type trivia/draw/blocks/match/survivors (`GAME_TYPES`) in a folding "🎮 Игри (N)" section under the text channels (localStorage `gamesSectionOpen`; collapsed = only the open game + a dot for unread/mentions). New game types must be added to `GAME_TYPES`.
 - **🎨 Paint Wars** (draw & guess; 2026-11-20, channel type="draw"; migration 20261120120000 adds a
   channel to every server + `DrawScore`, 20261120180000 renames it "paint wars"; owner asked for

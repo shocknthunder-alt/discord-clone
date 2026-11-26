@@ -5,8 +5,39 @@ import type { SurvCurseId, SurvHeroId, SurvMetaKey } from "@discord-clone/shared
 
 /* ───────────── weapons ───────────── */
 
-export type WeaponId = "tsarvul" | "prase" | "tesla" | "kobilitsa" | "gaida" | "banitsa" | "chesan" | "rakia" | "martenitsa" | "pishtov";
-export type PassiveId = "salata" | "boza" | "kafe" | "galoshi" | "kiselo" | "lyutenitsa" | "brojenitsa" | "rozovo" | "detelina" | "kozhuh" | "chasovnik";
+export type WeaponId =
+  | "tsarvul"
+  | "prase"
+  | "tesla"
+  | "kobilitsa"
+  | "gaida"
+  | "banitsa"
+  | "chesan"
+  | "rakia"
+  | "martenitsa"
+  | "pishtov"
+  | "sarp"
+  | "bradva"
+  | "kaval"
+  | "kosher"
+  | "kazan"
+  | "krik"
+  | "plashilo";
+export type PassiveId =
+  | "salata"
+  | "boza"
+  | "kafe"
+  | "galoshi"
+  | "kiselo"
+  | "lyutenitsa"
+  | "brojenitsa"
+  | "rozovo"
+  | "detelina"
+  | "kozhuh"
+  | "chasovnik"
+  | "sirene"
+  | "med"
+  | "lukanka";
 
 /** dmg = damage per hit · cd = seconds between uses · amount = how many · area = size ×
  *  speed = projectile speed (px/s) · pierce = enemies one hit goes through · dur = seconds it lasts */
@@ -115,6 +146,62 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     ups: [{ amount: 1 }, { dmg: 6 }, { pierce: 1 }, { cd: 0.15 }, { amount: 1 }, { dmg: 8 }, { pierce: 2 }],
     evo: { passive: "brojenitsa", name: "Хайдушка пушка", desc: "Стреля на осем страни наведнъж." },
   },
+  sarp: {
+    id: "sarp",
+    name: "Сърп",
+    desc: "Широк замах пред теб — коси всичко наблизо.",
+    base: { dmg: 15, cd: 1.25, amount: 1, area: 1, speed: 0, pierce: 999, dur: 0.2 },
+    ups: [{ dmg: 6 }, { area: 0.2 }, { amount: 1 }, { dmg: 8 }, { cd: 0.2 }, { area: 0.2 }, { dmg: 12 }],
+    evo: { passive: "lukanka", name: "Жетварска коса", desc: "Замахът обикаля целия кръг около теб." },
+  },
+  bradva: {
+    id: "bradva",
+    name: "Брадва",
+    desc: "Хвърля се високо и пада върху враговете. Тежка и болезнена.",
+    base: { dmg: 24, cd: 1.7, amount: 1, area: 1, speed: 430, pierce: 3, dur: 2 },
+    ups: [{ dmg: 8 }, { amount: 1 }, { pierce: 2 }, { dmg: 10 }, { amount: 1 }, { area: 0.25 }, { dmg: 14 }],
+    evo: { passive: "kozhuh", name: "Секирата на Крали Марко", desc: "Огромни брадви, които минават през всичко." },
+  },
+  kaval: {
+    id: "kaval",
+    name: "Кавал",
+    desc: "Ноти излитат на спирала около теб.",
+    base: { dmg: 6, cd: 0.32, amount: 1, area: 1, speed: 250, pierce: 1, dur: 1.6 },
+    ups: [{ dmg: 2 }, { amount: 1 }, { pierce: 1 }, { dmg: 3 }, { cd: 0.06 }, { amount: 1 }, { dmg: 4, pierce: 1 }],
+    evo: { passive: "sirene", name: "Вълшебният кавал", desc: "Две спирали, нотите пробиват по трима." },
+  },
+  kosher: {
+    id: "kosher",
+    name: "Кошер",
+    desc: "Пчели летят около теб и жилят най-близките врагове.",
+    base: { dmg: 5, cd: 0.5, amount: 2, area: 1, speed: 240, pierce: 999, dur: 0 },
+    ups: [{ amount: 1 }, { dmg: 2 }, { amount: 1 }, { speed: 0.25 }, { dmg: 3 }, { amount: 2 }, { dmg: 4 }],
+    evo: { passive: "rozovo", name: "Царицата майка", desc: "Двойно повече пчели, ужилените забавят." },
+  },
+  kazan: {
+    id: "kazan",
+    name: "Казан",
+    desc: "Слагаш казан с боб, който сам стреля по враговете.",
+    base: { dmg: 9, cd: 8, amount: 1, area: 1, speed: 420, pierce: 1, dur: 6 },
+    ups: [{ dur: 1.5 }, { dmg: 4 }, { cd: 1 }, { amount: 1 }, { dmg: 5 }, { dur: 2 }, { amount: 1 }],
+    evo: { passive: "med", name: "Курбан чорба", desc: "Казанът стреля тройно и лекува всички около него." },
+  },
+  krik: {
+    id: "krik",
+    name: "Крик",
+    desc: "Тръшва се в земята при враговете — удря и зашеметява.",
+    base: { dmg: 30, cd: 2.6, amount: 1, area: 1, speed: 0, pierce: 999, dur: 0.8 },
+    ups: [{ dmg: 10 }, { area: 0.2 }, { amount: 1 }, { dmg: 12 }, { cd: 0.4 }, { area: 0.2 }, { amount: 1 }],
+    evo: { passive: "kiselo", name: "Хидравличен крик", desc: "Три поредни тръшвания, по-широки." },
+  },
+  plashilo: {
+    id: "plashilo",
+    name: "Плашило",
+    desc: "Слагаш плашило — враговете наоколо тръгват към него и се парят.",
+    base: { dmg: 5, cd: 9, amount: 1, area: 1, speed: 0, pierce: 999, dur: 5 },
+    ups: [{ dur: 1 }, { dmg: 3 }, { area: 0.25 }, { cd: 1.5 }, { amount: 1 }, { dur: 2 }, { dmg: 5 }],
+    evo: { passive: "chasovnik", name: "Страшилище", desc: "Накрая избухва в огромна експлозия." },
+  },
 };
 
 export const WEAPON_IDS = Object.keys(WEAPONS) as WeaponId[];
@@ -173,6 +260,9 @@ export const PASSIVES: Record<PassiveId, PassiveDef> = {
   detelina: { id: "detelina", name: "Четирилистна детелина", icon: "🍀", desc: "+4% критичен удар, по-добри сандъци", max: 5 },
   kozhuh: { id: "kozhuh", name: "Кожух", icon: "🧥", desc: "−1 щета от всеки удар", max: 5 },
   chasovnik: { id: "chasovnik", name: "Пясъчен часовник", icon: "⏳", desc: "+10% продължителност и скорост на снарядите", max: 5 },
+  sirene: { id: "sirene", name: "Бяло сирене", icon: "🧀", desc: "+10% опит", max: 5 },
+  med: { id: "med", name: "Пита мед", icon: "🍯", desc: "+25% шанс за злато от враговете", max: 5 },
+  lukanka: { id: "lukanka", name: "Луканка", icon: "🥓", desc: "+15% щети по босове и елитни", max: 5 },
 };
 
 export const PASSIVE_IDS = Object.keys(PASSIVES) as PassiveId[];
@@ -201,17 +291,17 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     bonus: "+20% живот",
     stats: { maxHp: 0.2 },
     skill: { name: "Стадото", desc: "Стадо овце прегазва всичко пред теб.", cd: 40 },
-    look: { body: "#8a5a32", trim: "#e9dcc0", hat: "#2a2522", skin: "#f0c8a0" },
+    look: { body: "#7a4a26", trim: "#efe4c8", hat: "#1e1a18", skin: "#e9bf96" },
   },
   tseko: {
     id: "tseko",
-    name: "Цеко",
-    title: "Шопът",
+    name: "Киро Брейка",
+    title: "Брейкърът",
     weapon: "tsarvul",
-    bonus: "+1 броня",
-    stats: { armor: 1 },
-    skill: { name: "Шопски инат", desc: "4 секунди нищо не те лови, а наоколо пари.", cd: 45 },
-    look: { body: "#f2efe6", trim: "#b3262b", hat: "#1d1b1a", skin: "#e8b88e" },
+    bonus: "+1 броня, +10% бързина",
+    stats: { armor: 1, speed: 0.1 },
+    skill: { name: "Брейк на главата", desc: "4 секунди се върти на главата — нищо не го лови, а наоколо пари.", cd: 42 },
+    look: { body: "#2457c7", trim: "#ffffff", hat: "#d9262e", skin: "#d9a57c" },
   },
   nikola: {
     id: "nikola",
@@ -221,27 +311,27 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     bonus: "+10% размер на атаките",
     stats: { area: 0.1 },
     skill: { name: "Буря", desc: "20 мълнии по враговете наоколо.", cd: 35 },
-    look: { body: "#3b4a6b", trim: "#d9d9d9", hat: "#d8d8d8", skin: "#f1cfac" },
+    look: { body: "#eef0f2", trim: "#2a3550", hat: "#d8d8d8", skin: "#f1cfac" },
   },
   gitsa: {
     id: "gitsa",
-    name: "Гица",
-    title: "Бабата",
+    name: "Спаска",
+    title: "Майсторката на баници",
     weapon: "banitsa",
     bonus: "+0.4 живот в секунда",
     stats: { regen: 0.4 },
     skill: { name: "Тава баница", desc: "Лекува всички с 40% и вдига падналите.", cd: 50 },
-    look: { body: "#4b2f5e", trim: "#f0e2b6", hat: "#c62f3a", skin: "#efc6a4" },
+    look: { body: "#2a1d2e", trim: "#f4efe4", hat: "#c62f3a", skin: "#efc6a4" },
   },
   strahil: {
     id: "strahil",
-    name: "Страхил",
-    title: "Хайдутинът",
-    weapon: "pishtov",
-    bonus: "+10% щети",
-    stats: { might: 0.1 },
-    skill: { name: "Залп", desc: "Три кръга куршуми на всички страни.", cd: 30 },
-    look: { body: "#2f3b2a", trim: "#c22a2a", hat: "#3a2a1c", skin: "#d9a57c" },
+    name: "Баткан",
+    title: "Големият",
+    weapon: "bradva",
+    bonus: "+15% щети, +15% живот",
+    stats: { might: 0.15, maxHp: 0.15 },
+    skill: { name: "Юмрук в земята", desc: "Земята се пропуква — щети, отблъскване и зашеметяване наоколо.", cd: 30 },
+    look: { body: "#1b1b1d", trim: "#f2f2f2", hat: "#d4a640", skin: "#d9a57c" },
   },
   vela: {
     id: "vela",
@@ -255,7 +345,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
   },
   gosho: {
     id: "gosho",
-    name: "Гошо",
+    name: "Бай Гошууу",
     title: "Кукерът",
     weapon: "gaida",
     bonus: "+2 броня, −5% бързина",
@@ -265,13 +355,13 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
   },
   mitko: {
     id: "mitko",
-    name: "Митко",
-    title: "Чичото с ракията",
-    weapon: "rakia",
+    name: "Митьо Крика",
+    title: "Майсторът",
+    weapon: "krik",
     bonus: "оръжията с 8% по-бързо",
     stats: { cooldown: 0.08 },
     skill: { name: "Наздраве!", desc: "10 секунди +50% щети и +30% бързина за всички.", cd: 50 },
-    look: { body: "#6b4a2b", trim: "#d7c39a", hat: "#4a5a3a", skin: "#eaa98a" },
+    look: { body: "#1d2a5a", trim: "#ffffff", hat: "#3a3a3a", skin: "#eaa98a" },
   },
   stana: {
     id: "stana",
@@ -289,7 +379,27 @@ export const HERO_IDS = Object.keys(HEROES) as SurvHeroId[];
 
 /* ───────────── enemies ───────────── */
 
-export type EnemyId = "rat" | "bat" | "zombie" | "ghost" | "vampire" | "werewolf" | "witch" | "blatnik" | "kuker" | "karak" | "mora" | "lamia" | "zmey";
+export type EnemyId =
+  | "rat"
+  | "bat"
+  | "zombie"
+  | "ghost"
+  | "vampire"
+  | "werewolf"
+  | "witch"
+  | "blatnik"
+  | "kuker"
+  | "wolf"
+  | "yuda"
+  | "pot"
+  | "karak"
+  | "mora"
+  | "lamia"
+  | "zmey"
+  | "hala"
+  | "chuma"
+  | "wolfking"
+  | "vampking";
 
 export interface EnemyDef {
   id: EnemyId;
@@ -299,7 +409,7 @@ export interface EnemyDef {
   dmg: number;
   r: number;
   xp: number;
-  /** minute it starts to show up (normal waves) */
+  /** wave it starts to show up in (normal waves; 999 = only from events / bosses) */
   from: number;
   boss?: boolean;
   ranged?: boolean;
@@ -308,25 +418,46 @@ export interface EnemyDef {
 }
 
 export const ENEMIES: Record<EnemyId, EnemyDef> = {
-  rat: { id: "rat", name: "Плъх", hp: 6, speed: 72, dmg: 5, r: 10, xp: 1, from: 0 },
-  bat: { id: "bat", name: "Прилеп", hp: 5, speed: 95, dmg: 4, r: 9, xp: 1, from: 0.5 },
-  zombie: { id: "zombie", name: "Мъртвец", hp: 18, speed: 45, dmg: 8, r: 13, xp: 2, from: 1.5 },
-  ghost: { id: "ghost", name: "Таласъм", hp: 14, speed: 66, dmg: 7, r: 12, xp: 2, from: 3, ghost: true },
-  vampire: { id: "vampire", name: "Вампир", hp: 30, speed: 60, dmg: 10, r: 13, xp: 3, from: 5 },
-  werewolf: { id: "werewolf", name: "Върколак", hp: 40, speed: 104, dmg: 12, r: 14, xp: 4, from: 7 },
-  witch: { id: "witch", name: "Вещица", hp: 28, speed: 55, dmg: 8, r: 12, xp: 4, from: 9, ranged: true },
-  blatnik: { id: "blatnik", name: "Блатник", hp: 120, speed: 38, dmg: 16, r: 22, xp: 8, from: 11 },
-  kuker: { id: "kuker", name: "Кукер", hp: 45, speed: 52, dmg: 10, r: 15, xp: 3, from: 999 },
+  rat: { id: "rat", name: "Плъх", hp: 7, speed: 80, dmg: 6, r: 10, xp: 1, from: 1 },
+  bat: { id: "bat", name: "Прилеп", hp: 6, speed: 104, dmg: 5, r: 9, xp: 1, from: 1 },
+  zombie: { id: "zombie", name: "Мъртвец", hp: 20, speed: 50, dmg: 9, r: 13, xp: 2, from: 2 },
+  wolf: { id: "wolf", name: "Вълк", hp: 16, speed: 128, dmg: 8, r: 12, xp: 2, from: 3 },
+  ghost: { id: "ghost", name: "Таласъм", hp: 16, speed: 72, dmg: 8, r: 12, xp: 2, from: 4, ghost: true },
+  vampire: { id: "vampire", name: "Вампир", hp: 34, speed: 66, dmg: 11, r: 13, xp: 3, from: 6 },
+  yuda: { id: "yuda", name: "Юда", hp: 26, speed: 78, dmg: 9, r: 12, xp: 3, from: 7, ranged: true, ghost: true },
+  werewolf: { id: "werewolf", name: "Върколак", hp: 46, speed: 112, dmg: 13, r: 14, xp: 4, from: 8 },
+  witch: { id: "witch", name: "Вещица", hp: 32, speed: 58, dmg: 9, r: 12, xp: 4, from: 9, ranged: true },
+  blatnik: { id: "blatnik", name: "Блатник", hp: 140, speed: 42, dmg: 18, r: 22, xp: 8, from: 11 },
+  kuker: { id: "kuker", name: "Кукер", hp: 50, speed: 56, dmg: 11, r: 15, xp: 3, from: 999 },
+  pot: { id: "pot", name: "Стомна", hp: 1, speed: 0, dmg: 0, r: 12, xp: 0, from: 999 },
   karak: { id: "karak", name: "Караконджул", hp: 1000, speed: 72, dmg: 20, r: 34, xp: 60, from: 999, boss: true },
   mora: { id: "mora", name: "Вещицата Мора", hp: 1600, speed: 60, dmg: 18, r: 30, xp: 80, from: 999, boss: true, ranged: true },
   lamia: { id: "lamia", name: "Ламята", hp: 2600, speed: 48, dmg: 24, r: 44, xp: 100, from: 999, boss: true, ranged: true },
   zmey: { id: "zmey", name: "Змей Горянин", hp: 3600, speed: 80, dmg: 26, r: 40, xp: 120, from: 999, boss: true, ranged: true },
+  hala: { id: "hala", name: "Хала", hp: 4200, speed: 70, dmg: 24, r: 42, xp: 140, from: 999, boss: true, ranged: true, ghost: true },
+  chuma: { id: "chuma", name: "Баба Чума", hp: 4600, speed: 52, dmg: 22, r: 30, xp: 150, from: 999, boss: true, ranged: true },
+  wolfking: { id: "wolfking", name: "Вълчият цар", hp: 5200, speed: 96, dmg: 28, r: 38, xp: 160, from: 999, boss: true },
+  vampking: { id: "vampking", name: "Цар Вампир", hp: 6000, speed: 74, dmg: 30, r: 32, xp: 180, from: 999, boss: true, ranged: true },
 };
 
 export const ENEMY_IDS = Object.keys(ENEMIES) as EnemyId[];
-export const BOSS_ORDER: EnemyId[] = ["karak", "mora", "lamia", "zmey"];
-/** a boss every this many seconds */
-export const BOSS_EVERY = 180;
+export const BOSS_ORDER: EnemyId[] = ["karak", "mora", "lamia", "wolfking", "chuma", "zmey", "hala", "vampking"];
+/** every this many waves is a boss wave (from wave 25 on two bosses at once) */
+export const BOSS_WAVE_EVERY = 5;
+/** seconds of fighting in a wave, and the breather after it */
+export const WAVE_SECONDS = 30;
+export const WAVE_BREAK = 3;
+
+/** ⭐ elite affixes */
+export type AffixId = "fast" | "armored" | "explosive" | "leader" | "tireless";
+export const AFFIXES: AffixId[] = ["fast", "armored", "explosive", "leader", "tireless"];
+export const AFFIX_TEXT: Record<AffixId, { name: string; color: string }> = {
+  fast: { name: "Бесен", color: "#ff4a3a" },
+  armored: { name: "Брониран", color: "#6ab8ff" },
+  explosive: { name: "Взривоопасен", color: "#ff9a2a" },
+  leader: { name: "Водач", color: "#c06bff" },
+  tireless: { name: "Неуморим", color: "#5ee07a" },
+};
 
 /* ───────────── map events ───────────── */
 

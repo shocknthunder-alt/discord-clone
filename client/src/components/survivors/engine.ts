@@ -1,7 +1,8 @@
 import type { SurvCurseId, SurvHeroId, SurvMetaKey } from "@discord-clone/shared";
 import {
-  BOSS_EVERY,
+  AFFIXES,
   BOSS_ORDER,
+  BOSS_WAVE_EVERY,
   ENEMIES,
   ENEMY_IDS,
   HEROES,
@@ -10,9 +11,12 @@ import {
   MAX_WEAPON_LEVEL,
   PASSIVES,
   PASSIVE_IDS,
+  WAVE_BREAK,
+  WAVE_SECONDS,
   WEAPONS,
   WEAPON_IDS,
   weaponStats,
+  type AffixId,
   type BlessingId,
   type EnemyId,
   type MapEventId,
@@ -21,8 +25,9 @@ import {
 } from "./content";
 
 // 🧟 Шмиркленд — the simulation. No DOM: the host's browser steps it (solo or co-op), render.ts draws it.
-// Endless: enemies get tougher and more numerous every minute, a boss every BOSS_EVERY seconds, map
-// events in between. Co-op: one world, shared XP, every level-up pauses until each player has picked.
+// The hordes come in WAVES (WAVE_SECONDS of fighting, a short breather); every BOSS_WAVE_EVERY-th wave is a
+// boss wave (two bosses from wave 25). Every wave is tougher. Co-op: one world, shared XP, every level-up
+// pauses until each player has picked.
 
 /* ───────────── what the renderer sees (the network snapshot decodes into the same shapes) ───────────── */
 
@@ -43,7 +48,7 @@ export interface RPlayer {
   /** garlic aura radius (0 = none) */
   auraR: number;
   auraEvo: boolean;
-  /** an active hero skill with a visible effect (Цеко's aura) */
+  /** an active hero skill with a visible effect (Киро's spin) */
   skillT: number;
   hurtT: number;
 }
@@ -56,6 +61,8 @@ export interface REnemy {
   elite: boolean;
   frozenT: number;
   face: number;
+  /** elite affix index in AFFIXES, -1 = none */
+  affix: number;
 }
 export interface RProj {
   id: number;
@@ -105,7 +112,25 @@ export const PK = {
   bigTsarvul: 14,
   bigRing: 15,
   bigFire: 16,
+  slash: 17,
+  bigSlash: 18,
+  axe: 19,
+  bigAxe: 20,
+  note: 21,
+  bee: 22,
+  cauldron: 23,
+  bean: 24,
+  jack: 25,
+  scarecrow: 26,
+  poison: 27,
+  tornado: 28,
+  batshot: 29,
 } as const;
+
+/** enemy projectiles that stay where they are and hurt everyone standing in them */
+const ZONES = new Set<number>([PK.poison, PK.tornado]);
+/** our things that never hit anything themselves */
+const NO_HITS = new Set<number>([PK.cauldron, PK.jack, PK.scarecrow]);
 
 /** gem kinds */
 export const GK = { blue: 0, green: 1, red: 2, coin: 3, food: 4, magnet: 5, chest: 6, bomb: 7, bag: 8 } as const;
@@ -117,9 +142,9 @@ export const FX = {
   die: 0, // x y enemyTypeIndex
   dmg: 1, // x y amount crit(0/1)
   bolt: 2, // x0 y0 x1 y1 ...
-  boom: 3, // x y r kind
+  boom: 3, // x y r kind (0 banitsa, 1 shard, 2 bomb, 3 fire, 4 hail, 5 dust/slam, 6 poison, 7 blood)
   text: 4, // x y text color
-  banner: 5, // text kind(0 event, 1 boss, 2 good)
+  banner: 5, // text kind(0 event, 1 boss, 2 good, 3 wave)
   hurt: 6, // playerIndex
   level: 7, // level
   chest: 8, // playerIndex texts[]
@@ -131,6 +156,8 @@ export const FX = {
   fire: 14, // playerIndex weaponIndex
   bossDie: 15, // x y
   evolve: 16, // playerIndex weaponIndex
+  streak: 17, // count
+  wave: 18, // wave boss(0/1)
 } as const;
 export type Fx = (number | string | string[])[];
 
@@ -150,6 +177,10 @@ export interface Stats {
   duration: number;
   projSpeed: number;
   xp: number;
+  /** extra damage to bosses / elites (луканка) */
+  slayer: number;
+  /** extra chance of gold from kills (пита мед) */
+  greed: number;
 }
 
 export interface WState {
@@ -183,9 +214,11 @@ export interface Player extends RPlayer {
   /** Буря: lightning strikes still to come */
   storm: number;
   stormT: number;
-  /** Залп: waves still to come */
+  /** Стадото etc.: waves still to come */
   volley: number;
   volleyT: number;
+  /** damage done, by weapon index (-1 = skills etc.) */
+  dmgBy: Record<number, number>;
 }
 
 export interface Enemy extends REnemy {
@@ -201,6 +234,7 @@ export interface Enemy extends REnemy {
   stunT: number;
   slowT: number;
   ai: number;
+  ai2: number;
   state: number;
   tx: number;
   ty: number;
@@ -209,7 +243,7 @@ export interface Enemy extends REnemy {
   vx: number;
   vy: number;
   dead: boolean;
-  /** treasure guards don't despawn */
+  /** treasure guards / pots don't despawn */
   stay: boolean;
 }
 
@@ -271,25 +305,36 @@ export interface PlayerSetup {
 /* ───────────── constants ───────────── */
 
 const PLAYER_R = 14;
-const BASE_SPEED = 165;
-const BASE_MAGNET = 90;
-const SPAWN_R = 780;
-const DESPAWN_R = 1450;
-const MAX_ENEMIES = 420;
+const BASE_SPEED = 170;
+/** picking up gems from this far (× the magnet stat) */
+const BASE_MAGNET = 140;
+const SPAWN_R = 720;
+const DESPAWN_R = 1350;
+const MAX_ENEMIES = 460;
 const MAX_GEMS = 260;
 /** the pig bounces inside this box around its owner (about one screen) */
-const BOX_W = 600;
-const BOX_H = 360;
+const BOX_W = 520;
+const BOX_H = 320;
+/** kill streaks that give a bonus */
+const STREAKS = [50, 100, 250, 500, 1000, 2000, 5000];
 
 const dist2 = (ax: number, ay: number, bx: number, by: number) => (ax - bx) * (ax - bx) + (ay - by) * (ay - by);
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 const pickOne = <T,>(xs: readonly T[]): T => xs[Math.floor(Math.random() * xs.length)]!;
+const angDiff = (a: number, b: number) => {
+  let d = (a - b) % (Math.PI * 2);
+  if (d > Math.PI) d -= Math.PI * 2;
+  if (d < -Math.PI) d += Math.PI * 2;
+  return Math.abs(d);
+};
 
-/** XP needed for the next level. */
+/** XP needed for the next level (fast early, so the build comes together quickly). */
 export function xpFor(level: number, players: number): number {
-  const base = level < 20 ? 5 + (level - 1) * 8 : level < 40 ? 157 + (level - 20) * 12 : 397 + (level - 40) * 15;
+  const base = level < 20 ? 4 + (level - 1) * 6 : level < 40 ? 118 + (level - 20) * 10 : 318 + (level - 40) * 13;
   return Math.round(base * (1 + 0.45 * (players - 1)));
 }
+
+export const isBossWave = (wave: number) => wave > 0 && wave % BOSS_WAVE_EVERY === 0;
 
 /* ───────────── spatial grid ───────────── */
 
@@ -349,17 +394,33 @@ export class World {
   /** +1 every time new cards are dealt */
   round = 0;
 
+  /** the current wave (1..), seconds into it, and the breather before the next one */
+  wave = 0;
+  waveT = 0;
+  breakT = 1.5;
+  /** enemies this wave still has to send */
+  waveLeft = 0;
+  waveTotal = 0;
+  waveBosses: Enemy[] = [];
+  private waveMix: EnemyId[] = [];
+  private waveElites = 0;
+  private waveEvent = false;
+
+  /** kills in a row (2.5 s without one ends it) */
+  streak = 0;
+  bestStreak = 0;
+  private streakT = 0;
+
   boss: Enemy | null = null;
   event: { id: MapEventId; t: number } | null = null;
   blessing: { id: BlessingId; t: number } | null = null;
 
   private nextId = 1;
   private spawnAcc = 0;
-  private nextBoss = BOSS_EVERY;
-  private nextElite = 120;
-  private nextEvent = rand(70, 100);
+  private nextPot = 10;
   private grid = new Grid();
   private hailT = 0;
+  private scarecrows: Proj[] = [];
   readonly curses: Set<SurvCurseId>;
 
   constructor(setup: PlayerSetup[], curses: SurvCurseId[]) {
@@ -406,6 +467,7 @@ export class World {
         stormT: 0,
         volley: 0,
         volleyT: 0,
+        dmgBy: {},
       };
       p.weapons.push({ id: HEROES[s.hero].weapon, lvl: 1, evo: false, t: 0.5, t2: 0, on: false });
       this.refreshStats(p);
@@ -444,7 +506,9 @@ export class World {
       luck: (h.luck ?? 0) + (m.luck ?? 0) * 0.1 + pv("detelina") * 0.1,
       duration: 1 + pv("chasovnik") * 0.1,
       projSpeed: 1 + pv("chasovnik") * 0.1,
-      xp: 1 + (m.wisdom ?? 0) * 0.05,
+      xp: 1 + (m.wisdom ?? 0) * 0.05 + pv("sirene") * 0.1,
+      slayer: pv("lukanka") * 0.15,
+      greed: pv("med") * 0.25,
     };
     if (this.curses.has("glass")) s.maxHp *= 0.5;
     if (this.curses.has("nomagnet")) s.magnet *= 0.5;
@@ -470,17 +534,20 @@ export class World {
     p.auraEvo = !!g?.evo;
   }
 
-  /* ───────── difficulty ───────── */
+  /* ───────── difficulty (by wave) ───────── */
 
+  private get w() {
+    return Math.max(1, this.wave);
+  }
   private hpMul() {
-    const m = this.minutes;
-    return (1 + m * 0.18 + m * m * 0.012) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1);
+    const w = this.w;
+    return (1 + w * 0.17 + w * w * 0.013) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1);
   }
   private dmgMul() {
-    return 1 + this.minutes * 0.07;
+    return 1 + this.w * 0.09;
   }
   private speedMul() {
-    return (1 + Math.min(0.4, this.minutes * 0.015)) * (this.curses.has("wolves") ? 1.25 : 1);
+    return (1 + Math.min(0.45, this.w * 0.018)) * (this.curses.has("wolves") ? 1.25 : 1);
   }
 
   /* ───────── spawning ───────── */
@@ -497,10 +564,11 @@ export class World {
     return [p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr];
   }
 
-  spawn(type: EnemyId, x: number, y: number, opts: { elite?: boolean; boss?: boolean; hp?: number } = {}): Enemy {
+  spawn(type: EnemyId, x: number, y: number, opts: { elite?: boolean; boss?: boolean; hp?: number; affix?: number } = {}): Enemy {
     const d = ENEMIES[type];
     const elite = !!opts.elite;
-    const hp = opts.hp ?? d.hp * this.hpMul() * (elite ? 10 : 1);
+    const affix = elite ? (opts.affix ?? Math.floor(Math.random() * AFFIXES.length)) : -1;
+    const hp = opts.hp ?? d.hp * (type === "pot" ? 1 : this.hpMul()) * (elite ? 10 : 1);
     const e: Enemy = {
       id: this.nextId++,
       type,
@@ -510,9 +578,10 @@ export class World {
       elite,
       frozenT: 0,
       face: 1,
+      affix,
       hp,
       maxHp: hp,
-      speed: d.speed * this.speedMul() * (elite ? 0.9 : 1) * rand(0.92, 1.08),
+      speed: d.speed * this.speedMul() * (elite ? (AFFIXES[affix] === "fast" ? 1.6 : 0.9) : 1) * rand(0.92, 1.08),
       dmg: d.dmg * this.dmgMul() * (elite ? 1.5 : 1),
       r: d.r * (elite ? 1.6 : 1),
       xp: d.xp * (elite ? 10 : 1),
@@ -521,7 +590,8 @@ export class World {
       boss: !!opts.boss,
       stunT: 0,
       slowT: 0,
-      ai: rand(0, 2),
+      ai: rand(0.5, 2),
+      ai2: rand(1, 3),
       state: 0,
       tx: 0,
       ty: 0,
@@ -529,72 +599,131 @@ export class World {
       vx: 0,
       vy: 0,
       dead: false,
-      stay: false,
+      stay: type === "pot",
     };
     this.enemies.push(e);
     return e;
   }
 
-  private pickType(): EnemyId {
-    const m = this.minutes;
-    const open = ENEMY_IDS.filter((id) => ENEMIES[id].from <= m);
-    const weights = open.map((id, i) => {
-      let w = i >= open.length - 2 ? 2 : 1;
-      if (id === "rat" && m > 8) w = 0.3;
-      if (id === "bat" && m > 10) w = 0.4;
-      return w;
-    });
-    let r = Math.random() * weights.reduce((a, b) => a + b, 0);
-    for (let i = 0; i < open.length; i++) {
-      r -= weights[i]!;
-      if (r <= 0) return open[i]!;
+  /** The enemy kinds of a wave: a few of what is already out, the newest more often. */
+  private mixFor(wave: number): EnemyId[] {
+    const open = (Object.keys(ENEMIES) as EnemyId[]).filter((id) => ENEMIES[id].from <= wave);
+    const newest = open.slice(-3);
+    const kinds = new Set<EnemyId>();
+    kinds.add(pickOne(newest));
+    const n = wave < 3 ? 2 : wave < 8 ? 3 : 4;
+    while (kinds.size < Math.min(n, open.length)) kinds.add(Math.random() < 0.5 ? pickOne(newest) : pickOne(open));
+    return [...kinds];
+  }
+
+  private startWave() {
+    this.wave++;
+    this.waveT = 0;
+    const w = this.wave;
+    const pf = 1 + 0.6 * (this.pf - 1);
+    const horde = this.curses.has("horde") ? 1.5 : 1;
+    this.waveMix = this.mixFor(w);
+    // every 4th normal wave is a swarm of the small fast ones
+    const swarm = w >= 7 && w % 4 === 3;
+    if (swarm) this.waveMix = (["rat", "bat", "wolf"] as EnemyId[]).filter((id) => ENEMIES[id].from <= w);
+    this.waveTotal = Math.round((34 + w * 12 + w * w * 0.5) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1));
+    this.waveLeft = this.waveTotal;
+    this.waveElites = w >= 3 ? 1 + Math.floor(w / 6) : 0;
+    this.waveEvent = !isBossWave(w) && w >= 2 && Math.random() < 0.45;
+    this.waveBosses = [];
+    this.spawnAcc = 0;
+    if (isBossWave(w)) {
+      const idx = w / BOSS_WAVE_EVERY - 1;
+      const count = w >= 25 ? 2 : 1;
+      for (let k = 0; k < count; k++) {
+        const type = BOSS_ORDER[(idx + k * 3) % BOSS_ORDER.length]!;
+        const cycle = Math.floor(idx / BOSS_ORDER.length);
+        const [x, y] = this.spawnPoint(undefined, 600);
+        const hp = ENEMIES[type].hp * (1 + 0.12 * w) * (1 + 0.6 * cycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
+        const b = this.spawn(type, x, y, { boss: true, hp });
+        this.waveBosses.push(b);
+        this.boss = b;
+      }
+      this.fx.push([FX.banner, `⚠️ Вълна ${w}: ${this.waveBosses.map((b) => ENEMIES[b.type].name).join(" и ")}!`, 1]);
+      this.fx.push([FX.wave, w, 1]);
+    } else {
+      this.fx.push([FX.banner, swarm ? `🦇 Вълна ${w} — рояк!` : `⚔️ Вълна ${w}`, 3]);
+      this.fx.push([FX.wave, w, 0]);
     }
-    return open[open.length - 1]!;
   }
 
   private director(dt: number) {
-    const m = this.minutes;
+    // between waves
+    if (this.breakT > 0) {
+      this.breakT -= dt;
+      if (this.breakT <= 0) this.startWave();
+      return;
+    }
+    this.waveT += dt;
+    const w = this.wave;
     const pf = 1 + 0.6 * (this.pf - 1);
-    const horde = this.curses.has("horde") ? 1.5 : 1;
-    let target = Math.min(MAX_ENEMIES, (22 + m * 16 + m * m * 0.6) * pf * horde);
-    if (this.boss) target *= 0.6;
-    this.spawnAcc += dt * (3 + m * 1.6) * pf * horde;
+    const cap = Math.min(MAX_ENEMIES, (40 + w * 14) * pf * (this.curses.has("horde") ? 1.4 : 1));
+    // most of the wave arrives in the first 70% of it
+    const rate = this.waveTotal / (WAVE_SECONDS * 0.7);
+    this.spawnAcc += dt * rate;
     let n = 0;
-    while (this.spawnAcc >= 1 && this.enemies.length < target && n < 20) {
+    while (this.spawnAcc >= 1 && this.waveLeft > 0 && this.enemies.length < cap && n < 25) {
       this.spawnAcc -= 1;
+      this.waveLeft--;
       n++;
       const [x, y] = this.spawnPoint();
-      this.spawn(this.pickType(), x, y);
+      this.spawn(pickOne(this.waveMix), x, y);
+      // they come in little groups
+      if (this.waveLeft > 0 && Math.random() < 0.35) {
+        this.waveLeft--;
+        this.spawn(pickOne(this.waveMix), x + rand(-30, 30), y + rand(-30, 30));
+      }
     }
-    if (this.spawnAcc > 5) this.spawnAcc = 5;
+    if (this.spawnAcc > 6) this.spawnAcc = 6;
 
-    // elites
-    if (this.t >= this.nextElite) {
-      this.nextElite = this.t + rand(26, 36);
+    // elites in the middle of the wave
+    if (this.waveElites > 0 && this.waveT > 10) {
+      this.waveElites--;
       const [x, y] = this.spawnPoint();
-      this.spawn(this.pickType(), x, y, { elite: true });
+      this.spawn(pickOne(this.waveMix), x, y, { elite: true });
     }
-
-    // bosses
-    if (this.t >= this.nextBoss) {
-      const i = Math.round(this.nextBoss / BOSS_EVERY) - 1;
-      this.nextBoss += BOSS_EVERY;
-      const type = BOSS_ORDER[i % BOSS_ORDER.length]!;
-      const cycle = Math.floor(i / BOSS_ORDER.length);
-      const [x, y] = this.spawnPoint(undefined, 640);
-      const hp = ENEMIES[type].hp * (1 + cycle) * (1 + 0.1 * m) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1);
-      this.boss = this.spawn(type, x, y, { boss: true, hp });
-      this.fx.push([FX.banner, `⚠️ Идва ${ENEMIES[type].name}!`, 1]);
-    }
-
-    // map events
-    if (this.t >= this.nextEvent && !this.boss && !this.event) {
-      this.nextEvent = this.t + rand(70, 110);
+    if (this.waveEvent && this.waveT > 6 && !this.event) {
+      this.waveEvent = false;
       const pool: MapEventId[] = ["shrine", "treasure", "swarm"];
-      if (m >= 4) pool.push("kukeri");
-      if (m >= 6) pool.push("hail");
+      if (w >= 6) pool.push("kukeri");
+      if (w >= 8) pool.push("hail");
       this.startEvent(pickOne(pool));
     }
+    // pots to break
+    if (this.t >= this.nextPot) {
+      this.nextPot = this.t + rand(12, 18);
+      if (this.enemies.filter((e) => e.type === "pot").length < 4) {
+        const p = pickOne(this.alive.length ? this.alive : this.players);
+        const a = Math.random() * Math.PI * 2;
+        const r = rand(260, 480);
+        this.spawn("pot", p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+      }
+    }
+
+    const bossAlive = this.waveBosses.some((b) => !b.dead);
+    this.boss = this.waveBosses.find((b) => !b.dead) ?? null;
+    if (isBossWave(w)) {
+      // a boss wave goes on until the bosses fall (and keeps sending escorts)
+      if (bossAlive) {
+        if (this.waveLeft <= 0 && this.waveT > WAVE_SECONDS) {
+          this.waveLeft = Math.round(10 * pf);
+          this.waveT = WAVE_SECONDS * 0.5;
+        }
+        return;
+      }
+      if (this.waveT > 3) this.endWave();
+    } else if (this.waveT >= WAVE_SECONDS) this.endWave();
+  }
+
+  private endWave() {
+    this.breakT = isBossWave(this.wave) ? WAVE_BREAK + 2 : WAVE_BREAK;
+    this.waveLeft = 0;
+    this.boss = null;
   }
 
   private startEvent(id: MapEventId) {
@@ -603,39 +732,39 @@ export class World {
     this.fx.push([FX.banner, names[id], 0]);
     if (id === "shrine") {
       const a = Math.random() * Math.PI * 2;
-      this.marks.push({ kind: MK.shrine, x: p.x + Math.cos(a) * 420, y: p.y + Math.sin(a) * 420, r: 56, p: 0, t: 45, a: 0 });
-      this.event = { id, t: 45 };
+      this.marks.push({ kind: MK.shrine, x: p.x + Math.cos(a) * 380, y: p.y + Math.sin(a) * 380, r: 56, p: 0, t: 40, a: 0 });
+      this.event = { id, t: 40 };
     } else if (id === "treasure") {
       const a = Math.random() * Math.PI * 2;
-      const x = p.x + Math.cos(a) * 950;
-      const y = p.y + Math.sin(a) * 950;
-      this.marks.push({ kind: MK.treasure, x, y, r: 30, p: 0, t: 90, a: 0 });
+      const x = p.x + Math.cos(a) * 850;
+      const y = p.y + Math.sin(a) * 850;
+      this.marks.push({ kind: MK.treasure, x, y, r: 30, p: 0, t: 80, a: 0 });
       this.gems.push({ x, y, k: GK.chest, v: 0, mag: false, sp: 0 });
       for (let i = 0; i < 3; i++) {
-        const e = this.spawn(this.pickType(), x + rand(-90, 90), y + rand(-90, 90), { elite: true });
+        const e = this.spawn(pickOne(this.waveMix.length ? this.waveMix : ["zombie" as EnemyId]), x + rand(-90, 90), y + rand(-90, 90), { elite: true });
         e.stay = true;
       }
-      this.event = { id, t: 90 };
+      this.event = { id, t: 80 };
     } else if (id === "swarm") {
       const a = Math.random() * Math.PI * 2;
-      const n = Math.round(30 + this.minutes * 2) * (1 + 0.4 * (this.pf - 1));
-      const sx = p.x - Math.cos(a) * 820;
-      const sy = p.y - Math.sin(a) * 820;
+      const n = Math.round((30 + this.wave * 3) * (1 + 0.4 * (this.pf - 1)));
+      const sx = p.x - Math.cos(a) * 780;
+      const sy = p.y - Math.sin(a) * 780;
       const px = -Math.sin(a);
       const py = Math.cos(a);
       for (let i = 0; i < n; i++) {
         const off = (i / n - 0.5) * 900 + rand(-30, 30);
         const e = this.spawn("bat", sx + px * off - Math.cos(a) * rand(0, 160), sy + py * off - Math.sin(a) * rand(0, 160));
         e.life = 14;
-        e.vx = Math.cos(a) * 190;
-        e.vy = Math.sin(a) * 190;
+        e.vx = Math.cos(a) * 200;
+        e.vy = Math.sin(a) * 200;
       }
       this.event = { id, t: 12 };
     } else if (id === "kukeri") {
-      const n = Math.round((22 + this.minutes * 1.2) * (1 + 0.3 * (this.pf - 1)));
+      const n = Math.round((24 + this.wave * 1.5) * (1 + 0.3 * (this.pf - 1)));
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2;
-        this.spawn("kuker", p.x + Math.cos(a) * 520, p.y + Math.sin(a) * 520);
+        this.spawn("kuker", p.x + Math.cos(a) * 500, p.y + Math.sin(a) * 500);
       }
       this.event = { id, t: 20 };
     } else {
@@ -646,17 +775,22 @@ export class World {
 
   /* ───────── damage ───────── */
 
-  private hurt(e: Enemy, dmg: number, p: Player | null, kx = 0, ky = 0, knock = 0, critMul = 2) {
+  private hurt(e: Enemy, dmg: number, p: Player | null, kx = 0, ky = 0, knock = 0, critMul = 2, wi = -1) {
     if (e.dead) return;
     let d = dmg;
     let crit = false;
-    if (p && Math.random() < 0.05 + p.st.luck * 0.4) {
-      d *= critMul;
-      crit = true;
+    if (p) {
+      if (Math.random() < 0.05 + p.st.luck * 0.4) {
+        d *= critMul;
+        crit = true;
+      }
+      if (p.st.slayer && (e.boss || e.elite)) d *= 1 + p.st.slayer;
     }
+    if (e.affix >= 0 && AFFIXES[e.affix] === "armored") d *= 0.5;
+    if (p) p.dmgBy[wi] = (p.dmgBy[wi] ?? 0) + Math.min(d, Math.max(0, e.hp));
     e.hp -= d;
     e.flash = 0.12;
-    if (knock && (kx || ky)) {
+    if (knock && (kx || ky) && e.type !== "pot") {
       const len = Math.hypot(kx, ky) || 1;
       const k = knock * (e.boss ? 0.05 : e.elite ? 0.35 : 1);
       e.kx += (kx / len) * k;
@@ -668,25 +802,41 @@ export class World {
 
   private kill(e: Enemy, p: Player | null) {
     e.dead = true;
-    if (e.life > 0) {
-      // swarm bats still give a little XP
-      this.dropGem(e.x, e.y, 1);
-      this.kills++;
-      if (p) p.kills++;
-      this.fx.push([FX.die, Math.round(e.x), Math.round(e.y), ENEMY_IDS.indexOf(e.type)]);
+    const luck = p?.st.luck ?? 0;
+    this.fx.push([FX.die, Math.round(e.x), Math.round(e.y), ENEMY_IDS.indexOf(e.type)]);
+    if (e.type === "pot") {
+      // a pot: always something inside
+      const r = Math.random();
+      const k = r < 0.32 ? GK.food : r < 0.58 ? GK.bag : r < 0.74 ? GK.magnet : r < 0.86 ? GK.bomb : r < 0.9 + luck * 0.1 ? GK.chest : GK.coin;
+      this.gems.push({ x: e.x, y: e.y, k, v: k === GK.bag ? 5 : 1, mag: false, sp: 0 });
       return;
     }
     this.kills++;
     if (p) p.kills++;
-    this.fx.push([FX.die, Math.round(e.x), Math.round(e.y), ENEMY_IDS.indexOf(e.type)]);
-    const luck = p?.st.luck ?? 0;
+    this.streak++;
+    this.streakT = 2.5;
+    if (STREAKS.includes(this.streak)) {
+      const bonus = Math.round(this.streak / 10);
+      this.gold += bonus;
+      this.fx.push([FX.streak, this.streak]);
+      this.fx.push([FX.banner, `🔥 Серия ${this.streak}! +${bonus} 🪙`, 2]);
+    }
+    if (e.affix >= 0 && AFFIXES[e.affix] === "explosive") {
+      this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 95, 3]);
+      for (const q of this.alive) if (dist2(q.x, q.y, e.x, e.y) < 95 * 95) this.hurtPlayer(q, e.dmg * 1.2);
+    }
+    if (e.life > 0) {
+      // swarm bats still give a little XP
+      this.dropGem(e.x, e.y, 1);
+      return;
+    }
     if (e.boss) {
       this.bosses++;
-      if (this.boss === e) this.boss = null;
       this.fx.push([FX.bossDie, Math.round(e.x), Math.round(e.y)]);
       this.fx.push([FX.banner, `🏆 ${ENEMIES[e.type].name} е повален!`, 2]);
       this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
-      for (let i = 0; i < 6; i++) this.gems.push({ x: e.x + rand(-60, 60), y: e.y + rand(-60, 60), k: GK.bag, v: 5, mag: false, sp: 0 });
+      for (let i = 0; i < 8; i++) this.gems.push({ x: e.x + rand(-60, 60), y: e.y + rand(-60, 60), k: GK.bag, v: 5, mag: false, sp: 0 });
+      this.gems.push({ x: e.x - 30, y: e.y + 10, k: GK.food, v: 0, mag: false, sp: 0 });
       this.dropGem(e.x + 20, e.y, e.xp);
       return;
     }
@@ -697,14 +847,19 @@ export class World {
       return;
     }
     this.dropGem(e.x, e.y, e.xp);
+    const greed = 1 + (p?.st.greed ?? 0);
     const r = Math.random();
-    if (r < 0.025 + luck * 0.03) this.gems.push({ x: e.x + 8, y: e.y, k: GK.coin, v: 1, mag: false, sp: 0 });
-    else if (r < 0.03 + luck * 0.03) this.gems.push({ x: e.x, y: e.y, k: GK.food, v: 0, mag: false, sp: 0 });
-    else if (r < 0.0315 + luck * 0.03) this.gems.push({ x: e.x, y: e.y, k: GK.magnet, v: 0, mag: false, sp: 0 });
-    else if (r < 0.0325 + luck * 0.03) this.gems.push({ x: e.x, y: e.y, k: GK.bomb, v: 0, mag: false, sp: 0 });
+    if (r < (0.025 + luck * 0.03) * greed) this.gems.push({ x: e.x + 8, y: e.y, k: GK.coin, v: 1, mag: false, sp: 0 });
+    else if (r < 0.03 + luck * 0.03 + 0.06) {
+      const r2 = Math.random();
+      if (r2 < 0.06) this.gems.push({ x: e.x, y: e.y, k: GK.food, v: 0, mag: false, sp: 0 });
+      else if (r2 < 0.08) this.gems.push({ x: e.x, y: e.y, k: GK.magnet, v: 0, mag: false, sp: 0 });
+      else if (r2 < 0.095) this.gems.push({ x: e.x, y: e.y, k: GK.bomb, v: 0, mag: false, sp: 0 });
+    }
   }
 
   private dropGem(x: number, y: number, v: number) {
+    if (v <= 0) return;
     if (this.gems.length >= MAX_GEMS) {
       // fold it into the nearest XP gem instead of making a new one
       let g: Gem | null = null;
@@ -812,10 +967,18 @@ export class World {
     if (this.over || this.choosing) return;
     dt = Math.min(dt, 0.05);
     this.t += dt;
+    if (this.streakT > 0) {
+      this.streakT -= dt;
+      if (this.streakT <= 0) {
+        this.bestStreak = Math.max(this.bestStreak, this.streak);
+        this.streak = 0;
+      }
+    }
 
     for (const p of this.players) this.stepPlayer(p, dt, inputs.get(p.uid));
     this.director(dt);
     this.grid.build(this.enemies);
+    this.scarecrows = this.projs.filter((q) => q.kind === PK.scarecrow && !q.dead);
     this.stepEnemies(dt);
     for (const p of this.players) if (!p.dead && !p.gone) this.stepWeapons(p, dt);
     this.stepProjs(dt);
@@ -870,11 +1033,9 @@ export class World {
       }
       p.moving = len > 0.05;
       if (p.moving) {
-        p.dirX = mx / (len > 1 ? 1 : len || 1);
-        p.dirY = my / (len > 1 ? 1 : len || 1);
-        const dl = Math.hypot(p.dirX, p.dirY) || 1;
-        p.dirX /= dl;
-        p.dirY /= dl;
+        const dl = Math.hypot(mx, my) || 1;
+        p.dirX = mx / dl;
+        p.dirY = my / dl;
         if (Math.abs(mx) > 0.1) p.face = mx < 0 ? -1 : 1;
       }
       if (inp.dash > p.lastDash) {
@@ -911,29 +1072,18 @@ export class World {
       if (p.stormT <= 0) {
         p.stormT = 0.1;
         p.storm--;
-        const near = this.enemies.filter((e) => !e.dead && dist2(e.x, e.y, p.x, p.y) < 650 * 650);
+        const near = this.enemies.filter((e) => !e.dead && e.type !== "pot" && dist2(e.x, e.y, p.x, p.y) < 650 * 650);
         if (near.length) {
           const e = pickOne(near);
           this.fx.push([FX.bolt, Math.round(e.x + rand(-40, 40)), Math.round(e.y - 500), Math.round(e.x), Math.round(e.y)]);
-          this.hurt(e, 60 * p.st.might, p);
-        }
-      }
-    }
-    if (p.volley > 0) {
-      p.volleyT -= dt;
-      if (p.volleyT <= 0) {
-        p.volleyT = 0.25;
-        p.volley--;
-        for (let i = 0; i < 24; i++) {
-          const a = (i / 24) * Math.PI * 2 + p.volley * 0.13;
-          this.addProj(p, PK.bullet, p.x, p.y, Math.cos(a) * 650, Math.sin(a) * 650, { dmg: 30 * p.st.might, pierce: 3, life: 1.1, r: 6 });
+          this.hurt(e, 70 * p.st.might, p);
         }
       }
     }
     if (p.skillT > 0 && p.hero === "tseko") {
-      // Шопски инат: everything close burns
-      this.grid.each(p.x, p.y, 110, (e) => {
-        if (dist2(e.x, e.y, p.x, p.y) < 110 * 110 && Math.random() < dt * 4) this.hurt(e, 20 * p.st.might, p, e.x - p.x, e.y - p.y, 80);
+      // Брейк на главата: everything close burns
+      this.grid.each(p.x, p.y, 115, (e) => {
+        if (dist2(e.x, e.y, p.x, p.y) < 115 * 115 && Math.random() < dt * 5) this.hurt(e, 24 * p.st.might, p, e.x - p.x, e.y - p.y, 120);
       });
     }
   }
@@ -948,9 +1098,9 @@ export class World {
     switch (p.hero) {
       case "peyo": {
         const dir = p.face || 1;
-        for (let i = 0; i < 14; i++) {
-          const y = p.y + (i - 7) * 40 + rand(-12, 12);
-          this.addProj(p, PK.sheep, p.x - dir * (700 + rand(0, 160)), y, dir * 520, 0, { dmg: 40 * p.st.might, pierce: 999, life: 3.4, r: 22, knock: 300, hitCd: 0.5 });
+        for (let i = 0; i < 16; i++) {
+          const y = p.y + (i - 8) * 38 + rand(-12, 12);
+          this.addProj(p, PK.sheep, p.x - dir * (680 + rand(0, 160)), y, dir * 540, 0, { dmg: 45 * p.st.might, pierce: 999, life: 3.4, r: 22, knock: 300, hitCd: 0.5 });
         }
         break;
       }
@@ -968,10 +1118,17 @@ export class World {
           else this.heal(q, q.maxHp * 0.4);
         }
         break;
-      case "strahil":
-        p.volley = 3;
-        p.volleyT = 0;
+      case "strahil": {
+        // Юмрук в земята
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 250, 5]);
+        for (const e of this.enemies) {
+          if (dist2(e.x, e.y, p.x, p.y) < 250 * 250) {
+            e.stunT = e.boss ? 0.6 : 2;
+            this.hurt(e, 130 * p.st.might, p, e.x - p.x, e.y - p.y, 560);
+          }
+        }
         break;
+      }
       case "vela":
         for (const e of this.enemies) if (dist2(e.x, e.y, p.x, p.y) < 800 * 800) e.frozenT = e.boss ? 1.5 : 4;
         break;
@@ -979,7 +1136,7 @@ export class World {
         for (const e of this.enemies) {
           if (dist2(e.x, e.y, p.x, p.y) < 450 * 450) {
             e.stunT = e.boss ? 0.5 : 2;
-            this.hurt(e, 20 * p.st.might, p, e.x - p.x, e.y - p.y, 700);
+            this.hurt(e, 25 * p.st.might, p, e.x - p.x, e.y - p.y, 700);
           }
         }
         break;
@@ -1002,6 +1159,10 @@ export class World {
     for (const e of this.enemies) {
       if (e.dead) continue;
       e.flash = Math.max(0, e.flash - dt);
+      if (e.type === "pot") {
+        if (!alive.some((p) => dist2(p.x, p.y, e.x, e.y) < 1600 * 1600)) e.dead = true;
+        continue;
+      }
       e.frozenT = Math.max(0, e.frozenT - dt);
       e.stunT = Math.max(0, e.stunT - dt);
       e.slowT = Math.max(0, e.slowT - dt);
@@ -1011,6 +1172,19 @@ export class World {
       const decay = Math.exp(-dt * 9);
       e.kx *= decay;
       e.ky *= decay;
+
+      // elite affixes
+      if (e.affix >= 0) {
+        const af = AFFIXES[e.affix] as AffixId;
+        if (af === "tireless") e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.03 * dt);
+        if (af === "leader") {
+          e.ai2 -= dt;
+          if (e.ai2 <= 0) {
+            e.ai2 = 5;
+            for (let i = 0; i < 3; i++) this.spawn(e.type, e.x + rand(-40, 40), e.y + rand(-40, 40));
+          }
+        }
+      }
 
       if (e.life > 0) {
         e.life -= dt;
@@ -1043,15 +1217,30 @@ export class World {
       }
       if (e.frozenT > 0 || e.stunT > 0) continue;
 
-      const dx = (tgt.x - e.x) / (dist || 1);
-      const dy = (tgt.y - e.y) / (dist || 1);
+      let gx = tgt.x;
+      let gy = tgt.y;
+      // a scarecrow nearby pulls them in instead
+      if (!e.boss && this.scarecrows.length) {
+        for (const s of this.scarecrows) {
+          if (dist2(s.x, s.y, e.x, e.y) < 280 * 280) {
+            gx = s.x;
+            gy = s.y;
+            break;
+          }
+        }
+      }
+      const gd = Math.hypot(gx - e.x, gy - e.y) || 1;
+      const dx = (gx - e.x) / gd;
+      const dy = (gy - e.y) / gd;
       let sp = e.speed * (e.slowT > 0 ? 0.5 : 1);
       let mx = dx;
       let my = dy;
       e.ai -= dt;
 
       if (e.boss) {
-        this.bossAI(e, tgt, dx, dy, dist, dt);
+        const tx = (tgt.x - e.x) / (dist || 1);
+        const ty = (tgt.y - e.y) / (dist || 1);
+        this.bossAI(e, tgt, tx, ty, dist, dt);
         this.touch(e);
         continue;
       }
@@ -1060,14 +1249,21 @@ export class World {
         const w = Math.sin(this.t * 6 + e.id) * 0.8;
         mx = dx - dy * w;
         my = dy + dx * w;
-      } else if (e.type === "witch") {
-        if (dist < 220) {
+      } else if (e.type === "witch" || e.type === "yuda") {
+        const keep = e.type === "yuda" ? 250 : 220;
+        if (dist < keep) {
           mx = -dx;
           my = -dy;
-        } else if (dist < 320) sp *= 0.2;
-        if (e.ai <= 0 && dist < 440) {
-          e.ai = 3;
-          this.enemyShot(e, dx, dy, 210, PK.ebolt, 9);
+        } else if (dist < keep + 100) {
+          mx = -dy;
+          my = dx;
+          sp *= 0.5;
+        }
+        if (e.ai <= 0 && dist < 460) {
+          e.ai = e.type === "yuda" ? 2.4 : 3;
+          const tx = (tgt.x - e.x) / (dist || 1);
+          const ty = (tgt.y - e.y) / (dist || 1);
+          this.enemyShot(e, tx, ty, e.type === "yuda" ? 240 : 210, PK.ebolt, 9);
         }
       }
 
@@ -1080,7 +1276,7 @@ export class World {
       if (!ENEMIES[e.type].ghost) {
         let n = 0;
         this.grid.each(e.x, e.y, e.r * 2, (o) => {
-          if (o === e || ENEMIES[o.type].ghost) return;
+          if (o === e || ENEMIES[o.type].ghost || o.type === "pot") return;
           const ox = e.x - o.x;
           const oy = e.y - o.y;
           const rr = e.r + o.r;
@@ -1100,7 +1296,7 @@ export class World {
 
   /** contact damage */
   private touch(e: Enemy) {
-    if (e.frozenT > 0 || e.stunT > 0) return;
+    if (e.frozenT > 0 || e.stunT > 0 || e.dmg <= 0) return;
     for (const p of this.players) {
       if (p.dead || p.gone) continue;
       const rr = e.r + PLAYER_R - 4;
@@ -1108,21 +1304,21 @@ export class World {
     }
   }
 
-  private enemyShot(e: Enemy, dx: number, dy: number, speed: number, kind: number, dmg: number) {
+  private enemyShot(e: { x: number; y: number }, dx: number, dy: number, speed: number, kind: number, dmg: number, life = 5) {
     this.projs.push({
       id: this.nextId++,
       kind,
       x: e.x,
       y: e.y,
       a: Math.atan2(dy, dx),
-      r: kind === PK.eball ? 11 : 8,
+      r: kind === PK.eball ? 11 : kind === PK.poison ? 58 : kind === PK.tornado ? 26 : 8,
       owner: -1,
       vx: dx * speed,
       vy: dy * speed,
       dmg: dmg * this.dmgMul(),
       pierce: 1,
-      life: 5,
-      maxLife: 5,
+      life,
+      maxLife: life,
       hits: new Map(),
       hitCd: 0,
       enemy: true,
@@ -1139,14 +1335,18 @@ export class World {
   private bossAI(e: Enemy, tgt: Player, dx: number, dy: number, dist: number, dt: number) {
     const sp = e.speed * (e.slowT > 0 ? 0.6 : 1);
     if (Math.abs(dx) > 0.15) e.face = dx < 0 ? -1 : 1;
-    const charge = (every: number) => {
+    const walk = (k = 1) => {
+      e.x += dx * sp * k * dt;
+      e.y += dy * sp * k * dt;
+    };
+    const charge = (every: number, speed = 560) => {
       // 0 walk → 1 aim (a warning line) → 2 charge
       if (e.state === 0 && e.ai <= 0) {
         e.state = 1;
-        e.ai = 0.85;
+        e.ai = 0.8;
         e.tx = dx;
         e.ty = dy;
-        this.marks.push({ kind: MK.charge, x: e.x, y: e.y, r: e.r, p: 0, t: 0.85, a: Math.atan2(dy, dx) });
+        this.marks.push({ kind: MK.charge, x: e.x, y: e.y, r: e.r, p: 0, t: 0.8, a: Math.atan2(dy, dx) });
         return true;
       }
       if (e.state === 1) {
@@ -1157,8 +1357,8 @@ export class World {
         return true;
       }
       if (e.state === 2) {
-        e.x += e.tx * 560 * dt;
-        e.y += e.ty * 560 * dt;
+        e.x += e.tx * speed * dt;
+        e.y += e.ty * speed * dt;
         if (e.ai <= 0) {
           e.state = 0;
           e.ai = every;
@@ -1167,65 +1367,119 @@ export class World {
       }
       return false;
     };
+    const ring = (n: number, speed: number, kind: number, dmg: number, off = 0) => {
+      for (let i = 0; i < n; i++) {
+        const a = (i / n) * Math.PI * 2 + off;
+        this.enemyShot(e, Math.cos(a), Math.sin(a), speed, kind, dmg);
+      }
+    };
+    const fan = (n: number, spread: number, speed: number, kind: number, dmg: number) => {
+      const base = Math.atan2(dy, dx);
+      for (let i = 0; i < n; i++) {
+        const a = base + (i - (n - 1) / 2) * spread;
+        this.enemyShot(e, Math.cos(a), Math.sin(a), speed, kind, dmg);
+      }
+    };
+    e.ai2 -= dt;
     switch (e.type) {
       case "karak":
-        if (charge(4.2)) return;
-        e.x += dx * sp * dt;
-        e.y += dy * sp * dt;
+        if (charge(3.8)) return;
+        walk();
         return;
       case "mora": {
-        if (dist < 240) {
-          e.x -= dx * sp * dt;
-          e.y -= dy * sp * dt;
-        } else if (dist > 320) {
-          e.x += dx * sp * dt;
-          e.y += dy * sp * dt;
-        } else {
+        if (dist < 240) walk(-1);
+        else if (dist > 320) walk();
+        else {
           e.x += -dy * sp * 0.6 * dt;
           e.y += dx * sp * 0.6 * dt;
         }
         if (e.ai <= 0) {
-          e.ai = 2.6;
+          e.ai = 2.3;
           e.state = (e.state + 1) % 4;
-          for (let i = 0; i < 14; i++) {
-            const a = (i / 14) * Math.PI * 2 + e.state * 0.2;
-            this.enemyShot(e, Math.cos(a), Math.sin(a), 170, PK.ebolt, 10);
-          }
+          ring(16, 170, PK.ebolt, 10, e.state * 0.2);
           if (e.state === 0) for (let i = 0; i < 6; i++) this.spawn("bat", e.x + rand(-60, 60), e.y + rand(-60, 60));
         }
         return;
       }
       case "lamia":
-        e.x += dx * sp * dt;
-        e.y += dy * sp * dt;
+        walk();
         if (e.ai <= 0) {
-          e.ai = 2.2;
-          const base = Math.atan2(dy, dx);
-          for (let i = -2; i <= 2; i++) this.enemyShot(e, Math.cos(base + i * 0.22), Math.sin(base + i * 0.22), 230, PK.eball, 14);
+          e.ai = 2;
+          fan(5, 0.22, 230, PK.eball, 14);
         }
         return;
       case "zmey": {
-        if (charge(6)) return;
+        if (charge(5.5)) return;
         // circles around its target and spits fire
         const ang = Math.atan2(e.y - tgt.y, e.x - tgt.x) + dt * 0.9;
-        const want = 300;
-        const r = dist + (want - dist) * Math.min(1, dt * 1.5);
-        const nx = tgt.x + Math.cos(ang) * r;
-        const ny = tgt.y + Math.sin(ang) * r;
-        const mx = nx - e.x;
-        const my = ny - e.y;
+        const r = dist + (300 - dist) * Math.min(1, dt * 1.5);
+        const mx = tgt.x + Math.cos(ang) * r - e.x;
+        const my = tgt.y + Math.sin(ang) * r - e.y;
         const ml = Math.hypot(mx, my) || 1;
         const step = Math.min(ml, sp * 2.2 * dt);
         e.x += (mx / ml) * step;
         e.y += (my / ml) * step;
-        e.tx += dt;
-        if (e.tx > 2.4) {
-          e.tx = 0;
-          const base = Math.atan2(dy, dx);
-          for (let i = -1; i <= 1; i++) this.enemyShot(e, Math.cos(base + i * 0.18), Math.sin(base + i * 0.18), 260, PK.eball, 16);
+        if (e.ai2 <= 0) {
+          e.ai2 = 2.2;
+          fan(3, 0.18, 260, PK.eball, 16);
         }
         return;
       }
+      case "hala":
+        // a storm: drifts after you, sends whirlwinds and hail
+        walk(0.8);
+        if (e.ai <= 0) {
+          e.ai = 1.6;
+          this.enemyShot(e, dx, dy, 90, PK.tornado, 12, 6);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 4;
+          for (let i = 0; i < 7; i++) this.marks.push({ kind: MK.hail, x: tgt.x + rand(-220, 220), y: tgt.y + rand(-180, 180), r: 44, p: 0, t: 1.1 + i * 0.08, a: 1.1 + i * 0.08 });
+        }
+        return;
+      case "chuma":
+        // the plague: slow, leaves poison, brings rats
+        walk(0.9);
+        if (e.ai <= 0) {
+          e.ai = 1.8;
+          this.enemyShot(e, 0, 0, 0, PK.poison, 8, 7);
+          fan(3, 0.3, 190, PK.ebolt, 10);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = 6;
+          for (let i = 0; i < 8; i++) this.spawn("rat", e.x + rand(-80, 80), e.y + rand(-80, 80));
+        }
+        return;
+      case "wolfking":
+        if (e.ai2 <= 0) {
+          e.ai2 = 7;
+          for (let i = 0; i < 6; i++) {
+            const a = (i / 6) * Math.PI * 2;
+            this.spawn("wolf", tgt.x + Math.cos(a) * 420, tgt.y + Math.sin(a) * 420);
+          }
+          this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - 50), "🐺 Ауууу!", "#ff8a6a"]);
+        }
+        if (charge(3, 640)) return;
+        walk();
+        return;
+      case "vampking":
+        // blinks next to you, then a fan of bats
+        if (e.ai <= 0) {
+          e.ai = 4.2;
+          this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 60, 7]);
+          const a = Math.random() * Math.PI * 2;
+          e.x = tgt.x + Math.cos(a) * 260;
+          e.y = tgt.y + Math.sin(a) * 260;
+          this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 60, 7]);
+          e.ai2 = 0.6;
+          e.state = 1;
+        }
+        if (e.state === 1 && e.ai2 <= 0) {
+          e.state = 0;
+          fan(9, 0.16, 250, PK.batshot, 14);
+        }
+        walk(0.7);
+        return;
     }
   }
 
@@ -1235,7 +1489,7 @@ export class World {
     let best: Enemy | null = null;
     let bd = maxR * maxR;
     for (const e of this.enemies) {
-      if (e.dead || skip?.has(e.id)) continue;
+      if (e.dead || e.type === "pot" || skip?.has(e.id)) continue;
       const d = dist2(e.x, e.y, x, y);
       if (d < bd) {
         bd = d;
@@ -1243,6 +1497,10 @@ export class World {
       }
     }
     return best;
+  }
+
+  private within(x: number, y: number, r: number): Enemy[] {
+    return this.enemies.filter((e) => !e.dead && e.type !== "pot" && dist2(e.x, e.y, x, y) < r * r);
   }
 
   private addProj(p: Player, kind: number, x: number, y: number, vx: number, vy: number, o: Partial<Proj> & { dmg: number; life: number; r: number }): Proj {
@@ -1273,7 +1531,17 @@ export class World {
     return q;
   }
 
+  /** persistent things that circle the player (кобилица, пчели): keep exactly n of them */
+  private keepCount(p: Player, kind: number, n: number, make: (i: number) => void) {
+    const pi = this.players.indexOf(p);
+    const mine = this.projs.filter((q) => !q.dead && q.owner === pi && q.kind === kind);
+    if (mine.length === n) return;
+    for (const q of mine) q.dead = true;
+    for (let i = 0; i < n; i++) make(i);
+  }
+
   private stepWeapons(p: Player, dt: number) {
+    const pi = this.players.indexOf(p);
     for (const w of p.weapons) {
       w.t -= dt;
       const s = weaponStats(w.id, w.lvl);
@@ -1282,17 +1550,18 @@ export class World {
       const dmg = s.dmg * p.st.might;
       const area = s.area * p.st.area;
       const wi = WEAPON_IDS.indexOf(w.id);
+      const face = Math.atan2(p.dirY, p.dirX);
 
       // Тесла's evolution: a bolt from the sky every 0.5 s on top of the chains
       if (w.id === "tesla" && w.evo) {
         w.t2 -= dt;
         if (w.t2 <= 0) {
           w.t2 = 0.5;
-          const near = this.enemies.filter((e) => !e.dead && dist2(e.x, e.y, p.x, p.y) < 600 * 600);
+          const near = this.within(p.x, p.y, 600);
           if (near.length) {
             const e = pickOne(near);
             this.fx.push([FX.bolt, Math.round(e.x + rand(-30, 30)), Math.round(e.y - 420), Math.round(e.x), Math.round(e.y)]);
-            this.hurt(e, dmg * 1.2, p);
+            this.hurt(e, dmg * 1.2, p, 0, 0, 0, 2, wi);
             e.stunT = Math.max(e.stunT, 0.3);
           }
         }
@@ -1300,27 +1569,34 @@ export class World {
       // Кобилица: spinning while "on"; its evolution never stops
       if (w.id === "kobilitsa") {
         const n = amount + (w.evo ? 2 : 0);
-        const mine = this.projs.filter((q) => !q.dead && q.owner === this.players.indexOf(p) && q.kind === PK.kob);
-        if (w.evo && mine.length !== n) {
-          for (const q of mine) q.dead = true;
-          this.spawnKob(p, n, s, dmg * 1.4, area * 1.2, Infinity);
-        }
+        if (w.evo) this.keepCount(p, PK.kob, n, (i) => this.kob(p, i, n, s, dmg * 1.4, area * 1.2, Infinity, wi));
         if (w.evo || w.t > 0) continue;
         w.t = cd + s.dur * p.st.duration;
-        for (const q of mine) q.dead = true;
-        this.spawnKob(p, n, s, dmg, area, s.dur * p.st.duration);
-        this.fx.push([FX.fire, this.players.indexOf(p), wi]);
+        for (const q of this.projs) if (q.owner === pi && q.kind === PK.kob) q.dead = true;
+        for (let i = 0; i < n; i++) this.kob(p, i, n, s, dmg, area, s.dur * p.st.duration, wi);
+        this.fx.push([FX.fire, pi, wi]);
+        continue;
+      }
+      // Кошер: the bees are always out
+      if (w.id === "kosher") {
+        const n = Math.min(24, amount * (w.evo ? 2 : 1));
+        const sp = s.speed * p.st.projSpeed;
+        this.keepCount(p, PK.bee, n, (i) =>
+          this.addProj(p, PK.bee, p.x, p.y, 0, 0, { dmg, pierce: 999, life: Infinity, r: 6 * area, hitCd: s.cd, slow: w.evo ? 1.5 : 0, d: [(i / n) * Math.PI * 2, sp, -1], weapon: wi }),
+        );
+        // keep their damage up to date (levels / might)
+        for (const q of this.projs) if (q.owner === pi && q.kind === PK.bee) q.dmg = dmg;
         continue;
       }
       if (w.t > 0) continue;
       w.t = cd;
-      this.fx.push([FX.fire, this.players.indexOf(p), wi]);
+      this.fx.push([FX.fire, pi, wi]);
 
       switch (w.id) {
         case "tsarvul": {
           const n = amount + (w.evo ? 2 : 0);
           const tgt = this.nearest(p.x, p.y, 500);
-          const base = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : Math.atan2(p.dirY, p.dirX);
+          const base = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : face;
           for (let i = 0; i < n; i++) {
             const a = w.evo ? base + (i / n) * Math.PI * 2 : base + (i - (n - 1) / 2) * 0.35;
             const sp = s.speed * p.st.projSpeed;
@@ -1338,8 +1614,7 @@ export class World {
           break;
         }
         case "prase": {
-          const n = amount;
-          for (let i = 0; i < n; i++) {
+          for (let i = 0; i < amount; i++) {
             const tgt = this.nearest(p.x, p.y, 600);
             const base = tgt && i === 0 ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : Math.random() * Math.PI * 2;
             const sp = s.speed * p.st.projSpeed;
@@ -1361,7 +1636,7 @@ export class World {
           const jumps = s.pierce * (w.evo ? 2 : 1);
           const used = new Set<number>();
           for (let i = 0; i < n; i++) {
-            const near = this.enemies.filter((e) => !e.dead && !used.has(e.id) && dist2(e.x, e.y, p.x, p.y) < (430 * area) ** 2);
+            const near = this.within(p.x, p.y, 430 * area).filter((e) => !used.has(e.id));
             if (!near.length) break;
             near.sort((a, b) => dist2(a.x, a.y, p.x, p.y) - dist2(b.x, b.y, p.x, p.y));
             let cur = near[Math.floor(Math.random() * Math.min(4, near.length))]!;
@@ -1369,7 +1644,7 @@ export class World {
             for (let j = 0; j <= jumps; j++) {
               used.add(cur.id);
               pts.push(Math.round(cur.x), Math.round(cur.y));
-              this.hurt(cur, dmg, p);
+              this.hurt(cur, dmg, p, 0, 0, 0, 2, wi);
               if (w.evo) cur.stunT = Math.max(cur.stunT, 0.3);
               const next = this.nearest(cur.x, cur.y, 170 * area, used);
               if (!next) break;
@@ -1395,18 +1670,11 @@ export class World {
         }
         case "banitsa": {
           for (let i = 0; i < amount; i++) {
-            const near = this.enemies.filter((e) => !e.dead && dist2(e.x, e.y, p.x, p.y) < 420 * 420);
+            const near = this.within(p.x, p.y, 420);
             const t = near.length ? pickOne(near) : null;
             const tx = t ? t.x : p.x + rand(-250, 250);
             const ty = t ? t.y : p.y + rand(-250, 250);
-            this.addProj(p, PK.banitsa, p.x, p.y, 0, 0, {
-              dmg,
-              pierce: 999,
-              life: s.dur,
-              r: 14,
-              d: [p.x, p.y, tx, ty, 70 * area, w.evo ? 1 : 0],
-              weapon: wi,
-            });
+            this.addProj(p, PK.banitsa, p.x, p.y, 0, 0, { dmg, pierce: 999, life: s.dur, r: 14, d: [p.x, p.y, tx, ty, 70 * area, w.evo ? 1 : 0], weapon: wi });
           }
           break;
         }
@@ -1416,7 +1684,7 @@ export class World {
           this.grid.each(p.x, p.y, r + 20, (e) => {
             if (dist2(e.x, e.y, p.x, p.y) < (r + e.r) ** 2) {
               hit++;
-              this.hurt(e, dmg, p, e.x - p.x, e.y - p.y, 40);
+              this.hurt(e, dmg, p, e.x - p.x, e.y - p.y, 40, 2, wi);
             }
           });
           if (w.evo && hit) this.heal(p, 1);
@@ -1425,7 +1693,7 @@ export class World {
         case "rakia": {
           const n = amount + (w.evo ? 1 : 0);
           for (let i = 0; i < n; i++) {
-            const near = this.enemies.filter((e) => !e.dead && dist2(e.x, e.y, p.x, p.y) < 360 * 360);
+            const near = this.within(p.x, p.y, 360);
             const t = near.length ? pickOne(near) : null;
             const tx = t ? t.x + rand(-20, 20) : p.x + rand(-260, 260);
             const ty = t ? t.y + rand(-20, 20) : p.y + rand(-260, 260);
@@ -1458,21 +1726,99 @@ export class World {
           break;
         }
         case "pishtov": {
-          const base = Math.atan2(p.dirY, p.dirX);
           const dirs = w.evo ? 8 : 1;
           const sp = s.speed * p.st.projSpeed;
           for (let d = 0; d < dirs; d++) {
             for (let i = 0; i < amount; i++) {
-              const a = base + (d / dirs) * Math.PI * 2 + (i - (amount - 1) / 2) * 0.12;
-              this.addProj(p, PK.bullet, p.x, p.y, Math.cos(a) * sp, Math.sin(a) * sp, {
-                dmg,
-                pierce: s.pierce + (w.evo ? 3 : 0),
-                life: s.dur * p.st.duration,
-                r: 6 * area,
-                knock: 30,
-                weapon: wi,
-              });
+              const a = face + (d / dirs) * Math.PI * 2 + (i - (amount - 1) / 2) * 0.12;
+              this.addProj(p, PK.bullet, p.x, p.y, Math.cos(a) * sp, Math.sin(a) * sp, { dmg, pierce: s.pierce + (w.evo ? 3 : 0), life: s.dur * p.st.duration, r: 6 * area, knock: 30, weapon: wi });
             }
+          }
+          break;
+        }
+        case "sarp": {
+          // a slash in front (more of them: behind, then the sides); the scythe goes all the way round
+          const n = w.evo ? 1 : amount;
+          for (let i = 0; i < n; i++) {
+            const a = face + (i % 2 ? Math.PI : 0) + (i >= 2 ? Math.PI / 2 : 0);
+            this.addProj(p, w.evo ? PK.bigSlash : PK.slash, p.x, p.y, 0, 0, {
+              dmg: dmg * (w.evo ? 1.6 : 1),
+              pierce: 999,
+              life: s.dur,
+              r: 95 * area * (w.evo ? 1.4 : 1),
+              knock: 150,
+              d: [a, w.evo ? 1 : 0],
+              weapon: wi,
+            });
+          }
+          break;
+        }
+        case "bradva": {
+          const n = amount;
+          for (let i = 0; i < n; i++) {
+            const sp = s.speed * p.st.projSpeed;
+            const vx = rand(-150, 150) + p.dirX * 70 + (i - (n - 1) / 2) * 60;
+            this.addProj(p, w.evo ? PK.bigAxe : PK.axe, p.x, p.y - 10, vx, -sp * rand(0.9, 1.08), {
+              dmg: dmg * (w.evo ? 2 : 1),
+              pierce: w.evo ? 999 : s.pierce,
+              life: s.dur,
+              r: 14 * area * (w.evo ? 2 : 1),
+              hitCd: w.evo ? 0.5 : 999,
+              knock: 90,
+              weapon: wi,
+            });
+          }
+          break;
+        }
+        case "kaval": {
+          const spirals = w.evo ? 2 : 1;
+          const sp = s.speed * p.st.projSpeed;
+          for (let k = 0; k < spirals; k++) {
+            for (let i = 0; i < amount; i++) {
+              const a = w.t2 + k * Math.PI + (i / amount) * Math.PI * 2;
+              this.addProj(p, PK.note, p.x, p.y, Math.cos(a) * sp, Math.sin(a) * sp, { dmg, pierce: s.pierce + (w.evo ? 2 : 0), life: s.dur * p.st.duration, r: 8 * area, weapon: wi });
+            }
+          }
+          w.t2 += 0.55;
+          break;
+        }
+        case "kazan": {
+          for (let i = 0; i < amount; i++) {
+            const a = (i / amount) * Math.PI * 2 + rand(-0.4, 0.4);
+            this.addProj(p, PK.cauldron, p.x + Math.cos(a) * 50, p.y + Math.sin(a) * 50, 0, 0, {
+              dmg,
+              pierce: s.pierce,
+              life: s.dur * p.st.duration,
+              r: 18,
+              d: [0, s.speed * p.st.projSpeed, w.evo ? 1 : 0],
+              weapon: wi,
+            });
+          }
+          break;
+        }
+        case "krik": {
+          const n = amount * (w.evo ? 3 : 1);
+          const near = this.within(p.x, p.y, 340).sort((a, b) => dist2(a.x, a.y, p.x, p.y) - dist2(b.x, b.y, p.x, p.y));
+          for (let i = 0; i < n; i++) {
+            const t = near.length ? near[Math.floor(Math.random() * Math.min(6, near.length))]! : null;
+            const x = t ? t.x : p.x + rand(-160, 160);
+            const y = t ? t.y : p.y + rand(-160, 160);
+            const delay = 0.3 + i * 0.22;
+            this.addProj(p, PK.jack, x, y, 0, 0, { dmg, pierce: 999, life: delay + 0.3, r: 75 * area * (w.evo ? 1.4 : 1), stun: s.dur, d: [delay, 0], weapon: wi });
+          }
+          break;
+        }
+        case "plashilo": {
+          for (let i = 0; i < amount; i++) {
+            const a = face + (i - (amount - 1) / 2) * 1.2;
+            this.addProj(p, PK.scarecrow, p.x + Math.cos(a) * 90, p.y + Math.sin(a) * 90, 0, 0, {
+              dmg,
+              pierce: 999,
+              life: s.dur * p.st.duration,
+              r: 55 * area * (w.evo ? 1.5 : 1),
+              d: [0, w.evo ? 1 : 0],
+              weapon: wi,
+            });
           }
           break;
         }
@@ -1480,25 +1826,17 @@ export class World {
     }
   }
 
-  private spawnKob(p: Player, n: number, s: ReturnType<typeof weaponStats>, dmg: number, area: number, life: number) {
-    for (let i = 0; i < n; i++) {
-      this.addProj(p, PK.kob, p.x, p.y, 0, 0, {
-        dmg,
-        pierce: 999,
-        life,
-        r: 16 * area,
-        hitCd: 0.45,
-        knock: 120,
-        d: [(i / n) * Math.PI * 2, 88 * area, s.speed],
-        weapon: WEAPON_IDS.indexOf("kobilitsa"),
-      });
-    }
+  private kob(p: Player, i: number, n: number, s: ReturnType<typeof weaponStats>, dmg: number, area: number, life: number, wi: number) {
+    this.addProj(p, PK.kob, p.x, p.y, 0, 0, { dmg, pierce: 999, life, r: 16 * area, hitCd: 0.45, knock: 120, d: [(i / n) * Math.PI * 2, 88 * area, s.speed], weapon: wi });
   }
 
-  private explode(p: Player | null, x: number, y: number, r: number, dmg: number, kind: number) {
+  private explode(p: Player | null, x: number, y: number, r: number, dmg: number, kind: number, wi = -1, stun = 0) {
     this.fx.push([FX.boom, Math.round(x), Math.round(y), Math.round(r), kind]);
     this.grid.each(x, y, r + 30, (e) => {
-      if (dist2(e.x, e.y, x, y) < (r + e.r) ** 2) this.hurt(e, dmg, p, e.x - x, e.y - y, 160);
+      if (dist2(e.x, e.y, x, y) < (r + e.r) ** 2) {
+        this.hurt(e, dmg, p, e.x - x, e.y - y, 160, 2, wi);
+        if (stun) e.stunT = Math.max(e.stunT, e.boss ? stun * 0.3 : stun);
+      }
     });
   }
 
@@ -1507,7 +1845,9 @@ export class World {
       if (q.dead) continue;
       q.life -= dt;
       const p = q.owner >= 0 ? this.players[q.owner] : undefined;
-      if (q.life <= 0 || (p && (p.gone || (p.dead && q.kind === PK.kob)))) {
+      if (q.life <= 0 || (p && (p.gone || (p.dead && (q.kind === PK.kob || q.kind === PK.bee))))) {
+        // the evolved scarecrow goes out with a bang
+        if (q.kind === PK.scarecrow && q.d[1] === 1 && p && q.life <= 0) this.explode(p, q.x, q.y, 170, q.dmg * 14, 2, q.weapon);
         q.dead = true;
         continue;
       }
@@ -1562,6 +1902,82 @@ export class World {
           }
           q.r = 10 + (q.d[0]! - 10) * (1 - q.life / q.maxLife);
           break;
+        case PK.slash:
+        case PK.bigSlash:
+          if (p) {
+            q.x = p.x;
+            q.y = p.y;
+          }
+          q.a = q.d[0]! + (q.kind === PK.bigSlash ? (1 - q.life / q.maxLife) * Math.PI * 2 : 0);
+          break;
+        case PK.axe:
+        case PK.bigAxe:
+          q.vy += 950 * dt;
+          q.x += q.vx * dt;
+          q.y += q.vy * dt;
+          q.a += dt * 12;
+          break;
+        case PK.bee: {
+          if (!p) break;
+          // fly at the nearest enemy around the owner, otherwise buzz around them
+          const t = this.nearest(p.x, p.y, 330);
+          const sp = q.d[1]!;
+          let tx: number;
+          let ty: number;
+          if (t) {
+            tx = t.x + Math.cos(this.t * 9 + q.id) * 10;
+            ty = t.y + Math.sin(this.t * 9 + q.id) * 10;
+          } else {
+            q.d[0]! += dt * 3;
+            tx = p.x + Math.cos(q.d[0]!) * 46;
+            ty = p.y + Math.sin(q.d[0]!) * 46;
+          }
+          const dx = tx - q.x;
+          const dy = ty - q.y;
+          const l = Math.hypot(dx, dy) || 1;
+          const step = Math.min(l, sp * dt * (t ? 1.4 : 1.8));
+          q.x += (dx / l) * step;
+          q.y += (dy / l) * step;
+          q.a = Math.atan2(dy, dx);
+          break;
+        }
+        case PK.cauldron: {
+          // shoots beans at the nearest enemy; the evolved one heals everyone around
+          q.d[0]! -= dt;
+          if (q.d[0]! <= 0 && p) {
+            q.d[0] = 0.45;
+            const t = this.nearest(q.x, q.y, 400);
+            if (t) {
+              const base = Math.atan2(t.y - q.y, t.x - q.x);
+              const n = q.d[2] === 1 ? 3 : 1;
+              for (let i = 0; i < n; i++) {
+                const a = base + (i - (n - 1) / 2) * 0.2;
+                this.addProj(p, PK.bean, q.x, q.y - 14, Math.cos(a) * q.d[1]!, Math.sin(a) * q.d[1]!, { dmg: q.dmg, pierce: q.pierce, life: 1.2, r: 6, knock: 40, weapon: q.weapon });
+              }
+            }
+          }
+          if (q.d[2] === 1) for (const pl of this.alive) if (dist2(pl.x, pl.y, q.x, q.y) < 130 * 130) this.heal(pl, 3 * dt);
+          continue;
+        }
+        case PK.jack: {
+          // waits, then slams
+          q.d[0]! -= dt;
+          if (q.d[0]! <= 0 && q.d[1] === 0) {
+            q.d[1] = 1;
+            this.explode(p ?? null, q.x, q.y, q.r, q.dmg, 5, q.weapon, q.stun);
+          }
+          continue;
+        }
+        case PK.scarecrow: {
+          q.d[0]! -= dt;
+          if (q.d[0]! <= 0) {
+            q.d[0] = 0.5;
+            this.grid.each(q.x, q.y, q.r + 20, (e) => {
+              if (dist2(e.x, e.y, q.x, q.y) < (q.r + e.r) ** 2) this.hurt(e, q.dmg, p ?? null, 0, 0, 0, 2, q.weapon);
+            });
+          }
+          continue;
+        }
         case PK.banitsa:
         case PK.shard:
         case PK.bottle: {
@@ -1575,9 +1991,9 @@ export class World {
             if (q.kind === PK.bottle) {
               const evo = q.d[6] === 1;
               this.fx.push([FX.boom, Math.round(tx), Math.round(ty), Math.round(q.d[4]!), 3]);
-              this.addProj(p!, evo ? PK.bigFire : PK.fire, tx, ty, 0, 0, { dmg: q.dmg, pierce: 999, life: q.d[5]!, r: q.d[4]!, hitCd: 0.4, weapon: q.weapon });
+              if (p) this.addProj(p, evo ? PK.bigFire : PK.fire, tx, ty, 0, 0, { dmg: q.dmg, pierce: 999, life: q.d[5]!, r: q.d[4]!, hitCd: 0.4, weapon: q.weapon });
             } else {
-              this.explode(p ?? null, tx, ty, q.kind === PK.shard ? 45 : q.d[4]!, q.kind === PK.shard ? q.dmg * 0.6 : q.dmg, q.kind === PK.shard ? 1 : 0);
+              this.explode(p ?? null, tx, ty, q.kind === PK.shard ? 45 : q.d[4]!, q.kind === PK.shard ? q.dmg * 0.6 : q.dmg, q.kind === PK.shard ? 1 : 0, q.weapon);
               if (q.kind === PK.banitsa && q.d[5] === 1 && p) {
                 for (let i = 0; i < 5; i++) {
                   const a = (i / 5) * Math.PI * 2 + Math.random();
@@ -1605,6 +2021,27 @@ export class World {
           q.a = Math.atan2(q.vy, q.vx);
           break;
         }
+        case PK.tornado: {
+          // creeps after the nearest player
+          let best: Player | null = null;
+          let bd = Infinity;
+          for (const pl of this.alive) {
+            const d = dist2(pl.x, pl.y, q.x, q.y);
+            if (d < bd) {
+              bd = d;
+              best = pl;
+            }
+          }
+          if (best) {
+            const l = Math.sqrt(bd) || 1;
+            q.vx += (((best.x - q.x) / l) * 110 - q.vx) * Math.min(1, dt * 1.2);
+            q.vy += (((best.y - q.y) / l) * 110 - q.vy) * Math.min(1, dt * 1.2);
+          }
+          q.x += q.vx * dt;
+          q.y += q.vy * dt;
+          q.a += dt * 8;
+          break;
+        }
         default:
           q.x += q.vx * dt;
           q.y += q.vy * dt;
@@ -1615,27 +2052,34 @@ export class World {
           if (pl.dead || pl.gone) continue;
           if (dist2(pl.x, pl.y, q.x, q.y) < (q.r + PLAYER_R - 3) ** 2) {
             this.hurtPlayer(pl, q.dmg);
-            q.dead = true;
-            break;
+            if (!ZONES.has(q.kind)) {
+              q.dead = true;
+              break;
+            }
           }
         }
         continue;
       }
+      if (NO_HITS.has(q.kind)) continue;
 
       // hits
       const ring = q.kind === PK.ring || q.kind === PK.bigRing;
+      const slash = q.kind === PK.slash || q.kind === PK.bigSlash;
       const reach = q.r + 26;
       this.grid.each(q.x, q.y, reach, (e) => {
         if (q.dead) return false;
         const rr = q.r + e.r;
         const d2 = dist2(e.x, e.y, q.x, q.y);
         if (ring ? d2 > rr * rr || d2 < (q.r - 30) ** 2 : d2 > rr * rr) return;
+        // the sickle only cuts in front (the scythe all round)
+        if (slash && q.kind === PK.slash && angDiff(Math.atan2(e.y - q.y, e.x - q.x), q.a) > 1.25) return;
         const next = q.hits.get(e.id);
         if (next !== undefined && next > this.t) return;
         q.hits.set(e.id, q.hitCd >= 999 ? Infinity : this.t + q.hitCd);
-        const kx = ring || q.kind === PK.kob ? e.x - q.x : q.vx || e.x - q.x;
-        const ky = ring || q.kind === PK.kob ? e.y - q.y : q.vy || e.y - q.y;
-        this.hurt(e, q.dmg, p ?? null, kx, ky, q.knock, q.crit);
+        const radial = ring || slash || q.kind === PK.kob || q.kind === PK.bee || q.kind === PK.fire || q.kind === PK.bigFire;
+        const kx = radial ? e.x - q.x : q.vx || e.x - q.x;
+        const ky = radial ? e.y - q.y : q.vy || e.y - q.y;
+        this.hurt(e, q.dmg, p ?? null, kx, ky, q.knock, q.crit, q.weapon);
         if (q.stun) e.stunT = Math.max(e.stunT, q.stun);
         if (q.slow) e.slowT = Math.max(e.slowT, q.slow);
         if (q.pierce < 999) {
@@ -1646,17 +2090,19 @@ export class World {
           }
         }
       });
-      // the ring's grid query only looks near its centre: also walk its edge
-      if (ring && q.r > 40) {
+      // big rings / slashes: the grid query only looks near the centre, so also walk the edge
+      if ((ring || slash) && q.r > 40) {
         for (let i = 0; i < 12; i++) {
           const a = (i / 12) * Math.PI * 2;
-          const x = q.x + Math.cos(a) * q.r;
-          const y = q.y + Math.sin(a) * q.r;
+          if (q.kind === PK.slash && angDiff(a, q.a) > 1.3) continue;
+          const x = q.x + Math.cos(a) * q.r * (slash ? 0.7 : 1);
+          const y = q.y + Math.sin(a) * q.r * (slash ? 0.7 : 1);
           this.grid.each(x, y, 40, (e) => {
             const d2 = dist2(e.x, e.y, q.x, q.y);
-            if (d2 > (q.r + e.r) ** 2 || d2 < (q.r - 30) ** 2 || q.hits.has(e.id)) return;
+            if (d2 > (q.r + e.r) ** 2 || (ring && d2 < (q.r - 30) ** 2) || q.hits.has(e.id)) return;
+            if (q.kind === PK.slash && angDiff(Math.atan2(e.y - q.y, e.x - q.x), q.a) > 1.25) return;
             q.hits.set(e.id, Infinity);
-            this.hurt(e, q.dmg, p ?? null, e.x - q.x, e.y - q.y, q.knock);
+            this.hurt(e, q.dmg, p ?? null, e.x - q.x, e.y - q.y, q.knock, 2, q.weapon);
             if (q.slow) e.slowT = Math.max(e.slowT, q.slow);
           });
         }
@@ -1679,16 +2125,16 @@ export class World {
         }
       }
       if (!tgt) continue;
-      const big = g.k === GK.chest ? 0.4 : 1;
+      const big = g.k === GK.chest ? 0.35 : 1;
       if (!g.mag && best < (BASE_MAGNET * tgt.st.magnet * big) ** 2) g.mag = true;
       if (g.mag) {
-        g.sp = Math.min(900, g.sp + dt * 1100 + 120 * dt);
+        g.sp = Math.min(1000, g.sp + dt * 1300);
         const d = Math.sqrt(best) || 1;
-        const step = Math.min(d, (180 + g.sp) * dt);
+        const step = Math.min(d, (220 + g.sp) * dt);
         g.x += ((tgt.x - g.x) / d) * step;
         g.y += ((tgt.y - g.y) / d) * step;
       }
-      if (best < 20 * 20) {
+      if (best < 22 * 22) {
         this.gems.splice(i, 1);
         this.collect(tgt, g);
       }
@@ -1721,7 +2167,7 @@ export class World {
       case GK.bomb:
         this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 650, 2]);
         for (const e of this.enemies) {
-          if (dist2(e.x, e.y, p.x, p.y) < 700 * 700) this.hurt(e, e.boss ? e.maxHp * 0.05 : 99999, p);
+          if (e.type !== "pot" && dist2(e.x, e.y, p.x, p.y) < 700 * 700) this.hurt(e, e.boss ? e.maxHp * 0.05 : 99999, p);
         }
         break;
       case GK.chest:
@@ -1742,7 +2188,7 @@ export class World {
       this.refreshStats(p);
     } else {
       const r = Math.random() - p.st.luck * 0.3;
-      const n = r < 0.04 ? 5 : r < 0.22 ? 3 : 1;
+      const n = r < 0.05 ? 5 : r < 0.25 ? 3 : 1;
       for (let i = 0; i < n; i++) {
         const opts = this.candidates(p, true);
         if (!opts.length) {
@@ -1765,7 +2211,7 @@ export class World {
       if (this.event.id === "hail") {
         this.hailT -= dt;
         if (this.hailT <= 0 && this.event.t > 1.2) {
-          this.hailT = 0.3;
+          this.hailT = 0.28;
           const p = pickOne(this.alive.length ? this.alive : this.players);
           this.marks.push({ kind: MK.hail, x: p.x + rand(-260, 260), y: p.y + rand(-200, 200), r: 42, p: 0, t: 1.1, a: 1.1 });
         }
@@ -1791,13 +2237,13 @@ export class World {
           this.fx.push([FX.boom, Math.round(m.x), Math.round(m.y), m.r, 4]);
           for (const p of this.alive) if (dist2(p.x, p.y, m.x, m.y) < (m.r + PLAYER_R) ** 2) this.hurtPlayer(p, 14 * this.dmgMul());
           this.grid.each(m.x, m.y, m.r + 20, (e) => {
-            if (dist2(e.x, e.y, m.x, m.y) < (m.r + e.r) ** 2) this.hurt(e, 40, null);
+            if (dist2(e.x, e.y, m.x, m.y) < (m.r + e.r) ** 2 && !e.boss) this.hurt(e, 40, null);
           });
         }
       } else if (m.kind === MK.treasure) {
         if (!this.gems.some((g) => g.k === GK.chest && Math.abs(g.x - m.x) < 1 && Math.abs(g.y - m.y) < 1)) m.t = 0;
       } else if (m.kind === MK.charge) {
-        m.p = 1 - m.t / 0.85;
+        m.p = 1 - m.t / 0.8;
       }
     }
     if (this.marks.some((m) => m.t <= 0)) this.marks = this.marks.filter((m) => m.t > 0);
@@ -1837,7 +2283,12 @@ export class World {
     const all = this.candidates(p);
     const n = p.st.luck >= 0.3 ? 4 : 3;
     const out: Offer[] = [];
-    const pool = all.map((o) => ({ o, w: "lvl" in o && o.lvl > 1 ? 1.6 : o.kind === "weapon" ? 1.1 : 1 }));
+    // what you have levels up more often; a passive that evolves one of your weapons too
+    const evoPassives = new Set(p.weapons.map((w) => WEAPONS[w.id].evo.passive));
+    const pool = all.map((o) => ({
+      o,
+      w: "lvl" in o && o.lvl > 1 ? 1.6 : o.kind === "passive" && evoPassives.has(o.id) ? 1.4 : o.kind === "weapon" ? 1.1 : 1,
+    }));
     while (out.length < n && pool.length) {
       let r = Math.random() * pool.reduce((s, x) => s + x.w, 0);
       let i = 0;
