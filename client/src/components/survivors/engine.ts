@@ -553,6 +553,8 @@ export class World {
   waveBosses: Enemy[] = [];
   private waveMix: EnemyId[] = [];
   private waveElites = 0;
+  /** chests from elites this wave */
+  private eliteChests = 0;
   private waveEvent = false;
 
   /** kills in a row (2.5 s without one ends it) */
@@ -977,6 +979,7 @@ export class World {
     this.waveTotal = Math.round((40 + w * 14 + w * w * 0.6) * pf * horde * (swarm ? 1.5 : 1) * (isBossWave(w) ? 0.6 : 1) * 1.2 * (1 + 0.18 * this.diff));
     this.waveLeft = this.waveTotal;
     this.waveElites = w >= 3 ? 1 + Math.floor(w / 4) + Math.floor(this.diff / 2) : this.diff >= 4 ? 1 : 0;
+    this.eliteChests = 0;
     this.waveEvent = !isBossWave(w) && w >= 2 && Math.random() < 0.45;
     this.waveBosses = [];
     this.spawnAcc = 0;
@@ -1631,7 +1634,11 @@ export class World {
         this.fx.push([FX.banner, "📦 Сандъкът оживя — Мимикът!", 1]);
         return;
       }
-      if (Math.random() < 0.35 + luck) this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
+      // only some elites carry a chest (it was 35% + luck — with luck gear almost every one), at most 1 a wave (2 from wave 15)
+      if (this.eliteChests < (this.wave >= 15 ? 2 : 1) && Math.random() < Math.min(0.25, 0.1 + luck * 0.15)) {
+        this.eliteChests++;
+        this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
+      }
       else this.dropGem(e.x, e.y, e.xp);
       for (let i = 0; i < 3; i++) this.gems.push({ x: e.x + rand(-30, 30), y: e.y + rand(-30, 30), k: GK.coin, v: 1, mag: false, sp: 0 });
       return;

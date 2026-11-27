@@ -301,7 +301,8 @@ Owner pronouns unknown: use they/them.
   result pops in). In-game buttons = ⚙️ Настройки (with FPS) + ⏸ Пауза + ✖; the panel `.sv-settings` has labelled rows
   (effects slider, quality, 2D/3D, mouse, music, numbers); a one-time `.sv-hint-bubble` points at it (`survHintSettings`).
   Balance 2026-11-27: `xpFor` = 1.5·(6 + 10L + 0.6L²) (~level 15 by wave 7, was 28); every boss beaten = hordes +8% hp /
-  +5% dmg (`bossGrow`, uses `World.bosses`, wave bosses too). Никола starts with 🖍️ ТЕБЕШИР (`tebeshir`, PK.chalk 31: thrown at
+  +5% dmg (`bossGrow`, uses `World.bosses`, wave bosses too). Elite chests: min(25%, 10% + luck·0.15), at most 1 a wave
+  (2 from wave 15, `eliteChests`) — it was 35% + luck. Никола starts with 🖍️ ТЕБЕШИР (`tebeshir`, PK.chalk 31: thrown at
   the nearest, bounces to the nearest not-hit enemy, pierce 3 = 2 bounces, evo +3 and a dust puff); Тесла stays a card with
   fewer jumps (base 2, max 4 +1 at 6, evo ×1.5, more damage). Мартеница pierce 2 (one bounce) and homes on enemies it hasn't
   hit (`nearest(…, q.hits)`). Item `bobina` = Показалката на даскала. 📖 Наръчник tab + in the pause (`guide(mine, passives)`):
