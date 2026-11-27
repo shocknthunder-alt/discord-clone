@@ -303,6 +303,9 @@ Owner pronouns unknown: use they/them.
   with gear damage. Run POST never rejects big numbers any more: kills / bosses / gold / wave are CUT to ceilings
   (a 50-wave game got refused and lost its items); the client keeps an unsaved run in localStorage `survPendingRun:<ch>`,
   retries quietly (server waking up), shows 💾 Опитай пак да запиша, and resends it next time the channel opens.
+  🛡️ Stagger: all stuns go through `stun(e, t)` and pushes through `ccMul(e)` = (1 − min(0.6, 0.04·diff + 0.006·wave)) ×
+  (1 − `Enemy.ccRes`) (× 0.6 elites); each stun / push raises ccRes (≤ 0.85, −0.22/s); push speed capped (240 / elites 140 /
+  bosses 60); explosions push 90 (was 160). Before this a CC build kept every mob away on difficulty 6.
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

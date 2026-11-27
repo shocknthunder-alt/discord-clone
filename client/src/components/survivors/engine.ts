@@ -327,6 +327,8 @@ export interface Enemy extends REnemy {
   ky: number;
   boss: boolean;
   stunT: number;
+  /** 🛡️ stagger resistance from recent stuns / pushes (0..0.85), wears off */
+  ccRes: number;
   slowT: number;
   ai: number;
   ai2: number;
@@ -871,6 +873,7 @@ export class World {
       ky: 0,
       boss: !!opts.boss,
       stunT: 0,
+      ccRes: 0,
       slowT: 0,
       ai: rand(0.5, 2),
       ai2: rand(1, 3),
@@ -1224,7 +1227,8 @@ export class World {
     e.flash = 0.12;
     if (knock && (kx || ky) && e.type !== "pot" && e.type !== "altar") {
       const len = Math.hypot(kx, ky) || 1;
-      const k = knock * (e.boss ? 0.05 : e.elite ? 0.35 : 1);
+      const k = knock * (e.boss ? 0.05 : e.elite ? 0.35 : 1) * this.ccMul(e);
+      e.ccRes = Math.min(0.85, e.ccRes + k * 0.0004);
       e.kx += (kx / len) * k;
       e.ky += (ky / len) * k;
     }
@@ -1266,11 +1270,11 @@ export class World {
       this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 8), "🌾", "#ffe08a"]);
     }
     if ((wid === "pishtov" || wid === "tsarvul") && (k = t("haiduti")) && !e.boss && e.type !== "altar") {
-      e.stunT = Math.max(e.stunT, 0.4 * k);
+      this.stun(e, 0.4 * k);
       const dx = e.x - p.x;
       const dy = e.y - p.y;
       const len = Math.hypot(dx, dy) || 1;
-      const kb = (e.elite ? 60 : 200) * k;
+      const kb = (e.elite ? 60 : 200) * k * this.ccMul(e);
       e.kx += (dx / len) * kb;
       e.ky += (dy / len) * kb;
     }
@@ -1288,6 +1292,19 @@ export class World {
     }
   }
 
+  /** 🛡️ how much stuns / pushes still work on this enemy: less after each one, less on harder games and later waves */
+  private ccMul(e: Enemy) {
+    const base = Math.min(0.6, 0.04 * this.diff + 0.006 * this.wave);
+    return (1 - base) * (1 - e.ccRes) * (e.elite ? 0.6 : 1);
+  }
+  /** a stun (shorter the more this enemy was stunned lately) */
+  private stun(e: Enemy, t: number) {
+    if (t <= 0 || e.dead) return;
+    const d = t * this.ccMul(e);
+    if (d > e.stunT) e.stunT = d;
+    e.ccRes = Math.min(0.85, e.ccRes + t * 0.3);
+  }
+
   /** ⚡ lightning from the sky onto a few enemies near (x, y) */
   private strike(p: Player, x: number, y: number, r: number, n: number, dmg: number) {
     const bless = p.blessed.has("perun");
@@ -1296,7 +1313,7 @@ export class World {
     for (const e of near.slice(0, n + (bless ? 2 : 0))) {
       this.fx.push([FX.bolt, Math.round(e.x + rand(-30, 30)), Math.round(e.y - 420), Math.round(e.x + rand(-12, 12)), Math.round(e.y - 160), Math.round(e.x), Math.round(e.y)]);
       this.hurt(e, dmg * (bless ? 1.5 : 1), p, 0, 0, 0, 2, -3);
-      e.stunT = Math.max(e.stunT, 0.25);
+      this.stun(e, 0.25);
     }
   }
 
@@ -1350,8 +1367,8 @@ export class World {
         const dx = e.x - p.x;
         const dy = e.y - p.y;
         const len = Math.hypot(dx, dy) || 1;
-        e.kx += (dx / len) * 260;
-        e.ky += (dy / len) * 260;
+        e.kx += (dx / len) * 260 * this.ccMul(e);
+        e.ky += (dy / len) * 260 * this.ccMul(e);
       }
       this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 50), "🎶", "#ffe08a"]);
     }
@@ -1830,7 +1847,7 @@ export class World {
         this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(r * 0.6), 0]);
         for (const e of this.within(p.x, p.y, r)) {
           this.hurt(e, this.skillDmg(p, 220), p, e.x - p.x, e.y - p.y, 600);
-          if (!e.boss) e.stunT = Math.max(e.stunT, 1.2);
+          if (!e.boss) this.stun(e, 1.2);
         }
       }
     }
@@ -1918,7 +1935,7 @@ export class World {
         this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), 450, 1]);
         for (const e of this.enemies) {
           if (e.dead || e.type === "pot" || dist2(e.x, e.y, p.x, p.y) > 450 * 450) continue;
-          e.stunT = e.boss ? 0.5 : 2.2;
+          this.stun(e, e.boss ? 0.5 : 2.2);
           this.hurt(e, this.skillDmg(p, 60), p, e.x - p.x, e.y - p.y, 600);
         }
       }
@@ -2120,8 +2137,15 @@ export class World {
       }
       e.frozenT = Math.max(0, e.frozenT - dt);
       e.stunT = Math.max(0, e.stunT - dt);
+      e.ccRes = Math.max(0, e.ccRes - dt * 0.22);
       e.slowT = Math.max(0, e.slowT - dt);
-      // knockback
+      // knockback (never faster than this, so a crowd can't be held off by pushes alone)
+      const kmax = e.boss ? 60 : e.elite ? 140 : 240;
+      const kl = Math.hypot(e.kx, e.ky);
+      if (kl > kmax) {
+        e.kx *= kmax / kl;
+        e.ky *= kmax / kl;
+      }
       e.x += e.kx * dt;
       e.y += e.ky * dt;
       const decay = Math.exp(-dt * 9);
@@ -2815,7 +2839,7 @@ export class World {
             const e = pickOne(near);
             this.fx.push([FX.bolt, Math.round(e.x + rand(-30, 30)), Math.round(e.y - 420), Math.round(e.x), Math.round(e.y)]);
             this.hurt(e, dmg * 1.2, p, 0, 0, 0, 2, wi);
-            e.stunT = Math.max(e.stunT, 0.3);
+            this.stun(e, 0.3);
           }
         }
       }
@@ -2898,7 +2922,7 @@ export class World {
               used.add(cur.id);
               pts.push(Math.round(cur.x), Math.round(cur.y));
               this.hurt(cur, dmg, p, 0, 0, 0, 2, wi);
-              if (w.evo) cur.stunT = Math.max(cur.stunT, 0.3);
+              if (w.evo) this.stun(cur, 0.3);
               const next = this.nearest(cur.x, cur.y, 170 * area, used);
               if (!next) break;
               cur = next;
@@ -3094,8 +3118,8 @@ export class World {
     this.fx.push([FX.boom, Math.round(x), Math.round(y), Math.round(r), kind]);
     this.grid.each(x, y, r + 30, (e) => {
       if (dist2(e.x, e.y, x, y) < (r + e.r) ** 2) {
-        this.hurt(e, dmg, p, e.x - x, e.y - y, 160, 2, wi);
-        if (stun) e.stunT = Math.max(e.stunT, e.boss ? stun * 0.3 : stun);
+        this.hurt(e, dmg, p, e.x - x, e.y - y, 90, 2, wi);
+        if (stun) this.stun(e, e.boss ? stun * 0.3 : stun);
       }
     });
   }
@@ -3351,7 +3375,7 @@ export class World {
         const kx = radial ? e.x - q.x : q.vx || e.x - q.x;
         const ky = radial ? e.y - q.y : q.vy || e.y - q.y;
         this.hurt(e, q.dmg, p ?? null, kx, ky, q.knock, q.crit, q.weapon);
-        if (q.stun) e.stunT = Math.max(e.stunT, q.stun);
+        if (q.stun) this.stun(e, q.stun);
         if (q.slow) e.slowT = Math.max(e.slowT, q.slow);
         if (q.pierce < 999) {
           q.pierce--;
