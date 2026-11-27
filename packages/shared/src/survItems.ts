@@ -271,3 +271,29 @@ export const SURV_PETS: { id: SurvPetId; cost: number }[] = [
   { id: "zmeyche", cost: 6000 },
 ];
 export const isSurvPet = (v: unknown): v is SurvPetId => typeof v === "string" && SURV_PETS.some((p) => p.id === v);
+
+/* ───────────── ♻️ recycling → ✨ dust → ⚒️ crafting (2026-11-27) ───────────── */
+
+/** dust from recycling an item (by rarity, a bit more for harder difficulties) */
+export const survSalvageDust = (item: SurvItem) => Math.round([1, 3, 8, 20][item.r]! * (1 + 0.1 * item.d));
+/** crafting: pick a kind of thing, pay dust, get one of a random rarity (better tiers cost more) */
+export const SURV_CRAFT: { cost: number; weights: [number, number, number, number] }[] = [
+  { cost: 30, weights: [55, 33, 10, 2] },
+  { cost: 90, weights: [0, 55, 35, 10] },
+  { cost: 250, weights: [0, 0, 70, 30] },
+];
+export const SURV_ITEM_KINDS: SurvItemKind[] = ["weapon", "helmet", "shoulders", "armor", "gloves", "pants", "boots", "amulet", "ring"];
+export function survRollCraft(rand: () => number, hero: SurvHeroId, kind: SurvItemKind, tier: number, diff: number, id: string): SurvItem | null {
+  const t = SURV_CRAFT[tier];
+  if (!t) return null;
+  const pool = SURV_ITEM_BASES.filter((b) => b.slot === kind && (!b.hero || b.hero === hero));
+  const base = pool[Math.floor(rand() * pool.length)];
+  if (!base) return null;
+  let x = rand() * t.weights.reduce((a, b) => a + b, 0);
+  let r = 0;
+  for (; r < 3; r++) {
+    x -= t.weights[r]!;
+    if (x <= 0) break;
+  }
+  return survRollItem(rand, base.id, r, diff, id);
+}

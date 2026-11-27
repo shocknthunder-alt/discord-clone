@@ -37,8 +37,11 @@ import {
   survGearStats,
   survItemBase,
   survItemFits,
-  survSalvageGold,
+  survSalvageDust,
   survLookKey,
+  SURV_CRAFT,
+  SURV_ITEM_KINDS,
+  type SurvItemKind,
   type SurvGearSlot,
   type SurvItem,
 } from "@discord-clone/shared";
@@ -131,6 +134,10 @@ interface Hud {
 interface EndInfo {
   wave: number;
   dmg: [number, number][];
+  /** 💀 what hurt you, what finished you */
+  recap?: { by: Record<string, number>; last: { s: string; d: number; t: number }[]; killer: string } | null;
+  /** when the game ended (the recap shows "x s before") */
+  t?: number;
   /** 🎯 the mission: null = endless */
   mission: { won: boolean; map: SurvMapId } | null;
 }
@@ -169,8 +176,17 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const [gearSlot, setGearSlot] = useState<SurvGearSlot | null>(null);
   /** the item clicked in the bag */
   const [selItem, setSelItem] = useState<string | null>(null);
-  /** the item under the mouse (shown in the side panel) */
+  /** the item under the mouse (the end screen shows it) */
   const [hoverItem, setHoverItem] = useState<string | null>(null);
+  /** the item clicked: its details pop up right under it */
+  const [popItem, setPopItem] = useState<{ id: string; x: number; y: number; up: boolean } | null>(null);
+  /** ♻️ recycling: picking items to break into dust */
+  const [recycle, setRecycle] = useState(false);
+  const [recSel, setRecSel] = useState<string[]>([]);
+  /** ⚒️ crafting: the kind picked, the last thing made */
+  const [craftKind, setCraftKind] = useState<SurvItemKind>("ring");
+  const [crafted, setCrafted] = useState<SurvItem | null>(null);
+  const dragRef = useRef<string | null>(null);
   const [mapSel, setMapSel] = useState<SurvMapId>(() => load<SurvMapId>("survMap", "polyana"));
   const [missionSel, setMissionSel] = useState<boolean>(() => load<boolean>("survMission", true));
   useEffect(() => localStorage.setItem("survMap", JSON.stringify(mapSel)), [mapSel]);
@@ -521,7 +537,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       if (s.world) {
         const w = s.world;
         if (s.mode === "host" && s.partyId) getSocket()?.emit(SocketEvents.SurvEnd, { partyId: s.partyId, seconds: Math.floor(w.t), kills: w.kills, reason: reason === "stopped" ? "stopped" : undefined });
-        setEndInfo({ wave: w.wave, dmg: dmgOf(w.players.find((p) => p.uid === myId)?.dmgBy), mission: s.mission ? { won: w.won, map: s.map } : null });
+        setEndInfo({ wave: w.wave, dmg: dmgOf(w.players.find((p) => p.uid === myId)?.dmgBy), mission: s.mission ? { won: w.won, map: s.map } : null, recap: w.players.find((p) => p.uid === myId)?.recap ?? null, t: w.t });
         postRun(
           s,
           {
@@ -541,7 +557,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           reason,
         );
       } else if (s.cur) {
-        setEndInfo({ wave: s.cur.wave, dmg: dmgOf(s.cur.view.players.find((p) => p.uid === myId)?.dmgBy), mission: s.mission ? { won: s.cur.won, map: s.map } : null });
+        setEndInfo({ wave: s.cur.wave, dmg: dmgOf(s.cur.view.players.find((p) => p.uid === myId)?.dmgBy), mission: s.mission ? { won: s.cur.won, map: s.map } : null, recap: s.cur.view.players.find((p) => p.uid === myId)?.recap ?? null, t: s.cur.view.t });
         const c = s.cur;
         postRun(
           s,
@@ -1190,13 +1206,30 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/equip`, { hero: h, slot, item })
       .then((r) => setLists(r.data))
       .catch(() => setError("Не става."));
-  const salvage = (it: SurvItem) => {
-    if (it.r >= 2 && !window.confirm(`Да разглобя ${ITEM_TEXT[it.b]?.name ?? "предмета"} (${RARITY[it.r]!.name}) за ${survSalvageGold(it)} злато?`)) return;
+  /** ♻️ break items into ✨ dust */
+  const salvage = (items: SurvItem[]) => {
+    if (!items.length) return;
+    const dust = items.reduce((a, it) => a + survSalvageDust(it), 0);
+    const rare = items.filter((it) => it.r >= 2).length;
+    if ((rare || items.length > 1) && !window.confirm(`Да рециклирам ${items.length} предмета${rare ? ` (${rare} редки/уникални)` : ""} за ${dust} ✨ прах?`)) return;
     http
-      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/salvage`, { items: [it.id] })
-      .then((r) => setLists(r.data))
+      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/salvage`, { items: items.map((it) => it.id) })
+      .then((r) => {
+        setLists(r.data);
+        setRecSel([]);
+        setPopItem(null);
+      })
       .catch(() => setError("Не става."));
   };
+  /** ⚒️ make a thing of the chosen kind */
+  const craft = (h: SurvHeroId, kind: SurvItemKind, tier: number) =>
+    http
+      .post<SurvListsDTO & { item: SurvItem }>(`/api/text-channels/${channelId}/survivors/craft`, { hero: h, kind, tier })
+      .then((r) => {
+        setLists(r.data);
+        setCrafted(r.data.item);
+      })
+      .catch((e: { response?: { data?: { error?: string } } }) => setError(e.response?.data?.error === "Bag full" ? "Торбата е пълна." : "Не стига прахът."));
   /** an item the way the classic loot games show it: coloured header, properties, blue mods */
   const itemView = (it: SurvItem, extra?: React.ReactNode) => {
     const b = survItemBase(it.b);
@@ -1235,20 +1268,36 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     );
   };
   /** one cell of the bag grid: the picture, a rarity frame, the tooltip on hover */
-  const itemCell = (it: SurvItem, on: boolean, worn: boolean, click: () => void) => (
+  const itemCell = (it: SurvItem, on: boolean, worn: boolean, click: (el: HTMLElement) => void, picked = false) => (
     <button
       key={it.id}
-      className={`poe-cell r${it.r} ${on ? "on" : ""} ${worn ? "worn" : ""}`}
+      className={`poe-cell r${it.r} ${on ? "on" : ""} ${worn ? "worn" : ""} ${picked ? "picked" : ""}`}
       style={{ ["--rc" as string]: RARITY[it.r]!.color }}
-      onClick={click}
+      onClick={(e) => click(e.currentTarget)}
       onMouseEnter={() => setHoverItem(it.id)}
       onMouseLeave={() => setHoverItem((h) => (h === it.id ? null : h))}
+      draggable
+      onDragStart={(e) => {
+        dragRef.current = it.id;
+        e.dataTransfer.setData("text/plain", it.id);
+        e.dataTransfer.effectAllowed = "move";
+        setPopItem(null);
+      }}
+      onDragEnd={() => (dragRef.current = null)}
       title={ITEM_TEXT[it.b]?.name}
     >
-      <img src={itemIcon(it.b, it.r)} alt="" />
+      <img src={itemIcon(it.b, it.r)} alt="" draggable={false} />
       {worn && <i className="poe-worn">✔</i>}
+      {picked && <i className="poe-pick">♻️</i>}
     </button>
   );
+  /** open an item's details right under (or over) the element clicked */
+  const popAt = (id: string, el: HTMLElement) => {
+    if (popItem?.id === id) return setPopItem(null);
+    const r = el.getBoundingClientRect();
+    const up = r.bottom + 330 > window.innerHeight;
+    setPopItem({ id, x: Math.max(8, Math.min(window.innerWidth - 328, r.left + r.width / 2 - 160)), y: up ? r.top - 6 : r.bottom + 6, up });
+  };
   const petAction = (pet: string | null) =>
     http
       .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/pet`, { pet })
@@ -1677,62 +1726,102 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         const worn = profile.gear?.[gh] ?? {};
         const wornIds = new Set(Object.values(profile.gear ?? {}).flatMap((g) => Object.values(g ?? {})));
         const total = survGearStats(profile.items, worn, gh);
-        const items = [...(profile.items ?? [])]
-          .filter((it) => (gearSlot ? survItemFits(it, gh, gearSlot) : gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl))))
-          .sort((a, b) => b.r - a.r || b.d - a.d);
+        const all = profile.items ?? [];
+        const items = [...all]
+          // ♻️ recycling shows the whole bag (what gets marked is what you see)
+          .filter((it) => recycle || (gearSlot ? survItemFits(it, gh, gearSlot) : gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl))))
+          .sort((x, y) => y.r - x.r || y.d - x.d);
         /** where an item goes: the picked slot, else its own (a ring: the free finger first) */
         const target = (it: SurvItem): SurvGearSlot | undefined => {
           if (gearSlot && survItemFits(it, gh, gearSlot)) return gearSlot;
           const fits = SURV_GEAR_SLOTS.filter((sl) => survItemFits(it, gh, sl));
           return fits.find((sl) => !worn[sl]) ?? fits[0];
         };
+        const dragged = () => all.find((x) => x.id === dragRef.current);
+        const wornSlotOf = (id: string) => SURV_GEAR_SLOTS.find((sl) => worn[sl] === id);
         const slotBox = (slot: SurvGearSlot) => {
-          const it = profile.items?.find((i) => i.id === worn[slot]);
+          const it = all.find((i) => i.id === worn[slot]);
           const t = it ? (ITEM_TEXT[it.b] ?? { name: it.b, icon: "❔" }) : null;
           return (
-            <button
+            <div
               key={slot}
               className={`sv-doll-slot s-${slot} ${gearSlot === slot ? "on" : ""} ${it ? `r${it.r}` : "empty"}`}
               style={it ? { ["--rc" as string]: RARITY[it.r]!.color } : undefined}
-              onClick={() => setGearSlot(gearSlot === slot ? null : slot)}
-              title={it ? `${t!.name} (${RARITY[it.r]!.name})\n${it.s.map(([k, v]) => GEAR_STAT_TEXT[k]?.(v) ?? k).join("\n")}` : `${SLOT_TEXT[slot]} — празно`}
+              onClick={(e) => (it ? popAt(it.id, e.currentTarget) : setGearSlot(gearSlot === slot ? null : slot))}
+              onDragOver={(e) => {
+                const d = dragged();
+                if (d && survItemFits(d, gh, slot)) {
+                  e.preventDefault();
+                  e.currentTarget.classList.add("drop-ok");
+                }
+              }}
+              onDragLeave={(e) => e.currentTarget.classList.remove("drop-ok")}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove("drop-ok");
+                const d = dragged();
+                if (d && survItemFits(d, gh, slot)) equip(gh, slot, d.id);
+              }}
+              draggable={!!it}
+              onDragStart={(e) => {
+                if (!it) return;
+                dragRef.current = it.id;
+                e.dataTransfer.setData("text/plain", it.id);
+                setPopItem(null);
+              }}
+              title={it ? "" : `${SLOT_TEXT[slot]} — празно (пусни предмет тук)`}
             >
-              <span className="sv-doll-icon">{it ? <img src={itemIcon(it.b, it.r)} alt="" /> : SLOT_ICON[slot]}</span>
+              <span className="sv-doll-icon">{it ? <img src={itemIcon(it.b, it.r)} alt="" draggable={false} /> : SLOT_ICON[slot]}</span>
               <small>{t ? t.name : SLOT_TEXT[slot]}</small>
-            </button>
+            </div>
           );
         };
-        const picked = gearSlot ? profile.items?.find((i) => i.id === worn[gearSlot]) : undefined;
+        const pop = popItem ? all.find((x) => x.id === popItem.id) : undefined;
+        const RAR = [0, 1, 2, 3];
+        const recItems = all.filter((it) => recSel.includes(it.id));
+        const markRarity = (r: number) => {
+          const ids = all.filter((it) => it.r === r && !wornIds.has(it.id)).map((it) => it.id);
+          const allOn = ids.every((id) => recSel.includes(id));
+          setRecSel((sel) => (allOn ? sel.filter((id) => !ids.includes(id)) : [...new Set([...sel, ...ids])]));
+        };
         return (
-          <div className="sv-gear">
+          <div className="sv-gear" onClick={(e) => (e.target as HTMLElement).closest(".poe-pop, .poe-cell, .sv-doll-slot") || setPopItem(null)}>
             <div className="sv-gear-heroes">
               {HERO_IDS.map((h) => (
                 <button key={h} className={gh === h ? "on" : ""} onClick={() => setGearHero(h)} title={HEROES[h].name}>
-                  <img src={heroIcon(h, skinOf(h))} alt="" />
+                  <img src={heroIcon(h, skinOf(h), myLook(h))} alt="" />
                 </button>
               ))}
             </div>
             <h3>
-              🎒 {HEROES[gh].name} носи <span className="sv-dim">(предметите падат от босове и елитни, по-редки на по-висока трудност)</span>
+              🎒 {HEROES[gh].name} носи <span className="sv-dim">(влачи предмет върху героя или в слот; цъкни предмет — какво дава)</span>
             </h3>
             <div className="sv-doll">
               <div className="sv-doll-col">{(["helmet", "shoulders", "armor", "gloves", "weapon"] as SurvGearSlot[]).map(slotBox)}</div>
-              <div className="sv-doll-hero">
-                <img src={heroIcon(gh, skinOf(gh), myLook(gh))} alt="" />
+              <div
+                className="sv-doll-hero"
+                onDragOver={(e) => {
+                  const d = dragged();
+                  if (d && SURV_GEAR_SLOTS.some((sl) => survItemFits(d, gh, sl))) {
+                    e.preventDefault();
+                    e.currentTarget.classList.add("drop-ok");
+                  }
+                }}
+                onDragLeave={(e) => e.currentTarget.classList.remove("drop-ok")}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("drop-ok");
+                  const d = dragged();
+                  const sl = d && target(d);
+                  if (d && sl) equip(gh, sl, d.id);
+                }}
+              >
+                <img src={heroIcon(gh, skinOf(gh), myLook(gh))} alt="" draggable={false} />
                 <b>{HEROES[gh].name}</b>
                 <small className="sv-dim">{SURV_GEAR_SLOTS.filter((sl) => worn[sl]).length}/{SURV_GEAR_SLOTS.length} слота</small>
               </div>
               <div className="sv-doll-col">{(["amulet", "ring1", "ring2", "pants", "boots"] as SurvGearSlot[]).map(slotBox)}</div>
             </div>
-            {gearSlot && (
-              <div className="sv-gear-picked">
-                <b>{SLOT_TEXT[gearSlot]}:</b>{" "}
-                {picked ? itemView(picked, <button onClick={() => equip(gh, gearSlot, null)}>Свали</button>) : <span className="sv-dim">празно — избери от торбата отдолу</span>}
-                <button className="sv-dim" onClick={() => setGearSlot(null)}>
-                  ✕ всички
-                </button>
-              </div>
-            )}
             {Object.keys(total).length > 0 && (
               <div className="sv-gear-total">
                 Общо:{" "}
@@ -1741,46 +1830,134 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                   .join(" · ")}
               </div>
             )}
-            <h3>
-              Торба ({profile.items?.length ?? 0}/{SURV_INV_MAX}){gearSlot ? ` · само ${SLOT_TEXT[gearSlot]}` : ""}{" "}
+            <div className="sv-bag-head">
+              <h3>
+                Торба ({all.length}/{SURV_INV_MAX}){gearSlot ? ` · само ${SLOT_TEXT[gearSlot]}` : ""}
+              </h3>
+              {gearSlot && (
+                <button className="sv-dim" onClick={() => setGearSlot(null)}>
+                  ✕ всички слотове
+                </button>
+              )}
               <label className="sv-dim">
                 <input type="checkbox" checked={gearAll} onChange={(e) => setGearAll(e.target.checked)} /> покажи и чуждите
               </label>
-            </h3>
-            {!items.length && <div className="sv-dim">Празно. Повали бос и вземи раницата 🎒, която пуска.</div>}
-            <div className="poe-bag">
-              <div className="poe-grid">
-                {items.map((it) => itemCell(it, selItem === it.id, Object.values(worn).includes(it.id), () => setSelItem(selItem === it.id ? null : it.id)))}
-              </div>
-              {(() => {
-                const hov = hoverItem && hoverItem !== selItem ? (profile.items ?? []).find((x) => x.id === hoverItem) : undefined;
-                if (hov) return <div className="poe-side">{itemView(hov)}</div>;
-                const it = items.find((x) => x.id === selItem);
-                if (!it) return <div className="poe-side sv-dim">Натисни предмет, за да го сложиш или разглобиш. Задръж мишката отгоре, за да го видиш.</div>;
-                const slot = target(it);
-                const on = Object.values(worn).includes(it.id);
-                return (
-                  <div className="poe-side">
-                    {itemView(
-                      it,
-                      <div className="poe-btns">
-                        {slot && !on && (
-                          <button onClick={() => equip(gh, slot, it.id)}>
-                            Сложи{slot.startsWith("ring") ? ` (${slot === "ring1" ? "лява ръка" : "дясна ръка"})` : ""}
-                          </button>
-                        )}
-                        {on && <em>носи го</em>}
-                        {!wornIds.has(it.id) && (
-                          <button className="sv-dim" onClick={() => salvage(it)} title="Разглоби за злато">
-                            🔨 Разглоби за {survSalvageGold(it)} 🪙
-                          </button>
-                        )}
-                      </div>,
-                    )}
-                  </div>
-                );
-              })()}
+              <span className="sv-dust">✨ {profile.dust ?? 0} прах</span>
+              <button className={recycle ? "on" : ""} onClick={() => (setRecycle(!recycle), setRecSel([]), setPopItem(null))}>
+                ♻️ Рециклиране
+              </button>
             </div>
+            {recycle && (
+              <div className="sv-recycle">
+                <span>Маркирай всички:</span>
+                {RAR.map((r) => (
+                  <button key={r} style={{ ["--rc" as string]: RARITY[r]!.color }} className="sv-rar-btn" onClick={() => markRarity(r)}>
+                    {RARITY[r]!.name}
+                  </button>
+                ))}
+                <span className="sv-dim">или цъкай един по един · носените не се маркират</span>
+                <button className="sv-big" disabled={!recItems.length} onClick={() => salvage(recItems)}>
+                  ♻️ Рециклирай {recItems.length} → +{recItems.reduce((x, it) => x + survSalvageDust(it), 0)} ✨
+                </button>
+              </div>
+            )}
+            {!items.length && <div className="sv-dim">Празно. Повали бос и вземи раницата 🎒, която пуска — или изкови нещо отдолу.</div>}
+            <div
+              className="poe-grid"
+              onDragOver={(e) => {
+                if (dragRef.current && wornSlotOf(dragRef.current)) e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                const id = dragRef.current;
+                const sl = id && wornSlotOf(id);
+                if (sl) equip(gh, sl, null);
+              }}
+            >
+              {items.map((it) =>
+                itemCell(
+                  it,
+                  popItem?.id === it.id,
+                  wornIds.has(it.id),
+                  (el) => {
+                    if (recycle) {
+                      if (wornIds.has(it.id)) return;
+                      setRecSel((sel) => (sel.includes(it.id) ? sel.filter((x) => x !== it.id) : [...sel, it.id]));
+                    } else popAt(it.id, el);
+                  },
+                  recSel.includes(it.id),
+                ),
+              )}
+            </div>
+
+            <h3>⚒️ Изковаване <span className="sv-dim">(рециклирай ненужното за ✨ прах, после избери какво да се изкове — рядкостта е на късмет)</span></h3>
+            <div className="sv-craft">
+              <div className="sv-craft-kinds">
+                {SURV_ITEM_KINDS.map((k) => (
+                  <button key={k} className={craftKind === k ? "on" : ""} onClick={() => setCraftKind(k)} title={KIND_TEXT[k]}>
+                    <span>{SLOT_ICON[k === "ring" ? "ring1" : k]}</span>
+                    <small>{KIND_TEXT[k]}</small>
+                  </button>
+                ))}
+              </div>
+              <div className="sv-craft-tiers">
+                {SURV_CRAFT.map((t, i) => {
+                  const sum = t.weights.reduce((x, y) => x + y, 0);
+                  return (
+                    <button key={i} disabled={(profile.dust ?? 0) < t.cost} onClick={() => craft(gh, craftKind, i)}>
+                      <b>{["Обикновено", "Майсторско", "Царско"][i]} коване</b>
+                      <span>{t.cost} ✨</span>
+                      <small>
+                        {t.weights.map((w, r) =>
+                          w ? (
+                            <em key={r} style={{ color: RARITY[r]!.color }}>
+                              {Math.round((w / sum) * 100)}% {RARITY[r]!.name.toLowerCase()}{" "}
+                            </em>
+                          ) : null,
+                        )}
+                      </small>
+                    </button>
+                  );
+                })}
+              </div>
+              {craftKind === "weapon" && <small className="sv-dim">Оръжието се кове за {HEROES[gh].name}.</small>}
+              {crafted && (
+                <div className="sv-crafted">
+                  <span>Изкова:</span>
+                  {itemView(crafted)}
+                </div>
+              )}
+            </div>
+
+            {pop && popItem && (
+              <div className={`poe-pop ${popItem.up ? "up" : ""}`} style={{ left: popItem.x, top: popItem.y }}>
+                {itemView(
+                  pop,
+                  <div className="poe-btns">
+                    {(() => {
+                      const ws = wornSlotOf(pop.id);
+                      if (ws) return <button onClick={() => (equip(gh, ws, null), setPopItem(null))}>Свали</button>;
+                      const sl = target(pop);
+                      return sl ? (
+                        <button onClick={() => (equip(gh, sl, pop.id), setPopItem(null))}>
+                          Сложи{sl.startsWith("ring") ? ` (${sl === "ring1" ? "лява ръка" : "дясна ръка"})` : ""}
+                        </button>
+                      ) : (
+                        <em className="sv-dim">не става за {HEROES[gh].name}</em>
+                      );
+                    })()}
+                    {!wornIds.has(pop.id) && (
+                      <button className="sv-dim" onClick={() => salvage([pop])}>
+                        ♻️ {survSalvageDust(pop)} ✨
+                      </button>
+                    )}
+                    <button className="sv-dim" onClick={() => setPopItem(null)}>
+                      ✕
+                    </button>
+                  </div>,
+                )}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -2242,6 +2419,46 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           })}
         </div>
       )}
+      {endInfo?.recap && Object.keys(endInfo.recap.by).length > 0 && !endInfo.mission?.won && (
+        <div className="sv-recap">
+          <div className="sv-dmg-title">💀 Какво те довърши</div>
+          {endInfo.recap.killer && (
+            <div className="sv-recap-killer">
+              Последният удар: <b>{endInfo.recap.killer}</b>
+            </div>
+          )}
+          <div className="sv-recap-cols">
+            <div>
+              <small className="sv-dim">Последните удари</small>
+              <ol className="sv-recap-last">
+                {[...endInfo.recap.last].reverse().map((h, i) => (
+                  <li key={i}>
+                    <span>{h.s}</span>
+                    <b>−{h.d}</b>
+                    <em>{endInfo.t !== undefined ? `${Math.max(0, endInfo.t - h.t).toFixed(1)} с преди` : ""}</em>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <small className="sv-dim">Щети по теб за цялата игра</small>
+              {(() => {
+                const rows = Object.entries(endInfo.recap.by).sort((a, b) => b[1] - a[1]).slice(0, 8);
+                const top = rows[0]?.[1] || 1;
+                return rows.map(([s2, d]) => (
+                  <div key={s2} className="sv-dmg-row">
+                    <span>{s2}</span>
+                    <div className="sv-dmg-bar enemy">
+                      <div style={{ width: `${(d / top) * 100}%` }} />
+                    </div>
+                    <b>{Math.round(d).toLocaleString("bg-BG")}</b>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
       {result.newAchievements?.map((a) => (
         <div key={a} className="sv-unlock ach">
           <span>{ACH_TEXT[a].icon}</span> Подвиг: {ACH_TEXT[a].name}! <em>+{SURV_ACHIEVEMENTS.find((x) => x.id === a)?.gold} 🪙</em>
@@ -2262,7 +2479,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               return <div className="poe-side">{itemView(it)}</div>;
             })()}
           </div>
-          {result.salvaged ? <small className="sv-dim">Торбата е пълна: най-слабите са разглобени за {result.salvaged} 🪙</small> : null}
+          {result.salvaged ? <small className="sv-dim">Торбата е пълна: най-слабите са рециклирани за {result.salvaged} ✨ прах</small> : null}
         </div>
       )}
       {result.newHeroes?.map((h) => (

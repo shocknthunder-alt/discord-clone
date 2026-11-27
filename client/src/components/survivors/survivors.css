@@ -1742,3 +1742,175 @@
   font-weight: 700;
   text-shadow: 0 1px 2px #000;
 }
+
+/* 💀 death recap */
+.sv-recap {
+  margin: 10px auto;
+  max-width: 720px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 80, 60, 0.35);
+  border-radius: 10px;
+  background: rgba(30, 8, 6, 0.6);
+}
+.sv-recap-killer {
+  margin: 4px 0 8px;
+}
+.sv-recap-killer b {
+  color: #ff6a4a;
+}
+.sv-recap-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 640px) {
+  .sv-recap-cols {
+    grid-template-columns: 1fr;
+  }
+}
+.sv-recap-last {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+.sv-recap-last li {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+}
+.sv-recap-last li span {
+  flex: 1;
+}
+.sv-recap-last li b {
+  color: #ff6a4a;
+}
+.sv-recap-last li em {
+  opacity: 0.6;
+  font-size: 11px;
+  font-style: normal;
+}
+.sv-dmg-bar.enemy > div {
+  background: linear-gradient(90deg, #a01a1a, #ff5a3a);
+}
+
+/* 🎒 gear v2: drag & drop, details under the item, ♻️ recycling, ⚒️ crafting */
+.poe-pop {
+  position: fixed;
+  z-index: 60;
+  width: 320px;
+}
+.poe-pop.up {
+  transform: translateY(-100%);
+}
+.poe-pop .poe-tip {
+  max-width: none;
+}
+.sv-doll-slot {
+  cursor: pointer;
+}
+.sv-doll-slot.drop-ok,
+.sv-doll-hero.drop-ok {
+  outline: 2px dashed #7cff8a;
+  outline-offset: 2px;
+  background: rgba(60, 140, 60, 0.25);
+}
+.poe-cell.picked {
+  outline: 2px solid #7cff8a;
+  outline-offset: -2px;
+  filter: brightness(0.75);
+}
+.poe-pick {
+  position: absolute;
+  left: 2px;
+  top: 0;
+  font-size: 11px;
+  font-style: normal;
+}
+.sv-bag-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0 6px;
+}
+.sv-bag-head h3 {
+  margin: 0;
+}
+.sv-bag-head > button.on {
+  border-color: #7cff8a;
+  color: #7cff8a;
+}
+.sv-dust {
+  margin-left: auto;
+  color: #bfe8ff;
+  font-weight: 700;
+}
+.sv-recycle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+  padding: 6px 8px;
+  border: 1px solid rgba(124, 255, 138, 0.3);
+  border-radius: 8px;
+  background: rgba(20, 40, 20, 0.4);
+}
+.sv-rar-btn {
+  color: var(--rc);
+  border-color: color-mix(in srgb, var(--rc) 60%, #000);
+  font-family: Georgia, "Times New Roman", serif;
+}
+.sv-craft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 210, 120, 0.2);
+  border-radius: 10px;
+  background: rgba(30, 20, 10, 0.5);
+}
+.sv-craft-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.sv-craft-kinds button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 70px;
+  padding: 4px 6px;
+}
+.sv-craft-kinds button span {
+  font-size: 22px;
+}
+.sv-craft-kinds button.on {
+  border-color: #ffd34d;
+  box-shadow: 0 0 8px rgba(255, 210, 80, 0.5);
+}
+.sv-craft-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 6px;
+}
+.sv-craft-tiers button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  text-align: left;
+}
+.sv-craft-tiers button span {
+  color: #bfe8ff;
+  font-weight: 700;
+}
+.sv-craft-tiers em {
+  font-style: normal;
+  font-size: 11.5px;
+}
+.sv-crafted {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}

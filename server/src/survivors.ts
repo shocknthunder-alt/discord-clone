@@ -38,6 +38,11 @@ import {
   survRollDrop,
   survLookKey,
   SURV_PETS,
+  SURV_CRAFT,
+  SURV_ITEM_KINDS,
+  survRollCraft,
+  survSalvageDust,
+  type SurvItemKind,
   isSurvPet,
   type SurvPetId,
   survSalvageGold,
@@ -137,7 +142,8 @@ function readProfile(row: { gold: number; upgrades: unknown; heroes: unknown; st
   }
   const pets = strList(ex.pets, isSurvPet) as SurvPetId[];
   const pet = isSurvPet(ex.pet) && pets.includes(ex.pet) ? ex.pet : null;
-  return { gold: row?.gold ?? 0, upgrades, heroes, stats, skins, achievements, bossTypes, runes, equipped, missions, items, gear, diffs, pets, pet };
+  const dust = typeof ex.dust === "number" && ex.dust > 0 ? Math.floor(ex.dust) : 0;
+  return { gold: row?.gold ?? 0, upgrades, heroes, stats, skins, achievements, bossTypes, runes, equipped, missions, items, gear, diffs, pets, pet, dust };
 }
 
 const extraOf = (p: SurvProfileDTO, over: Partial<Record<string, unknown>> = {}) =>
@@ -153,6 +159,7 @@ const extraOf = (p: SurvProfileDTO, over: Partial<Record<string, unknown>> = {})
   diffs: p.diffs ?? {},
   pets: p.pets ?? [],
   pet: p.pet ?? null,
+  dust: p.dust ?? 0,
     ...over,
   }) as unknown as Prisma.InputJsonObject;
 
@@ -298,10 +305,9 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
       if (k < 0 || it.r < items[k]!.r || (it.r === items[k]!.r && it.d < items[k]!.d)) k = i;
     });
     if (k < 0) break;
-    salvaged += survSalvageGold(items[k]!);
+    salvaged += survSalvageDust(items[k]!);
     items.splice(k, 1);
   }
-  goldEarned += salvaged;
   const missionsWon = Object.values(missions).filter((n) => (n ?? 0) > 0).length;
   const stats: SurvStats = {
     bestSeconds: Math.max(before.stats.bestSeconds, seconds),
@@ -323,7 +329,7 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
   const achGold = newAchievements.reduce((s, a) => s + a.gold, 0);
   goldEarned += achGold;
   const boughtHeroes = before.heroes.filter((h) => SURV_HEROES.find((x) => x.id === h)?.unlock.kind === "gold");
-  const extra = extraOf(before, { achievements: [...before.achievements, ...newAchievements.map((a) => a.id)], bossTypes: allBossTypes, missions, diffs, items });
+  const extra = extraOf(before, { achievements: [...before.achievements, ...newAchievements.map((a) => a.id)], bossTypes: allBossTypes, missions, diffs, items, dust: (before.dust ?? 0) + salvaged });
   await prisma.survivorProfile.upsert({
     where: { userId },
     create: { userId, gold: goldEarned, upgrades: {}, heroes: [], stats: { ...stats }, extra },
@@ -402,7 +408,27 @@ survivorsRouter.post("/text-channels/:channelId/survivors/equip", async (req, re
   res.json(await lists(ch.serverId, userId));
 });
 
-/** 🎒 Break items down for gold (worn ones are taken off first). */
+/** ⚒️ Craft a thing of the chosen kind for dust (rarity by the tier's chances; item level = the highest difficulty open). */
+survivorsRouter.post("/text-channels/:channelId/survivors/craft", async (req, res) => {
+  const ch = await survChannel(req, res);
+  if (!ch) return;
+  const hero = typeof req.body?.hero === "string" && heroIds.has(req.body.hero) ? (req.body.hero as SurvHeroId) : null;
+  const kind = SURV_ITEM_KINDS.find((k) => k === req.body?.kind) as SurvItemKind | undefined;
+  const tier = typeof req.body?.tier === "number" ? Math.floor(req.body.tier) : -1;
+  const info = SURV_CRAFT[tier];
+  if (!hero || !kind || !info) return res.status(400).json({ error: "Bad craft" });
+  const userId = req.userId!;
+  const p = await profileOf(userId);
+  if ((p.dust ?? 0) < info.cost) return res.status(400).json({ error: "Not enough dust" });
+  if ((p.items ?? []).length >= SURV_INV_MAX) return res.status(400).json({ error: "Bag full" });
+  const diff = Math.max(0, ...Object.values(p.diffs ?? {}).map((d) => d ?? 0));
+  const item = survRollCraft(Math.random, hero, kind, tier, diff, newItemId());
+  if (!item) return res.status(400).json({ error: "Bad craft" });
+  await prisma.survivorProfile.update({ where: { userId }, data: { extra: extraOf(p, { items: [...(p.items ?? []), item], dust: (p.dust ?? 0) - info.cost }) } });
+  res.json({ item, ...(await lists(ch.serverId, userId)) });
+});
+
+/** ♻️ Recycle items into dust (worn ones are taken off first). */
 survivorsRouter.post("/text-channels/:channelId/survivors/salvage", async (req, res) => {
   const ch = await survChannel(req, res);
   if (!ch) return;
@@ -411,13 +437,13 @@ survivorsRouter.post("/text-channels/:channelId/survivors/salvage", async (req, 
   const p = await profileOf(userId);
   const gone = (p.items ?? []).filter((i) => ids.has(i.id));
   if (!gone.length) return res.json(await lists(ch.serverId, userId));
-  const gold = gone.reduce((a, i) => a + survSalvageGold(i), 0);
+  const dust = gone.reduce((a, i) => a + survSalvageDust(i), 0);
   const items = (p.items ?? []).filter((i) => !ids.has(i.id));
   const gear: NonNullable<SurvProfileDTO["gear"]> = {};
   for (const [h, g] of Object.entries(p.gear ?? {})) {
     gear[h as SurvHeroId] = Object.fromEntries(Object.entries(g ?? {}).filter(([, id]) => !ids.has(id as string)));
   }
-  await prisma.survivorProfile.update({ where: { userId }, data: { gold: { increment: gold }, extra: extraOf(p, { items, gear }) } });
+  await prisma.survivorProfile.update({ where: { userId }, data: { extra: extraOf(p, { items, gear, dust: (p.dust ?? 0) + dust }) } });
   res.json(await lists(ch.serverId, userId));
 });
 

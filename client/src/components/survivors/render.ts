@@ -1,5 +1,5 @@
 import type { SurvHeroId, SurvMapId } from "@discord-clone/shared";
-import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, HEROES, RARITY, type EnemyId } from "./content";
+import { AFFIXES, AFFIX_TEXT, COMBO_IDS, ENEMIES, ENEMY_IDS, HEROES, RARITY, type EnemyId } from "./content";
 import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RPlayer, type RView } from "./engine";
 import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, petSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
@@ -190,6 +190,9 @@ export class Renderer {
         case FX.text:
           this.texts.push({ x: f[1] as number, y: f[2] as number, text: String(f[3]), col: String(f[4]), life: 1.4, big: true });
           break;
+        case FX.combo:
+          if (this.particles.length < 700) this.comboLook(COMBO_IDS[f[1] as number], f[2] as number, f[3] as number, f[4] as number);
+          break;
         case FX.bossDie:
           this.shake = 0.7;
           for (let i = 0; i < 80; i++) {
@@ -241,6 +244,87 @@ export class Renderer {
   }
   private ring(x: number, y: number, r0: number, r1: number, life: number, col: string, w = 5) {
     this.rings.push({ x, y, r0, r1, life, max: life, col, w });
+  }
+
+  /** 🔗 every weapon combo has its own look */
+  private comboLook(c: string | undefined, x: number, y: number, r: number) {
+    const glyphs = (n: number, chars: string[], col: string, spread: number, life = 1) => {
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const d = Math.random() * spread;
+        this.texts.push({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.7, text: chars[i % chars.length]!, col, life: life * (0.7 + Math.random() * 0.5), big: true });
+      }
+    };
+    switch (c) {
+      case "gorburya":
+        // fire + lightning: orange forks up out of the burning ground
+        for (let i = 0; i < 3; i++) {
+          const a = Math.random() * Math.PI * 2;
+          this.bolts.push({ pts: [x, y, x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.5 - 20, x + Math.cos(a) * r * 1.4, y - 50 - Math.random() * 30], life: 0.25 });
+        }
+        this.burst(x, y, 14, ["#ff8a1a", "#ffd34d", "#9fdcff"], 140, 0.6, 3, 120);
+        break;
+      case "chesanprase":
+        // a green garlic stink: puffs + garlic cloves
+        this.burst(x, y, 10, ["#b8e05a", "#e8f0c0", "#7aa83a"], 70, 0.9, 5, 30);
+        glyphs(1, ["🧄"], "#e8f0c0", 18, 0.8);
+        break;
+      case "svatba":
+        // a wedding horo: rainbow rings + music notes flying out
+        for (const [col, k] of [
+          ["255,90,90", 1],
+          ["255,210,80", 0.85],
+          ["90,200,120", 0.7],
+          ["90,150,255", 0.55],
+        ] as [string, number][])
+          this.ring(x, y, 10, r * k, 0.8, col, 5);
+        glyphs(12, ["♪", "♫", "♬"], "#ffe08a", r * 0.8, 1.2);
+        break;
+      case "zakuska":
+        // breakfast: golden crumbs and beans
+        this.burst(x, y, 18, ["#e8b04a", "#f6d68a", "#8a4a20", "#c87a3a"], 180, 0.7, 3.5, 60);
+        this.ring(x, y, 4, r, 0.35, "246,214,138", 3);
+        break;
+      case "zhatva":
+        // the harvest: a golden scythe sweep + wheat
+        this.rings.push({ x, y, r0: r * 0.4, r1: r * 1.3, life: 0.4, max: 0.4, col: "255,224,138", w: 6 });
+        this.burst(x, y, 10, ["#ffe08a", "#d8b050"], 160, 0.5, 2.5, 40);
+        glyphs(2, ["🌾"], "#ffe08a", 14, 0.9);
+        break;
+      case "haiduti":
+        // outlaws: stunned stars over the head
+        glyphs(3, ["★", "✦", "★"], "#fff27a", 14, 0.8);
+        break;
+      case "prolet":
+        // spring: pink petals drifting down + a green ring
+        this.ring(x, y, 20, r, 0.9, "124,255,138", 4);
+        for (let i = 0; i < 26; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const d = Math.random() * r;
+          this.particles.push({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.7 - 60, vx: (Math.random() - 0.5) * 40, vy: 20 + Math.random() * 30, life: 1.4, max: 1.4, col: ["#ff9ad0", "#ffd0e8", "#ffffff"][i % 3]!, size: 4 });
+        }
+        break;
+      case "roy":
+        // a swarm: bees circling out
+        for (let i = 0; i < 22; i++) {
+          const a = (i / 22) * Math.PI * 2;
+          const s = r * (1.4 + Math.random() * 0.8);
+          this.particles.push({ x: x + Math.cos(a) * 20, y: y + Math.sin(a) * 14, vx: Math.cos(a + 1.2) * s, vy: Math.sin(a + 1.2) * s * 0.7 - 60, life: 0.9, max: 0.9, col: i % 2 ? "#ffd21a" : "#2a1a08", size: 3.5 });
+        }
+        this.ring(x, y, 20, r, 0.6, "255,210,30", 3);
+        break;
+      case "gramkrik":
+        // a thunder shout: blue shock rings
+        this.ring(x, y, 10, r * 0.6, 0.35, "140,200,255", 7);
+        this.ring(x, y, 10, r, 0.55, "200,235,255", 3);
+        this.burst(x, y, 12, ["#cdeeff", "#7ab8ff"], 220, 0.4, 2.5);
+        break;
+      case "ognenkazan":
+        // a burning cauldron: a fire column + black smoke
+        this.burst(x, y, 16, ["#ff5a1a", "#ffb21a", "#fff27a"], 120, 0.7, 4, 220);
+        this.burst(x, y - 20, 8, ["#3a3430", "#5a524a"], 60, 1.1, 6, 90);
+        break;
+    }
   }
 
   /** 💬 speech bubbles over heroes (their skill line) */
@@ -1158,7 +1242,8 @@ export class Renderer {
       p.y += p.vy * dt;
       p.vx *= 1 - dt * 3;
       p.vy = p.vy * (1 - dt * 3) + 200 * dt;
-      c.globalAlpha = p.life / p.max;
+      // (the ✨ slider fades our own effects too: sparks, blasts, rings, lightning — the enemies' stay)
+      c.globalAlpha = (p.life / p.max) * fa;
       c.fillStyle = p.col;
       c.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     }
@@ -1173,6 +1258,7 @@ export class Renderer {
         continue;
       }
       const k = 1 - b.life / b.max;
+      c.globalAlpha = b.kind === 7 ? 1 : fa;
       c.beginPath();
       c.arc(b.x, b.y, b.r * (0.3 + 0.7 * k), 0, Math.PI * 2);
       c.fillStyle = `rgba(${BOOM_FILL[b.kind] ?? "255,210,80"},${0.45 * (1 - k)})`;
@@ -1182,6 +1268,7 @@ export class Renderer {
       c.stroke();
     }
 
+    c.globalAlpha = fa;
     // skill rings
     for (let i = this.rings.length - 1; i >= 0; i--) {
       const r = this.rings[i]!;
@@ -1233,6 +1320,7 @@ export class Renderer {
       }
     }
     c.globalCompositeOperation = "source-over";
+    c.globalAlpha = 1;
 
     // floating numbers / texts
     c.textAlign = "center";
@@ -1259,7 +1347,7 @@ export class Renderer {
       this.flash.t -= dt;
       if (this.flash.t <= 0) this.flash = null;
       else {
-        c.fillStyle = `rgba(${this.flash.col},${0.38 * (this.flash.t / this.flash.max)})`;
+        c.fillStyle = `rgba(${this.flash.col},${0.38 * (this.flash.t / this.flash.max) * fa})`;
         c.fillRect(0, 0, this.w, this.h);
       }
     }

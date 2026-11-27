@@ -296,6 +296,8 @@ export interface SurvProfileDTO {
   /** (2026-11-27+) 🐾 pets bought, the one that comes along */
   pets?: SurvPetId[];
   pet?: SurvPetId | null;
+  /** (2026-11-27+) ✨ dust from recycling (spent on crafting) */
+  dust?: number;
 }
 
 export interface SurvTopRow {

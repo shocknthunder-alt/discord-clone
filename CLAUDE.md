@@ -281,6 +281,14 @@ Owner pronouns unknown: use they/them.
   last one 18 jumps ×2). Стана = Чумна отвара (8 s cloud r 270: poison + slow, the party heals 4%/s; poisoned enemies that
   die near her go to `World.plague` and burst next frames (6/frame, ≤ 60) spreading poison — no more gem gathering, the
   pets do that). Every hero has `skill.quote` (content.ts) shown as a speech bubble (`Renderer.bubbles`, on FX.skill).
+  ✨ slider (`fxAlpha`) also fades particles, blasts (not enemy kind 7), rings, lightning and the skill flash. Цървул flies
+  ~2× as far (out 1.1 s). 🔗 combos have their own look: `FX.combo` [index, x, y, r] → `Renderer.comboLook`. 💀 DEATH RECAP:
+  `hurtPlayer(p, dmg, src)` (sources = `nameOf(e)` + move, enemy shots carry `Proj.src`) → `Player.recap` {by, last 8,
+  killer}; net player index 32 (only when down / over); end screen `.sv-recap`. 🎒 gear v2: items drag & drop (bag →
+  slot / hero, slot → bag = take off; `dragRef`), click = details popover `.poe-pop` fixed under/over the item (Сложи /
+  Свали / ♻️). ♻️ recycling gives ✨ DUST (`extra.dust`, `survSalvageDust` 1/3/8/20 × (1+0.1d); full-bag auto-recycle too),
+  mode with "mark all <rarity>" + one by one; ⚒️ CRAFT POST `/survivors/craft` {hero, kind, tier} (`SURV_CRAFT` 30/90/250
+  dust, rarity weights per tier, item level = highest difficulty open).
   🎒 GEAR + ☠️ DIFFICULTY (2026-11-27, `packages/shared/src/survItems.ts`): items are PERMANENT in SurvivorProfile.extra
   `items` (≤ 80) + `gear` {hero: {weapon|armor|amulet: itemId}}; bases `SURV_ITEM_BASES` (weapons = 2 per hero, armour /
   amulets anyone), rarity 0..3 = 1..4 stats (`survRollItem`, legendary may get +1 projectile), names in content.ts

@@ -214,6 +214,7 @@ export const FX = {
   streak: 17, // count
   wave: 18, // wave boss(0/1)
   task: 19, // 1 done / 0 failed, text
+  combo: 20, // comboIndex x y r — each weapon combo has its own look
 } as const;
 export type Fx = (number | string | string[])[];
 
@@ -299,6 +300,8 @@ export interface Player extends RPlayer {
   bellT: number;
   /** 🔨 temper cards taken; 🔗 combo timers */
   tempers: Partial<Record<TemperId, number>>;
+  /** 💀 the death recap: damage taken by source, the last hits, what finished you */
+  recap: { by: Record<string, number>; last: { s: string; d: number; t: number }[]; killer: string };
   /** 🐾 what the pet is flying to */
   petTgt: Gem | null;
   petT: number;
@@ -375,6 +378,8 @@ export interface Proj extends RProj {
   d: number[];
   weapon: number;
   dead: boolean;
+  /** an enemy's shot: whose (the death recap) */
+  src?: string;
 }
 
 export interface Gem extends RGem {
@@ -661,6 +666,7 @@ export class World {
         look: s.look ?? "",
         pet: s.pet && PET_PICKS[s.pet] ? { k: s.pet, x: 0, y: 0, face: 1 } : null,
         petTgt: null,
+        recap: { by: {}, last: [], killer: "" },
         petT: 0,
         loot: [],
         comboT: { svatba: 4, prolet: 6, roy: 3, krik: 0 },
@@ -1263,6 +1269,12 @@ export class World {
     }
   }
 
+  /** 🔗 a combo's own look (the renderer draws it; not too often for the ones that fire on every hit) */
+  private comboFx(c: ComboId, x: number, y: number, r: number, chance = 1) {
+    if (chance < 1 && Math.random() > chance) return;
+    this.fx.push([FX.combo, COMBO_IDS.indexOf(c), Math.round(x), Math.round(y), Math.round(r)]);
+  }
+
   /** 🔗 weapon combos that fire when a weapon hits (their own damage is index -5, so they never chain) */
   private comboHit(p: Player, e: Enemy, d: number, wi: number) {
     const wid = WEAPON_IDS[wi];
@@ -1272,20 +1284,23 @@ export class World {
     let k = 0;
     if (wid === "tesla" && (k = t("gorburya")) && Math.random() < 0.2 + 0.15 * k) {
       this.addProj(p, PK.fire, e.x, e.y, 0, 0, { dmg: 6 * k * p.st.might * grow, pierce: 999, life: 2, r: 38 * p.st.area, hitCd: 0.4, weapon: -5 });
+      this.comboFx("gorburya", e.x, e.y, 38 * p.st.area);
     }
     if (wid === "prase" && (k = t("chesanprase")) && e.type !== "altar") {
       e.poisonT = 3;
       e.poisonD = Math.max(e.poisonD, 10 * k * p.st.might * grow);
       e.poisonBy = this.players.indexOf(p);
       if (!e.boss) e.slowT = Math.max(e.slowT, 1.2);
+      this.comboFx("chesanprase", e.x, e.y, 40, 0.3);
     }
     if ((wid === "banitsa" || wid === "kazan") && (k = t("zakuska")) && Math.random() < 0.5) {
       this.explode(p, e.x, e.y, (35 + 30 * k) * p.st.area, d * 0.5, 0, -5);
+      this.comboFx("zakuska", e.x, e.y, (35 + 30 * k) * p.st.area);
     }
     if ((wid === "sarp" || wid === "bradva") && (k = t("zhatva")) && !e.boss && !e.elite && e.type !== "altar" && e.hp > 0 && e.hp < e.maxHp * (k === 1 ? 0.15 : 0.25)) {
       p.dmgBy[-5] = (p.dmgBy[-5] ?? 0) + e.hp;
       e.hp = 0;
-      this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 8), "🌾", "#ffe08a"]);
+      this.comboFx("zhatva", e.x, e.y, 50);
     }
     if ((wid === "pishtov" || wid === "tsarvul") && (k = t("haiduti")) && !e.boss && e.type !== "altar") {
       this.stun(e, 0.4 * k);
@@ -1295,9 +1310,11 @@ export class World {
       const kb = (e.elite ? 60 : 200) * k * this.ccMul(e);
       e.kx += (dx / len) * kb;
       e.ky += (dy / len) * kb;
+      this.comboFx("haiduti", e.x, e.y - e.r, 16, 0.35);
     }
     if (wid === "krik" && (k = t("gramkrik")) && p.comboT.krik <= 0) {
       p.comboT.krik = 0.4;
+      this.comboFx("gramkrik", e.x, e.y, 280);
       const near = this.within(e.x, e.y, 280).filter((q) => q !== e && q.type !== "pot");
       near.sort(() => Math.random() - 0.5);
       for (const q of near.slice(0, k === 1 ? 3 : 5)) {
@@ -1307,6 +1324,7 @@ export class World {
     }
     if (wid === "kazan" && (k = t("ognenkazan")) && Math.random() < 0.25 + 0.15 * k) {
       this.explode(p, e.x, e.y, 65 * p.st.area, this.skillDmg(p, 10 * k), 3, -5);
+      this.comboFx("ognenkazan", e.x, e.y, 65 * p.st.area);
     }
   }
 
@@ -1443,20 +1461,20 @@ export class World {
         e.kx += (dx / len) * 260 * this.ccMul(e);
         e.ky += (dy / len) * 260 * this.ccMul(e);
       }
-      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 50), "🎶", "#ffe08a"]);
+      this.comboFx("svatba", p.x, p.y, 240 * p.st.area);
     }
     k = comboTier(p.weapons, "prolet");
     if (k && (T.prolet -= dt) <= 0) {
       T.prolet = k === 1 ? 10 : 6;
       this.heal(p, p.maxHp * (k === 1 ? 0.06 : 0.1));
       for (const e of this.within(p.x, p.y, 300)) if (!e.boss) e.slowT = Math.max(e.slowT, 2);
-      this.fx.push([FX.text, Math.round(p.x), Math.round(p.y - 50), "🌸", "#ff9ad0"]);
+      this.comboFx("prolet", p.x, p.y, 300);
     }
     k = comboTier(p.weapons, "roy");
     if (k && (T.roy -= dt) <= 0) {
       T.roy = k === 1 ? 4 : 2.5;
       const r = 160 * p.st.area;
-      this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(r), 6]);
+      this.comboFx("roy", p.x, p.y, r);
       for (const e of this.within(p.x, p.y, r)) {
         if (e.type === "pot" || e.type === "altar") continue;
         e.poisonT = 3;
@@ -1568,7 +1586,7 @@ export class World {
     }
     if (e.affix >= 0 && AFFIXES[e.affix] === "explosive") {
       this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 95, 3]);
-      for (const q of this.alive) if (dist2(q.x, q.y, e.x, e.y) < 95 * 95) this.hurtPlayer(q, e.dmg * 1.2);
+      for (const q of this.alive) if (dist2(q.x, q.y, e.x, e.y) < 95 * 95) this.hurtPlayer(q, e.dmg * 1.2, `${this.nameOf(e)} (взрив)`);
     }
     if (e.life > 0) {
       // swarm bats still give a little XP
@@ -1733,7 +1751,11 @@ export class World {
     this.gems.push({ x: x + rand(-4, 4), y: y + rand(-4, 4), k: v >= 10 ? GK.red : v >= 3 ? GK.green : GK.blue, v, mag: false, sp: 0 });
   }
 
-  private hurtPlayer(p: Player, dmg: number) {
+  private nameOf(e: Enemy) {
+    return `${ENEMIES[e.type].name}${e.elite ? " (елитен)" : ""}`;
+  }
+
+  private hurtPlayer(p: Player, dmg: number, src = "?") {
     if (p.dead || p.invulnT > 0 || p.buffs.shield > 0 || (p.skillT > 0 && p.hero === "tseko")) return;
     if (p.veilN > 0) {
       // 🧶 the veil takes the hit
@@ -1772,6 +1794,13 @@ export class World {
       return;
     }
     p.hp -= d;
+    {
+      const R = p.recap;
+      R.by[src] = (R.by[src] ?? 0) + d;
+      R.last.push({ s: src, d: Math.round(d), t: Math.round(this.t * 10) / 10 });
+      if (R.last.length > 8) R.last.shift();
+      if (p.hp <= 0) R.killer = src;
+    }
     p.invulnT = 0.45;
     p.hurtT = 0.25;
     this.sinceHit = 0;
@@ -2409,12 +2438,13 @@ export class World {
     for (const p of this.players) {
       if (p.dead || p.gone) continue;
       const rr = e.r + PLAYER_R - 4;
-      if (dist2(p.x, p.y, e.x, e.y) < rr * rr) this.hurtPlayer(p, e.dmg);
+      if (dist2(p.x, p.y, e.x, e.y) < rr * rr) this.hurtPlayer(p, e.dmg, this.nameOf(e));
     }
   }
 
-  private enemyShot(e: { x: number; y: number }, dx: number, dy: number, speed: number, kind: number, dmg: number, life = 5) {
+  private enemyShot(e: { x: number; y: number; type?: EnemyId }, dx: number, dy: number, speed: number, kind: number, dmg: number, life = 5) {
     this.projs.push({
+      src: e.type ? `${ENEMIES[e.type].name} — снаряд` : undefined,
       id: this.nextId++,
       kind,
       x: e.x,
@@ -2477,16 +2507,16 @@ export class World {
         e.x = pm.x;
         e.y = pm.y;
         this.fx.push([FX.boom, Math.round(pm.x), Math.round(pm.y), 110, 5]);
-        for (const p of this.alive) if (dist2(p.x, p.y, pm.x, pm.y) < (110 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * (this.wave <= 10 ? 1 : 1.3));
+        for (const p of this.alive) if (dist2(p.x, p.y, pm.x, pm.y) < (110 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * (this.wave <= 10 ? 1 : 1.3), `${this.nameOf(e)} — скок`);
       } else if (pm.move === "nova") {
         this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 210, 3]);
-        for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (210 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * 1.5);
+        for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (210 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg * 1.5, `${this.nameOf(e)} — взрив`);
       } else if (pm.move === "blink") {
         this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 70, 7]);
         e.x = pm.x;
         e.y = pm.y;
         this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 80, 7]);
-        for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (80 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg);
+        for (const p of this.alive) if (dist2(p.x, p.y, e.x, e.y) < (80 + PLAYER_R) ** 2) this.hurtPlayer(p, e.dmg, `${this.nameOf(e)} — изскочи до теб`);
         const n = e.rage ? 20 : 14;
         for (let i = 0; i < n; i++) {
           const a = (i / n) * Math.PI * 2;
@@ -2647,7 +2677,7 @@ export class World {
             const off = Math.abs(((ang - aimed + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
             this.fx.push([FX.bolt, Math.round(e.x), Math.round(e.y), Math.round(e.x + e.tx * 430), Math.round(e.y + e.ty * 430)]);
             if (dist < 440 && off < 0.35) {
-              this.hurtPlayer(tgt, e.dmg * 0.7);
+              this.hurtPlayer(tgt, e.dmg * 0.7, "Мимикът — езикът");
               if (!tgt.remote && !tgt.dead) {
                 tgt.x += (e.x - tgt.x) * 0.45;
                 tgt.y += (e.y - tgt.y) * 0.45;
@@ -2848,7 +2878,7 @@ export class World {
           // the roar: pushes and hurts everyone close
           this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 220, 5]);
           this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - 60), "🐻 РРРРААА!", "#ff8a6a"]);
-          for (const pl of this.alive) if (dist2(pl.x, pl.y, e.x, e.y) < 220 * 220) this.hurtPlayer(pl, e.dmg * 0.8);
+          for (const pl of this.alive) if (dist2(pl.x, pl.y, e.x, e.y) < 220 * 220) this.hurtPlayer(pl, e.dmg * 0.8, `${this.nameOf(e)} — рев`);
           if (Math.random() < 0.5) for (let i = 0; i < 2; i++) this.spawn("bear", e.x + rand(-100, 100), e.y + rand(-100, 100));
         }
         if (charge(4, 520)) return;
@@ -2914,7 +2944,7 @@ export class World {
           e.vy -= dt;
           if (e.vy <= 0) {
             this.fx.push([FX.boom, Math.round(e.x), Math.round(e.y), 260, 4]);
-            for (const pl of this.alive) if (dist2(pl.x, pl.y, e.x, e.y) < 260 * 260) this.hurtPlayer(pl, e.dmg * 1.1);
+            for (const pl of this.alive) if (dist2(pl.x, pl.y, e.x, e.y) < 260 * 260) this.hurtPlayer(pl, e.dmg * 1.1, `${this.nameOf(e)} — ледена вълна`);
           }
         }
         return;
@@ -3033,7 +3063,7 @@ export class World {
       switch (w.id) {
         case "tsarvul": {
           const n = amount + (w.evo ? 2 : 0);
-          const tgt = this.nearest(p.x, p.y, 500);
+          const tgt = this.nearest(p.x, p.y, 650);
           const base = tgt ? Math.atan2(tgt.y - p.y, tgt.x - p.x) : face;
           for (let i = 0; i < n; i++) {
             const a = w.evo ? base + (i / n) * Math.PI * 2 : base + (i - (n - 1) / 2) * 0.35;
@@ -3041,11 +3071,12 @@ export class World {
             this.addProj(p, w.evo ? PK.bigTsarvul : PK.tsarvul, p.x, p.y, Math.cos(a) * sp, Math.sin(a) * sp, {
               dmg: dmg * (w.evo ? 1.5 : 1),
               pierce: 999,
-              life: 4,
+              life: 5.5,
               r: 13 * area * (w.evo ? 1.5 : 1),
               hitCd: 0.5,
               knock: 60,
-              d: [0, 0.42 * s.dur * p.st.duration, sp],
+              // flies out ~1.1 s (about twice as far as before 2026-11-27), then comes back
+              d: [0, 1.1 * s.dur * p.st.duration, sp],
               weapon: wi,
             });
           }
@@ -3507,7 +3538,7 @@ export class World {
         for (const pl of this.players) {
           if (pl.dead || pl.gone) continue;
           if (dist2(pl.x, pl.y, q.x, q.y) < (q.r + PLAYER_R - 3) ** 2) {
-            this.hurtPlayer(pl, q.dmg);
+            this.hurtPlayer(pl, q.dmg, q.src ?? "вражески снаряд");
             if (!ZONES.has(q.kind)) {
               q.dead = true;
               break;
@@ -3714,7 +3745,7 @@ export class World {
         m.p = 1 - m.t / m.a;
         if (m.t <= 0) {
           this.fx.push([FX.boom, Math.round(m.x), Math.round(m.y), m.r, 4]);
-          for (const p of this.alive) if (dist2(p.x, p.y, m.x, m.y) < (m.r + PLAYER_R) ** 2) this.hurtPlayer(p, 14 * this.dmgMul());
+          for (const p of this.alive) if (dist2(p.x, p.y, m.x, m.y) < (m.r + PLAYER_R) ** 2) this.hurtPlayer(p, 14 * this.dmgMul(), "камъни от небето");
           this.grid.each(m.x, m.y, m.r + 20, (e) => {
             if (dist2(e.x, e.y, m.x, m.y) < (m.r + e.r) ** 2 && !e.boss) this.hurt(e, 40, null);
           });
@@ -3729,7 +3760,7 @@ export class World {
         m.p = 1 - m.t / m.a;
         if (m.t <= 0) {
           this.fx.push([FX.boom, Math.round(m.x), Math.round(m.y), m.r, 6]);
-          for (const p of this.alive) if (dist2(p.x, p.y, m.x, m.y) < (m.r + PLAYER_R) ** 2) this.hurtPlayer(p, 10 * this.dmgMul());
+          for (const p of this.alive) if (dist2(p.x, p.y, m.x, m.y) < (m.r + PLAYER_R) ** 2) this.hurtPlayer(p, 10 * this.dmgMul(), "отровна локва");
           this.enemyShot({ x: m.x, y: m.y }, 0, 0, 0, PK.poison, 8, 5);
         }
       }

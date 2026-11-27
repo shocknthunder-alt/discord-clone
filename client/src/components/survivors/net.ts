@@ -32,6 +32,8 @@ export interface NetPlayer extends RPlayer {
   tempers: Partial<Record<TemperId, number>>;
   /** 🎒 rarities of the items picked up */
   loot: number[];
+  /** 💀 the death recap (when down / at the end) */
+  recap?: { by: Record<string, number>; last: { s: string; d: number; t: number }[]; killer: string };
 }
 
 export interface Snapshot {
@@ -163,6 +165,8 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     x.loot,
     x.look ?? "",
     x.pet ? [x.pet.k, Math.round(x.pet.x - ox), Math.round(x.pet.y - oy), x.pet.face] : 0,
+    // 💀 the recap only when it matters (down, or the game is over)
+    x.dead || w.over ? { k: x.recap.killer, l: x.recap.last, b: Object.entries(x.recap.by).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([s, d]) => [s, Math.round(d)]) } : 0,
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -277,6 +281,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       relics: ((a[27] as number[] | undefined) ?? []).map((i) => RELIC_IDS[i]!).filter(Boolean),
       loot: ((a[29] as number[] | undefined) ?? []).filter((r) => typeof r === "number"),
       look: cleanSurvLook(a[30]),
+      recap: a[32] && typeof a[32] === "object" ? { killer: String((a[32] as { k?: unknown }).k ?? ""), last: ((a[32] as { l?: unknown[] }).l ?? []) as { s: string; d: number; t: number }[], by: Object.fromEntries(((a[32] as { b?: [string, number][] }).b ?? []) as [string, number][]) } : undefined,
       pet: Array.isArray(a[31]) && typeof a[31][0] === "string" ? { k: a[31][0] as string, x: (a[31][1] as number) + ox, y: (a[31][2] as number) + oy, face: (a[31][3] as number) || 1 } : null,
       tempers: Object.fromEntries(((a[28] as number[][] | undefined) ?? []).map(([id, n]) => [TEMPER_IDS[id!]!, n!]).filter(([id]) => id)),
     } as NetPlayer & { gone: boolean; shield: boolean };

@@ -380,10 +380,11 @@ test.describe("🧟 Шмиркленд", () => {
       expect(both.profile.gear.peyo.ring1).toBeUndefined();
       await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "peyo", slot: "ring2", item: null });
     }
-    // break one down: gold up, item gone, and taken off the hero
+    // ♻️ recycle one: dust up, item gone, and taken off the hero
     const before = (await api(bo.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile;
     const sv = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/salvage`, { items: [armor.id] });
-    expect(sv.profile.gold).toBeGreaterThan(before.gold);
+    expect(sv.profile.dust).toBeGreaterThan(before.dust ?? 0);
+    expect(sv.profile.gold).toBe(before.gold);
     expect(sv.profile.items.some((it: { id: string }) => it.id === armor.id)).toBe(false);
     expect(sv.profile.gear.peyo?.[armorSlot]).toBeUndefined();
 
@@ -396,6 +397,21 @@ test.describe("🧟 Шмиркленд", () => {
       used.add(k);
       await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "strahil", slot: k, item: it.id });
     }
+
+    // ⚒️ crafting: not enough dust → refused; recycle a pile (keep what Баткан wears), then craft a ring for 30
+    await expect(api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/craft`, { hero: "strahil", kind: "ring", tier: 2 })).rejects.toThrow();
+    const keep = new Set(Object.values(((await api(bo.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile.gear.strahil ?? {}) as Record<string, string>));
+    const pile = all.filter((it) => !keep.has(it.id)).slice(0, 30).map((it) => it.id);
+    let prof = (await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/salvage`, { items: pile })).profile;
+    for (let i = 0; i < 8 && prof.dust < 30; i++) {
+      await api(bo.token, "POST", url, { ...base, mission: false, loot: Array(14).fill(3) });
+      const p2 = (await api(bo.token, "GET", `/text-channels/${textChannel.id}/survivors`)).profile;
+      const k2 = new Set(Object.values((p2.gear.strahil ?? {}) as Record<string, string>));
+      prof = (await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/salvage`, { items: p2.items.filter((it: { id: string }) => !k2.has(it.id)).map((it: { id: string }) => it.id) })).profile;
+    }
+    const cr = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/craft`, { hero: "strahil", kind: "ring", tier: 0 });
+    expect(["srebaren", "venchalen", "rubin", "pechat", "zmiya"]).toContain(cr.item.b);
+    expect(cr.profile.dust).toBe(prof.dust - 30);
 
     // 🐾 a pet: bought (gold), it comes along
     const pet = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/pet`, { pet: "svraka" });
@@ -415,13 +431,26 @@ test.describe("🧟 Шмиркленд", () => {
     await b.page.locator(".sv-gear-heroes button").nth(4).click();
     await expect(b.page.locator(".sv-doll-slot:not(.empty)")).toHaveCount(used.size);
     await expect(b.page.locator(".sv-doll-slot.s-weapon")).not.toHaveClass(/empty/);
-    await b.page.locator(".poe-cell").first().hover();
-    await b.page.waitForTimeout(200);
+    // click an item → its details right under it
+    await b.page.locator(".poe-cell").first().click();
+    await expect(b.page.locator(".poe-pop .poe-tip")).toBeVisible();
     await b.page.screenshot({ path: "explore/surv-gear-hover.png" });
-    // a slot picked → the bag shows only what fits there
+    await b.page.locator(".poe-pop button", { hasText: "✕" }).click();
+    // a worn piece: click it on the hero → "Свали"; then drag it back on
     await b.page.locator(".sv-doll-slot.s-weapon").click();
-    await expect(b.page.locator(".sv-gear-picked")).toContainText("Оръжие");
-    await b.page.locator(".sv-doll-slot.s-weapon").click();
+    await b.page.locator(".poe-pop button", { hasText: "Свали" }).click();
+    await expect(b.page.locator(".sv-doll-slot.s-weapon")).toHaveClass(/empty/);
+    const weaponCell = b.page.locator(".poe-cell", { has: b.page.locator("img") }).filter({ hasNot: b.page.locator(".poe-worn") });
+    await b.page.locator(".sv-doll-slot.s-weapon").click(); // pick the slot → the bag shows weapons only
+    await weaponCell.first().dragTo(b.page.locator(".sv-doll-slot.s-weapon"));
+    await expect(b.page.locator(".sv-doll-slot.s-weapon")).not.toHaveClass(/empty/);
+    // ♻️ recycle mode: mark all common ones
+    await b.page.locator(".sv-bag-head button", { hasText: "Рециклиране" }).click();
+    await expect(b.page.locator(".sv-recycle")).toBeVisible();
+    await b.page.locator(".sv-recycle .sv-rar-btn").first().click();
+    await b.page.locator(".sv-craft").scrollIntoViewIfNeeded();
+    await expect(b.page.locator(".sv-craft-tiers button")).toHaveCount(3);
+    await b.page.screenshot({ path: "explore/surv-craft.png" });
     await b.page.locator(".sv-gear").screenshot({ path: "explore/surv-gear.png" });
     await b.page.locator(".sv-tabs button", { hasText: "Игра" }).click();
     await b.page.locator(".sv-hero").nth(4).click().catch(() => {});
