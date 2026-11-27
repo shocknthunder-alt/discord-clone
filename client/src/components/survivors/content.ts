@@ -411,6 +411,7 @@ export type EnemyId =
   | "kukerchief"
   | "ghostking"
   | "bearking"
+  | "mimic"
   | "altar"
   | "velikan"
   | "gorskicar"
@@ -465,6 +466,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
   kukerchief: { id: "kukerchief", name: "Кукерският вожд", hp: 4800, speed: 66, dmg: 26, r: 36, xp: 150, from: 999, boss: true },
   ghostking: { id: "ghostking", name: "Таласъмският цар", hp: 4200, speed: 76, dmg: 22, r: 34, xp: 150, from: 999, boss: true, ranged: true, ghost: true },
   bearking: { id: "bearking", name: "Мечият цар", hp: 6400, speed: 58, dmg: 32, r: 44, xp: 170, from: 999, boss: true },
+  mimic: { id: "mimic", name: "Мимикът", hp: 5200, speed: 64, dmg: 28, r: 34, xp: 170, from: 999, boss: true },
   // 🎯 missions: the sanctuaries to break, and each map's final giant
   altar: { id: "altar", name: "Капище", hp: 260, speed: 0, dmg: 0, r: 30, xp: 0, from: 999 },
   velikan: { id: "velikan", name: "Великанът Балкан", hp: 16000, speed: 46, dmg: 34, r: 56, xp: 300, from: 999, boss: true, ranged: true },
@@ -476,7 +478,7 @@ export const ENEMIES: Record<EnemyId, EnemyDef> = {
 export const ENEMY_IDS = Object.keys(ENEMIES) as EnemyId[];
 /** the easier ones come first (shuffled among themselves), then the rest — no boss twice until all were seen */
 export const BOSS_EASY: EnemyId[] = ["karak", "mora", "lamia", "kukerchief"];
-export const BOSS_HARD: EnemyId[] = ["wolfking", "chuma", "zmey", "hala", "vampking", "ispolin", "samqueen", "swampking", "ghostking", "bearking"];
+export const BOSS_HARD: EnemyId[] = ["wolfking", "chuma", "zmey", "hala", "vampking", "ispolin", "samqueen", "swampking", "ghostking", "bearking", "mimic"];
 export const BOSS_ORDER: EnemyId[] = [...BOSS_EASY, ...BOSS_HARD];
 
 /** 💀 spells the bosses cast on top of their own attacks */
@@ -646,6 +648,7 @@ export const BOSS_SPELLS: Partial<Record<EnemyId, [BossMove, string][]>> = {
   swampking: [["wall", "🌊 Тинеста вълна"], ["shield", "🪵 Тинеста броня"]],
   ghostking: [["blink", "👻 През стените"], ["summon", "💀 Свитата на мъртвите"]],
   bearking: [["leap", "🐻 Мечи скок"], ["shield", "🧥 Дебела кожа"]],
+  mimic: [["leap", "🦷 Захлопване"], ["summon", "📦 Сандъчета"]],
   velikan: [["meteors", "🪨 Скалите на Балкана"], ["leap", "⛰️ Стъпката на великана"], ["nova", "💥 Удар в земята"]],
   gorskicar: [["summon", "🐺 Горската свита"], ["wall", "🌲 Стена от дървета"], ["leap", "🦌 Скок през гората"]],
   blatnamaika: [["acid", "🫧 Тинести мехури"], ["spiral", "🌀 Водовъртеж"], ["summon", "🐸 Децата на блатото"]],
@@ -812,6 +815,26 @@ export function comboTier(weapons: readonly { id: WeaponId; lvl: number; evo: bo
 /** combos a weapon belongs to (for the card hints) */
 export const combosOf = (w: WeaponId) => COMBO_IDS.filter((c) => COMBOS[c].a === w || COMBOS[c].b === w);
 export const TIER_ROMAN = ["", "I", "II", "III"];
+/* ───────────── 🐾 pets ───────────── */
+
+export const PET_TEXT: Record<string, { name: string; icon: string; desc: string }> = {
+  svraka: { name: "Сврака", icon: "🐦", desc: "лети и ти носи кристалите с опит" },
+  kotarak: { name: "Котаракът Мърко", icon: "🐈", desc: "събира монетите и торбите злато" },
+  sharo: { name: "Шаро", icon: "🐕", desc: "тича и ти носи сандъците, раниците с предмети, реликвите и хляба" },
+  zmeyche: { name: "Змейче", icon: "🐉", desc: "носи всичко — кристали, злато, сандъци и предмети, и по-бързо" },
+};
+/** what each pet fetches (gem kinds; 10..13 = items) */
+export const PET_PICKS: Record<string, number[]> = {
+  svraka: [0, 1, 2],
+  kotarak: [3, 8],
+  sharo: [4, 6, 9, 10, 11, 12, 13],
+  zmeyche: [0, 1, 2, 3, 4, 6, 8, 9, 10, 11, 12, 13],
+};
+
+/** 🔥 after level 25 the hordes grow stronger every level — and drop more items */
+export const HORDE_FROM = 25;
+export const hordeOver = (level: number) => Math.max(0, level - HORDE_FROM);
+
 /* ───────────── 💎 boss relics (for this game only) ───────────── */
 
 /** a relic is named after the boss that drops it */

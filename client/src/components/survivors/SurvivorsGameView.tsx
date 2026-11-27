@@ -30,6 +30,7 @@ import {
   type SurvRunResultDTO,
   type SurvStartDTO,
   SURV_GEAR_SLOTS,
+  SURV_PETS,
   SURV_INV_MAX,
   SURV_DIFF_MAX,
   survDiffOpen,
@@ -45,6 +46,7 @@ import { http } from "../../api/http";
 import { getSocket } from "../../socket/socket";
 import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
+import { HORDE_FROM, PET_TEXT, hordeOver } from "./content";
 import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_FLAVOUR, ITEM_TEXT, KIND_TEXT, RARITY, SLOT_ICON, SLOT_TEXT, diffText } from "./content";
 import { COMBOS, COMBO_IDS, TEMPERS, TIER_ROMAN, comboTier, combosOf, type TemperId } from "./content";
 import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
@@ -63,7 +65,7 @@ function canWebGL2(): boolean {
   }
 }
 import { survSound } from "./sounds";
-import { enemyIcon, heroIcon, heroSprite, itemIcon, weaponIcon } from "./sprites";
+import { enemyIcon, heroIcon, heroSprite, itemIcon, petIcon, weaponIcon } from "./sprites";
 import "./survivors.css";
 
 /** 🧟 Шмиркленд — the screen of a "survivors" channel: menu (heroes, curses, shop, top lists, co-op
@@ -441,7 +443,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     resetUi();
     survMusic.stop();
     savedGames.delete(channelId);
-    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), gear: myGear(hero), look: myLook(hero), remote: false }], curses, { map: mapNow, mission: missionSel, diff: diffNow });
+    const world = new World([{ uid: myId, name: me?.username ?? "Аз", hero, skin: skinOf(hero), meta: profile?.upgrades ?? {}, runes: myRunes(), gear: myGear(hero), look: myLook(hero), pet: profile?.pet ?? null, remote: false }], curses, { map: mapNow, mission: missionSel, diff: diffNow });
     sessRef.current = newSession("solo", { world, curses, hero, map: mapNow, mission: missionSel, diff: diffNow });
     setMode("solo");
     setPhase("playing");
@@ -619,7 +621,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         survMusic.stop();
         const metaOf = (uid: string) => (uid === myId ? (profileRef.current?.upgrades ?? {}) : (st.players.find((p) => p.userId === uid)?.meta ?? {}));
         const world = new World(
-          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, gear: p.gear ?? {}, look: p.look ?? "", remote: p.userId !== myId })),
+          st.players.map((p) => ({ uid: p.userId, name: p.username, hero: p.hero, skin: p.skin ?? "classic", meta: metaOf(p.userId), runes: p.runes ?? {}, gear: p.gear ?? {}, look: p.look ?? "", pet: p.pet ?? null, remote: p.userId !== myId })),
           st.curses,
           { map: st.map ?? "polyana", mission: !!st.mission, diff: st.diff ?? 0 },
         );
@@ -1247,6 +1249,11 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       {worn && <i className="poe-worn">✔</i>}
     </button>
   );
+  const petAction = (pet: string | null) =>
+    http
+      .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/pet`, { pet })
+      .then((r) => setLists(r.data))
+      .catch(() => setError("Не стига златото."));
   const buyRune = (id: SurvRuneId) =>
     http
       .post<SurvListsDTO>(`/api/text-channels/${channelId}/survivors/rune`, { rune: id })
@@ -1540,6 +1547,30 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           <button className="sv-refund" onClick={refund}>
             ↩ Върни всичко (пълна сума)
           </button>
+          <h3 className="sv-pets-title">🐾 Любимци <span className="sv-dim">(един идва с теб в играта и ти носи нещата)</span></h3>
+          <div className="sv-pets">
+            {SURV_PETS.map((pt) => {
+              const own = profile?.pets?.includes(pt.id);
+              const on = profile?.pet === pt.id;
+              const t = PET_TEXT[pt.id]!;
+              return (
+                <div key={pt.id} className={`sv-pet ${on ? "on" : ""} ${own ? "" : "locked"}`}>
+                  <img src={petIcon(pt.id)} alt="" />
+                  <b>{t.name}</b>
+                  <small>{t.desc}</small>
+                  {on ? (
+                    <button onClick={() => petAction(null)}>✔ С теб е (остави го)</button>
+                  ) : own ? (
+                    <button onClick={() => petAction(pt.id)}>Вземи го</button>
+                  ) : (
+                    <button onClick={() => petAction(pt.id)} disabled={(profile?.gold ?? 0) < pt.cost}>
+                      🪙 {pt.cost}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -1910,6 +1941,11 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 <b className={`sv-wave ${isBossWave(hud.wave) ? "boss" : ""}`}>
                   {isBossWave(hud.wave) ? "💀" : "⚔️"} Вълна {hud.wave}
                 </b>
+              )}
+              {hordeOver(hud.level) > 0 && (
+                <span className="sv-horde" title={`След ниво ${HORDE_FROM} враговете стават по-силни с всяко ниво, но пускат повече предмети`}>
+                  🔥 Ордата крепне: +{4 * hordeOver(hud.level)}% живот · 🎒 повече плячка
+                </span>
               )}
               {hud.breakT <= 0 && !isBossWave(hud.wave) && (
                 <div className="sv-wave-bar">

@@ -260,3 +260,14 @@ export function survLookKey(items: SurvItem[] | undefined, worn: Partial<Record<
 /** only well-formed looks get through (they end up in a canvas cache key) */
 export const cleanSurvLook = (v: unknown): string =>
   typeof v === "string" && v.length <= 400 && /^([a-z0-9]+:[a-z]+:[0-3])?(,[a-z0-9]+:[a-z]+:[0-3])*$/.test(v) ? v : "";
+
+/* ───────────── 🐾 pets (2026-11-27): bought for gold, one goes with you, it fetches things ───────────── */
+
+export type SurvPetId = "svraka" | "kotarak" | "sharo" | "zmeyche";
+export const SURV_PETS: { id: SurvPetId; cost: number }[] = [
+  { id: "svraka", cost: 1200 },
+  { id: "kotarak", cost: 1800 },
+  { id: "sharo", cost: 2500 },
+  { id: "zmeyche", cost: 6000 },
+];
+export const isSurvPet = (v: unknown): v is SurvPetId => typeof v === "string" && SURV_PETS.some((p) => p.id === v);

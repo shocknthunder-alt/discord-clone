@@ -1,7 +1,7 @@
 import type { SurvHeroId, SurvMapId } from "@discord-clone/shared";
 import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, RARITY, type EnemyId } from "./content";
 import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RView } from "./engine";
-import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
+import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, petSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
 // 🧟 Шмиркленд — draws a view (the host's world, or a guest's snapshot) onto the canvas: meadow, scenery,
 // marks, gems, everything sorted by height, effects (particles, bolts, blasts, numbers), arrows to
@@ -1036,6 +1036,21 @@ export class Renderer {
     }
     actors.sort((a, b) => a.y - b.y);
     for (const a of actors) a.draw();
+
+    // 🐾 pets (over the actors, in 2D and over the 3D layer)
+    for (const p of v.players) {
+      const pet = p.pet;
+      if (!pet || (p as { gone?: boolean }).gone || !onScreen(pet.x, pet.y, 30)) continue;
+      const fr = Math.floor(this.clock * (pet.k === "svraka" || pet.k === "zmeyche" ? 8 : 6)) % 2;
+      const sp = petSprite(pet.k, fr, pet.face < 0);
+      if (!sp) continue;
+      const fly = pet.k === "svraka" || pet.k === "zmeyche";
+      c.beginPath();
+      c.ellipse(pet.x, pet.y + (fly ? 18 : 6), 8, 3, 0, 0, Math.PI * 2);
+      c.fillStyle = "rgba(0,0,0,0.22)";
+      c.fill();
+      c.drawImage(sp, pet.x - sp.width / 4, pet.y - sp.height / 4 - (fly ? 4 : 0), sp.width / 2, sp.height / 2);
+    }
 
     // the enemies' shots: on top of everything, a dark halo + a pulsing red edge
     for (const q of v.projs) {

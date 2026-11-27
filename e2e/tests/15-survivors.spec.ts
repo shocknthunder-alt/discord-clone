@@ -397,6 +397,12 @@ test.describe("🧟 Шмиркленд", () => {
       await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/equip`, { hero: "strahil", slot: k, item: it.id });
     }
 
+    // 🐾 a pet: bought (gold), it comes along
+    const pet = await api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/pet`, { pet: "svraka" });
+    expect(pet.profile.pets).toEqual(["svraka"]);
+    expect(pet.profile.pet).toBe("svraka");
+    await expect(api(bo.token, "POST", `/text-channels/${textChannel.id}/survivors/pet`, { pet: "dragon9" })).rejects.toThrow();
+
     // the game: difficulty 2 picked → harder world, bosses know 2 more spells, the gear is worn
     const b = await openAs(browser, bo);
     await quiet(b.page);
@@ -425,10 +431,25 @@ test.describe("🧟 Шмиркленд", () => {
     const W = (fn: string) => b.page.evaluate(`(${fn})(window.__survWorld())`);
     await expect.poll(() => W("(w) => w.diff")).toBe(2);
     expect(await W("(w) => Object.keys(w.players[0].gear).length")).toBeGreaterThan(0);
+    // 🐾 the magpie flies to a far gem and sends it to you
+    expect(await W("(w) => w.players[0].pet && w.players[0].pet.k")).toBe("svraka");
+    await W("(w) => { const p = w.players[0]; w.gems.push({ x: p.x + 450, y: p.y, k: 0, v: 1, mag: false, sp: 0 }); window.__petGem = w.gems[w.gems.length - 1]; }");
+    await expect.poll(() => b.page.evaluate(() => (window as unknown as { __petGem: { mag: boolean } }).__petGem.mag), { timeout: 8000 }).toBe(true);
+    // 📦 the mimic: chests come out of it
+    expect(await W("(w) => { const p = w.players[0]; const m = w.spawn(\"mimic\", p.x + 300, p.y, { boss: true, hp: 5 }); const n = w.gems.length; w.hurt(m, 999, p); return w.gems.slice(n).filter((g) => g.k === 6).length; }")).toBeGreaterThanOrEqual(4);
+    // 🔥 after level 25 the horde is tougher
+    expect(await W("(w) => { const a = w.hpMul(); w.level = 35; const b2 = w.hpMul(); w.level = 1; return b2 / a; }")).toBeCloseTo(1.4, 1);
     // 🏷️ items on the ground with their labels
     await W("(w) => { const p = w.players[0]; for (let r = 0; r < 4; r++) w.gems.push({ x: p.x - 150 + r * 100, y: p.y + 120, k: 10 + r, v: r, mag: false, sp: 0 }); }");
     await b.page.waitForTimeout(400);
     await b.page.locator(".sv-canvas").screenshot({ path: "explore/surv-loot.png" });
+    for (let n = 0; n < 10 && (await b.page.locator(".sv-card").count()) > 0; n++) {
+      await b.page.keyboard.press("Digit1");
+      await b.page.waitForTimeout(250);
+    }
+    await W("(w) => { const p = w.players[0]; w.gems.length = 0; for (const e of w.enemies) e.dead = true; w.spawn(\"mimic\", p.x + 160, p.y - 60, { boss: true, hp: 99999 }); }");
+    await b.page.waitForTimeout(500);
+    await b.page.locator(".sv-canvas").screenshot({ path: "explore/surv-mimic.png" });
     expect(await W("(w) => { const p = w.players[0]; const b = w.spawn(\"karak\", p.x + 400, p.y, { boss: true, hp: 99999 }); return b.moves.length; }")).toBe(4);
     expectNoCrashes(b.page);
     await closeAll(b.context);

@@ -1347,6 +1347,58 @@ const ENEMY_DRAW0: Record<Exclude<EnemyId, "altar" | "velikan" | "gorskicar" | "
       for (let i = -6; i <= 6; i += 3) ell(c, i, -30, 1.4, 1.4, ["#ff3b3b", "#3bb3ff", "#ffe23b", "#3bff7a", "#ff3bd2"][(i + 6) / 3]!);
     },
   },
+  mimic: {
+    w: 104,
+    h: 100,
+    draw: (c, f) => {
+      // 📦 Мимикът: a chest on four stubby clawed legs, its lid a mouth full of teeth, a long tongue out
+      const step = f ? 3 : -3;
+      for (const [lx, k] of [
+        [-22, 1],
+        [-8, -1],
+        [8, 1],
+        [22, -1],
+      ] as [number, number][]) {
+        const sx = lx + step * k;
+        line(c, [lx * 0.8, 22, sx, 36, sx + 4, 40], "#4a2c14", 5);
+        for (let i = -1; i <= 1; i++) line(c, [sx + 4, 40, sx + 7 + i * 2, 43], "#e8dcc0", 1.6);
+      }
+      // the box
+      rr(c, -30, -2, 60, 28, 3, "#8b5a2b", OUT, 2.2);
+      shaded(c, [-30, -2, 30, -2, 30, 26, -30, 26], "#9a6632", 0, 12, 30, 14);
+      line(c, [-30, 12, 30, 12], "#f2c230", 3);
+      line(c, [-18, -2, -18, 26], "#f2c230", 2.6);
+      line(c, [18, -2, 18, 26], "#f2c230", 2.6);
+      // inside of the mouth
+      poly(c, [-28, -2, 28, -2, 26, -18, -26, -26], "#3a0a10", OUT, 1.5);
+      // lower teeth
+      for (let x = -26; x < 26; x += 6) poly(c, [x, -2, x + 3, -9, x + 6, -2], "#f4efe4", OUT, 0.8);
+      // the lid, wide open, upper teeth
+      shaded(c, [-31, -26, 31, -18, 33, -34, -29, -46], "#a36a32", 0, -32, 31, 12);
+      line(c, [-31, -26, 31, -18], "#f2c230", 3);
+      line(c, [-29, -40, 32, -29], "#f2c230", 2);
+      for (let x = -28; x < 28; x += 6) poly(c, [x, -25.6 + (x + 28) * 0.13, x + 3, -17 + (x + 28) * 0.13, x + 6, -24.8 + (x + 28) * 0.13], "#f4efe4", OUT, 0.8);
+      // eyes in the dark under the lid
+      ell(c, -10, -14, 4, 3, "#ffe03a");
+      ell(c, 8, -12, 4, 3, "#ffe03a");
+      ell(c, -9, -14, 1.4, 2.2, "#1a0a00");
+      ell(c, 9, -12, 1.4, 2.2, "#1a0a00");
+      // the tongue, wagging out of the side
+      const w = f ? 5 : -5;
+      c.beginPath();
+      c.moveTo(14, -6);
+      c.bezierCurveTo(30, -4 + w, 40, 10 - w, 50, 4 + w);
+      c.bezierCurveTo(54, 2 + w, 54, 10 + w, 48, 12 + w);
+      c.bezierCurveTo(38, 16 - w, 28, 6 + w, 12, 0);
+      c.closePath();
+      c.fillStyle = "#e0507a";
+      c.fill();
+      c.strokeStyle = OUT;
+      c.lineWidth = 1.4;
+      c.stroke();
+      line(c, [18, -3, 34, 3 + w * 0.5, 46, 7 + w], "#b02a52", 1.2);
+    },
+  },
   karak: {
     w: 100,
     h: 96,
@@ -2904,6 +2956,110 @@ export function itemIcon(baseId: string, rarity: number): string {
     default:
       ell(c, 0, 0, 10, 10, col, OUT, 1);
   }
+  const url = cv.toDataURL();
+  iconCache.set(key, url);
+  return url;
+}
+
+
+/* ───────────── 🐾 pets ───────────── */
+
+const PET_DRAW: Record<string, { w: number; h: number; draw: Draw }> = {
+  svraka: {
+    w: 34,
+    h: 26,
+    draw: (c, f) => {
+      // a magpie: black and white, long tail, wings flapping
+      poly(c, [-6, 2, -16, 0, -15, 3, -6, 5], "#1a2030", OUT, 0.8);
+      ell(c, 0, 2, 7, 4.5, "#14161c", OUT, 1);
+      ell(c, 1, 3.5, 4, 2.4, "#f4f4f4");
+      ell(c, 7, -1, 3.6, 3.2, "#14161c", OUT, 1);
+      poly(c, [10, -1.5, 14, -0.5, 10, 0.5], "#2a2a2a");
+      ell(c, 8, -2, 0.8, 0.8, "#ffffff");
+      const up = f ? -9 : 2;
+      poly(c, [-2, 0, 4, 0, 2, up, -5, up + 1], "#1d3a6a", OUT, 0.8);
+      line(c, [-1, up + 2, 2, up], "#f4f4f4", 1);
+    },
+  },
+  kotarak: {
+    w: 34,
+    h: 26,
+    draw: (c, f) => {
+      // an orange tom-cat, tail up
+      const leg = f ? 2 : -2;
+      for (const lx of [-6, 5]) {
+        line(c, [lx, 4, lx + leg, 10], "#c86a1a", 2.4);
+        line(c, [lx + 2, 4, lx + 2 - leg, 10], "#b05a14", 2.4);
+      }
+      line(c, [-9, 0, -13, -6, -11, -11], "#c86a1a", 2.4);
+      ell(c, 0, 2, 9, 5, "#e0822a", OUT, 1);
+      for (let i = -4; i <= 4; i += 3) line(c, [i, -2.5, i - 1, 2], "#a85414", 0.9);
+      ell(c, 9, -3, 4.6, 4.2, "#e0822a", OUT, 1);
+      poly(c, [6, -6, 7, -10, 9, -6.5], "#e0822a", OUT, 0.7);
+      poly(c, [10, -6.5, 12, -10, 13, -5.5], "#e0822a", OUT, 0.7);
+      ell(c, 10.5, -3.5, 0.9, 1.2, "#3aa04a");
+      line(c, [12.5, -1.5, 16, -2.5], "#ffffff", 0.5);
+    },
+  },
+  sharo: {
+    w: 36,
+    h: 28,
+    draw: (c, f) => {
+      // Шаро: a brown and white village dog, running
+      const leg = f ? 3 : -3;
+      for (const lx of [-7, 6]) {
+        line(c, [lx, 4, lx + leg, 11], "#7a4a22", 2.8);
+        line(c, [lx + 2, 4, lx + 2 - leg, 11], "#6a3c1a", 2.8);
+      }
+      line(c, [-10, -1, -15, -5 + (f ? -2 : 1)], "#7a4a22", 2.6);
+      ell(c, 0, 2, 10, 5.4, "#8a5a2c", OUT, 1);
+      ell(c, 2, 3.6, 5, 2.6, "#f0e4d0");
+      ell(c, 10, -3, 5, 4.4, "#8a5a2c", OUT, 1);
+      ell(c, 14, -1.6, 2.6, 2, "#f0e4d0", OUT, 0.7);
+      ell(c, 16, -2.2, 1, 0.9, "#1a1010");
+      poly(c, [7, -6, 5, 0, 8, -2], "#5a3414", OUT, 0.7);
+      ell(c, 11, -4.5, 0.9, 0.9, "#1a1010");
+      line(c, [9, 1, 11, 2.5], "#d02a2a", 1.2);
+    },
+  },
+  zmeyche: {
+    w: 40,
+    h: 32,
+    draw: (c, f) => {
+      // a little green dragon, flapping
+      const up = f ? -12 : -2;
+      poly(c, [-2, -2, -10, up, -4, up + 3, -12, up + 6, 0, 2], "#2a8a4a", OUT, 0.8);
+      line(c, [-8, 4, -16, 6, -19, 2], "#3aa05a", 2.6);
+      poly(c, [-19, 2, -22, 0, -20, 5], "#e0b030");
+      ell(c, 0, 3, 8, 5.4, "#3aa05a", OUT, 1);
+      ell(c, 1, 5, 5, 2.6, "#c8e080");
+      ell(c, 9, -3, 4.8, 4.2, "#3aa05a", OUT, 1);
+      poly(c, [7, -6.5, 6, -11, 9, -7], "#e0b030", OUT, 0.6);
+      poly(c, [11, -6.5, 12, -11, 13, -6], "#e0b030", OUT, 0.6);
+      ell(c, 10.5, -3.8, 1, 1.2, "#ffe03a");
+      poly(c, [2, -2, 6, -4, 4, -1], "#2a8a4a", OUT, 0.6);
+      if (f) poly(c, [14, -2, 19, -4, 17, -1, 20, 0, 14, 0], "#ff8a2a");
+    },
+  },
+};
+
+/** frame 0..1; flip = looking left */
+export function petSprite(kind: string, frame: number, flip: boolean) {
+  const d = PET_DRAW[kind];
+  if (!d) return null;
+  return get(`pet:${kind}:${frame}`, d.w, d.h, (c) => d.draw(c, frame), 0, flip);
+}
+
+export function petIcon(kind: string): string {
+  const key = `peticon:${kind}`;
+  const hit = iconCache.get(key);
+  if (hit) return hit;
+  const sp = petSprite(kind, 1, false);
+  if (!sp) return "";
+  const cv = document.createElement("canvas");
+  cv.width = sp.width;
+  cv.height = sp.height;
+  cv.getContext("2d")!.drawImage(sp, 0, 0);
   const url = cv.toDataURL();
   iconCache.set(key, url);
   return url;

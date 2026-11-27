@@ -306,6 +306,14 @@ Owner pronouns unknown: use they/them.
   🛡️ Stagger: all stuns go through `stun(e, t)` and pushes through `ccMul(e)` = (1 − min(0.6, 0.04·diff + 0.006·wave)) ×
   (1 − `Enemy.ccRes`) (× 0.6 elites); each stun / push raises ccRes (≤ 0.85, −0.22/s); push speed capped (240 / elites 140 /
   bosses 60); explosions push 90 (was 160). Before this a CC build kept every mob away on difficulty 6.
+  🔥 HORDE after level 25 (`HORDE_FROM`, `hordeOver(level)`): +4% hp / +2.5% dmg per level (wave bosses too), items: bosses
+  +2%/lvl, elites +1.2%/lvl, ordinary mobs ≤ 2%; HUD `.sv-horde`. 🐾 PETS (`SURV_PETS` shared, gold, `extra.pets` + `extra.pet`,
+  POST `/survivors/pet` {pet|null} buy/pick; `SurvMemberDTO.pet` via `survPetOf`): Сврака gems, Котарак gold, Шаро chests /
+  items / relics / bread, Змейче all + faster (`PET_PICKS` gem kinds); engine `stepPet` flies to the nearest one within 620
+  and sets `mag` on it + its neighbours; net player index 31; drawn by `petSprite` in render.ts (both 2D and over 3D); shop
+  tab section. 📦 MIMIC boss (`mimic`, BOSS_HARD, own AI: hops, telegraphed tongue lash that pulls you in, fake-coin rings;
+  sprite = chest with teeth, tongue, 4 clawed legs; 3D = billboard): drops 3 chests + 2 items + gold; from wave 6 an elite
+  chest has 6% to come alive as a mimic.
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

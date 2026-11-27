@@ -1697,3 +1697,48 @@
   height: 32px;
   object-fit: contain;
 }
+
+/* 🐾 pets in the shop */
+.sv-pets-title {
+  grid-column: 1 / -1;
+  margin: 14px 0 4px;
+}
+.sv-pets {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.sv-pet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(20, 16, 12, 0.85);
+}
+.sv-pet img {
+  width: 72px;
+  height: 56px;
+  object-fit: contain;
+}
+.sv-pet.on {
+  border-color: #7cff8a;
+  box-shadow: 0 0 10px rgba(124, 255, 138, 0.35);
+}
+.sv-pet.locked img {
+  filter: grayscale(0.7) brightness(0.8);
+}
+.sv-pet small {
+  opacity: 0.8;
+  min-height: 2.6em;
+}
+.sv-horde {
+  color: #ff8a3a;
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
+}

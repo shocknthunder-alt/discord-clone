@@ -1,4 +1,4 @@
-import type { SurvGearSlot, SurvGearStat, SurvItem } from "./survItems.js";
+import type { SurvGearSlot, SurvGearStat, SurvItem, SurvPetId } from "./survItems.js";
 /**
  * 🧟 Шмиркленд — our own "survive the hordes" game (channels with type "survivors"): Bulgarian folklore
  * monsters, folk weapons (цървул, прасе, Тесла…), endless — it gets harder until you fall, a boss every
@@ -293,6 +293,9 @@ export interface SurvProfileDTO {
   items?: SurvItem[];
   gear?: Partial<Record<SurvHeroId, Partial<Record<SurvGearSlot, string>>>>;
   diffs?: Partial<Record<SurvMapId, number>>;
+  /** (2026-11-27+) 🐾 pets bought, the one that comes along */
+  pets?: SurvPetId[];
+  pet?: SurvPetId | null;
 }
 
 export interface SurvTopRow {
@@ -369,6 +372,8 @@ export interface SurvMemberDTO {
   gear?: Partial<Record<SurvGearStat, number>>;
   /** (2026-11-27+) 👕 how the worn gear looks (survLookKey) */
   look?: string;
+  /** (2026-11-27+) 🐾 their pet */
+  pet?: SurvPetId | null;
 }
 
 export function cleanSurvMeta(v: unknown): Partial<Record<SurvMetaKey, number>> {

@@ -37,6 +37,9 @@ import {
   survLootCap,
   survRollDrop,
   survLookKey,
+  SURV_PETS,
+  isSurvPet,
+  type SurvPetId,
   survSalvageGold,
   type SurvGearSlot,
   type SurvGearStat,
@@ -132,7 +135,9 @@ function readProfile(row: { gold: number; upgrades: unknown; heroes: unknown; st
       if (typeof v === "number" && v > 0) diffs[m.id] = Math.min(SURV_DIFF_MAX, Math.floor(v));
     }
   }
-  return { gold: row?.gold ?? 0, upgrades, heroes, stats, skins, achievements, bossTypes, runes, equipped, missions, items, gear, diffs };
+  const pets = strList(ex.pets, isSurvPet) as SurvPetId[];
+  const pet = isSurvPet(ex.pet) && pets.includes(ex.pet) ? ex.pet : null;
+  return { gold: row?.gold ?? 0, upgrades, heroes, stats, skins, achievements, bossTypes, runes, equipped, missions, items, gear, diffs, pets, pet };
 }
 
 const extraOf = (p: SurvProfileDTO, over: Partial<Record<string, unknown>> = {}) =>
@@ -146,6 +151,8 @@ const extraOf = (p: SurvProfileDTO, over: Partial<Record<string, unknown>> = {})
   items: p.items ?? [],
   gear: p.gear ?? {},
   diffs: p.diffs ?? {},
+  pets: p.pets ?? [],
+  pet: p.pet ?? null,
     ...over,
   }) as unknown as Prisma.InputJsonObject;
 
@@ -161,6 +168,11 @@ export async function survGearOf(userId: string, hero: SurvHeroId): Promise<Part
 export async function survLookOf(userId: string, hero: SurvHeroId): Promise<string> {
   const p = await profileOf(userId);
   return survLookKey(p.items, p.gear?.[hero], hero);
+}
+
+/** 🐾 the pet someone takes along */
+export async function survPetOf(userId: string): Promise<SurvPetId | null> {
+  return (await profileOf(userId)).pet ?? null;
 }
 
 /** ☠️ the highest difficulty someone has open on a map */
@@ -338,6 +350,32 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
     ...(newDiff ? { newDiff } : {}),
     ...(await lists(ch.serverId, userId)),
   });
+});
+
+/** 🐾 Buy a pet, or pick which one comes along (pet: null = none). */
+survivorsRouter.post("/text-channels/:channelId/survivors/pet", async (req, res) => {
+  const ch = await survChannel(req, res);
+  if (!ch) return;
+  const userId = req.userId!;
+  const p = await profileOf(userId);
+  const want = req.body?.pet;
+  if (want === null) {
+    await prisma.survivorProfile.update({ where: { userId }, data: { extra: extraOf(p, { pet: null }) } });
+    return res.json(await lists(ch.serverId, userId));
+  }
+  const info = SURV_PETS.find((x) => x.id === want);
+  if (!info) return res.status(400).json({ error: "Unknown pet" });
+  if ((p.pets ?? []).includes(info.id)) {
+    await prisma.survivorProfile.update({ where: { userId }, data: { extra: extraOf(p, { pet: info.id }) } });
+    return res.json(await lists(ch.serverId, userId));
+  }
+  // buy it (and take it along)
+  const done = await prisma.survivorProfile.updateMany({
+    where: { userId, gold: { gte: info.cost } },
+    data: { gold: { decrement: info.cost }, extra: extraOf(p, { pets: [...(p.pets ?? []), info.id], pet: info.id }) },
+  });
+  if (!done.count) return res.status(400).json({ error: "Not enough gold" });
+  res.json(await lists(ch.serverId, userId));
 });
 
 /** 🎒 Put an item on a hero (item: null = take it off). */

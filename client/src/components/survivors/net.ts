@@ -162,6 +162,7 @@ export function encodeSnapshot(w: World, fx: Fx[], withGems: boolean): Wire {
     Object.entries(x.tempers).map(([id, n]) => [TEMPER_IDS.indexOf(id as TemperId), n]),
     x.loot,
     x.look ?? "",
+    x.pet ? [x.pet.k, Math.round(x.pet.x - ox), Math.round(x.pet.y - oy), x.pet.face] : 0,
   ]);
 
   // effects: cap the floating numbers, they're the bulk
@@ -276,6 +277,7 @@ export function decodeSnapshot(raw: unknown, prevGems: RGem[]): Snapshot | null 
       relics: ((a[27] as number[] | undefined) ?? []).map((i) => RELIC_IDS[i]!).filter(Boolean),
       loot: ((a[29] as number[] | undefined) ?? []).filter((r) => typeof r === "number"),
       look: cleanSurvLook(a[30]),
+      pet: Array.isArray(a[31]) && typeof a[31][0] === "string" ? { k: a[31][0] as string, x: (a[31][1] as number) + ox, y: (a[31][2] as number) + oy, face: (a[31][3] as number) || 1 } : null,
       tempers: Object.fromEntries(((a[28] as number[][] | undefined) ?? []).map(([id, n]) => [TEMPER_IDS[id!]!, n!]).filter(([id]) => id)),
     } as NetPlayer & { gone: boolean; shield: boolean };
   });

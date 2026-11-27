@@ -10,6 +10,8 @@ import {
   MAPS,
   MISSION_ALTARS,
   MISSION_SECONDS,
+  PET_PICKS,
+  hordeOver,
   DIFF_MOVES,
   DIFF_SPELL_NAMES,
   RARITY,
@@ -71,6 +73,8 @@ export interface RPlayer {
   hero: SurvHeroId;
   /** 👕 the worn gear's look (survLookKey) */
   look?: string;
+  /** 🐾 the pet: kind + where it is */
+  pet?: { k: string; x: number; y: number; face: number } | null;
   x: number;
   y: number;
   face: number;
@@ -295,6 +299,9 @@ export interface Player extends RPlayer {
   bellT: number;
   /** 🔨 temper cards taken; 🔗 combo timers */
   tempers: Partial<Record<TemperId, number>>;
+  /** 🐾 what the pet is flying to */
+  petTgt: Gem | null;
+  petT: number;
   /** 🎒 gear stats; rarities of the items picked up this game */
   gear: Partial<Record<SurvGearStat, number>>;
   loot: number[];
@@ -410,6 +417,8 @@ export interface PlayerSetup {
   /** (2026-11-27+) 🎒 summed stats of the gear the hero wears */
   gear?: Partial<Record<SurvGearStat, number>>;
   look?: string;
+  /** 🐾 the pet that comes along */
+  pet?: string | null;
 }
 
 export interface WorldOpts {
@@ -648,6 +657,9 @@ export class World {
         tempers: {},
         gear: s.gear ?? {},
         look: s.look ?? "",
+        pet: s.pet && PET_PICKS[s.pet] ? { k: s.pet, x: 0, y: 0, face: 1 } : null,
+        petTgt: null,
+        petT: 0,
         loot: [],
         comboT: { svatba: 4, prolet: 6, roy: 3, krik: 0 },
       };
@@ -811,7 +823,11 @@ export class World {
   }
   private hpMul() {
     const w = this.w;
-    return 1.3 * (1 + w * 0.27 + w * w * 0.019) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp() * this.diffHp();
+    return 1.3 * (1 + w * 0.27 + w * w * 0.019) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp() * this.diffHp() * this.hordeHp();
+  }
+  /** 🔥 after level 25: +4% hp a level (+2.5% damage, see dmgMul) */
+  private hordeHp() {
+    return 1 + 0.04 * hordeOver(this.level);
   }
   /** ☠️ difficulty: +30% hp a level */
   private diffHp() {
@@ -828,7 +844,7 @@ export class World {
     return (1 + 0.05 * lv) * (1 + 0.005 * gear);
   }
   private dmgMul() {
-    return 1.2 * (1 + this.w * 0.13) * this.mapDef.dmgMul * (1 + 0.15 * this.diff);
+    return 1.2 * (1 + this.w * 0.13) * this.mapDef.dmgMul * (1 + 0.15 * this.diff) * (1 + 0.025 * hordeOver(this.level));
   }
   private speedMul() {
     return (1.08 + Math.min(0.55, this.w * 0.022)) * (this.curses.has("wolves") ? 1.25 : 1) * (1 + 0.025 * this.diff);
@@ -954,7 +970,7 @@ export class World {
       for (let k = 0; k < count; k++) {
         const type = this.nextBossType();
         const [x, y] = this.spawnPoint(undefined, 600);
-        const hp = 1.9 * ENEMIES[type].hp * (1 + 0.13 * w) * this.mapDef.hpMul * this.giftHp() * this.diffHp() * (1 + 0.6 * this.bossCycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
+        const hp = 1.9 * ENEMIES[type].hp * (1 + 0.13 * w) * this.mapDef.hpMul * this.giftHp() * this.diffHp() * this.hordeHp() * (1 + 0.6 * this.bossCycle) * (1 + 0.7 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.3 : 1) * (count > 1 ? 0.8 : 1);
         const b = this.spawn(type, x, y, { boss: true, hp });
         this.waveBosses.push(b);
         this.boss = b;
@@ -1352,6 +1368,53 @@ export class World {
     this.stepRelics(p, dt);
   }
 
+  /** 🐾 the pet flies to the nearest thing it fetches and sends it to you */
+  private stepPet(p: Player, dt: number) {
+    const pet = p.pet;
+    if (!pet) return;
+    const fast = pet.k === "zmeyche" ? 1.4 : 1;
+    if (!pet.x && !pet.y) {
+      pet.x = p.x - 30;
+      pet.y = p.y - 20;
+    }
+    p.petT -= dt;
+    const picks = PET_PICKS[pet.k] ?? [];
+    if (p.petTgt && (p.petTgt.mag || !this.gems.includes(p.petTgt))) p.petTgt = null;
+    if (!p.petTgt && p.petT <= 0) {
+      p.petT = 0.35;
+      let best = 620 * 620;
+      for (const g of this.gems) {
+        if (g.mag || !picks.includes(g.k)) continue;
+        const d = dist2(g.x, g.y, p.x, p.y);
+        if (d < best) {
+          best = d;
+          p.petTgt = g;
+        }
+      }
+    }
+    // to the target, or back to its place by your shoulder
+    const tx = p.petTgt ? p.petTgt.x : p.x - 34 * (p.face || 1);
+    const ty = p.petTgt ? p.petTgt.y : p.y - 26 + Math.sin(this.t * 3) * 6;
+    const dx = tx - pet.x;
+    const dy = ty - pet.y;
+    const d = Math.hypot(dx, dy) || 1;
+    const sp = (p.petTgt ? 430 : Math.min(420, 60 + d * 3)) * fast;
+    const step = Math.min(d, sp * dt);
+    pet.x += (dx / d) * step;
+    pet.y += (dy / d) * step;
+    if (Math.abs(dx) > 2) pet.face = dx < 0 ? -1 : 1;
+    if (p.petTgt && d < 20) {
+      // grabs it — and everything of its kind right there
+      for (const g of this.gems) if (!g.mag && picks.includes(g.k) && dist2(g.x, g.y, pet.x, pet.y) < 70 * 70) g.mag = true;
+      p.petTgt = null;
+    }
+    // a far-away pet catches up
+    if (dist2(pet.x, pet.y, p.x, p.y) > 1400 * 1400) {
+      pet.x = p.x - 30;
+      pet.y = p.y - 20;
+    }
+  }
+
   /** 🔗 combos that run by themselves */
   private stepCombos(p: Player, dt: number) {
     const T = p.comboT;
@@ -1504,18 +1567,35 @@ export class World {
       this.bossLoot(e);
       this.gems.push({ x: e.x - 30, y: e.y + 10, k: GK.food, v: 0, mag: false, sp: 0 });
       this.dropGem(e.x + 20, e.y, e.xp);
-      if (Math.random() < 0.5 + 0.04 * this.diff) this.dropItem(e.x + 30, e.y + 30, p);
+      if (Math.random() < 0.5 + 0.04 * this.diff + 0.02 * hordeOver(this.level)) this.dropItem(e.x + 30, e.y + 30, p);
+      if (e.type === "mimic") {
+        // 📦 the mimic's belly: chests, items and gold
+        for (let i = 0; i < 3; i++) this.gems.push({ x: e.x + rand(-70, 70), y: e.y + rand(-70, 70), k: GK.chest, v: 0, mag: false, sp: 0 });
+        for (let i = 0; i < 2; i++) this.dropItem(e.x + rand(-60, 60), e.y + rand(-60, 60), p);
+        for (let i = 0; i < 12; i++) this.gems.push({ x: e.x + rand(-90, 90), y: e.y + rand(-90, 90), k: GK.bag, v: 10, mag: false, sp: 0 });
+      }
       if (Math.random() < 0.05 * this.diff) this.dropItem(e.x - 40, e.y - 20, p);
       return;
     }
     if (e.elite) {
-      if (Math.random() < 0.03 + 0.006 * this.diff) this.dropItem(e.x + 10, e.y + 10, p);
+      if (Math.random() < 0.03 + 0.006 * this.diff + 0.012 * hordeOver(this.level)) this.dropItem(e.x + 10, e.y + 10, p);
+      // 📦 now and then the chest is alive
+      if (this.wave >= 6 && Math.random() < 0.06 && !this.enemies.some((q) => !q.dead && q.type === "mimic")) {
+        const hp = 0.8 * ENEMIES.mimic.hp * (1 + 0.13 * this.w) * this.mapDef.hpMul * this.giftHp() * this.diffHp() * this.hordeHp() * (1 + 0.7 * (this.pf - 1));
+        const m = this.spawn("mimic", e.x, e.y, { boss: true, hp });
+        if (!this.boss || this.boss.dead) this.boss = m;
+        this.fx.push([FX.banner, "📦 Сандъкът оживя — Мимикът!", 1]);
+        return;
+      }
       if (Math.random() < 0.35 + luck) this.gems.push({ x: e.x, y: e.y, k: GK.chest, v: 0, mag: false, sp: 0 });
       else this.dropGem(e.x, e.y, e.xp);
       for (let i = 0; i < 3; i++) this.gems.push({ x: e.x + rand(-30, 30), y: e.y + rand(-30, 30), k: GK.coin, v: 1, mag: false, sp: 0 });
       return;
     }
     this.dropGem(e.x, e.y, e.xp);
+    // 🔥 a strong horde: even ordinary ones drop items now and then
+    const ho = hordeOver(this.level);
+    if (ho && Math.random() < Math.min(0.02, 0.0006 * ho) * (1 + 0.1 * this.diff)) this.dropItem(e.x, e.y, p);
     const greed = 1 + (p?.st.greed ?? 0);
     const r = Math.random();
     if (r < (0.025 + luck * 0.03) * greed) this.gems.push({ x: e.x + 8, y: e.y, k: GK.coin, v: 1, mag: false, sp: 0 });
@@ -1868,6 +1948,7 @@ export class World {
     if (p.st.regen > 0) this.heal(p, p.st.regen * dt);
     if (b.herbs > 0) this.heal(p, p.maxHp * 0.05 * dt);
     this.stepGifts(p, dt);
+    this.stepPet(p, dt);
     const dashing = p.dashT > 0;
 
     if (!p.remote && inp) {
@@ -2512,6 +2593,43 @@ export class World {
     };
     e.ai2 -= dt;
     switch (e.type) {
+      case "mimic": {
+        // hops at you; its tongue lashes out and pulls you in; spits fake coins
+        if (e.state === 1) {
+          if (e.ai <= 0) {
+            e.state = 0;
+            e.ai = e.rage ? 2.2 : 3.2;
+            const ang = Math.atan2(tgt.y - e.y, tgt.x - e.x);
+            const aimed = Math.atan2(e.ty, e.tx);
+            const off = Math.abs(((ang - aimed + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+            this.fx.push([FX.bolt, Math.round(e.x), Math.round(e.y), Math.round(e.x + e.tx * 430), Math.round(e.y + e.ty * 430)]);
+            if (dist < 440 && off < 0.35) {
+              this.hurtPlayer(tgt, e.dmg * 0.7);
+              if (!tgt.remote && !tgt.dead) {
+                tgt.x += (e.x - tgt.x) * 0.45;
+                tgt.y += (e.y - tgt.y) * 0.45;
+              }
+              this.fx.push([FX.text, Math.round(tgt.x), Math.round(tgt.y - 40), "👅", "#ff6a8a"]);
+            }
+          }
+          return;
+        }
+        const hop = Math.max(0, Math.sin(this.t * 5 + e.id));
+        walk(0.4 + hop * 1.4);
+        if (e.ai <= 0 && dist < 420) {
+          e.state = 1;
+          e.ai = 0.6;
+          e.tx = dx;
+          e.ty = dy;
+          this.marks.push({ kind: MK.charge, x: e.x, y: e.y, r: 14, p: 0, t: 0.6, a: Math.atan2(dy, dx) });
+          this.fx.push([FX.text, Math.round(e.x), Math.round(e.y - e.r - 20), "👅!", "#ff6a8a"]);
+        }
+        if (e.ai2 <= 0) {
+          e.ai2 = e.rage ? 3.5 : 5;
+          ring(12, 190, PK.eball, 12, Math.random());
+        }
+        return;
+      }
       case "karak":
         if (charge(3.8)) return;
         walk();
