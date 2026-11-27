@@ -809,6 +809,8 @@ export class World {
       s.speed *= 1.3;
     }
     if (p.buffs.speed > 0) s.speed *= 1.4;
+    // 📏 area can't grow silly: past +50% only 40% of it counts, at most +80%
+    if (s.area > 1.5) s.area = Math.min(1.8, 1.5 + (s.area - 1.5) * 0.4);
     s.maxHp = Math.round(s.maxHp);
     return s;
   }
@@ -820,7 +822,7 @@ export class World {
     if (p.maxHp > before && !p.dead) p.hp += p.maxHp - before;
     p.hp = Math.min(p.hp, p.maxHp);
     const g = p.weapons.find((w) => w.id === "chesan");
-    p.auraR = g ? 95 * weaponStats("chesan", g.lvl).area * p.st.area * (g.evo ? 1.4 : 1) : 0;
+    p.auraR = g ? 95 * Math.min(2.2, weaponStats("chesan", g.lvl).area * p.st.area) * (g.evo ? 1.4 : 1) : 0;
     p.auraEvo = !!g?.evo;
   }
 
@@ -3016,7 +3018,8 @@ export class World {
       const cd = s.cd * Math.max(0.35, 1 - p.st.cooldown);
       const amount = s.amount + p.st.amount;
       const dmg = s.dmg * p.st.might * (w.id === HEROES[p.hero].weapon ? 1 + (p.gear.heroWeapon ?? 0) / 100 : 1);
-      const area = s.area * p.st.area;
+      // the weapon's own levels × the hero's area: never more than ×2.2
+      const area = Math.min(2.2, s.area * p.st.area);
       const wi = WEAPON_IDS.indexOf(w.id);
       const face = Math.atan2(p.dirY, p.dirX);
 

@@ -226,6 +226,16 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     return v === "3d" && canWebGL2() ? "3d" : "2d";
   });
   const [topTab, setTopTab] = useState<"solo" | "coop">("solo");
+  /** ⚙️ drawing quality: auto (lowers the resolution when slow) / high / low */
+  const [quality, setQuality] = useState<"auto" | "high" | "low">(() => {
+    const v = localStorage.getItem("survQuality");
+    return v === "high" || v === "low" ? v : "auto";
+  });
+  useEffect(() => {
+    localStorage.setItem("survQuality", quality);
+    if (rendererRef.current) rendererRef.current.quality = quality;
+  }, [quality]);
+  const [fpsView, setFpsView] = useState<{ fps: number; res: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [touch] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches);
 
@@ -910,7 +920,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     const wrap = wrapRef.current;
     if (!canvas || !wrap) return;
     const r = new Renderer(canvas);
+    r.quality = (localStorage.getItem("survQuality") as "auto" | "high" | "low" | null) ?? "auto";
     rendererRef.current = r;
+    const fpsTimer = window.setInterval(() => setFpsView(r.perf), 1000);
     const c3 = canvas3dRef.current;
     let r3: Renderer3D | null = null;
     let gone = false;
@@ -1126,6 +1138,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
     raf = requestAnimationFrame(frame);
     return () => {
       cancelAnimationFrame(raf);
+      window.clearInterval(fpsTimer);
       ro.disconnect();
       survMusic.pause();
       gone = true;
@@ -2171,6 +2184,14 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 <span>{fxAlpha < 0.05 ? "🙈" : "✨"}</span>
                 <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
               </label>
+              <button
+                className="sv-quality"
+                onClick={() => setQuality((q) => (q === "auto" ? "low" : q === "low" ? "high" : "auto"))}
+                title={`Качество на рисуването: ${quality === "auto" ? "Авто (сваля резолюцията, ако кадрите се бавят)" : quality === "low" ? "Ниско (ниска резолюция, по-малко ефекти)" : "Високо (пълна резолюция)"} — цъкни за смяна${fpsView ? ` · сега ${Math.round(fpsView.fps)} кадъра/с, резолюция ${Math.round(fpsView.res * 100)}%` : ""}`}
+              >
+                {quality === "auto" ? "⚙️A" : quality === "low" ? "⚙️↓" : "⚙️↑"}
+                {fpsView && <small>{Math.round(fpsView.fps)}</small>}
+              </button>
               <button
                 onClick={() => setGfx((g) => (g === "3d" ? "2d" : canWebGL2() ? "3d" : "2d"))}
                 title={gfx === "3d" ? "Графика: 3D модели (цъкни за старата 2D, ако забива)" : "Графика: 2D (цъкни за 3D модели)"}

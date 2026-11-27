@@ -116,6 +116,42 @@ const THREE_ZOOM = 0.78;
 const VIEW_W = 920;
 const VIEW_H = 540;
 
+/** cached pictures for things drawn many times a frame */
+let firePuddleCv: HTMLCanvasElement | null = null;
+function firePuddle() {
+  if (firePuddleCv) return firePuddleCv;
+  const cv = document.createElement("canvas");
+  cv.width = 128;
+  cv.height = 128;
+  const g = cv.getContext("2d")!;
+  const gr = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+  gr.addColorStop(0, "rgba(255,230,120,0.55)");
+  gr.addColorStop(0.6, "rgba(255,110,30,0.35)");
+  gr.addColorStop(1, "rgba(255,60,10,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 128, 128);
+  firePuddleCv = cv;
+  return cv;
+}
+const auraCv: (HTMLCanvasElement | null)[] = [null, null];
+function auraGlow(evo: boolean) {
+  const k = evo ? 1 : 0;
+  if (auraCv[k]) return auraCv[k]!;
+  const cv = document.createElement("canvas");
+  cv.width = 256;
+  cv.height = 256;
+  const g = cv.getContext("2d")!;
+  const gr = g.createRadialGradient(128, 128, 26, 128, 128, 128);
+  gr.addColorStop(0, "rgba(255,255,235,0)");
+  gr.addColorStop(0.7, evo ? "rgba(190,255,170,0.12)" : "rgba(250,245,220,0.1)");
+  gr.addColorStop(0.97, evo ? "rgba(190,255,170,0.3)" : "rgba(250,245,220,0.24)");
+  gr.addColorStop(1, "rgba(250,245,220,0)");
+  g.fillStyle = gr;
+  g.fillRect(0, 0, 256, 256);
+  auraCv[k] = cv;
+  return cv;
+}
+
 export class Renderer {
   private c: CanvasRenderingContext2D;
   private w = 1;
@@ -146,8 +182,38 @@ export class Renderer {
     this.c = canvas.getContext("2d")!;
   }
 
+  /** ⚙️ quality: "auto" lowers the resolution when frames get slow (the drawing, not the game, is the heavy part),
+   *  "high" keeps it, "low" = low resolution + fewer effects */
+  quality: "auto" | "high" | "low" = "auto";
+  /** resolution scale 0.5..1 (auto) */
+  private q = 1;
+  private ema = 16;
+  private adaptT = 0;
+  /** fewer sparks / numbers / flames */
+  lowFx = false;
+  private adapt(dt: number) {
+    this.ema = this.ema * 0.95 + Math.min(100, dt * 1000) * 0.05;
+    this.adaptT += dt;
+    if (this.adaptT < 1.5) return;
+    this.adaptT = 0;
+    let q = this.q;
+    if (this.quality === "high") q = 1;
+    else if (this.quality === "low") q = 0.6;
+    else if (this.ema > 21 && q > 0.55) q = Math.max(0.5, q - 0.1);
+    else if (this.ema < 13 && q < 1) q = Math.min(1, q + 0.05);
+    this.lowFx = this.quality === "low" || (this.quality === "auto" && (q < 0.8 || this.ema > 24));
+    if (Math.abs(q - this.q) > 0.001) {
+      this.q = q;
+      this.resize(this.w, this.h);
+    }
+  }
+  /** for the 📊 corner (fps + resolution) */
+  get perf() {
+    return { fps: 1000 / this.ema, res: this.q };
+  }
+
   resize(cssW: number, cssH: number) {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = Math.min(2, window.devicePixelRatio || 1) * (this.quality === "high" ? 1 : this.quality === "low" ? 0.6 : this.q);
     this.w = Math.max(1, cssW);
     this.h = Math.max(1, cssH);
     this.canvas.width = Math.round(this.w * this.dpr);
@@ -436,6 +502,13 @@ export class Renderer {
     const main = this.c;
     let c = main;
     this.clock += dt;
+    this.adapt(dt);
+    // hard caps: a screen full of sparks / numbers costs more than it shows
+    const pcap = this.lowFx ? 300 : 650;
+    if (this.particles.length > pcap) this.particles.splice(0, this.particles.length - pcap);
+    const tcap = this.lowFx ? 25 : 55;
+    if (this.texts.length > tcap) this.texts.splice(0, this.texts.length - tcap);
+    if (this.bolts.length > 50) this.bolts.splice(0, this.bolts.length - 50);
     // 3D: a bit further out (the models are bigger than the old pictures); both layers use the same zoom
     const z = this.zoom * (o.three ? THREE_ZOOM : 1);
     this.zNow = z;
@@ -736,21 +809,9 @@ export class Renderer {
     for (const p of v.players) {
       if (p.dead || !p.auraR) continue;
       const R = p.auraR;
-      const g = c.createRadialGradient(p.x, p.y, R * 0.2, p.x, p.y, R);
-      g.addColorStop(0, "rgba(255,255,235,0)");
-      g.addColorStop(0.7, p.auraEvo ? "rgba(190,255,170,0.12)" : "rgba(250,245,220,0.1)");
-      g.addColorStop(1, p.auraEvo ? "rgba(190,255,170,0.3)" : "rgba(250,245,220,0.24)");
-      c.fillStyle = g;
-      // a wavy misty edge, not a plain circle
-      c.beginPath();
-      for (let i = 0; i <= 48; i++) {
-        const a = (i / 48) * Math.PI * 2;
-        const rr = R * (1 + Math.sin(a * 6 + this.clock * 3) * 0.04 + Math.sin(a * 11 - this.clock * 2) * 0.025);
-        if (i === 0) c.moveTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.92);
-        else c.lineTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr * 0.92);
-      }
-      c.closePath();
-      c.fill();
+      // a cached glow, gently breathing (it used to be a new gradient + a 48-point wavy path every frame)
+      const br = 1 + Math.sin(this.clock * 3) * 0.03;
+      c.drawImage(auraGlow(p.auraEvo), p.x - R * br, p.y - R * 0.92 * br, R * 2 * br, R * 1.84 * br);
       // garlic heads circling slowly + wisps rising
       const gs = garlicSprite();
       const n = p.auraEvo ? 8 : 5;
@@ -774,38 +835,28 @@ export class Renderer {
     }
     for (const q of v.projs) {
       if (!onScreen(q.x, q.y, q.r + 20)) continue;
+      // (plain thin rings: dashed strokes are slow to draw, and with many jacks the screen was a red net)
       if (q.kind === PK.scarecrow) {
         c.beginPath();
         c.arc(q.x, q.y + 10, q.r, 0, Math.PI * 2);
-        c.fillStyle = "rgba(255,150,60,0.1)";
+        c.fillStyle = "rgba(255,150,60,0.08)";
         c.fill();
-        c.setLineDash([6, 6]);
-        c.strokeStyle = "rgba(255,170,80,0.45)";
-        c.lineWidth = 1.5;
+        c.strokeStyle = "rgba(255,170,80,0.3)";
+        c.lineWidth = 1.2;
         c.stroke();
-        c.setLineDash([]);
       } else if (q.kind === PK.jack) {
         c.beginPath();
         c.arc(q.x, q.y, q.r, 0, Math.PI * 2);
-        c.strokeStyle = "rgba(255,90,60,0.6)";
-        c.setLineDash([5, 5]);
-        c.lineWidth = 2;
+        c.strokeStyle = "rgba(255,90,60,0.32)";
+        c.lineWidth = 1.4;
         c.stroke();
-        c.setLineDash([]);
       }
     }
     for (const q of v.projs) {
       if (q.kind !== PK.fire && q.kind !== PK.bigFire) continue;
       if (!onScreen(q.x, q.y, q.r)) continue;
-      const g = c.createRadialGradient(q.x, q.y, 2, q.x, q.y, q.r);
-      g.addColorStop(0, "rgba(255,230,120,0.55)");
-      g.addColorStop(0.6, "rgba(255,110,30,0.35)");
-      g.addColorStop(1, "rgba(255,60,10,0)");
-      c.fillStyle = g;
-      c.beginPath();
-      c.ellipse(q.x, q.y, q.r, q.r * 0.75, 0, 0, Math.PI * 2);
-      c.fill();
-      for (let i = 0; i < 6; i++) {
+      c.drawImage(firePuddle(), q.x - q.r, q.y - q.r * 0.75, q.r * 2, q.r * 1.5);
+      for (let i = 0; i < (this.lowFx ? 2 : 6); i++) {
         const a = i * 1.7 + q.id;
         const fx = q.x + Math.cos(a) * q.r * 0.55;
         const fy = q.y + Math.sin(a) * q.r * 0.4;
@@ -902,12 +953,13 @@ export class Renderer {
       const sp = projSprite(q.kind, SIDEWAYS.has(q.kind) ? frame : q.kind === PK.bee ? Math.floor(this.clock * 30 + q.id) % 2 : 0);
       if (!sp) continue;
       const base = PROJ_BASE[q.kind];
-      const scale = base ? Math.max(0.6, q.r / base) : 1;
+      // drawn at most twice its size (a huge area made pigs fill the screen and cost a lot to draw; the hit stays as big)
+      const scale = base ? Math.min(2, Math.max(0.6, q.r / base)) : 1;
       const w = (sp.width / 2) * scale;
       const h = (sp.height / 2) * scale;
       // motion trail for spinning things: earlier positions + angles, fading
       if (SPIN_TRAIL.has(q.kind)) {
-        const last = this.lastPos.get(q.id);
+        const last = this.lowFx || v.projs.length > 160 ? undefined : this.lastPos.get(q.id);
         if (last) {
           for (let k = 3; k >= 1; k--) {
             const t = k / 4;
