@@ -2075,6 +2075,17 @@ const PROJ_DRAW: Record<number, { w: number; h: number; draw: Draw }> = {
       }
     },
   },
+  [PK.chalk]: {
+    w: 24,
+    h: 12,
+    draw: (c) => {
+      // a stick of chalk with a puff of dust behind it
+      ell(c, -8, 0, 4, 3, "rgba(240,240,230,0.35)");
+      rr(c, -5, -2.2, 11, 4.4, 1.6, "#f4f2ea", OUT, 1);
+      line(c, [-3, -1, 4, -1], "#ffffff", 0.8);
+      ell(c, 5.5, 0, 1.4, 2, "#d8d4c8");
+    },
+  },
   [PK.bullet]: {
     w: 20,
     h: 12,
@@ -2760,7 +2771,7 @@ const iconCache = new Map<string, string>();
 export function weaponIcon(id: string): string {
   const hit = iconCache.get(id);
   if (hit) return hit;
-  const kind = { tsarvul: PK.tsarvul, prase: PK.pig, kobilitsa: PK.kob, banitsa: PK.banitsa, rakia: PK.bottle, martenitsa: PK.mart, pishtov: PK.bullet, bradva: PK.axe, kazan: PK.cauldron, krik: PK.jack, plashilo: PK.scarecrow }[id];
+  const kind = { tebeshir: PK.chalk, tsarvul: PK.tsarvul, prase: PK.pig, kobilitsa: PK.kob, banitsa: PK.banitsa, rakia: PK.bottle, martenitsa: PK.mart, pishtov: PK.bullet, bradva: PK.axe, kazan: PK.cauldron, krik: PK.jack, plashilo: PK.scarecrow }[id];
   const cv = document.createElement("canvas");
   cv.width = 64;
   cv.height = 64;

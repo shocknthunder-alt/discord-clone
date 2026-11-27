@@ -167,7 +167,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   const me = useAuthStore((s) => s.user);
   const myId = me?.id ?? "";
   const [phase, setPhase] = useState<"menu" | "playing" | "over">(() => (savedGames.has(channelId) ? "playing" : "menu"));
-  const [tab, setTab] = useState<"play" | "shop" | "runes" | "gear" | "top" | "ach">("play");
+  const [tab, setTab] = useState<"play" | "shop" | "runes" | "gear" | "guide" | "top" | "ach">("play");
   const [diffSel, setDiffSel] = useState<Partial<Record<SurvMapId, number>>>(() => load("survDiff", {}));
   useEffect(() => localStorage.setItem("survDiff", JSON.stringify(diffSel)), [diffSel]);
   const [gearHero, setGearHero] = useState<SurvHeroId | null>(null);
@@ -1376,6 +1376,75 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
 
   const sel = HEROES[hero];
 
+  /** 📖 every evolution and combo: what goes with what, and what it does (mine = the weapons I have: highlighted) */
+  const guide = (mine: { id: WeaponId; lvl: number; evo: boolean }[] | null, passives?: Partial<Record<PassiveId, number>>) => {
+    const has = (id: WeaponId) => mine?.find((w) => w.id === id);
+    const passive = (pid: PassiveId) => passives?.[pid] ?? 0;
+    const cIds = COMBO_IDS.slice().sort((a, b) => Number(!!(has(COMBOS[b].a) || has(COMBOS[b].b))) - Number(!!(has(COMBOS[a].a) || has(COMBOS[a].b))));
+    return (
+      <div className="sv-guide">
+        <h3>🔗 Съчетания <span className="sv-dim">— две определени оръжия заедно: и двете на ниво 4 = I, и двете на ниво 8 (или еволюирали) = II</span></h3>
+        <div className="sv-guide-grid">
+          {cIds.map((c) => {
+            const C = COMBOS[c];
+            const t = mine ? comboTier(mine, c) : 0;
+            const a = has(C.a);
+            const b = has(C.b);
+            return (
+              <div key={c} className={`sv-guide-card ${t ? "active" : a || b ? "half" : ""}`}>
+                <div className="sv-guide-pair">
+                  <span className={a ? "own" : ""}>
+                    <img src={weaponIcon(C.a)} alt="" /> {WEAPONS[C.a].name}
+                    {a ? <em>ур.{a.lvl}</em> : null}
+                  </span>
+                  <b>+</b>
+                  <span className={b ? "own" : ""}>
+                    <img src={weaponIcon(C.b)} alt="" /> {WEAPONS[C.b].name}
+                    {b ? <em>ур.{b.lvl}</em> : null}
+                  </span>
+                </div>
+                <b className="sv-guide-name">
+                  {C.icon} {C.name} {t ? <span className="sv-guide-tier">{TIER_ROMAN[t]} — действа!</span> : null}
+                </b>
+                <small>
+                  <b>I:</b> {C.desc(1)}
+                </small>
+                <small>
+                  <b>II:</b> {C.desc(2)}
+                </small>
+              </div>
+            );
+          })}
+        </div>
+        <h3>🌟 Еволюции <span className="sv-dim">— оръжие на ниво 8 + неговият пасив → следващият сандък го еволюира</span></h3>
+        <div className="sv-guide-grid">
+          {WEAPON_IDS.map((id) => {
+            const W = WEAPONS[id];
+            const w = has(id);
+            const pv = passive(W.evo.passive);
+            return (
+              <div key={id} className={`sv-guide-card ${w?.evo ? "active" : w ? "half" : ""}`}>
+                <div className="sv-guide-pair">
+                  <span className={w ? "own" : ""}>
+                    <img src={weaponIcon(id)} alt="" /> {W.name}
+                    {w ? <em>{w.evo ? "🌟" : `ур.${w.lvl}/8`}</em> : null}
+                  </span>
+                  <b>+</b>
+                  <span className={pv ? "own" : ""}>
+                    <i>{PASSIVES[W.evo.passive].icon}</i> {PASSIVES[W.evo.passive].name}
+                    {pv ? <em>✔</em> : null}
+                  </span>
+                </div>
+                <b className="sv-guide-name">🌟 {W.evo.name}</b>
+                <small>{W.evo.desc}</small>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const menu = (
     <div className="sv-menu">
       <div className="sv-title">
@@ -1397,6 +1466,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         </button>
         <button className={tab === "gear" ? "on" : ""} onClick={() => setTab("gear")}>
           🎒 Снаряжение {profile?.items?.length ? `(${profile.items.length})` : ""}
+        </button>
+        <button className={tab === "guide" ? "on" : ""} onClick={() => setTab("guide")}>
+          📖 Наръчник
         </button>
         <button className={tab === "top" ? "on" : ""} onClick={() => setTab("top")}>
           🏆 Класация
@@ -2064,6 +2136,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           </div>
         );
       })()}
+      {tab === "guide" && <div className="sv-guide-wrap">{guide(null)}</div>}
       {tab === "top" && (
         <div className="sv-top">
           <div className="sv-tabs small">
@@ -2470,18 +2543,49 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                     </small>
                   </>
                 )}
-                {o.kind === "weapon" && <em className="sv-evo-hint">🌟 + {PASSIVES[WEAPONS[o.id].evo.passive].icon} {PASSIVES[WEAPONS[o.id].evo.passive].name}</em>}
+                {o.kind === "weapon" &&
+                  (() => {
+                    const ev = WEAPONS[o.id].evo;
+                    const hasP = (me_?.passives[ev.passive] ?? 0) > 0;
+                    return (
+                      <div className={`sv-hint-box evo ${hasP ? "on" : ""}`} title={ev.desc}>
+                        <b>🌟 {ev.name}</b>
+                        <span>
+                          ниво 8 + {PASSIVES[ev.passive].icon} {PASSIVES[ev.passive].name} {hasP ? "✔" : "✘"} → от сандък
+                        </span>
+                        <small>{ev.desc}</small>
+                      </div>
+                    );
+                  })()}
                 {o.kind === "weapon" &&
                   combosOf(o.id).map((c) => {
-                    const other = COMBOS[c].a === o.id ? COMBOS[c].b : COMBOS[c].a;
-                    const has = me_?.weapons.some((w) => w.id === other);
+                    const C = COMBOS[c];
+                    const other = C.a === o.id ? C.b : C.a;
+                    const ow = me_?.weapons.find((w) => w.id === other);
                     return (
-                      <em key={c} className={`sv-combo-hint ${has ? "on" : ""}`} title={COMBOS[c].desc(1)}>
-                        🔗 + {WEAPONS[other].name} → {COMBOS[c].name}
-                      </em>
+                      <div key={c} className={`sv-hint-box combo ${ow ? "on" : ""}`}>
+                        <b>
+                          🔗 {C.icon} {C.name}
+                        </b>
+                        <span>
+                          + <img className="sv-wicon" src={weaponIcon(other)} alt="" /> {WEAPONS[other].name} {ow ? `(имаш, ниво ${ow.lvl})` : "(нямаш)"} · двете на ниво 4+
+                        </span>
+                        <small>{C.desc(1)}</small>
+                      </div>
                     );
                   })}
-                {o.kind === "passive" && <em className="sv-evo-hint">{evoFor(o.id)}</em>}
+                {o.kind === "passive" &&
+                  WEAPON_IDS.filter((id) => WEAPONS[id].evo.passive === o.id).map((id) => {
+                    const ow = me_?.weapons.find((w) => w.id === id);
+                    return (
+                      <div key={id} className={`sv-hint-box evo ${ow ? "on" : ""}`} title={WEAPONS[id].evo.desc}>
+                        <b>🌟 {WEAPONS[id].evo.name}</b>
+                        <span>
+                          за <img className="sv-wicon" src={weaponIcon(id)} alt="" /> {WEAPONS[id].name} {ow ? `(имаш, ниво ${ow.lvl}/8)` : "(нямаш го)"}
+                        </span>
+                      </div>
+                    );
+                  })}
               </button>
             ))}
           </div>
@@ -2503,6 +2607,10 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           <label>
             🔊 Звуци <input type="range" min={0} max={1} step={0.05} value={sfx} onChange={(e) => setSfx(Number(e.target.value))} />
           </label>
+          <details className="sv-pause-guide">
+            <summary>📖 Еволюции и съчетания (кое с кое)</summary>
+            {guide(me_?.weapons ?? [], me_?.passives)}
+          </details>
           <div className="sv-row center">
             <button className="sv-big" onClick={() => setPaused(false)}>
               ▶ Продължи

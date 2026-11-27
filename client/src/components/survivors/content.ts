@@ -22,7 +22,8 @@ export type WeaponId =
   | "kosher"
   | "kazan"
   | "krik"
-  | "plashilo";
+  | "plashilo"
+  | "tebeshir";
 export type PassiveId =
   | "salata"
   | "boza"
@@ -86,9 +87,9 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     id: "tesla",
     name: "Тесла",
     desc: "Намотка, която пуска светкавица — прескача от враг на враг.",
-    base: { dmg: 13, cd: 1.8, amount: 1, area: 1, speed: 0, pierce: 3, dur: 0 },
-    ups: [{ pierce: 2 }, { dmg: 6 }, { amount: 1 }, { pierce: 2 }, { cd: 0.3 }, { dmg: 8 }, { amount: 1, pierce: 2 }],
-    evo: { passive: "kafe", name: "Кулата на Тесла", desc: "Още светкавици, двойни скокове и мълнии от небето." },
+    base: { dmg: 16, cd: 1.8, amount: 1, area: 1, speed: 0, pierce: 2, dur: 0 },
+    ups: [{ dmg: 8 }, { pierce: 1 }, { amount: 1 }, { dmg: 8 }, { cd: 0.3 }, { pierce: 1 }, { amount: 1, dmg: 10 }],
+    evo: { passive: "kafe", name: "Кулата на Тесла", desc: "Още светкавици, повече скокове и мълнии от небето." },
   },
   kobilitsa: {
     id: "kobilitsa",
@@ -134,7 +135,8 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     id: "martenitsa",
     name: "Мартеница",
     desc: "Пижо и Пенда сами гонят най-близките врагове.",
-    base: { dmg: 9, cd: 1.3, amount: 1, area: 1, speed: 300, pierce: 1, dur: 3 },
+    // (2026-11-27: one extra bounce from the start — after a hit it goes on to the next enemy)
+    base: { dmg: 9, cd: 1.3, amount: 1, area: 1, speed: 300, pierce: 2, dur: 3 },
     ups: [{ amount: 1 }, { dmg: 4 }, { amount: 1 }, { cd: 0.2 }, { dmg: 5 }, { amount: 1 }, { pierce: 1 }],
     evo: { passive: "detelina", name: "Баба Марта", desc: "Рояк мартеници, пробиват и удрят тройно при критичен удар." },
   },
@@ -193,6 +195,14 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
     base: { dmg: 30, cd: 2.6, amount: 1, area: 1, speed: 0, pierce: 999, dur: 0.8 },
     ups: [{ dmg: 10 }, { area: 0.2 }, { amount: 1 }, { dmg: 12 }, { cd: 0.4 }, { area: 0.2 }, { amount: 1 }],
     evo: { passive: "kiselo", name: "Хидравличен крик", desc: "Три поредни тръшвания, по-широки." },
+  },
+  tebeshir: {
+    id: "tebeshir",
+    name: "Тебешир",
+    desc: "Хвърля тебешир по най-близкия враг — отскача още към двама.",
+    base: { dmg: 13, cd: 1.15, amount: 1, area: 1, speed: 560, pierce: 3, dur: 2 },
+    ups: [{ dmg: 5 }, { amount: 1 }, { pierce: 1 }, { cd: 0.15 }, { dmg: 7 }, { amount: 1 }, { dmg: 10, pierce: 1 }],
+    evo: { passive: "sirene", name: "Тебешири в три цвята", desc: "Отскача двойно повече и всеки удар вдига облак тебеширен прах." },
   },
   plashilo: {
     id: "plashilo",
@@ -308,7 +318,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     id: "nikola",
     name: "Никола",
     title: "Даскалът по физика",
-    weapon: "tesla",
+    weapon: "tebeshir",
     bonus: "+10% размер на атаките",
     stats: { area: 0.1 },
     skill: { name: "Верижна мълния", desc: "4 секунди мълнии скачат от враг на враг — 14 вериги по 9 скока, последната е двойна и удря 18.", cd: 20, quote: "Ток и жициии — AC/DC!" },
@@ -555,7 +565,7 @@ export const ITEM_TEXT: Record<string, { name: string; icon: string }> = {
   hlopka: { name: "Медна хлопка", icon: "🔔" },
   maratonki: { name: "Златни маратонки", icon: "👟" },
   kasket: { name: "Брейк каскет", icon: "🧢" },
-  bobina: { name: "Тесла бобина", icon: "🌀" },
+  bobina: { name: "Показалката на даскала", icon: "📏" },
   kreda: { name: "Тебешир на даскала", icon: "🖍️" },
   tava: { name: "Медна тава", icon: "🍳" },
   tochilka: { name: "Точилка", icon: "🥖" },

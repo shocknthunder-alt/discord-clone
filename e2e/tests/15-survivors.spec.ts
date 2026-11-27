@@ -61,6 +61,7 @@ test.describe("🧟 Шмиркленд", () => {
     await giveXp(a.page, 10);
     await expect(a.page.locator(".sv-card")).toHaveCount(3);
     await a.page.locator(".sv-game").screenshot({ path: "explore/surv-levelup.png" });
+    await a.page.screenshot({ path: "explore/surv-cards.png" });
     await a.page.keyboard.press("Digit1");
     await expect(a.page.locator(".sv-card")).toHaveCount(0);
     await expect.poll(async () => (await state(a.page)).level).toBe(2);
@@ -191,7 +192,7 @@ test.describe("🧟 Шмиркленд", () => {
     await expect.poll(async () => (await bobOnHost()).y).toBeGreaterThan(start.y + 60);
 
     // shared XP: one level-up → both get cards, the game waits for both
-    await giveXp(a.page, 8); // level 1 → 2 needs 7 with two players
+    await giveXp(a.page, 40); // level 1 → 2 needs 36 with two players (the steeper curve of 2026-11-27)
     await expect(a.page.locator(".sv-card").first()).toBeVisible();
     await expect(b.page.locator(".sv-card").first()).toBeVisible();
     await b.page.locator(".sv-game").screenshot({ path: "explore/surv-coop-guest-cards.png" });
@@ -463,6 +464,10 @@ test.describe("🧟 Шмиркленд", () => {
     await expect(b.page.locator(".sv-forge .sv-tier")).toHaveCount(3);
     await b.page.screenshot({ path: "explore/surv-craft.png" });
     await b.page.locator(".sv-gear-tabs button", { hasText: "Екипировка" }).click();
+    // 📖 the guide: every combo and evolution
+    await b.page.locator(".sv-tabs button", { hasText: "Наръчник" }).click();
+    await expect(b.page.locator(".sv-guide-card")).toHaveCount(10 + 18);
+    await b.page.screenshot({ path: "explore/surv-guide.png" });
     await b.page.locator(".sv-tabs button", { hasText: "Игра" }).click();
     await b.page.locator(".sv-hero").nth(4).click().catch(() => {});
     await b.page.locator(".sv-diff", { hasText: "2" }).click();

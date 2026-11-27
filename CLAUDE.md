@@ -300,6 +300,13 @@ Owner pronouns unknown: use they/them.
   (rarity mark buttons with counts, sticky summary bar), ⚒️ Ковачница (1. kind, 2. tier cards with a chance bar, 3. the
   result pops in). In-game buttons = ⚙️ Настройки (with FPS) + ⏸ Пауза + ✖; the panel `.sv-settings` has labelled rows
   (effects slider, quality, 2D/3D, mouse, music, numbers); a one-time `.sv-hint-bubble` points at it (`survHintSettings`).
+  Balance 2026-11-27: `xpFor` = 1.5·(6 + 10L + 0.6L²) (~level 15 by wave 7, was 28); every boss beaten = hordes +8% hp /
+  +5% dmg (`bossGrow`, uses `World.bosses`, wave bosses too). Никола starts with 🖍️ ТЕБЕШИР (`tebeshir`, PK.chalk 31: thrown at
+  the nearest, bounces to the nearest not-hit enemy, pierce 3 = 2 bounces, evo +3 and a dust puff); Тесла stays a card with
+  fewer jumps (base 2, max 4 +1 at 6, evo ×1.5, more damage). Мартеница pierce 2 (one bounce) and homes on enemies it hasn't
+  hit (`nearest(…, q.hits)`). Item `bobina` = Показалката на даскала. 📖 Наръчник tab + in the pause (`guide(mine, passives)`):
+  every combo (both weapons, own levels, I/II text) and evolution; level-up cards show `.sv-hint-box` for the evolution
+  (needs lvl 8 + passive ✔/✘) and each combo (the other weapon, owned + level, what it does).
   🎒 GEAR + ☠️ DIFFICULTY (2026-11-27, `packages/shared/src/survItems.ts`): items are PERMANENT in SurvivorProfile.extra
   `items` (≤ 80) + `gear` {hero: {weapon|armor|amulet: itemId}}; bases `SURV_ITEM_BASES` (weapons = 2 per hero, armour /
   amulets anyone), rarity 0..3 = 1..4 stats (`survRollItem`, legendary may get +1 projectile), names in content.ts

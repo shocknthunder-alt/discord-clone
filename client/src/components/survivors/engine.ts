@@ -176,6 +176,7 @@ export const PK = {
   tornado: 28,
   batshot: 29,
   rock: 30,
+  chalk: 31,
 } as const;
 
 /** enemy projectiles that stay where they are and hurt everyone standing in them */
@@ -475,7 +476,8 @@ const angDiff = (a: number, b: number) => {
 
 /** XP needed for the next level (fast early, so the build comes together quickly). */
 export function xpFor(level: number, players: number): number {
-  const base = level < 20 ? 4 + (level - 1) * 6 : level < 40 ? 118 + (level - 20) * 10 : 318 + (level - 40) * 13;
+  // (2026-11-27) steeper: ~level 15 by wave 7 instead of 28
+  const base = 1.5 * (6 + level * 10 + level * level * 0.6);
   return Math.round(base * (1 + 0.45 * (players - 1)));
 }
 
@@ -833,7 +835,11 @@ export class World {
   }
   private hpMul() {
     const w = this.w;
-    return 1.3 * (1 + w * 0.27 + w * w * 0.019) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp() * this.diffHp() * this.hordeHp();
+    return 1.3 * (1 + w * 0.27 + w * w * 0.019) * (1 + 0.5 * (this.pf - 1)) * (this.curses.has("evileye") ? 1.5 : 1) * this.mapDef.hpMul * this.giftHp() * this.diffHp() * this.hordeHp() * this.bossGrow() * this.bossGrow();
+  }
+  /** 💀 each boss beaten: the hordes +8% hp (+5% damage) */
+  private bossGrow() {
+    return 1 + 0.08 * this.bosses;
   }
   /** 🔥 after level 25: +4% hp a level (+2.5% damage, see dmgMul) */
   private hordeHp() {
@@ -854,7 +860,7 @@ export class World {
     return (1 + 0.05 * lv) * (1 + 0.005 * gear);
   }
   private dmgMul() {
-    return 1.2 * (1 + this.w * 0.13) * this.mapDef.dmgMul * (1 + 0.15 * this.diff) * (1 + 0.025 * hordeOver(this.level));
+    return 1.2 * (1 + this.w * 0.13) * this.mapDef.dmgMul * (1 + 0.15 * this.diff) * (1 + 0.025 * hordeOver(this.level)) * (1 + 0.05 * this.bosses);
   }
   private speedMul() {
     return (1.08 + Math.min(0.55, this.w * 0.022)) * (this.curses.has("wolves") ? 1.25 : 1) * (1 + 0.025 * this.diff);
@@ -2955,7 +2961,7 @@ export class World {
 
   /* ───────── weapons ───────── */
 
-  private nearest(x: number, y: number, maxR: number, skip?: Set<number>): Enemy | null {
+  private nearest(x: number, y: number, maxR: number, skip?: { has(id: number): boolean }): Enemy | null {
     let best: Enemy | null = null;
     let bd = maxR * maxR;
     for (const e of this.enemies) {
@@ -3105,7 +3111,7 @@ export class World {
         }
         case "tesla": {
           const n = amount + (w.evo ? 2 : 0);
-          const jumps = s.pierce * (w.evo ? 2 : 1);
+          const jumps = Math.round(s.pierce * (w.evo ? 1.5 : 1));
           const used = new Set<number>();
           for (let i = 0; i < n; i++) {
             const near = this.within(p.x, p.y, 430 * area).filter((e) => !used.has(e.id));
@@ -3192,6 +3198,26 @@ export class World {
               r: 9 * area,
               crit: w.evo ? 3 : 2,
               d: [sp, 0],
+              weapon: wi,
+            });
+          }
+          break;
+        }
+        case "tebeshir": {
+          // thrown at the nearest enemy; bounces on to the next ones (see the hit code)
+          const sp = s.speed * p.st.projSpeed;
+          const used = new Set<number>();
+          for (let i = 0; i < amount; i++) {
+            const t = this.nearest(p.x, p.y, 620, used);
+            if (t) used.add(t.id);
+            const a = t ? Math.atan2(t.y - p.y, t.x - p.x) : face + (i - (amount - 1) / 2) * 0.3;
+            this.addProj(p, PK.chalk, p.x, p.y - 10, Math.cos(a) * sp, Math.sin(a) * sp, {
+              dmg,
+              pierce: s.pierce + (w.evo ? 3 : 0),
+              life: s.dur * p.st.duration,
+              r: 8 * area,
+              knock: 40,
+              d: [w.evo ? 1 : 0],
               weapon: wi,
             });
           }
@@ -3496,8 +3522,8 @@ export class World {
           continue; // no hits in the air
         }
         case PK.mart: {
-          // homes in on the nearest enemy
-          const t = this.nearest(q.x, q.y, 380);
+          // homes in on the nearest enemy it hasn't hit yet
+          const t = this.nearest(q.x, q.y, 380, q.hits);
           const sp = q.d[0]!;
           if (t) {
             const dx = t.x - q.x;
@@ -3572,6 +3598,23 @@ export class World {
         this.hurt(e, q.dmg, p ?? null, kx, ky, q.knock, q.crit, q.weapon);
         if (q.stun) this.stun(e, q.stun);
         if (q.slow) e.slowT = Math.max(e.slowT, q.slow);
+        if (q.kind === PK.chalk || q.kind === PK.mart) {
+          // 🖍️ chalk / 🧶 martenitsa: bounce on to the nearest enemy not hit yet
+          if (q.kind === PK.chalk && q.d[0] && p) this.explode(p, e.x, e.y, 40 * p.st.area, q.dmg * 0.4, 1, q.weapon);
+          q.pierce--;
+          const nx = q.pierce > 0 ? this.nearest(e.x, e.y, 320, q.hits) : null;
+          if (!nx) {
+            q.dead = true;
+            return false;
+          }
+          const sp = Math.hypot(q.vx, q.vy) || 400;
+          const l = Math.hypot(nx.x - q.x, nx.y - q.y) || 1;
+          q.vx = ((nx.x - q.x) / l) * sp;
+          q.vy = ((nx.y - q.y) / l) * sp;
+          q.a = Math.atan2(q.vy, q.vx);
+          q.life = Math.max(q.life, 1);
+          return false;
+        }
         if (q.pierce < 999) {
           q.pierce--;
           if (q.pierce <= 0) {

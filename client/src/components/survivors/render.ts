@@ -72,6 +72,7 @@ const BOOM_COL = ["#ffd36b", "#ffe9a8", "#ffffff", "#ff8a2a", "#cfe9ff", "#b89a6
 const BOOM_FILL = ["255,210,80", "255,230,150", "255,255,255", "255,140,60", "220,240,255", "190,160,110", "140,255,80", "200,20,40"];
 /** the size each projectile picture was drawn for (bigger r = a bigger "area" stat) */
 const PROJ_BASE: Record<number, number> = {
+  [PK.chalk]: 8,
   [PK.tsarvul]: 13,
   [PK.bigTsarvul]: 13,
   [PK.pig]: 18,
