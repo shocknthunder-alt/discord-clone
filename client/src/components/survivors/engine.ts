@@ -564,6 +564,8 @@ export class World {
   private lastThemes: number[] = [];
   private bossQueue: EnemyId[] = [];
   private bossCycle = 0;
+  /** ☠️ Стана's plague: where poisoned enemies fell inside her cloud (they burst next frame) */
+  private plague: { x: number; y: number }[] = [];
   /** ☠️ difficulty 0..10 */
   readonly diff: number = 0;
   private sinceHit = 0;
@@ -1505,6 +1507,14 @@ export class World {
   }
 
   private kill(e: Enemy, p: Player | null) {
+    if (e.poisonT > 0 && this.plague.length < 60 && e.type !== "pot") {
+      for (const q of this.players) {
+        if (q.hero === "stana" && q.buffs.herbs > 0 && dist2(q.x, q.y, e.x, e.y) < 330 * 330) {
+          this.plague.push({ x: e.x, y: e.y });
+          break;
+        }
+      }
+    }
     e.dead = true;
     const luck = p?.st.luck ?? 0;
     this.fx.push([FX.die, Math.round(e.x), Math.round(e.y), ENEMY_IDS.indexOf(e.type)]);
@@ -2029,19 +2039,26 @@ export class World {
         }
       }
     } else if (p.storm > 0) {
+      // ⚡ Верижна мълния: from Никола's hand to the nearest enemy, then jumping on from one to the next
       p.stormT -= dt;
       if (p.stormT <= 0) {
-        p.stormT = 0.08;
+        p.stormT = 0.28;
         p.storm--;
-        const near = this.enemies.filter((e) => !e.dead && e.type !== "pot" && dist2(e.x, e.y, p.x, p.y) < 650 * 650);
-        if (near.length) {
-          const t = pickOne(near);
-          this.fx.push([FX.bolt, Math.round(t.x + rand(-40, 40)), Math.round(t.y - 500), Math.round(t.x), Math.round(t.y)]);
-          this.fx.push([FX.boom, Math.round(t.x), Math.round(t.y), 60, 4]);
-          const dmg = this.skillDmg(p, 90);
-          this.grid.each(t.x, t.y, 70, (e) => {
-            if (dist2(e.x, e.y, t.x, t.y) < 70 * 70) this.hurt(e, e === t ? dmg : dmg * 0.5, p);
-          });
+        const last = p.storm === 0;
+        const jumps = last ? 18 : 9;
+        const hit = new Set<number>();
+        let from = { x: p.x, y: p.y - 18 };
+        let tgt = this.nearest(p.x, p.y, 620);
+        let dmg = this.skillDmg(p, last ? 150 : 75);
+        for (let j = 0; j < jumps && tgt; j++) {
+          this.fx.push([FX.bolt, Math.round(from.x), Math.round(from.y), Math.round(tgt.x), Math.round(tgt.y)]);
+          if (last || j % 3 === 0) this.fx.push([FX.boom, Math.round(tgt.x), Math.round(tgt.y), last ? 60 : 36, 4]);
+          hit.add(tgt.id);
+          this.hurt(tgt, dmg, p);
+          this.stun(tgt, 0.25);
+          from = { x: tgt.x, y: tgt.y };
+          dmg *= 0.93;
+          tgt = this.nearest(from.x, from.y, last ? 340 : 280, hit);
         }
       }
     }
@@ -2099,14 +2116,31 @@ export class World {
       });
     }
     if (p.buffs.herbs > 0 && p.hero === "stana") {
-      // a cloud of bitter herbs poisons everything near
-      const dmg = this.skillDmg(p, 30);
-      this.grid.each(p.x, p.y, 230, (e) => {
-        if (dist2(e.x, e.y, p.x, p.y) < 230 * 230 && Math.random() < dt * 2.5) {
-          this.hurt(e, dmg, p);
-          e.slowT = Math.max(e.slowT, 0.6);
-        }
+      // ☠️ Чумна отвара: everything in the cloud is poisoned and slowed, the party in it heals
+      const R = 270 * p.st.area;
+      const pd = this.skillDmg(p, 40);
+      const pi = this.players.indexOf(p);
+      this.grid.each(p.x, p.y, R, (e) => {
+        if (e.type === "pot" || e.type === "altar" || dist2(e.x, e.y, p.x, p.y) > R * R) return;
+        e.poisonT = Math.max(e.poisonT, 2);
+        e.poisonD = Math.max(e.poisonD, pd);
+        e.poisonBy = pi;
+        e.slowT = Math.max(e.slowT, 0.5);
       });
+      for (const q of this.alive) if (dist2(q.x, q.y, p.x, p.y) < 420 * 420) this.heal(q, q.maxHp * 0.04 * dt);
+    }
+    // the plague spreads: poisoned enemies that fell in a cloud burst (a few each frame, so it travels)
+    if (p.hero === "stana" && this.plague.length) {
+      for (const b of this.plague.splice(0, 6)) {
+        this.explode(p, b.x, b.y, 95 * p.st.area, this.skillDmg(p, 45), 6, -1);
+        const pd = this.skillDmg(p, 40);
+        this.grid.each(b.x, b.y, 110, (e) => {
+          if (e.dead || e.type === "pot" || e.type === "altar" || dist2(e.x, e.y, b.x, b.y) > 110 * 110) return;
+          e.poisonT = Math.max(e.poisonT, 3);
+          e.poisonD = Math.max(e.poisonD, pd);
+          e.poisonBy = this.players.indexOf(p);
+        });
+      }
     }
   }
 
@@ -2151,7 +2185,8 @@ export class World {
         this.refreshStats(p);
         break;
       case "nikola":
-        p.storm = 30;
+        p.storm = 14;
+        p.stormT = 0;
         p.stormT = 0;
         break;
       case "gitsa":
@@ -2194,7 +2229,7 @@ export class World {
         break;
       case "stana":
         p.buffs.herbs = 8;
-        for (const g of this.gems) if (g.k <= GK.red || g.k === GK.coin || g.k === GK.bag) g.mag = true;
+        this.fx.push([FX.boom, Math.round(p.x), Math.round(p.y), Math.round(270 * p.st.area), 6]);
         break;
     }
   }

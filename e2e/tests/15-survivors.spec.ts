@@ -450,6 +450,10 @@ test.describe("🧟 Шмиркленд", () => {
     await W("(w) => { const p = w.players[0]; w.gems.length = 0; for (const e of w.enemies) e.dead = true; w.spawn(\"mimic\", p.x + 160, p.y - 60, { boss: true, hp: 99999 }); }");
     await b.page.waitForTimeout(500);
     await b.page.locator(".sv-canvas").screenshot({ path: "explore/surv-mimic.png" });
+    // 💬 the skill line
+    await W("(w) => { const p = w.players[0]; p.skillCd = 0; w.castSkill(p); }");
+    await b.page.waitForTimeout(600);
+    await b.page.locator(".sv-canvas").screenshot({ path: "explore/surv-quote.png" });
     expect(await W("(w) => { const p = w.players[0]; const b = w.spawn(\"karak\", p.x + 400, p.y, { boss: true, hp: 99999 }); return b.moves.length; }")).toBe(4);
     expectNoCrashes(b.page);
     await closeAll(b.context);

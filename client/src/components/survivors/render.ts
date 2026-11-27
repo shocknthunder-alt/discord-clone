@@ -1,6 +1,6 @@
 import type { SurvHeroId, SurvMapId } from "@discord-clone/shared";
-import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, RARITY, type EnemyId } from "./content";
-import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RView } from "./engine";
+import { AFFIXES, AFFIX_TEXT, ENEMIES, ENEMY_IDS, HEROES, RARITY, type EnemyId } from "./content";
+import { FX, GK, HEROES_ORDER, MK, PK, type Fx, type RPlayer, type RView } from "./engine";
 import { decorSprite, enemySize, enemySprite, garlicSprite, groundTile, heroSprite, petSprite, pickupSprite, projSprite, shrineSprite } from "./sprites";
 
 // 🧟 Шмиркленд — draws a view (the host's world, or a guest's snapshot) onto the canvas: meadow, scenery,
@@ -209,6 +209,12 @@ export class Renderer {
           const hero = HEROES_ORDER[f[4] as number];
           if (x === undefined || !hero) break;
           this.skillFx(hero, x, y);
+          // 💬 the hero shouts their line
+          const q = HEROES[hero]?.skill.quote;
+          if (q) {
+            this.bubbles = this.bubbles.filter((b) => b.pi !== f[1]);
+            this.bubbles.push({ pi: f[1] as number, text: q, t: 2.6 });
+          }
           break;
         }
         case FX.revive:
@@ -235,6 +241,42 @@ export class Renderer {
   }
   private ring(x: number, y: number, r0: number, r1: number, life: number, col: string, w = 5) {
     this.rings.push({ x, y, r0, r1, life, max: life, col, w });
+  }
+
+  /** 💬 speech bubbles over heroes (their skill line) */
+  private bubbles: { pi: number; text: string; t: number }[] = [];
+  private drawBubbles(c: CanvasRenderingContext2D, players: RPlayer[], dt: number, three: boolean) {
+    if (!this.bubbles.length) return;
+    c.save();
+    c.font = "bold 13px system-ui, sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    for (const b of this.bubbles) {
+      b.t -= dt;
+      const p = players[b.pi];
+      if (!p || b.t <= 0) continue;
+      const pop = Math.min(1, (2.6 - b.t) * 6);
+      const a = Math.min(1, b.t * 2.5);
+      const w = c.measureText(b.text).width + 16;
+      const x = p.x;
+      const y = p.y - (three ? 118 : 104) - (1 - pop) * 8;
+      c.globalAlpha = a;
+      c.fillStyle = "rgba(255,252,240,0.96)";
+      c.strokeStyle = "rgba(30,20,10,0.9)";
+      c.lineWidth = 2;
+      c.beginPath();
+      c.roundRect(x - w / 2, y - 12, w, 24, 10);
+      c.moveTo(x - 6, y + 11);
+      c.lineTo(x, y + 20);
+      c.lineTo(x + 6, y + 11);
+      c.fill();
+      c.stroke();
+      c.fillStyle = "#1a1208";
+      c.fillText(b.text, x, y + 0.5);
+    }
+    c.globalAlpha = 1;
+    c.restore();
+    this.bubbles = this.bubbles.filter((b) => b.t > 0);
   }
 
   /** every hero's skill gets its own big, readable effect */
@@ -1036,6 +1078,8 @@ export class Renderer {
     }
     actors.sort((a, b) => a.y - b.y);
     for (const a of actors) a.draw();
+
+    this.drawBubbles(c, v.players, dt, !!T);
 
     // 🐾 pets (over the actors, in 2D and over the 3D layer)
     for (const p of v.players) {

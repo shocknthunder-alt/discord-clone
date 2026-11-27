@@ -277,6 +277,10 @@ Owner pronouns unknown: use they/them.
   `WEAPON_IDS[wi]`), timed in `stepCombos`; damage index -5; banner via `announceCombos`; card hints `combosOf`.
   Skills buffed (owner said weak): Киро 6 s vortex (pull 400, grind 190, ring every s, speed buff, end 320 blast + stun);
   Спаска = feast (60% heal/revive, `buffs.cheers` 8 s for all, 3 widening banitsa rings via `volley`).
+  Никола = Верижна мълния (`p.storm` 14 chains every 0.28 s, 9 jumps within 280 via `nearest(…, hit)`, ×0.93 per jump, the
+  last one 18 jumps ×2). Стана = Чумна отвара (8 s cloud r 270: poison + slow, the party heals 4%/s; poisoned enemies that
+  die near her go to `World.plague` and burst next frames (6/frame, ≤ 60) spreading poison — no more gem gathering, the
+  pets do that). Every hero has `skill.quote` (content.ts) shown as a speech bubble (`Renderer.bubbles`, on FX.skill).
   🎒 GEAR + ☠️ DIFFICULTY (2026-11-27, `packages/shared/src/survItems.ts`): items are PERMANENT in SurvivorProfile.extra
   `items` (≤ 80) + `gear` {hero: {weapon|armor|amulet: itemId}}; bases `SURV_ITEM_BASES` (weapons = 2 per hero, armour /
   amulets anyone), rarity 0..3 = 1..4 stats (`survRollItem`, legendary may get +1 projectile), names in content.ts

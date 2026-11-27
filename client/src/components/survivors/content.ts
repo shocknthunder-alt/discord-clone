@@ -277,7 +277,8 @@ export interface HeroDef {
   bonus: string;
   /** stat bonuses (same keys as Stats in engine.ts) */
   stats: Partial<{ maxHp: number; armor: number; area: number; regen: number; might: number; speed: number; magnet: number; cooldown: number; luck: number }>;
-  skill: { name: string; desc: string; cd: number };
+  /** quote = what the hero shouts when the skill goes off (a speech bubble) */
+  skill: { name: string; desc: string; cd: number; quote: string };
   /** look: clothes, skin, hat colour */
   look: { body: string; trim: string; hat: string; skin: string };
 }
@@ -290,7 +291,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "prase",
     bonus: "+20% живот",
     stats: { maxHp: 0.2 },
-    skill: { name: "Стадото", desc: "Две стада овце прегазват всичко от двете страни.", cd: 20 },
+    skill: { name: "Стадото", desc: "Две стада овце прегазват всичко от двете страни.", cd: 20, quote: "Ей, овчици — напрееед!" },
     look: { body: "#7a4a26", trim: "#efe4c8", hat: "#1e1a18", skin: "#e9bf96" },
   },
   tseko: {
@@ -300,7 +301,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tsarvul",
     bonus: "+1 броня, +10% бързина",
     stats: { armor: 1, speed: 0.1 },
-    skill: { name: "Брейк на главата", desc: "6 секунди се върти на главата по-бързо — нищо не го лови, засмуква тълпата, мели и удря на всяка секунда, накрая огромен взрив, който зашеметява.", cd: 20 },
+    skill: { name: "Брейк на главата", desc: "6 секунди се върти на главата по-бързо — нищо не го лови, засмуква тълпата, мели и удря на всяка секунда, накрая огромен взрив, който зашеметява.", cd: 20, quote: "Брейк на главата, бате!" },
     look: { body: "#2457c7", trim: "#ffffff", hat: "#d9262e", skin: "#d9a57c" },
   },
   nikola: {
@@ -310,7 +311,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "tesla",
     bonus: "+10% размер на атаките",
     stats: { area: 0.1 },
-    skill: { name: "Буря", desc: "30 мълнии, всяка удря и всичко около себе си.", cd: 20 },
+    skill: { name: "Верижна мълния", desc: "4 секунди мълнии скачат от враг на враг — 14 вериги по 9 скока, последната е двойна и удря 18.", cd: 20, quote: "Ток и жициии — AC/DC!" },
     look: { body: "#eef0f2", trim: "#2a3550", hat: "#d8d8d8", skin: "#f1cfac" },
   },
   gitsa: {
@@ -320,7 +321,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "banitsa",
     bonus: "+0.4 живот в секунда",
     stats: { regen: 0.4 },
-    skill: { name: "Тава баница", desc: "Пир: лекува всички с 60%, вдига падналите, +60% щети и +30% бързина за 8 с, и три все по-широки кръга горещи баници.", cd: 20 },
+    skill: { name: "Тава баница", desc: "Пир: лекува всички с 60%, вдига падналите, +60% щети и +30% бързина за 8 с, и три все по-широки кръга горещи баници.", cd: 20, quote: "Кой е гладен? Баница за всички!" },
     look: { body: "#2a1d2e", trim: "#f4efe4", hat: "#c62f3a", skin: "#efc6a4" },
   },
   strahil: {
@@ -330,7 +331,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "bradva",
     bonus: "+15% щети, +15% живот",
     stats: { might: 0.15, maxHp: 0.15 },
-    skill: { name: "Вихър от брадви", desc: "5 секунди се върти с две брадви: смила всичко наоколо, придърпва враговете, поема половин щети; накрая хвърля 12 брадви.", cd: 20 },
+    skill: { name: "Вихър от брадви", desc: "5 секунди се върти с две брадви: смила всичко наоколо, придърпва враговете, поема половин щети; накрая хвърля 12 брадви.", cd: 20, quote: "Spin to Win, БАТкааа!" },
     look: { body: "#1b1b1d", trim: "#f2f2f2", hat: "#d4a640", skin: "#d9a57c" },
   },
   vela: {
@@ -340,7 +341,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "martenitsa",
     bonus: "+15% бързина, +30% събиране",
     stats: { speed: 0.15, magnet: 0.3 },
-    skill: { name: "Самодивско хоро", desc: "Замразява враговете наоколо за 5 секунди — замразените поемат двойни щети.", cd: 20 },
+    skill: { name: "Самодивско хоро", desc: "Замразява враговете наоколо за 5 секунди — замразените поемат двойни щети.", cd: 20, quote: "Хоро, самодиви — замръзни!" },
     look: { body: "#f4f1ff", trim: "#7ad1a0", hat: "#f2d36b", skin: "#f6dcc6" },
   },
   gosho: {
@@ -350,7 +351,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "gaida",
     bonus: "+2 броня, −5% бързина",
     stats: { armor: 2, speed: -0.05 },
-    skill: { name: "Звънци", desc: "Три вълни звън — всяка удря, отблъсква и зашеметява наоколо.", cd: 20 },
+    skill: { name: "Звънци", desc: "Три вълни звън — всяка удря, отблъсква и зашеметява наоколо.", cd: 20, quote: "Дрън-дрън! Гоните ли се, бе?!" },
     look: { body: "#1f1b19", trim: "#e9e3d6", hat: "#b3262b", skin: "#c99a6c" },
   },
   mitko: {
@@ -360,7 +361,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "krik",
     bonus: "оръжията с 8% по-бързо",
     stats: { cooldown: 0.08 },
-    skill: { name: "Наздраве!", desc: "10 секунди +60% щети и +30% бързина за всички, +15% живот.", cd: 20 },
+    skill: { name: "Наздраве!", desc: "10 секунди +60% щети и +30% бързина за всички, +15% живот.", cd: 20, quote: "Наздраве, майстори! До дъно!" },
     look: { body: "#1d2a5a", trim: "#ffffff", hat: "#3a3a3a", skin: "#eaa98a" },
   },
   stana: {
@@ -370,7 +371,7 @@ export const HEROES: Record<SurvHeroId, HeroDef> = {
     weapon: "chesan",
     bonus: "+0.3 живот в секунда, +10% късмет",
     stats: { regen: 0.3, luck: 0.1 },
-    skill: { name: "Билки", desc: "Събира всички кристали, лекува 8 секунди и отровен облак от билки трови враговете около теб.", cd: 20 },
+    skill: { name: "Чумна отвара", desc: "8 секунди облак от отвара трови всичко около теб и лекува дружината; всеки отровен враг, който падне в него, се пръсва и разнася чумата нататък.", cd: 20, quote: "Баба знае билката — пий и мри!" },
     look: { body: "#3c5a3a", trim: "#e8d9a8", hat: "#5f8a3a", skin: "#e8c2a0" },
   },
 };
