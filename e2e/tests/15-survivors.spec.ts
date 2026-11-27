@@ -102,8 +102,13 @@ test.describe("🧟 Шмиркленд", () => {
     // server sanity: impossible runs, unknown hero, a non-game channel
     const url = `/text-channels/${textChannel.id}/survivors/run`;
     const ok = { seconds: 60, kills: 100, level: 5, gold: 10, bosses: 0, coop: false, hero: "peyo", curses: [] };
-    await expect(api(ana.token, "POST", url, { ...ok, kills: 999_999 })).rejects.toThrow();
-    await expect(api(ana.token, "POST", url, { ...ok, gold: 99_999 })).rejects.toThrow();
+    // too-big numbers are cut down to the ceilings (the game and its items still count) — on another account
+    const cut = await register("cut");
+    await api(cut.token, "POST", "/servers/join", { inviteCode: server.inviteCode });
+    const cutRun = await api(cut.token, "POST", url, { ...ok, kills: 999_999, gold: 99_999, bosses: 50, loot: [3] });
+    expect(cutRun.profile.stats.kills).toBe(60 * 150 + 500);
+    expect(cutRun.profile.stats.bosses).toBe(6);
+    expect(cutRun.newItems).toHaveLength(1);
     await expect(api(ana.token, "POST", url, { ...ok, hero: "batman" })).rejects.toThrow();
     await expect(api(ana.token, "POST", `/text-channels/${textChannel.id}/survivors/buy`, { key: "revival" })).rejects.toThrow(); // 1500 gold
     await expect(api(ana.token, "POST", `/text-channels/${textChannel.id}/survivors/hero`, { hero: "peyo" })).rejects.toThrow(); // not for sale

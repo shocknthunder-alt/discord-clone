@@ -225,23 +225,24 @@ survivorsRouter.post("/text-channels/:channelId/survivors/run", async (req, res)
   if (!ch) return;
   const b = req.body ?? {};
   const seconds = int(b.seconds, 6 * 3600);
-  const kills = int(b.kills, 2_000_000);
-  const level = int(b.level, 2000);
-  const gold = int(b.gold, 1_000_000);
-  const bosses = int(b.bosses, 500);
+  const kills0 = int(b.kills, 5_000_000);
+  const level = int(b.level, 5000);
+  const gold0 = int(b.gold, 10_000_000);
+  const bosses0 = int(b.bosses, 2000);
   const coop = b.coop === true;
   const hero = typeof b.hero === "string" && heroIds.has(b.hero) ? (b.hero as SurvHeroId) : null;
   const curses = cleanSurvCurses(b.curses);
-  if (seconds === null || kills === null || level === null || gold === null || bosses === null || !hero) return res.status(400).json({ error: "Bad run" });
+  if (seconds === null || kills0 === null || level === null || gold0 === null || bosses0 === null || !hero) return res.status(400).json({ error: "Bad run" });
+  // rough ceilings: a value past them is cut down to them (never lose a whole game, its items included, over one number)
+  const kills = Math.min(kills0, seconds * 150 + 500);
+  const bosses = Math.min(bosses0, Math.floor(seconds / 30) + 4);
+  const gold = Math.min(gold0, seconds * 40 + bosses * 600 + 1000);
   // rough ceilings: hordes get big, but not this big
-  const wave = int(b.wave, 5000) ?? 0;
+  const wave = Math.min(int(b.wave, 5000) ?? 0, Math.floor(seconds / 10) + 2);
   const streak = Math.min(kills, int(b.streak, 2_000_000) ?? 0);
   const evolutions = Math.min(6, int(b.evolutions, 50) ?? 0);
   const tasks = Math.min(wave, int(b.tasks, 5000) ?? 0);
   const bossTypes = strList(b.bossTypes, (x) => /^[a-z]{2,16}$/.test(x)).slice(0, 40);
-  if (kills > seconds * 90 + 300 || gold > seconds * 8 + bosses * 150 + 100 || bosses > seconds / 60 + 2 || wave > seconds / 10 + 2) {
-    return res.status(400).json({ error: "Implausible run" });
-  }
   const map: SurvMapId | null = isSurvMap(b.map) ? b.map : null;
   // a mission can't be won in under 3 minutes (5 sanctuaries + a giant)
   const won = b.won === true && b.mission === true && !!map && seconds >= 180;

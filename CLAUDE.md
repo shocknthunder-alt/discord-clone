@@ -300,7 +300,9 @@ Owner pronouns unknown: use they/them.
   far pieces via `destination-over`; `GEAR_COL` colours, `TRIM` rarity trims, uniques glow. 3D models don't show gear.
   2D is the default (localStorage `survGfx2`). Harder base game: hp ×1.3 (+0.27w), dmg ×1.2, waves ×1.2, bosses ×1.9,
   giants ×2.2; per difficulty +30% hp (bosses too), +15% dmg, +18% mobs, +2.5% speed, more elites; `giftHp` also grows
-  with gear damage.
+  with gear damage. Run POST never rejects big numbers any more: kills / bosses / gold / wave are CUT to ceilings
+  (a 50-wave game got refused and lost its items); the client keeps an unsaved run in localStorage `survPendingRun:<ch>`,
+  retries quietly (server waking up), shows 💾 Опитай пак да запиша, and resends it next time the channel opens.
   🗺️ MAPS (`MAPS` in content.ts, shared `SURV_MAPS`/`survMapsOpen`): Поляната → Мъртвата гора → Блатото → Пирин, each opens
   after winning the previous one's mission; own ground (`groundTile(map)`), light, scenery, favoured mobs, hp/dmg multiplier.
   🎯 MISSION mode (`World(…, {map, mission})`): 5 `altar` enemies (капища; guards wake on the first hit), each one = a

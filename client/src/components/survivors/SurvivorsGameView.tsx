@@ -255,6 +255,24 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       .catch(() => {});
   }, [channelId]);
   useEffect(reload, [reload]);
+  /** a game whose result didn't get saved (server asleep / no internet): kept and sent again */
+  const pendingKey = `survPendingRun:${channelId}`;
+  const [failedRun, setFailedRun] = useState<SurvRunDTO | null>(() => load<SurvRunDTO | null>(pendingKey, null));
+  useEffect(() => {
+    // on opening the channel: try the one left over from last time
+    const run = load<SurvRunDTO | null>(pendingKey, null);
+    if (!run) return;
+    http
+      .post<SurvRunResultDTO>(`/api/text-channels/${channelId}/survivors/run`, run)
+      .then((r) => {
+        localStorage.removeItem(pendingKey);
+        setFailedRun(null);
+        setLists(r.data);
+        setError(`✅ Записах предишната игра: +${r.data.goldEarned} 🪙${r.data.newItems?.length ? `, ${r.data.newItems.length} предмета в Снаряжение` : ""}.`);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId]);
 
   const profile = lists?.profile;
   const profileRef = useRef(profile);
@@ -457,16 +475,33 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       };
       setResult({ ...(lists as SurvListsDTO), record: false, goldEarned: 0, newHeroes: [], seconds: run.seconds, kills: run.kills, level: run.level, reason });
       if (run.seconds < 5) return;
-      http
-        .post<SurvRunResultDTO>(`/api/text-channels/${channelId}/survivors/run`, run)
-        .then((r) => {
-          setLists(r.data);
-          setResult({ ...r.data, seconds: run.seconds, kills: run.kills, level: run.level, reason });
-        })
-        .catch(() => setError("Резултатът не се записа."));
+      sendRun(run, reason);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [channelId, lists],
   );
+  /** send a finished game; if it fails it is kept (localStorage) with a "try again" button, and retried next time */
+  const sendRun = (run: SurvRunDTO, reason?: string, tries = 0) => {
+    localStorage.setItem(pendingKey, JSON.stringify(run));
+    http
+      .post<SurvRunResultDTO>(`/api/text-channels/${channelId}/survivors/run`, run)
+      .then((r) => {
+        localStorage.removeItem(pendingKey);
+        setFailedRun(null);
+        setError(null);
+        setLists(r.data);
+        setResult({ ...r.data, seconds: run.seconds, kills: run.kills, level: run.level, reason });
+      })
+      .catch((e: { response?: { status?: number; data?: { error?: string } } }) => {
+        // the server may be waking up: a few quiet retries first
+        if (tries < 3 && (!e.response || (e.response.status ?? 0) >= 500)) {
+          window.setTimeout(() => sendRun(run, reason, tries + 1), 4000 * (tries + 1));
+          return;
+        }
+        setFailedRun(run);
+        setError(`Резултатът не се записа${e.response?.data?.error ? ` (${e.response.data.error})` : ""}. Пазя играта — натисни „Опитай пак да запиша“.`);
+      });
+  };
 
   const finish = useCallback(
     (reason?: string) => {
@@ -2200,6 +2235,13 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         </div>
       ))}
       {error && <div className="sv-error">{error}</div>}
+      {failedRun && (
+        <div className="sv-row center">
+          <button className="sv-big" onClick={() => sendRun(failedRun, result.reason)}>
+            💾 Опитай пак да запиша
+          </button>
+        </div>
+      )}
       <div className="sv-row center">
         {mode === "solo" && (
           <button className="sv-big" onClick={startSolo}>
