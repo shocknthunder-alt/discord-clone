@@ -801,6 +801,19 @@ export interface ComboDef {
   b: WeaponId;
   desc: (t: number) => string;
 }
+/** what a combo does, in a few words (the level-up cards) */
+export const COMBO_SHORT: Record<string, string> = {
+  gorburya: "мълниите палят земята",
+  chesanprase: "прасето трови",
+  svatba: "звукова вълна наоколо",
+  zakuska: "пръскат се по съседите",
+  zhatva: "посича слабите врагове",
+  haiduti: "зашеметяват",
+  prolet: "лекува и забавя",
+  roy: "облак отровни пчели",
+  gramkrik: "крикът пуска мълнии",
+  ognenkazan: "бобът избухва",
+};
 export const COMBOS: Record<ComboId, ComboDef> = {
   gorburya: { name: "Горяща буря", icon: "🔥⚡", a: "tesla", b: "rakia", desc: (t) => `мълниите на Теслата с ${20 + 15 * t}% шанс подпалват земята под врага` },
   chesanprase: { name: "Прасе с чесън", icon: "🐖🧄", a: "prase", b: "chesan", desc: (t) => `прасето трови и забавя всичко, което блъсне (${10 * t} отрова/с)` },

@@ -307,7 +307,8 @@ Owner pronouns unknown: use they/them.
   fewer jumps (base 2, max 4 +1 at 6, evo ×1.5, more damage). Мартеница pierce 2 (one bounce) and homes on enemies it hasn't
   hit (`nearest(…, q.hits)`). Item `bobina` = Показалката на даскала. 📖 Наръчник tab + in the pause (`guide(mine, passives)`):
   every combo (both weapons, own levels, I/II text) and evolution; level-up cards show `.sv-hint-box` for the evolution
-  (needs lvl 8 + passive ✔/✘) and each combo (the other weapon, owned + level, what it does).
+  (needs lvl 8 + passive ✔/✘) and each combo — later made ONE short line each (`.sv-hl`): "🌟 8 + <passive> → <evo>",
+  "🔗 4 + <other weapon> 4 → <combo> · <`COMBO_SHORT`>", own parts green; full text in the title.
   🎒 GEAR + ☠️ DIFFICULTY (2026-11-27, `packages/shared/src/survItems.ts`): items are PERMANENT in SurvivorProfile.extra
   `items` (≤ 80) + `gear` {hero: {weapon|armor|amulet: itemId}}; bases `SURV_ITEM_BASES` (weapons = 2 per hero, armour /
   amulets anyone), rarity 0..3 = 1..4 stats (`survRollItem`, legendary may get +1 projectile), names in content.ts

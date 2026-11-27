@@ -51,6 +51,7 @@ import { useAuthStore } from "../../store/authStore";
 import { survMusic } from "../blocks/music";
 import { HORDE_FROM, PET_TEXT, hordeOver } from "./content";
 import { DIFF_NAMES, GEAR_STAT_TEXT, ITEM_FLAVOUR, ITEM_TEXT, KIND_TEXT, RARITY, SLOT_ICON, SLOT_TEXT, diffText } from "./content";
+import { COMBO_SHORT } from "./content";
 import { COMBOS, COMBO_IDS, TEMPERS, TIER_ROMAN, comboTier, combosOf, type TemperId } from "./content";
 import { GIFTS, GODS, MAPS, RELICS, RUNE_TEXT, MISSION_ALTARS, isRelic, type GiftId } from "./content";
 import { ACH_TEXT, BOSS_MOVE_DESC, BOSS_ORDER, BOSS_SPELLS, SKIN_TEXT, BOSS_WAVE_EVERY, CURSE_TEXT, ENEMIES, HEROES, HERO_IDS, META_TEXT, PASSIVES, WAVE_SECONDS, WEAPONS, WEAPON_IDS, fmtTime, weaponUpText, type EnemyId, type PassiveId, type WeaponId } from "./content";
@@ -2543,17 +2544,14 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                     </small>
                   </>
                 )}
+                {/* one short line each: what + what (levels) → what you get · what it does */}
                 {o.kind === "weapon" &&
                   (() => {
                     const ev = WEAPONS[o.id].evo;
                     const hasP = (me_?.passives[ev.passive] ?? 0) > 0;
                     return (
-                      <div className={`sv-hint-box evo ${hasP ? "on" : ""}`} title={ev.desc}>
-                        <b>🌟 {ev.name}</b>
-                        <span>
-                          ниво 8 + {PASSIVES[ev.passive].icon} {PASSIVES[ev.passive].name} {hasP ? "✔" : "✘"} → от сандък
-                        </span>
-                        <small>{ev.desc}</small>
+                      <div className="sv-hl evo" title={ev.desc}>
+                        🌟 8 + <b className={hasP ? "own" : ""}>{PASSIVES[ev.passive].icon} {PASSIVES[ev.passive].name}</b> → <b>{ev.name}</b>
                       </div>
                     );
                   })()}
@@ -2563,14 +2561,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                     const other = C.a === o.id ? C.b : C.a;
                     const ow = me_?.weapons.find((w) => w.id === other);
                     return (
-                      <div key={c} className={`sv-hint-box combo ${ow ? "on" : ""}`}>
-                        <b>
-                          🔗 {C.icon} {C.name}
-                        </b>
-                        <span>
-                          + <img className="sv-wicon" src={weaponIcon(other)} alt="" /> {WEAPONS[other].name} {ow ? `(имаш, ниво ${ow.lvl})` : "(нямаш)"} · двете на ниво 4+
-                        </span>
-                        <small>{C.desc(1)}</small>
+                      <div key={c} className={`sv-hl combo ${ow ? "on" : ""}`} title={C.desc(1)}>
+                        🔗 4 + <b className={ow ? "own" : ""}>{WEAPONS[other].name} 4</b> → <b>{C.name}</b> · {COMBO_SHORT[c]}
                       </div>
                     );
                   })}
@@ -2578,11 +2570,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                   WEAPON_IDS.filter((id) => WEAPONS[id].evo.passive === o.id).map((id) => {
                     const ow = me_?.weapons.find((w) => w.id === id);
                     return (
-                      <div key={id} className={`sv-hint-box evo ${ow ? "on" : ""}`} title={WEAPONS[id].evo.desc}>
-                        <b>🌟 {WEAPONS[id].evo.name}</b>
-                        <span>
-                          за <img className="sv-wicon" src={weaponIcon(id)} alt="" /> {WEAPONS[id].name} {ow ? `(имаш, ниво ${ow.lvl}/8)` : "(нямаш го)"}
-                        </span>
+                      <div key={id} className={`sv-hl evo ${ow ? "on" : ""}`} title={WEAPONS[id].evo.desc}>
+                        🌟 + <b className={ow ? "own" : ""}>{WEAPONS[id].name} 8</b> → <b>{WEAPONS[id].evo.name}</b>
                       </div>
                     );
                   })}

@@ -2312,3 +2312,32 @@
   cursor: pointer;
   font-weight: 700;
 }
+
+/* level-up card hints: one short line each */
+.sv-hl {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.25;
+  opacity: 0.6;
+  text-align: center;
+}
+.sv-hl.on {
+  opacity: 1;
+}
+.sv-hl b {
+  font-weight: 700;
+}
+.sv-hl.evo > b:last-of-type {
+  color: #ffe27a;
+}
+.sv-hl.combo > b:last-of-type {
+  color: #ffb86b;
+}
+.sv-hl b.own {
+  color: #7cff8a;
+}
+.sv-card .sv-hl b {
+  font-size: 11px;
+  display: inline;
+  margin: 0;
+}

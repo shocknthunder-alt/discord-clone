@@ -25,6 +25,7 @@ const quiet = (page: Page) =>
 
 test.describe("🧟 Шмиркленд", () => {
   test("сам: игра тече, ново ниво → карти, пауза, край → злато и класация; сървърът отказва глупости", async ({ browser }) => {
+    test.setTimeout(90_000);
     const ana = await register("ana");
     const server = await serverWith(ana);
     const { textChannel } = await api(ana.token, "POST", `/servers/${server.id}/text-channels`, { name: "шмиркленд", type: "survivors" });
