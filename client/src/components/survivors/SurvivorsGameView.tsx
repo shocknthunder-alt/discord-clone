@@ -782,7 +782,10 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       } else if (e.code === "KeyQ" || e.code === "KeyE") {
         if (!e.repeat) inp.skill++;
       } else if (e.code === "KeyP" || e.code === "Escape") {
-        if (!e.repeat && s?.mode === "solo") setPaused((p) => !p);
+        if (!e.repeat) {
+          if (s?.mode === "solo") setPaused((p) => !p);
+          else setSetOpen((o) => !o);
+        }
       } else if (offersRef.current && /^Digit[1-4]$/.test(e.code)) {
         pickRef.current(Number(e.code.slice(5)) - 1);
       } else if (s?.mode === "spec" && e.code === "Tab") {
@@ -2205,6 +2208,68 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   );
 
   const me_ = hud?.me;
+  /** ⚙️ the settings (the in-game drop-down and the pause screen share them) */
+  const settingsRows = (
+    <>
+                  <div className="sv-set-row">
+                    <b>✨ Моите ефекти</b>
+                    <div className="sv-set-ctl">
+                      <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
+                      <span>{Math.round(fxAlpha * 100)}%</span>
+                    </div>
+                    <small>По-прозрачни — за да се виждат атаките на враговете.</small>
+                  </div>
+                  <div className="sv-set-row">
+                    <b>⚙️ Качество</b>
+                    <div className="sv-seg">
+                      {(["auto", "low", "high"] as const).map((q) => (
+                        <button key={q} className={quality === q ? "on" : ""} onClick={() => setQuality(q)}>
+                          {q === "auto" ? "Авто" : q === "low" ? "Ниско" : "Високо"}
+                        </button>
+                      ))}
+                    </div>
+                    <small>
+                      {fpsView ? `Сега: ${Math.round(fpsView.fps)} кадъра/с, резолюция ${Math.round(fpsView.res * 100)}%. ` : ""}Забива ли — „Ниско“.
+                    </small>
+                  </div>
+                  <div className="sv-set-row">
+                    <b>🖼️ Графика</b>
+                    <div className="sv-seg">
+                      <button className={gfx === "2d" ? "on" : ""} onClick={() => setGfx("2d")}>
+                        2D
+                      </button>
+                      <button className={gfx === "3d" ? "on" : ""} onClick={() => setGfx(canWebGL2() ? "3d" : "2d")} disabled={!canWebGL2()}>
+                        3D модели
+                      </button>
+                    </div>
+                    <small>3D е по-тежко; снаряжението личи само в 2D.</small>
+                  </div>
+                  {!touch && (
+                    <div className="sv-set-row">
+                      <b>🖱 Движение с мишката</b>
+                      <div className="sv-seg">
+                        {(["off", "hold", "follow"] as const).map((m) => (
+                          <button key={m} className={mouseMove === m ? "on" : ""} onClick={() => setMouseMove(m)}>
+                            {m === "off" ? "Изкл." : m === "hold" ? "Задържан бутон" : "Следва курсора"}
+                          </button>
+                        ))}
+                      </div>
+                      <small>Десен бутон = претъркулване. Клавишите винаги работят.</small>
+                    </div>
+                  )}
+                  <div className="sv-set-row">
+                    <b>🔊 Звук</b>
+                    <div className="sv-seg">
+                      <button className={music ? "on" : ""} onClick={() => setMusic((m) => !m)}>
+                        🎵 Музика {music ? "вкл." : "изкл."}
+                      </button>
+                      <button className={numbers ? "on" : ""} onClick={() => setNumbers((n) => !n)}>
+                        🔢 Числа на щетите {numbers ? "вкл." : "изкл."}
+                      </button>
+                    </div>
+                  </div>
+    </>
+  );
   const game = (
     <div
       ref={wrapRef}
@@ -2357,13 +2422,10 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 {fpsView && <small>{Math.round(fpsView.fps)} FPS</small>}
               </button>
               {mode === "solo" && (
-                <button onClick={() => setPaused(true)} title="Пауза (P)">
+                <button onClick={() => setPaused(true)} title="Пауза и настройки (P / Esc)">
                   ⏸ Пауза
                 </button>
               )}
-              <button onClick={quit} title={mode === "spec" ? "Спри да гледаш" : "Край на играта"}>
-                ✖
-              </button>
               {setHint && !setOpen && (
                 <div className="sv-hint-bubble" onClick={() => (setSetHint(false), localStorage.setItem("survHintSettings", "1"))}>
                   👆 Тук са настройките: колко прозрачни да са твоите атаки, качество (ако забива), 2D/3D, мишка, музика.
@@ -2371,66 +2433,17 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               )}
               {setOpen && (
                 <div className="sv-settings" onPointerUp={() => window.setTimeout(() => (document.activeElement as HTMLElement | null)?.blur?.(), 0)}>
-                  <div className="sv-set-row">
-                    <b>✨ Моите ефекти</b>
-                    <div className="sv-set-ctl">
-                      <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
-                      <span>{Math.round(fxAlpha * 100)}%</span>
-                    </div>
-                    <small>По-прозрачни — за да се виждат атаките на враговете.</small>
-                  </div>
-                  <div className="sv-set-row">
-                    <b>⚙️ Качество</b>
-                    <div className="sv-seg">
-                      {(["auto", "low", "high"] as const).map((q) => (
-                        <button key={q} className={quality === q ? "on" : ""} onClick={() => setQuality(q)}>
-                          {q === "auto" ? "Авто" : q === "low" ? "Ниско" : "Високо"}
-                        </button>
-                      ))}
-                    </div>
-                    <small>
-                      {fpsView ? `Сега: ${Math.round(fpsView.fps)} кадъра/с, резолюция ${Math.round(fpsView.res * 100)}%. ` : ""}Забива ли — „Ниско“.
-                    </small>
-                  </div>
-                  <div className="sv-set-row">
-                    <b>🖼️ Графика</b>
-                    <div className="sv-seg">
-                      <button className={gfx === "2d" ? "on" : ""} onClick={() => setGfx("2d")}>
-                        2D
+                  {settingsRows}
+                  <div className="sv-row">
+                    <button className="sv-dim sv-set-close" onClick={() => setSetOpen(false)}>
+                      Затвори (Esc)
+                    </button>
+                    {mode !== "solo" && (
+                      <button className="sv-danger" onClick={quit}>
+                        {mode === "spec" ? "👁 Спри да гледаш" : "✖ Напусни играта"}
                       </button>
-                      <button className={gfx === "3d" ? "on" : ""} onClick={() => setGfx(canWebGL2() ? "3d" : "2d")} disabled={!canWebGL2()}>
-                        3D модели
-                      </button>
-                    </div>
-                    <small>3D е по-тежко; снаряжението личи само в 2D.</small>
+                    )}
                   </div>
-                  {!touch && (
-                    <div className="sv-set-row">
-                      <b>🖱 Движение с мишката</b>
-                      <div className="sv-seg">
-                        {(["off", "hold", "follow"] as const).map((m) => (
-                          <button key={m} className={mouseMove === m ? "on" : ""} onClick={() => setMouseMove(m)}>
-                            {m === "off" ? "Изкл." : m === "hold" ? "Задържан бутон" : "Следва курсора"}
-                          </button>
-                        ))}
-                      </div>
-                      <small>Десен бутон = претъркулване. Клавишите винаги работят.</small>
-                    </div>
-                  )}
-                  <div className="sv-set-row">
-                    <b>🔊 Звук</b>
-                    <div className="sv-seg">
-                      <button className={music ? "on" : ""} onClick={() => setMusic((m) => !m)}>
-                        🎵 Музика {music ? "вкл." : "изкл."}
-                      </button>
-                      <button className={numbers ? "on" : ""} onClick={() => setNumbers((n) => !n)}>
-                        🔢 Числа на щетите {numbers ? "вкл." : "изкл."}
-                      </button>
-                    </div>
-                  </div>
-                  <button className="sv-dim sv-set-close" onClick={() => setSetOpen(false)}>
-                    Затвори
-                  </button>
                 </div>
               )}
             </div>
@@ -2590,6 +2603,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
       {paused && mode === "solo" && (
         <div className="sv-pause" onPointerDown={(e) => e.stopPropagation()}>
           <h3>⏸ Пауза</h3>
+          <div className="sv-pause-settings">{settingsRows}</div>
           <label>
             🎵 Музика <input type="range" min={0} max={1} step={0.05} value={musicVol} onChange={(e) => setMusicVol(Number(e.target.value))} />
           </label>
@@ -2604,7 +2618,9 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
             <button className="sv-big" onClick={() => setPaused(false)}>
               ▶ Продължи
             </button>
-            <button onClick={quit}>✖ Край</button>
+            <button className="sv-danger" onClick={quit}>
+              ✖ Край на играта
+            </button>
           </div>
         </div>
       )}

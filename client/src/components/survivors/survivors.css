@@ -2341,3 +2341,16 @@
   display: inline;
   margin: 0;
 }
+
+.sv-pause-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(420px, 90vw);
+  margin: 6px auto 10px;
+  text-align: left;
+}
+.sv-danger {
+  border-color: rgba(255, 90, 70, 0.6);
+  color: #ff8a7a;
+}

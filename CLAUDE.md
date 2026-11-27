@@ -299,7 +299,9 @@ Owner pronouns unknown: use they/them.
   UI v3: the 🎒 tab has three parts (`gearView`): 🧍 Екипировка (doll left, bag right with slot chips), ♻️ Рециклиране
   (rarity mark buttons with counts, sticky summary bar), ⚒️ Ковачница (1. kind, 2. tier cards with a chance bar, 3. the
   result pops in). In-game buttons = ⚙️ Настройки (with FPS) + ⏸ Пауза + ✖; the panel `.sv-settings` has labelled rows
-  (effects slider, quality, 2D/3D, mouse, music, numbers); a one-time `.sv-hint-bubble` points at it (`survHintSettings`).
+  (effects slider, quality, 2D/3D, mouse, music, numbers; `settingsRows` shared with the pause screen); a one-time
+  `.sv-hint-bubble` points at it (`survHintSettings`). No ✖ in the bar: Esc / P = pause with the settings + "Край на играта"
+  (solo) or the settings panel with "Напусни играта" (co-op / spectator).
   Balance 2026-11-27: `xpFor` = 1.5·(6 + 10L + 0.6L²) (~level 15 by wave 7, was 28); every boss beaten = hordes +8% hp /
   +5% dmg (`bossGrow`, uses `World.bosses`, wave bosses too). Elite chests: min(25%, 10% + luck·0.15), at most 1 a wave
   (2 from wave 15, `eliteChests`) — it was 35% + luck. Никола starts with 🖍️ ТЕБЕШИР (`tebeshir`, PK.chalk 31: thrown at

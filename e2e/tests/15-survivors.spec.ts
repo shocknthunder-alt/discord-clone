@@ -59,7 +59,7 @@ test.describe("🧟 Шмиркленд", () => {
     expect((await state(a.page)).players[0]!.x).toBeGreaterThan(before.x + 40);
 
     // a level-up deals cards; "1" picks the first
-    await giveXp(a.page, 10);
+    await giveXp(a.page, 30); // level 1 → 2 needs 25 (the curve of 2026-11-27)
     await expect(a.page.locator(".sv-card")).toHaveCount(3);
     await a.page.locator(".sv-game").screenshot({ path: "explore/surv-levelup.png" });
     await a.page.screenshot({ path: "explore/surv-cards.png" });
@@ -88,6 +88,8 @@ test.describe("🧟 Шмиркленд", () => {
     // pause
     await a.page.keyboard.press("KeyP");
     await expect(a.page.locator(".sv-pause")).toBeVisible();
+    // the pause screen has the settings too
+    await expect(a.page.locator(".sv-pause .sv-pause-settings")).toContainText("Качество");
     const tPaused = (await state(a.page)).t;
     await a.page.waitForTimeout(500);
     expect((await state(a.page)).t).toBeCloseTo(tPaused, 1);
@@ -96,7 +98,9 @@ test.describe("🧟 Шмиркленд", () => {
     await a.page.locator(".sv-game").screenshot({ path: "explore/surv-playing.png" });
 
     // ✖ ends the game → saved
-    await a.page.locator(".sv-buttons button[title='Край на играта']").click();
+    // no ✖ in the bar any more: Esc → the pause screen → end the game
+    await a.page.keyboard.press("Escape");
+    await a.page.locator(".sv-pause button", { hasText: "Край на играта" }).click();
     await expect(a.page.locator(".sv-over")).toContainText("Край на играта");
     await expect(a.page.locator(".sv-over")).toContainText("🪙 +", { timeout: 10_000 });
     await expect(a.page.locator(".sv-record")).toBeVisible();
@@ -222,7 +226,9 @@ test.describe("🧟 Шмиркленд", () => {
     await b.page.locator(".sv-game").screenshot({ path: "explore/surv-coop-guest.png" });
 
     // the host stops → everyone gets the end screen; both runs are saved as co-op
-    await a.page.locator(".sv-buttons button[title='Край на играта']").click();
+    // co-op: Esc opens the settings (the game can't stop) → leave
+    await a.page.keyboard.press("Escape");
+    await a.page.locator(".sv-settings button", { hasText: "Напусни играта" }).click();
     await expect(a.page.locator(".sv-over")).toBeVisible();
     await expect(b.page.locator(".sv-over")).toBeVisible({ timeout: 10_000 });
     await expect(c.page.locator(".sv-over")).toBeVisible({ timeout: 10_000 });
