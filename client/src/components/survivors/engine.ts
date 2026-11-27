@@ -1368,26 +1368,32 @@ export class World {
     this.stepRelics(p, dt);
   }
 
-  /** 🐾 the pet flies to the nearest thing it fetches and sends it to you */
+  /** 🐾 the pet flies to the richest spot of things it fetches (many close together beats one near), pulls in all it
+   *  passes over, and sends them to you */
   private stepPet(p: Player, dt: number) {
     const pet = p.pet;
     if (!pet) return;
-    const fast = pet.k === "zmeyche" ? 1.4 : 1;
+    const fast = pet.k === "zmeyche" ? 1.35 : 1;
     if (!pet.x && !pet.y) {
       pet.x = p.x - 30;
       pet.y = p.y - 20;
     }
     p.petT -= dt;
     const picks = PET_PICKS[pet.k] ?? [];
+    const SEARCH = 1000;
+    const GRAB = 150;
     if (p.petTgt && (p.petTgt.mag || !this.gems.includes(p.petTgt))) p.petTgt = null;
     if (!p.petTgt && p.petT <= 0) {
-      p.petT = 0.35;
-      let best = 620 * 620;
-      for (const g of this.gems) {
-        if (g.mag || !picks.includes(g.k)) continue;
-        const d = dist2(g.x, g.y, p.x, p.y);
-        if (d < best) {
-          best = d;
+      p.petT = 0.12;
+      const mine = this.gems.filter((g) => !g.mag && picks.includes(g.k) && dist2(g.x, g.y, p.x, p.y) < SEARCH * SEARCH);
+      let best = 0;
+      for (const g of mine) {
+        // how many more are around it (chests / items count a lot), and how far the pet must fly
+        let n = 0;
+        for (const q of mine) if (dist2(q.x, q.y, g.x, g.y) < GRAB * GRAB) n += q.k >= 4 ? 4 : 1;
+        const score = n / (1 + Math.hypot(g.x - pet.x, g.y - pet.y) / 300);
+        if (score > best) {
+          best = score;
           p.petTgt = g;
         }
       }
@@ -1398,18 +1404,20 @@ export class World {
     const dx = tx - pet.x;
     const dy = ty - pet.y;
     const d = Math.hypot(dx, dy) || 1;
-    const sp = (p.petTgt ? 430 : Math.min(420, 60 + d * 3)) * fast;
+    const sp = (p.petTgt ? 950 : Math.min(600, 80 + d * 4)) * fast;
     const step = Math.min(d, sp * dt);
     pet.x += (dx / d) * step;
     pet.y += (dy / d) * step;
     if (Math.abs(dx) > 2) pet.face = dx < 0 ? -1 : 1;
-    if (p.petTgt && d < 20) {
-      // grabs it — and everything of its kind right there
-      for (const g of this.gems) if (!g.mag && picks.includes(g.k) && dist2(g.x, g.y, pet.x, pet.y) < 70 * 70) g.mag = true;
+    // everything it flies over comes to you
+    for (const g of this.gems) if (!g.mag && picks.includes(g.k) && dist2(g.x, g.y, pet.x, pet.y) < 110 * 110) g.mag = true;
+    if (p.petTgt && d < 24) {
+      for (const g of this.gems) if (!g.mag && picks.includes(g.k) && dist2(g.x, g.y, pet.x, pet.y) < GRAB * GRAB) g.mag = true;
       p.petTgt = null;
+      p.petT = 0;
     }
     // a far-away pet catches up
-    if (dist2(pet.x, pet.y, p.x, p.y) > 1400 * 1400) {
+    if (dist2(pet.x, pet.y, p.x, p.y) > 1600 * 1600) {
       pet.x = p.x - 30;
       pet.y = p.y - 20;
     }

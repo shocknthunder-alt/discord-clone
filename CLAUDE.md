@@ -310,7 +310,8 @@ Owner pronouns unknown: use they/them.
   +2%/lvl, elites +1.2%/lvl, ordinary mobs ≤ 2%; HUD `.sv-horde`. 🐾 PETS (`SURV_PETS` shared, gold, `extra.pets` + `extra.pet`,
   POST `/survivors/pet` {pet|null} buy/pick; `SurvMemberDTO.pet` via `survPetOf`): Сврака gems, Котарак gold, Шаро chests /
   items / relics / bread, Змейче all + faster (`PET_PICKS` gem kinds); engine `stepPet` flies to the nearest one within 620
-  and sets `mag` on it + its neighbours; net player index 31; drawn by `petSprite` in render.ts (both 2D and over 3D); shop
+  and sets `mag` on it + its neighbours (later: target = richest spot score, speed 950, pulls everything within 110 it flies
+  over, grab 150 on arrival, search 1000; 250 gems in ~25 s vs half in 60 s before); net player index 31; drawn by `petSprite` in render.ts (both 2D and over 3D); shop
   tab section. 📦 MIMIC boss (`mimic`, BOSS_HARD, own AI: hops, telegraphed tongue lash that pulls you in, fake-coin rings;
   sprite = chest with teeth, tongue, 4 clawed legs; 3D = billboard): drops 3 chests + 2 items + gold; from wave 6 an elite
   chest has 6% to come alive as a mimic.
