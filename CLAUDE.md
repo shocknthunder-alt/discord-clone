@@ -296,6 +296,10 @@ Owner pronouns unknown: use they/them.
   lowFx / > 160 projs; jack / scarecrow rings plain (no dashes). Area can't grow silly: hero area past +50% counts 40%,
   max +80%; weapon area × hero area ≤ 2.2 (garlic too). Perf test `e2e/tests/90-surv-perf.spec.ts` (SURV_PERF=1, SURV_Q=high|low):
   frame times + a CPU profile → explore/surv-perf.txt. 26 → 58 fps auto / 36 high in headless (software GL).
+  UI v3: the 🎒 tab has three parts (`gearView`): 🧍 Екипировка (doll left, bag right with slot chips), ♻️ Рециклиране
+  (rarity mark buttons with counts, sticky summary bar), ⚒️ Ковачница (1. kind, 2. tier cards with a chance bar, 3. the
+  result pops in). In-game buttons = ⚙️ Настройки (with FPS) + ⏸ Пауза + ✖; the panel `.sv-settings` has labelled rows
+  (effects slider, quality, 2D/3D, mouse, music, numbers); a one-time `.sv-hint-bubble` points at it (`survHintSettings`).
   🎒 GEAR + ☠️ DIFFICULTY (2026-11-27, `packages/shared/src/survItems.ts`): items are PERMANENT in SurvivorProfile.extra
   `items` (≤ 80) + `gear` {hero: {weapon|armor|amulet: itemId}}; bases `SURV_ITEM_BASES` (weapons = 2 per hero, armour /
   amulets anyone), rarity 0..3 = 1..4 stats (`survRollItem`, legendary may get +1 projectile), names in content.ts

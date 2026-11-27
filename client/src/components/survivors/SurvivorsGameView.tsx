@@ -181,7 +181,12 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
   /** the item clicked: its details pop up right under it */
   const [popItem, setPopItem] = useState<{ id: string; x: number; y: number; up: boolean } | null>(null);
   /** ♻️ recycling: picking items to break into dust */
-  const [recycle, setRecycle] = useState(false);
+  /** the gear tab's three parts */
+  const [gearView, setGearView] = useState<"equip" | "recycle" | "forge">("equip");
+  const recycle = gearView === "recycle";
+  /** ⚙️ the in-game settings panel + the one-time hint where it is */
+  const [setOpen, setSetOpen] = useState(false);
+  const [setHint, setSetHint] = useState(() => localStorage.getItem("survHintSettings") !== "1");
   const [recSel, setRecSel] = useState<string[]>([]);
   /** ⚒️ crafting: the kind picked, the last thing made */
   const [craftKind, setCraftKind] = useState<SurvItemKind>("ring");
@@ -1740,10 +1745,8 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         const wornIds = new Set(Object.values(profile.gear ?? {}).flatMap((g) => Object.values(g ?? {})));
         const total = survGearStats(profile.items, worn, gh);
         const all = profile.items ?? [];
-        const items = [...all]
-          // ♻️ recycling shows the whole bag (what gets marked is what you see)
-          .filter((it) => recycle || (gearSlot ? survItemFits(it, gh, gearSlot) : gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl))))
-          .sort((x, y) => y.r - x.r || y.d - x.d);
+        const sorted = [...all].sort((x, y) => y.r - x.r || y.d - x.d);
+        const bag = sorted.filter((it) => (gearSlot ? survItemFits(it, gh, gearSlot) : gearAll || SURV_GEAR_SLOTS.some((sl) => survItemFits(it, gh, sl))));
         /** where an item goes: the picked slot, else its own (a ring: the free finger first) */
         const target = (it: SurvItem): SurvGearSlot | undefined => {
           if (gearSlot && survItemFits(it, gh, gearSlot)) return gearSlot;
@@ -1752,6 +1755,11 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
         };
         const dragged = () => all.find((x) => x.id === dragRef.current);
         const wornSlotOf = (id: string) => SURV_GEAR_SLOTS.find((sl) => worn[sl] === id);
+        const dropOk = (e: React.DragEvent<HTMLElement>, ok: boolean) => {
+          if (!ok) return;
+          e.preventDefault();
+          e.currentTarget.classList.add("drop-ok");
+        };
         const slotBox = (slot: SurvGearSlot) => {
           const it = all.find((i) => i.id === worn[slot]);
           const t = it ? (ITEM_TEXT[it.b] ?? { name: it.b, icon: "❔" }) : null;
@@ -1763,10 +1771,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               onClick={(e) => (it ? popAt(it.id, e.currentTarget) : setGearSlot(gearSlot === slot ? null : slot))}
               onDragOver={(e) => {
                 const d = dragged();
-                if (d && survItemFits(d, gh, slot)) {
-                  e.preventDefault();
-                  e.currentTarget.classList.add("drop-ok");
-                }
+                dropOk(e, !!d && survItemFits(d, gh, slot));
               }}
               onDragLeave={(e) => e.currentTarget.classList.remove("drop-ok")}
               onDrop={(e) => {
@@ -1782,7 +1787,7 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
                 e.dataTransfer.setData("text/plain", it.id);
                 setPopItem(null);
               }}
-              title={it ? "" : `${SLOT_TEXT[slot]} — празно (пусни предмет тук)`}
+              title={it ? "" : `${SLOT_TEXT[slot]} — празно (пусни предмет тук или цъкни, за да видиш какво става)`}
             >
               <span className="sv-doll-icon">{it ? <img src={itemIcon(it.b, it.r)} alt="" draggable={false} /> : SLOT_ICON[slot]}</span>
               <small>{t ? t.name : SLOT_TEXT[slot]}</small>
@@ -1790,157 +1795,242 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
           );
         };
         const pop = popItem ? all.find((x) => x.id === popItem.id) : undefined;
-        const RAR = [0, 1, 2, 3];
         const recItems = all.filter((it) => recSel.includes(it.id));
         const markRarity = (r: number) => {
           const ids = all.filter((it) => it.r === r && !wornIds.has(it.id)).map((it) => it.id);
-          const allOn = ids.every((id) => recSel.includes(id));
+          const allOn = ids.length > 0 && ids.every((id) => recSel.includes(id));
           setRecSel((sel) => (allOn ? sel.filter((id) => !ids.includes(id)) : [...new Set([...sel, ...ids])]));
         };
+        const dust = profile.dust ?? 0;
         return (
           <div className="sv-gear" onClick={(e) => (e.target as HTMLElement).closest(".poe-pop, .poe-cell, .sv-doll-slot") || setPopItem(null)}>
-            <div className="sv-gear-heroes">
-              {HERO_IDS.map((h) => (
-                <button key={h} className={gh === h ? "on" : ""} onClick={() => setGearHero(h)} title={HEROES[h].name}>
-                  <img src={heroIcon(h, skinOf(h), myLook(h))} alt="" />
-                </button>
-              ))}
-            </div>
-            <h3>
-              🎒 {HEROES[gh].name} носи <span className="sv-dim">(влачи предмет върху героя или в слот; цъкни предмет — какво дава)</span>
-            </h3>
-            <div className="sv-doll">
-              <div className="sv-doll-col">{(["helmet", "shoulders", "armor", "gloves", "weapon"] as SurvGearSlot[]).map(slotBox)}</div>
-              <div
-                className="sv-doll-hero"
-                onDragOver={(e) => {
-                  const d = dragged();
-                  if (d && SURV_GEAR_SLOTS.some((sl) => survItemFits(d, gh, sl))) {
-                    e.preventDefault();
-                    e.currentTarget.classList.add("drop-ok");
-                  }
-                }}
-                onDragLeave={(e) => e.currentTarget.classList.remove("drop-ok")}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.currentTarget.classList.remove("drop-ok");
-                  const d = dragged();
-                  const sl = d && target(d);
-                  if (d && sl) equip(gh, sl, d.id);
-                }}
-              >
-                <img src={heroIcon(gh, skinOf(gh), myLook(gh))} alt="" draggable={false} />
-                <b>{HEROES[gh].name}</b>
-                <small className="sv-dim">{SURV_GEAR_SLOTS.filter((sl) => worn[sl]).length}/{SURV_GEAR_SLOTS.length} слота</small>
-              </div>
-              <div className="sv-doll-col">{(["amulet", "ring1", "ring2", "pants", "boots"] as SurvGearSlot[]).map(slotBox)}</div>
-            </div>
-            {Object.keys(total).length > 0 && (
-              <div className="sv-gear-total">
-                Общо:{" "}
-                {Object.entries(total)
-                  .map(([k, v]) => GEAR_STAT_TEXT[k]?.(Math.round(v * 100) / 100) ?? k)
-                  .join(" · ")}
-              </div>
-            )}
-            <div className="sv-bag-head">
-              <h3>
-                Торба ({all.length}/{SURV_INV_MAX}){gearSlot ? ` · само ${SLOT_TEXT[gearSlot]}` : ""}
-              </h3>
-              {gearSlot && (
-                <button className="sv-dim" onClick={() => setGearSlot(null)}>
-                  ✕ всички слотове
-                </button>
-              )}
-              <label className="sv-dim">
-                <input type="checkbox" checked={gearAll} onChange={(e) => setGearAll(e.target.checked)} /> покажи и чуждите
-              </label>
-              <span className="sv-dust">✨ {profile.dust ?? 0} прах</span>
-              <button className={recycle ? "on" : ""} onClick={() => (setRecycle(!recycle), setRecSel([]), setPopItem(null))}>
-                ♻️ Рециклиране
+            <div className="sv-gear-tabs">
+              <button className={gearView === "equip" ? "on" : ""} onClick={() => (setGearView("equip"), setPopItem(null))}>
+                🧍 Екипировка
+                <small>облечи героите</small>
               </button>
-            </div>
-            {recycle && (
-              <div className="sv-recycle">
-                <span>Маркирай всички:</span>
-                {RAR.map((r) => (
-                  <button key={r} style={{ ["--rc" as string]: RARITY[r]!.color }} className="sv-rar-btn" onClick={() => markRarity(r)}>
-                    {RARITY[r]!.name}
-                  </button>
-                ))}
-                <span className="sv-dim">или цъкай един по един · носените не се маркират</span>
-                <button className="sv-big" disabled={!recItems.length} onClick={() => salvage(recItems)}>
-                  ♻️ Рециклирай {recItems.length} → +{recItems.reduce((x, it) => x + survSalvageDust(it), 0)} ✨
-                </button>
-              </div>
-            )}
-            {!items.length && <div className="sv-dim">Празно. Повали бос и вземи раницата 🎒, която пуска — или изкови нещо отдолу.</div>}
-            <div
-              className="poe-grid"
-              onDragOver={(e) => {
-                if (dragRef.current && wornSlotOf(dragRef.current)) e.preventDefault();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const id = dragRef.current;
-                const sl = id && wornSlotOf(id);
-                if (sl) equip(gh, sl, null);
-              }}
-            >
-              {items.map((it) =>
-                itemCell(
-                  it,
-                  popItem?.id === it.id,
-                  wornIds.has(it.id),
-                  (el) => {
-                    if (recycle) {
-                      if (wornIds.has(it.id)) return;
-                      setRecSel((sel) => (sel.includes(it.id) ? sel.filter((x) => x !== it.id) : [...sel, it.id]));
-                    } else popAt(it.id, el);
-                  },
-                  recSel.includes(it.id),
-                ),
-              )}
+              <button className={gearView === "recycle" ? "on" : ""} onClick={() => (setGearView("recycle"), setPopItem(null), setRecSel([]))}>
+                ♻️ Рециклиране
+                <small>ненужното → ✨ прах</small>
+              </button>
+              <button className={gearView === "forge" ? "on" : ""} onClick={() => (setGearView("forge"), setPopItem(null))}>
+                ⚒️ Ковачница
+                <small>прах → нов предмет</small>
+              </button>
+              <span className="sv-dust big" title="Прах — от рециклиране, харчи се в Ковачницата">
+                ✨ {dust}
+                <small>прах</small>
+              </span>
             </div>
 
-            <h3>⚒️ Изковаване <span className="sv-dim">(рециклирай ненужното за ✨ прах, после избери какво да се изкове — рядкостта е на късмет)</span></h3>
-            <div className="sv-craft">
-              <div className="sv-craft-kinds">
-                {SURV_ITEM_KINDS.map((k) => (
-                  <button key={k} className={craftKind === k ? "on" : ""} onClick={() => setCraftKind(k)} title={KIND_TEXT[k]}>
-                    <span>{SLOT_ICON[k === "ring" ? "ring1" : k]}</span>
-                    <small>{KIND_TEXT[k]}</small>
-                  </button>
-                ))}
-              </div>
-              <div className="sv-craft-tiers">
-                {SURV_CRAFT.map((t, i) => {
-                  const sum = t.weights.reduce((x, y) => x + y, 0);
-                  return (
-                    <button key={i} disabled={(profile.dust ?? 0) < t.cost} onClick={() => craft(gh, craftKind, i)}>
-                      <b>{["Обикновено", "Майсторско", "Царско"][i]} коване</b>
-                      <span>{t.cost} ✨</span>
-                      <small>
-                        {t.weights.map((w, r) =>
-                          w ? (
-                            <em key={r} style={{ color: RARITY[r]!.color }}>
-                              {Math.round((w / sum) * 100)}% {RARITY[r]!.name.toLowerCase()}{" "}
-                            </em>
-                          ) : null,
-                        )}
-                      </small>
-                    </button>
-                  );
-                })}
-              </div>
-              {craftKind === "weapon" && <small className="sv-dim">Оръжието се кове за {HEROES[gh].name}.</small>}
-              {crafted && (
-                <div className="sv-crafted">
-                  <span>Изкова:</span>
-                  {itemView(crafted)}
+            {gearView === "equip" && (
+              <div className="sv-equip">
+                <div className="sv-equip-left">
+                  <div className="sv-gear-heroes">
+                    {HERO_IDS.map((h) => (
+                      <button key={h} className={gh === h ? "on" : ""} onClick={() => setGearHero(h)} title={HEROES[h].name}>
+                        <img src={heroIcon(h, skinOf(h), myLook(h))} alt="" />
+                      </button>
+                    ))}
+                  </div>
+                  <div className="sv-doll">
+                    <div className="sv-doll-col">{(["helmet", "shoulders", "armor", "gloves", "weapon"] as SurvGearSlot[]).map(slotBox)}</div>
+                    <div
+                      className="sv-doll-hero"
+                      onDragOver={(e) => {
+                        const d = dragged();
+                        dropOk(e, !!d && SURV_GEAR_SLOTS.some((sl) => survItemFits(d, gh, sl)));
+                      }}
+                      onDragLeave={(e) => e.currentTarget.classList.remove("drop-ok")}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.currentTarget.classList.remove("drop-ok");
+                        const d = dragged();
+                        const sl = d && target(d);
+                        if (d && sl) equip(gh, sl, d.id);
+                      }}
+                    >
+                      <img src={heroIcon(gh, skinOf(gh), myLook(gh))} alt="" draggable={false} />
+                      <b>{HEROES[gh].name}</b>
+                      <small className="sv-dim">{SURV_GEAR_SLOTS.filter((sl) => worn[sl]).length}/{SURV_GEAR_SLOTS.length} слота</small>
+                    </div>
+                    <div className="sv-doll-col">{(["amulet", "ring1", "ring2", "pants", "boots"] as SurvGearSlot[]).map(slotBox)}</div>
+                  </div>
+                  <div className="sv-gear-total">
+                    {Object.keys(total).length ? (
+                      <>
+                        <b>Общо дава:</b>{" "}
+                        {Object.entries(total)
+                          .map(([k, v]) => GEAR_STAT_TEXT[k]?.(Math.round(v * 100) / 100) ?? k)
+                          .join(" · ")}
+                      </>
+                    ) : (
+                      <span className="sv-dim">Нищо не носи. Влачи предмет от торбата върху героя.</span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="sv-equip-right">
+                  <div className="sv-bag-head">
+                    <h3>
+                      🎒 Торба <span className="sv-dim">{all.length}/{SURV_INV_MAX}</span>
+                    </h3>
+                    <label className="sv-dim">
+                      <input type="checkbox" checked={gearAll} onChange={(e) => setGearAll(e.target.checked)} /> и чуждите
+                    </label>
+                  </div>
+                  <div className="sv-slot-chips">
+                    <button className={!gearSlot ? "on" : ""} onClick={() => setGearSlot(null)}>
+                      Всички
+                    </button>
+                    {SURV_GEAR_SLOTS.filter((sl) => sl !== "ring2").map((sl) => (
+                      <button key={sl} className={gearSlot === sl ? "on" : ""} onClick={() => setGearSlot(gearSlot === sl ? null : sl)} title={SLOT_TEXT[sl]}>
+                        {SLOT_ICON[sl]}
+                      </button>
+                    ))}
+                  </div>
+                  <div
+                    className="poe-grid"
+                    onDragOver={(e) => {
+                      if (dragRef.current && wornSlotOf(dragRef.current)) e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id = dragRef.current;
+                      const sl = id && wornSlotOf(id);
+                      if (sl) equip(gh, sl, null);
+                    }}
+                  >
+                    {bag.map((it) => itemCell(it, popItem?.id === it.id, wornIds.has(it.id), (el) => popAt(it.id, el)))}
+                    {!bag.length && <div className="sv-dim sv-empty">Празно. Повали бос и вземи раницата 🎒 — или изкови нещо в ⚒️ Ковачницата.</div>}
+                  </div>
+                  <small className="sv-dim">Влачи предмет върху героя или в слот · цъкни предмет, за да видиш какво дава · ✔ = носи се</small>
+                </div>
+              </div>
+            )}
+
+            {gearView === "recycle" && (
+              <div className="sv-recycle-view">
+                <div className="sv-recycle">
+                  <span>Маркирай всички:</span>
+                  {[0, 1, 2, 3].map((r) => {
+                    const n = all.filter((it) => it.r === r && !wornIds.has(it.id)).length;
+                    return (
+                      <button key={r} style={{ ["--rc" as string]: RARITY[r]!.color }} className="sv-rar-btn" disabled={!n} onClick={() => markRarity(r)}>
+                        {RARITY[r]!.name} <small>({n})</small>
+                      </button>
+                    );
+                  })}
+                  {recSel.length > 0 && (
+                    <button className="sv-dim" onClick={() => setRecSel([])}>
+                      ✕ изчисти
+                    </button>
+                  )}
+                </div>
+                <small className="sv-dim">…или цъкай предмети един по един. Носените (✔) не могат да се рециклират — свали ги първо.</small>
+                <div className="poe-grid">
+                  {sorted.map((it) =>
+                    itemCell(
+                      it,
+                      false,
+                      wornIds.has(it.id),
+                      () => {
+                        if (wornIds.has(it.id)) return;
+                        setRecSel((sel) => (sel.includes(it.id) ? sel.filter((x) => x !== it.id) : [...sel, it.id]));
+                      },
+                      recSel.includes(it.id),
+                    ),
+                  )}
+                  {!sorted.length && <div className="sv-dim sv-empty">Торбата е празна.</div>}
+                </div>
+                <div className="sv-recycle-bar">
+                  <span>
+                    Избрани: <b>{recItems.length}</b>
+                  </span>
+                  <span>
+                    → <b className="sv-dust">+{recItems.reduce((x, it) => x + survSalvageDust(it), 0)} ✨</b>
+                  </span>
+                  <small className="sv-dim">обикновен 1 · магически 3 · рядък 8 · уникален 20 (+10% на ниво трудност)</small>
+                  <button className="sv-big" disabled={!recItems.length} onClick={() => salvage(recItems)}>
+                    ♻️ Рециклирай
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {gearView === "forge" && (
+              <div className="sv-forge">
+                <div className="sv-forge-step">
+                  <b>1. Какво да се изкове?</b>
+                  <div className="sv-craft-kinds">
+                    {SURV_ITEM_KINDS.map((k) => (
+                      <button key={k} className={craftKind === k ? "on" : ""} onClick={() => setCraftKind(k)}>
+                        <span>{SLOT_ICON[k === "ring" ? "ring1" : k]}</span>
+                        <small>{KIND_TEXT[k]}</small>
+                      </button>
+                    ))}
+                  </div>
+                  {craftKind === "weapon" && (
+                    <div className="sv-forge-for">
+                      Оръжието е за:{" "}
+                      {HERO_IDS.map((h) => (
+                        <button key={h} className={gh === h ? "on" : ""} onClick={() => setGearHero(h)} title={HEROES[h].name}>
+                          <img src={heroIcon(h, skinOf(h))} alt="" />
+                        </button>
+                      ))}
+                      <b>{HEROES[gh].name}</b>
+                    </div>
+                  )}
+                </div>
+                <div className="sv-forge-step">
+                  <b>2. Как да се изкове?</b> <span className="sv-dim">(по-скъпото коване дава по-редки неща)</span>
+                  <div className="sv-craft-tiers">
+                    {SURV_CRAFT.map((t, i) => {
+                      const sum = t.weights.reduce((x, y) => x + y, 0);
+                      const can = dust >= t.cost;
+                      return (
+                        <div key={i} className={`sv-tier ${can ? "" : "poor"}`}>
+                          <b>{["🔨 Обикновено", "⚒️ Майсторско", "👑 Царско"][i]} коване</b>
+                          <div className="sv-chance-bar">
+                            {t.weights.map((w, r) => (w ? <i key={r} style={{ width: `${(w / sum) * 100}%`, background: RARITY[r]!.color }} title={`${RARITY[r]!.name} ${Math.round((w / sum) * 100)}%`} /> : null))}
+                          </div>
+                          <small>
+                            {t.weights.map((w, r) =>
+                              w ? (
+                                <em key={r} style={{ color: RARITY[r]!.color }}>
+                                  {RARITY[r]!.name.toLowerCase()} {Math.round((w / sum) * 100)}%{" "}
+                                </em>
+                              ) : null,
+                            )}
+                          </small>
+                          <button className="sv-big" disabled={!can} onClick={() => craft(gh, craftKind, i)}>
+                            Изкови за {t.cost} ✨
+                          </button>
+                          {!can && <small className="sv-dim">не стигат {t.cost - dust} ✨</small>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                {crafted && (
+                  <div className="sv-crafted">
+                    <b>3. Изкова:</b>
+                    <div className="sv-crafted-item" key={crafted.id}>
+                      {itemView(crafted)}
+                    </div>
+                    <small className="sv-dim">Отиде в торбата — сложи го в 🧍 Екипировка.</small>
+                  </div>
+                )}
+                {dust < SURV_CRAFT[0]!.cost && (
+                  <div className="sv-dim">
+                    Нямаш достатъчно прах. Рециклирай ненужните предмети в{" "}
+                    <button className="sv-link" onClick={() => setGearView("recycle")}>
+                      ♻️ Рециклиране
+                    </button>
+                    .
+                  </div>
+                )}
+              </div>
+            )}
 
             {pop && popItem && (
               <div className={`poe-pop ${popItem.up ? "up" : ""}`} style={{ left: popItem.x, top: popItem.y }}>
@@ -2180,53 +2270,95 @@ export function SurvivorsGameView({ channelId }: { channelId: string }) {
               {hud.blessing && <span className="sv-bless">{BLESS_TEXT[hud.blessing]}</span>}
             </div>
             <div className="sv-buttons" onPointerDown={(e) => e.stopPropagation()}>
-              <label className="sv-fxa" title="Колко се виждат моите атаки (за да личат атаките на враговете)">
-                <span>{fxAlpha < 0.05 ? "🙈" : "✨"}</span>
-                <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
-              </label>
               <button
-                className="sv-quality"
-                onClick={() => setQuality((q) => (q === "auto" ? "low" : q === "low" ? "high" : "auto"))}
-                title={`Качество на рисуването: ${quality === "auto" ? "Авто (сваля резолюцията, ако кадрите се бавят)" : quality === "low" ? "Ниско (ниска резолюция, по-малко ефекти)" : "Високо (пълна резолюция)"} — цъкни за смяна${fpsView ? ` · сега ${Math.round(fpsView.fps)} кадъра/с, резолюция ${Math.round(fpsView.res * 100)}%` : ""}`}
+                className={`sv-settings-btn ${setOpen ? "on" : ""}`}
+                onClick={() => {
+                  setSetOpen((o) => !o);
+                  setSetHint(false);
+                  localStorage.setItem("survHintSettings", "1");
+                }}
+                title="Настройки: прозрачност на ефектите, качество, графика, мишка, звук"
               >
-                {quality === "auto" ? "⚙️A" : quality === "low" ? "⚙️↓" : "⚙️↑"}
-                {fpsView && <small>{Math.round(fpsView.fps)}</small>}
+                ⚙️ Настройки
+                {fpsView && <small>{Math.round(fpsView.fps)} FPS</small>}
               </button>
-              <button
-                onClick={() => setGfx((g) => (g === "3d" ? "2d" : canWebGL2() ? "3d" : "2d"))}
-                title={gfx === "3d" ? "Графика: 3D модели (цъкни за старата 2D, ако забива)" : "Графика: 2D (цъкни за 3D модели)"}
-              >
-                {gfx === "3d" ? "🧊" : "🖼️"}
-              </button>
-              {!touch && (
-                <button
-                  onClick={() => setMouseMove((m) => (m === "off" ? "hold" : m === "hold" ? "follow" : "off"))}
-                  title={
-                    mouseMove === "off"
-                      ? "Движение с мишката: изключено (цъкни за „задържан ляв бутон“)"
-                      : mouseMove === "hold"
-                        ? "Движение с мишката: докато държиш левия бутон, десен = претъркулване (цъкни за „следва курсора“)"
-                        : "Движение с мишката: героят следва курсора, десен = претъркулване (цъкни за изключено)"
-                  }
-                  className={mouseMove === "off" ? "off" : ""}
-                >
-                  🖱{mouseMove === "hold" ? "✊" : mouseMove === "follow" ? "➜" : ""}
-                </button>
-              )}
               {mode === "solo" && (
                 <button onClick={() => setPaused(true)} title="Пауза (P)">
-                  ⏸
+                  ⏸ Пауза
                 </button>
               )}
-              <button onClick={() => setMusic((m) => !m)} title="Музика" className={music ? "" : "off"}>
-                🎵
-              </button>
-              <button onClick={() => setNumbers((n) => !n)} title="Числа на щетите" className={numbers ? "" : "off"}>
-                🔢
-              </button>
               <button onClick={quit} title={mode === "spec" ? "Спри да гледаш" : "Край на играта"}>
                 ✖
               </button>
+              {setHint && !setOpen && (
+                <div className="sv-hint-bubble" onClick={() => (setSetHint(false), localStorage.setItem("survHintSettings", "1"))}>
+                  👆 Тук са настройките: колко прозрачни да са твоите атаки, качество (ако забива), 2D/3D, мишка, музика.
+                </div>
+              )}
+              {setOpen && (
+                <div className="sv-settings" onPointerUp={() => window.setTimeout(() => (document.activeElement as HTMLElement | null)?.blur?.(), 0)}>
+                  <div className="sv-set-row">
+                    <b>✨ Моите ефекти</b>
+                    <div className="sv-set-ctl">
+                      <input type="range" min={0} max={1} step={0.05} value={fxAlpha} onChange={(e) => setFxAlpha(Number(e.target.value))} onPointerUp={(e) => e.currentTarget.blur()} />
+                      <span>{Math.round(fxAlpha * 100)}%</span>
+                    </div>
+                    <small>По-прозрачни — за да се виждат атаките на враговете.</small>
+                  </div>
+                  <div className="sv-set-row">
+                    <b>⚙️ Качество</b>
+                    <div className="sv-seg">
+                      {(["auto", "low", "high"] as const).map((q) => (
+                        <button key={q} className={quality === q ? "on" : ""} onClick={() => setQuality(q)}>
+                          {q === "auto" ? "Авто" : q === "low" ? "Ниско" : "Високо"}
+                        </button>
+                      ))}
+                    </div>
+                    <small>
+                      {fpsView ? `Сега: ${Math.round(fpsView.fps)} кадъра/с, резолюция ${Math.round(fpsView.res * 100)}%. ` : ""}Забива ли — „Ниско“.
+                    </small>
+                  </div>
+                  <div className="sv-set-row">
+                    <b>🖼️ Графика</b>
+                    <div className="sv-seg">
+                      <button className={gfx === "2d" ? "on" : ""} onClick={() => setGfx("2d")}>
+                        2D
+                      </button>
+                      <button className={gfx === "3d" ? "on" : ""} onClick={() => setGfx(canWebGL2() ? "3d" : "2d")} disabled={!canWebGL2()}>
+                        3D модели
+                      </button>
+                    </div>
+                    <small>3D е по-тежко; снаряжението личи само в 2D.</small>
+                  </div>
+                  {!touch && (
+                    <div className="sv-set-row">
+                      <b>🖱 Движение с мишката</b>
+                      <div className="sv-seg">
+                        {(["off", "hold", "follow"] as const).map((m) => (
+                          <button key={m} className={mouseMove === m ? "on" : ""} onClick={() => setMouseMove(m)}>
+                            {m === "off" ? "Изкл." : m === "hold" ? "Задържан бутон" : "Следва курсора"}
+                          </button>
+                        ))}
+                      </div>
+                      <small>Десен бутон = претъркулване. Клавишите винаги работят.</small>
+                    </div>
+                  )}
+                  <div className="sv-set-row">
+                    <b>🔊 Звук</b>
+                    <div className="sv-seg">
+                      <button className={music ? "on" : ""} onClick={() => setMusic((m) => !m)}>
+                        🎵 Музика {music ? "вкл." : "изкл."}
+                      </button>
+                      <button className={numbers ? "on" : ""} onClick={() => setNumbers((n) => !n)}>
+                        🔢 Числа на щетите {numbers ? "вкл." : "изкл."}
+                      </button>
+                    </div>
+                  </div>
+                  <button className="sv-dim sv-set-close" onClick={() => setSetOpen(false)}>
+                    Затвори
+                  </button>
+                </div>
+              )}
             </div>
           </div>
           {hud.boss && (

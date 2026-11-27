@@ -66,8 +66,13 @@ test.describe("🧟 Шмиркленд", () => {
     await expect.poll(async () => (await state(a.page)).level).toBe(2);
     await expect(a.page.locator(".sv-xp")).toContainText("Ниво 2");
 
-    // the ✨ slider for our own attacks can be dragged
-    const fxa = a.page.locator(".sv-fxa input");
+    // ⚙️ the settings panel (a hint points at it the first time); the ✨ slider for our own attacks can be dragged
+    await expect(a.page.locator(".sv-hint-bubble")).toBeVisible();
+    await a.page.locator(".sv-settings-btn").click();
+    await expect(a.page.locator(".sv-hint-bubble")).toHaveCount(0);
+    await expect(a.page.locator(".sv-settings")).toContainText("Качество");
+    await a.page.screenshot({ path: "explore/surv-settings.png" });
+    const fxa = a.page.locator(".sv-settings input[type=range]");
     const box = (await fxa.boundingBox())!;
     await a.page.mouse.move(box.x + box.width - 3, box.y + box.height / 2);
     await a.page.mouse.down();
@@ -75,6 +80,8 @@ test.describe("🧟 Шмиркленд", () => {
     await a.page.mouse.up();
     expect(Number(await fxa.inputValue())).toBeLessThan(0.2);
     await fxa.fill("1");
+    await a.page.locator(".sv-settings button", { hasText: "Затвори" }).click();
+    await expect(a.page.locator(".sv-settings")).toHaveCount(0);
 
     // pause
     await a.page.keyboard.press("KeyP");
@@ -444,14 +451,18 @@ test.describe("🧟 Шмиркленд", () => {
     await b.page.locator(".sv-doll-slot.s-weapon").click(); // pick the slot → the bag shows weapons only
     await weaponCell.first().dragTo(b.page.locator(".sv-doll-slot.s-weapon"));
     await expect(b.page.locator(".sv-doll-slot.s-weapon")).not.toHaveClass(/empty/);
-    // ♻️ recycle mode: mark all common ones
-    await b.page.locator(".sv-bag-head button", { hasText: "Рециклиране" }).click();
-    await expect(b.page.locator(".sv-recycle")).toBeVisible();
-    await b.page.locator(".sv-recycle .sv-rar-btn").first().click();
-    await b.page.locator(".sv-craft").scrollIntoViewIfNeeded();
-    await expect(b.page.locator(".sv-craft-tiers button")).toHaveCount(3);
-    await b.page.screenshot({ path: "explore/surv-craft.png" });
     await b.page.locator(".sv-gear").screenshot({ path: "explore/surv-gear.png" });
+    // ♻️ the recycling part: mark all of a rarity
+    await b.page.locator(".sv-gear-tabs button", { hasText: "Рециклиране" }).click();
+    await expect(b.page.locator(".sv-recycle")).toBeVisible();
+    await b.page.locator(".sv-recycle .sv-rar-btn:not([disabled])").first().click();
+    await expect(b.page.locator(".sv-recycle-bar")).not.toContainText("Избрани: 0");
+    await b.page.screenshot({ path: "explore/surv-recycle.png" });
+    // ⚒️ the forge
+    await b.page.locator(".sv-gear-tabs button", { hasText: "Ковачница" }).click();
+    await expect(b.page.locator(".sv-forge .sv-tier")).toHaveCount(3);
+    await b.page.screenshot({ path: "explore/surv-craft.png" });
+    await b.page.locator(".sv-gear-tabs button", { hasText: "Екипировка" }).click();
     await b.page.locator(".sv-tabs button", { hasText: "Игра" }).click();
     await b.page.locator(".sv-hero").nth(4).click().catch(() => {});
     await b.page.locator(".sv-diff", { hasText: "2" }).click();
